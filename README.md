@@ -1,4 +1,3 @@
-
 # Epic
 
 Epic is an in-progress implementation of the MimbleWimble protocol. Many characteristics are still undefined but the following constitutes a first set of choices:
@@ -21,6 +20,15 @@ To learn more about the technology, read our [introduction](doc/intro.md).
 
 To build and try out Epic, see the [build docs](doc/build.md).
 
+## Credits
+
+Tom Elvis Jedusor for the first formulation of MimbleWimble.
+
+Andrew Poelstra for his related work and improvements.
+
+John Tromp for the Cuckoo Cycle proof of work.
+
+J.K. Rowling for making it despite extraordinary adversity.
 
 ## License
 
