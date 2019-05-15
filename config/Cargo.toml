@@ -1,0 +1,26 @@
+[package]
+name = "epic_config"
+version = "1.0.1"
+authors = ["Epic Developers <mimblewimble@lists.launchpad.net>"]
+description = "Configuration for epic, a simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
+license = "Apache-2.0"
+repository = "https://github.com/mimblewimble/epic"
+keywords = [ "crypto", "epic", "mimblewimble" ]
+workspace = ".."
+edition = "2018"
+
+[dependencies]
+rand = "0.5"
+serde = "1"
+serde_derive = "1"
+toml = "0.4"
+dirs = "1.0.3"
+
+epic_core = { path = "../core", version = "1.0.1" }
+epic_servers = { path = "../servers", version = "1.0.1" }
+epic_p2p = { path = "../p2p", version = "1.0.1" }
+epic_util = { path = "../util", version = "1.0.1" }
+epic_wallet = { path = "../wallet", version = "1.0.1" }
+
+[dev-dependencies]
+pretty_assertions = "0.5.1"

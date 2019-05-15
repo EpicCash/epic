@@ -1,0 +1,32 @@
+[package]
+name = "epic_chain"
+version = "1.0.1"
+authors = ["Epic Developers <mimblewimble@lists.launchpad.net>"]
+description = "Chain implementation for epic, a simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
+license = "Apache-2.0"
+repository = "https://github.com/mimblewimble/epic"
+keywords = [ "crypto", "epic", "mimblewimble" ]
+workspace = ".."
+edition = "2018"
+
+[dependencies]
+bitflags = "1"
+byteorder = "1"
+lmdb-zero = "0.4.4"
+failure = "0.1"
+failure_derive = "0.1"
+croaring = "0.3"
+log = "0.4"
+serde = "1"
+serde_derive = "1"
+chrono = "0.4.4"
+lru-cache = "0.1"
+
+epic_core = { path = "../core", version = "1.0.1" }
+epic_keychain = { path = "../keychain", version = "1.0.1" }
+epic_store = { path = "../store", version = "1.0.1" }
+epic_util = { path = "../util", version = "1.0.1" }
+
+[dev-dependencies]
+env_logger = "0.5"
+rand = "0.5"

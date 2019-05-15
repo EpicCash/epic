@@ -1,0 +1,38 @@
+[package]
+name = "epic_api"
+version = "1.0.1"
+authors = ["Epic Developers <mimblewimble@lists.launchpad.net>"]
+description = "APIs for epic, a simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
+license = "Apache-2.0"
+repository = "https://github.com/mimblewimble/epic"
+keywords = [ "crypto", "epic", "mimblewimble" ]
+workspace = ".."
+edition = "2018"
+
+[dependencies]
+failure = "0.1.1"
+failure_derive = "0.1.1"
+hyper = "0.12"
+lazy_static = "1"
+regex = "1"
+ring = "0.13"
+serde = "1"
+serde_derive = "1"
+serde_json = "1"
+log = "0.4"
+tokio = "0.1.7"
+tokio-core = "0.1.17"
+tokio-tcp = "0.1"
+tokio-rustls = "0.7"
+http = "0.1.5"
+hyper-rustls = "0.14"
+futures = "0.1.21"
+rustls = "0.13"
+url = "1.7.0"
+
+epic_core = { path = "../core", version = "1.0.1" }
+epic_chain = { path = "../chain", version = "1.0.1" }
+epic_p2p = { path = "../p2p", version = "1.0.1" }
+epic_pool = { path = "../pool", version = "1.0.1" }
+epic_store = { path = "../store", version = "1.0.1" }
+epic_util = { path = "../util", version = "1.0.1" }
