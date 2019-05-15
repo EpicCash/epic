@@ -1,8 +1,8 @@
 [package]
 name = "epic_gen_gen"
 version = "0.0.1"
-edition = "2018"
-authors = ["Epic Developers <mimblewimble@lists.launchpad.net>"]
+edition = "2019"
+authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
 description = "Utility to automate the generation of Epic's genesis block"
 license = "Apache-2.0"
 repository = "https://github.com/mimblewimble/epic"

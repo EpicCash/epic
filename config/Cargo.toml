@@ -1,13 +1,13 @@
 [package]
 name = "epic_config"
 version = "1.0.1"
-authors = ["Epic Developers <mimblewimble@lists.launchpad.net>"]
+authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
 description = "Configuration for epic, a simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
 repository = "https://github.com/mimblewimble/epic"
 keywords = [ "crypto", "epic", "mimblewimble" ]
 workspace = ".."
-edition = "2018"
+edition = "2019"
 
 [dependencies]
 rand = "0.5"
