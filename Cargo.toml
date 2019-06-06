@@ -9,7 +9,7 @@ keywords = [ "crypto", "epic", "mimblewimble" ]
 readme = "README.md"
 exclude = ["**/*.epic", "**/*.epic2"]
 build = "src/build/build.rs"
-edition = "2019"
+edition = "2018"
 
 [workspace]
 members = ["api", "chain", "config", "core", "keychain", "p2p", "servers", "store", "util", "pool", "wallet"]

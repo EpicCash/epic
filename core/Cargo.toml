@@ -7,7 +7,7 @@ license = "Apache-2.0"
 repository = "https://github.com/mimblewimble/epic"
 keywords = [ "crypto", "epic", "mimblewimble" ]
 workspace = ".."
-edition = "2019"
+edition = "2018"
 
 [dependencies]
 blake2-rfc = "0.2"
