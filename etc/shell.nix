@@ -3,7 +3,7 @@
 { pkgs ? import <nixpkgs> {} }:
 
 pkgs.stdenv.mkDerivation {
-  name = "Epic";
+  name = "epic";
 
   buildInputs = with pkgs; [
     ncurses cmake clang

@@ -1,5 +1,5 @@
 [package]
-name = "Epic"
+name = "epic"
 version = "1.1.0-beta.2"
 authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
@@ -16,7 +16,7 @@ members = ["api", "chain", "config", "core", "keychain", "p2p", "servers", "stor
 exclude = ["etc/gen_gen"]
 
 [[bin]]
-name = "Epic"
+name = "epic"
 path = "src/bin/epic.rs"
 
 [dependencies]
