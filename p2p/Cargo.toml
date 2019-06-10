@@ -1,7 +1,7 @@
 [package]
 name = "epic_p2p"
-version = "1.0.1"
-authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
+version = "1.1.0-beta.2"
+authors = ["Epic Developers <mimblewimble@lists.launchpad.net>"]
 description = "Chain implementation for epic, a simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
 repository = "https://github.com/mimblewimble/epic"
@@ -13,18 +13,19 @@ edition = "2018"
 bitflags = "1"
 bytes = "0.4"
 enum_primitive = "0.1"
-lmdb-zero = "0.4.4"
 net2 = "0.2"
 num = "0.1"
-rand = "0.5"
+rand = "0.6"
 serde = "1"
 serde_derive = "1"
+tempfile = "3.0.5"
 log = "0.4"
 chrono = { version = "0.4.4", features = ["serde"] }
 
-epic_core = { path = "../core", version = "1.0.1" }
-epic_store = { path = "../store", version = "1.0.1" }
-epic_util = { path = "../util", version = "1.0.1" }
+epic_core = { path = "../core", version = "1.1.0-beta.2" }
+epic_store = { path = "../store", version = "1.1.0-beta.2" }
+epic_util = { path = "../util", version = "1.1.0-beta.2" }
+epic_chain = { path = "../chain", version = "1.1.0-beta.2" }
 
 [dev-dependencies]
-epic_pool = { path = "../pool", version = "1.0.1" }
+epic_pool = { path = "../pool", version = "1.1.0-beta.2" }

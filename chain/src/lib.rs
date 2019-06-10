@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,8 +22,6 @@
 
 #[macro_use]
 extern crate bitflags;
-
-use lmdb_zero as lmdb;
 
 #[macro_use]
 extern crate serde_derive;

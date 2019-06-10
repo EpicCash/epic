@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -89,15 +89,21 @@ pub enum ErrorKind {
 	/// Error validating a Merkle proof (coinbase output)
 	#[fail(display = "Error validating merkle proof")]
 	MerkleProof,
-	/// output not found
+	/// Output not found
 	#[fail(display = "Output not found")]
 	OutputNotFound,
+	/// Rangeproof not found
+	#[fail(display = "Rangeproof not found")]
+	RangeproofNotFound,
+	/// Tx kernel not found
+	#[fail(display = "Tx kernel not found")]
+	TxKernelNotFound,
 	/// output spent
 	#[fail(display = "Output is spent")]
 	OutputSpent,
 	/// Invalid block version, either a mistake or outdated software
-	#[fail(display = "Invalid Block Version: {}", _0)]
-	InvalidBlockVersion(u16),
+	#[fail(display = "Invalid Block Version: {:?}", _0)]
+	InvalidBlockVersion(block::HeaderVersion),
 	/// We've been provided a bad txhashset
 	#[fail(display = "Invalid TxHashSet: {}", _0)]
 	InvalidTxHashSet(String),
@@ -131,6 +137,9 @@ pub enum ErrorKind {
 	/// We cannot process data once the Epic server has been stopped.
 	#[fail(display = "Stopped (Epic Shutting Down)")]
 	Stopped,
+	/// Internal Roaring Bitmap error
+	#[fail(display = "Roaring Bitmap error")]
+	Bitmap,
 }
 
 impl Display for Error {

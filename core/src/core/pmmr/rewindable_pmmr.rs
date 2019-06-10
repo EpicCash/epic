@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,6 +49,11 @@ where
 		}
 	}
 
+	/// Reference to the underlying storage backend.
+	pub fn backend(&'a self) -> &Backend<T> {
+		self.backend
+	}
+
 	/// Build a new readonly PMMR pre-initialized to
 	/// last_pos with the provided backend.
 	pub fn at(backend: &'a B, last_pos: u64) -> RewindablePMMR<'_, T, B> {
@@ -95,9 +100,9 @@ where
 
 	/// Computes the root of the MMR. Find all the peaks in the current
 	/// tree and "bags" them to get a single peak.
-	pub fn root(&self) -> Hash {
+	pub fn root(&self) -> Result<Hash, String> {
 		if self.is_empty() {
-			return ZERO_HASH;
+			return Ok(ZERO_HASH);
 		}
 		let mut res = None;
 		for peak in self.peaks().iter().rev() {
@@ -106,7 +111,7 @@ where
 				Some(rhash) => Some((*peak, rhash).hash_with_index(self.unpruned_size())),
 			}
 		}
-		res.expect("no root, invalid tree")
+		res.ok_or_else(|| "no root, invalid tree".to_owned())
 	}
 
 	/// Returns a vec of the peaks of this MMR.

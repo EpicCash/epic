@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,21 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::core::core::hash::Hash;
+use crate::core::pow::Difficulty;
+use crate::msg::{read_message, write_message, Hand, ProtocolVersion, Shake, Type, USER_AGENT};
+use crate::peer::Peer;
+use crate::types::{Capabilities, Direction, Error, P2PConfig, PeerAddr, PeerInfo, PeerLiveInfo};
 use crate::util::RwLock;
+use rand::{thread_rng, Rng};
 use std::collections::VecDeque;
 use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
-
-use chrono::prelude::*;
-use rand::{thread_rng, Rng};
-
-use crate::core::core::hash::Hash;
-use crate::core::pow::Difficulty;
-use crate::msg::{
-	read_message, write_message, Hand, Shake, SockAddr, Type, PROTOCOL_VERSION, USER_AGENT,
-};
-use crate::peer::Peer;
-use crate::types::{Capabilities, Direction, Error, P2PConfig, PeerInfo, PeerLiveInfo};
 
 /// Local generated nonce for peer connecting.
 /// Used for self-connecting detection (on receiver side),
@@ -44,7 +39,7 @@ pub struct Handshake {
 	/// a node id.
 	nonces: Arc<RwLock<VecDeque<u64>>>,
 	/// Ring buffer of self addr(s) collected from PeerWithSelf detection (by nonce).
-	pub addrs: Arc<RwLock<VecDeque<SocketAddr>>>,
+	pub addrs: Arc<RwLock<VecDeque<PeerAddr>>>,
 	/// The genesis block header of the chain seen by this node.
 	/// We only want to connect to other nodes seeing the same chain (forks are
 	/// ok).
@@ -67,36 +62,31 @@ impl Handshake {
 		&self,
 		capab: Capabilities,
 		total_difficulty: Difficulty,
-		self_addr: SocketAddr,
+		self_addr: PeerAddr,
 		conn: &mut TcpStream,
 	) -> Result<PeerInfo, Error> {
 		// prepare the first part of the handshake
 		let nonce = self.next_nonce();
 		let peer_addr = match conn.peer_addr() {
-			Ok(pa) => pa,
+			Ok(pa) => PeerAddr(pa),
 			Err(e) => return Err(Error::Connection(e)),
 		};
 
 		let hand = Hand {
-			version: PROTOCOL_VERSION,
+			version: ProtocolVersion::default(),
 			capabilities: capab,
 			nonce: nonce,
 			genesis: self.genesis,
 			total_difficulty: total_difficulty,
-			sender_addr: SockAddr(self_addr),
-			receiver_addr: SockAddr(peer_addr),
+			sender_addr: self_addr,
+			receiver_addr: peer_addr,
 			user_agent: USER_AGENT.to_string(),
 		};
 
 		// write and read the handshake response
 		write_message(conn, hand, Type::Hand)?;
 		let shake: Shake = read_message(conn, Type::Shake)?;
-		if shake.version != PROTOCOL_VERSION {
-			return Err(Error::ProtocolMismatch {
-				us: PROTOCOL_VERSION,
-				peer: shake.version,
-			});
-		} else if shake.genesis != self.genesis {
+		if shake.genesis != self.genesis {
 			return Err(Error::GenesisMismatch {
 				us: self.genesis,
 				peer: shake.genesis,
@@ -107,18 +97,13 @@ impl Handshake {
 			user_agent: shake.user_agent,
 			addr: peer_addr,
 			version: shake.version,
-			live_info: Arc::new(RwLock::new(PeerLiveInfo {
-				total_difficulty: shake.total_difficulty,
-				height: 0,
-				last_seen: Utc::now(),
-				stuck_detector: Utc::now(),
-			})),
+			live_info: Arc::new(RwLock::new(PeerLiveInfo::new(shake.total_difficulty))),
 			direction: Direction::Outbound,
 		};
 
 		// If denied then we want to close the connection
 		// (without providing our peer with any details why).
-		if Peer::is_denied(&self.config, &peer_info.addr) {
+		if Peer::is_denied(&self.config, peer_info.addr) {
 			return Err(Error::ConnectionClose);
 		}
 
@@ -142,12 +127,7 @@ impl Handshake {
 		let hand: Hand = read_message(conn, Type::Hand)?;
 
 		// all the reasons we could refuse this connection for
-		if hand.version != PROTOCOL_VERSION {
-			return Err(Error::ProtocolMismatch {
-				us: PROTOCOL_VERSION,
-				peer: hand.version,
-			});
-		} else if hand.genesis != self.genesis {
+		if hand.genesis != self.genesis {
 			return Err(Error::GenesisMismatch {
 				us: self.genesis,
 				peer: hand.genesis,
@@ -155,7 +135,7 @@ impl Handshake {
 		} else {
 			// check the nonce to see if we are trying to connect to ourselves
 			let nonces = self.nonces.read();
-			let addr = extract_ip(&hand.sender_addr.0, &conn);
+			let addr = resolve_peer_addr(hand.sender_addr, &conn);
 			if nonces.contains(&hand.nonce) {
 				// save ip addresses of ourselves
 				let mut addrs = self.addrs.write();
@@ -171,14 +151,9 @@ impl Handshake {
 		let peer_info = PeerInfo {
 			capabilities: hand.capabilities,
 			user_agent: hand.user_agent,
-			addr: extract_ip(&hand.sender_addr.0, &conn),
+			addr: resolve_peer_addr(hand.sender_addr, &conn),
 			version: hand.version,
-			live_info: Arc::new(RwLock::new(PeerLiveInfo {
-				total_difficulty: hand.total_difficulty,
-				height: 0,
-				last_seen: Utc::now(),
-				stuck_detector: Utc::now(),
-			})),
+			live_info: Arc::new(RwLock::new(PeerLiveInfo::new(hand.total_difficulty))),
 			direction: Direction::Inbound,
 		};
 
@@ -186,13 +161,13 @@ impl Handshake {
 		// so check if we are configured to explicitly allow or deny it.
 		// If denied then we want to close the connection
 		// (without providing our peer with any details why).
-		if Peer::is_denied(&self.config, &peer_info.addr) {
+		if Peer::is_denied(&self.config, peer_info.addr) {
 			return Err(Error::ConnectionClose);
 		}
 
 		// send our reply with our info
 		let shake = Shake {
-			version: PROTOCOL_VERSION,
+			version: ProtocolVersion::default(),
 			capabilities: capab,
 			genesis: self.genesis,
 			total_difficulty: total_difficulty,
@@ -219,28 +194,12 @@ impl Handshake {
 	}
 }
 
-// Attempts to make a best guess at the correct remote IP by checking if the
-// advertised address is the loopback and our TCP connection. Note that the
-// port reported by the connection is always incorrect for receiving
-// connections as it's dynamically allocated by the server.
-fn extract_ip(advertised: &SocketAddr, conn: &TcpStream) -> SocketAddr {
-	match advertised {
-		&SocketAddr::V4(v4sock) => {
-			let ip = v4sock.ip();
-			if ip.is_loopback() || ip.is_unspecified() {
-				if let Ok(addr) = conn.peer_addr() {
-					return SocketAddr::new(addr.ip(), advertised.port());
-				}
-			}
-		}
-		&SocketAddr::V6(v6sock) => {
-			let ip = v6sock.ip();
-			if ip.is_loopback() || ip.is_unspecified() {
-				if let Ok(addr) = conn.peer_addr() {
-					return SocketAddr::new(addr.ip(), advertised.port());
-				}
-			}
-		}
+/// Resolve the correct peer_addr based on the connection and the advertised port.
+fn resolve_peer_addr(advertised: PeerAddr, conn: &TcpStream) -> PeerAddr {
+	let port = advertised.0.port();
+	if let Ok(addr) = conn.peer_addr() {
+		PeerAddr(SocketAddr::new(addr.ip(), port))
+	} else {
+		advertised
 	}
-	advertised.clone()
 }

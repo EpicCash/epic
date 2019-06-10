@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ use crate::util::to_base64;
 use failure::{Fail, ResultExt};
 use futures::future::{err, ok, Either};
 use http::uri::{InvalidUri, Uri};
-use hyper::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
+use hyper::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use hyper::rt::{Future, Stream};
 use hyper::{Body, Client, Request};
 use hyper_rustls;
@@ -136,9 +136,8 @@ fn build_request<'a>(
 			.into()
 	})?;
 	let mut builder = Request::builder();
-	if api_secret.is_some() {
-		let basic_auth =
-			"Basic ".to_string() + &to_base64(&("epic:".to_string() + &api_secret.unwrap()));
+	if let Some(api_secret) = api_secret {
+		let basic_auth = format!("Basic {}", to_base64(&format!("epic:{}", api_secret)));
 		builder.header(AUTHORIZATION, basic_auth);
 	}
 
@@ -147,6 +146,7 @@ fn build_request<'a>(
 		.uri(uri)
 		.header(USER_AGENT, "epic-client")
 		.header(ACCEPT, "application/json")
+		.header(CONTENT_TYPE, "application/json")
 		.body(match body {
 			None => Body::empty(),
 			Some(json) => json.into(),
@@ -156,7 +156,7 @@ fn build_request<'a>(
 		})
 }
 
-fn create_post_request<IN>(
+pub fn create_post_request<IN>(
 	url: &str,
 	api_secret: Option<String>,
 	input: &IN,
@@ -202,9 +202,11 @@ fn send_request_async(req: Request<Body>) -> Box<dyn Future<Item = String, Error
 			.map_err(|e| ErrorKind::RequestError(format!("Cannot make request: {}", e)).into())
 			.and_then(|resp| {
 				if !resp.status().is_success() {
-					Either::A(err(ErrorKind::RequestError(
-						"Wrong response code".to_owned(),
-					)
+					Either::A(err(ErrorKind::RequestError(format!(
+						"Wrong response code: {} with data {:?}",
+						resp.status(),
+						resp.body()
+					))
 					.into()))
 				} else {
 					Either::B(
@@ -221,8 +223,9 @@ fn send_request_async(req: Request<Body>) -> Box<dyn Future<Item = String, Error
 	)
 }
 
-fn send_request(req: Request<Body>) -> Result<String, Error> {
+pub fn send_request(req: Request<Body>) -> Result<String, Error> {
 	let task = send_request_async(req);
-	let mut rt = Runtime::new().unwrap();
+	let mut rt =
+		Runtime::new().context(ErrorKind::Internal("can't create Tokio runtime".to_owned()))?;
 	Ok(rt.block_on(task)?)
 }

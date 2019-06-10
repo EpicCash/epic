@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,14 +22,47 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
+use crate::api;
 use crate::chain;
 use crate::common::types::Error;
 use crate::core::core::verifier_cache::VerifierCache;
-use crate::core::{consensus, core, global, ser};
+use crate::core::core::{Output, TxKernel};
+use crate::core::libtx::secp_ser;
+use crate::core::{consensus, core, global};
 use crate::keychain::{ExtKeychain, Identifier, Keychain};
 use crate::pool;
-use crate::util;
-use crate::wallet::{self, BlockFees};
+
+/// Fees in block to use for coinbase amount calculation
+/// (Duplicated from Epic wallet project)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlockFees {
+	/// fees
+	#[serde(with = "secp_ser::string_or_u64")]
+	pub fees: u64,
+	/// height
+	#[serde(with = "secp_ser::string_or_u64")]
+	pub height: u64,
+	/// key id
+	pub key_id: Option<Identifier>,
+}
+
+impl BlockFees {
+	/// return key id
+	pub fn key_id(&self) -> Option<Identifier> {
+		self.key_id.clone()
+	}
+}
+
+/// Response to build a coinbase output.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CbData {
+	/// Output
+	pub output: Output,
+	/// Kernel
+	pub kernel: TxKernel,
+	/// Key Id
+	pub key_id: Option<Identifier>,
+}
 
 // Ensure a block suitable for mining is built and returned
 // If a wallet listener URL is not provided the reward will be "burnt"
@@ -51,18 +84,21 @@ pub fn get_block(
 		wallet_listener_url.clone(),
 	);
 	while let Err(e) = result {
+		let mut new_key_id = key_id.to_owned();
 		match e {
 			self::Error::Chain(c) => match c.kind() {
 				chain::ErrorKind::DuplicateCommitment(_) => {
 					debug!(
 						"Duplicate commit for potential coinbase detected. Trying next derivation."
 					);
+					// use the next available key to generate a different coinbase commitment
+					new_key_id = None;
 				}
 				_ => {
 					error!("Chain Error: {}", c);
 				}
 			},
-			self::Error::Wallet(_) => {
+			self::Error::WalletComm(_) => {
 				error!(
 					"Error building new block: Can't connect to wallet listener at {:?}; will retry",
 					wallet_listener_url.as_ref().unwrap()
@@ -73,12 +109,18 @@ pub fn get_block(
 				warn!("Error building new block: {:?}. Retrying.", ae);
 			}
 		}
-		thread::sleep(Duration::from_millis(100));
+
+		// only wait if we are still using the same key: a different coinbase commitment is unlikely
+		// to have duplication
+		if new_key_id.is_some() {
+			thread::sleep(Duration::from_millis(100));
+		}
+
 		result = build_block(
 			chain,
 			tx_pool,
 			verifier_cache.clone(),
-			key_id.clone(),
+			new_key_id,
 			wallet_listener_url.clone(),
 		);
 	}
@@ -105,7 +147,7 @@ fn build_block(
 
 	// Determine the difficulty our block should be at.
 	// Note: do not keep the difficulty_iter in scope (it has an active batch).
-	let difficulty = consensus::next_difficulty(head.height + 1, chain.difficulty_iter());
+	let difficulty = consensus::next_difficulty(head.height + 1, chain.difficulty_iter()?);
 
 	// Extract current "mineable" transactions from the pool.
 	// If this fails for *any* reason then fallback to an empty vec of txs.
@@ -179,10 +221,10 @@ fn build_block(
 ///
 fn burn_reward(block_fees: BlockFees, height: u64) -> Result<(core::Output, core::TxKernel, BlockFees), Error> {
 	warn!("Burning block fees: {:?}", block_fees);
-	let keychain = ExtKeychain::from_random_seed(global::is_floonet()).unwrap();
+	let keychain = ExtKeychain::from_random_seed(global::is_floonet())?;
 	let key_id = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 	let (out, kernel) =
-		crate::core::libtx::reward::output(&keychain, &key_id, block_fees.fees,height).unwrap();
+		crate::core::libtx::reward::output(&keychain, &key_id, block_fees.fees, false, height).unwrap();
 	Ok((out, kernel, block_fees))
 }
 
@@ -199,20 +241,33 @@ fn get_coinbase(
 			return burn_reward(block_fees, height);
 		}
 		Some(wallet_listener_url) => {
-			let res = wallet::create_coinbase(&wallet_listener_url, &block_fees)?;
-			let out_bin = util::from_hex(res.output).unwrap();
-			let kern_bin = util::from_hex(res.kernel).unwrap();
-			let key_id_bin = util::from_hex(res.key_id).unwrap();
-			let output = ser::deserialize(&mut &out_bin[..]).unwrap();
-			let kernel = ser::deserialize(&mut &kern_bin[..]).unwrap();
-			let key_id = ser::deserialize(&mut &key_id_bin[..]).unwrap();
+			let res = create_coinbase(&wallet_listener_url, &block_fees)?;
+			let output = res.output;
+			let kernel = res.kernel;
+			let key_id = res.key_id;
 			let block_fees = BlockFees {
-				key_id: Some(key_id),
+				key_id: key_id,
 				..block_fees
 			};
 
 			debug!("get_coinbase: {:?}", block_fees);
 			return Ok((output, kernel, block_fees));
 		}
+	}
+}
+
+/// Call the wallet API to create a coinbase output for the given block_fees.
+/// Will retry based on default "retry forever with backoff" behavior.
+fn create_coinbase(dest: &str, block_fees: &BlockFees) -> Result<CbData, Error> {
+	let url = format!("{}/v1/wallet/foreign/build_coinbase", dest);
+	match api::client::post(&url, None, &block_fees) {
+		Err(e) => {
+			error!(
+				"Failed to get coinbase from {}. Is the wallet listening?",
+				url
+			);
+			Err(Error::WalletComm(format!("{}", e)))
+		}
+		Ok(res) => Ok(res),
 	}
 }

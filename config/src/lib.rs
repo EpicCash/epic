@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,11 +27,10 @@ use epic_core as core;
 use epic_p2p as p2p;
 use epic_servers as servers;
 use epic_util as util;
-use epic_wallet as wallet;
 
 mod comments;
 pub mod config;
 pub mod types;
 
-pub use crate::config::{initial_setup_server, initial_setup_wallet, EPIC_WALLET_DIR};
-pub use crate::types::{ConfigError, ConfigMembers, GlobalConfig, GlobalWalletConfig};
+pub use crate::config::initial_setup_server;
+pub use crate::types::{ConfigError, ConfigMembers, GlobalConfig};

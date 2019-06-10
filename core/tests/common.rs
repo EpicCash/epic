@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ where
 {
 	let fees = txs.iter().map(|tx| tx.fee()).sum();
 	let height = previous_header.height + 1;  // current block
-	let reward_output = reward::output(keychain, &key_id, fees, height).unwrap();
+	let reward_output = reward::output(keychain, &key_id, fees, false, height).unwrap();
 	Block::new(
 		&previous_header,
 		txs.into_iter().cloned().collect(),

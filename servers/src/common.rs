@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,3 +17,4 @@
 pub mod adapters;
 pub mod stats;
 pub mod types;
+pub mod hooks;

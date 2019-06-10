@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
 // limitations under the License.
 
 //! Lightweight readonly view into kernel MMR for convenience.
+
+use std::fs::File;
 
 use crate::core::core::pmmr::RewindablePMMR;
 use crate::core::core::{BlockHeader, TxKernel};
@@ -68,7 +70,8 @@ impl<'a> RewindableKernelView<'a> {
 	/// fast sync where a reorg past the horizon could allow a whole rewrite of
 	/// the kernel set.
 	pub fn validate_root(&self) -> Result<(), Error> {
-		if self.pmmr.root() != self.header.kernel_root {
+		let root = self.pmmr.root().map_err(|_| ErrorKind::InvalidRoot)?;
+		if root != self.header.kernel_root {
 			return Err(ErrorKind::InvalidTxHashSet(format!(
 				"Kernel root at {} does not match",
 				self.header.height
@@ -76,5 +79,15 @@ impl<'a> RewindableKernelView<'a> {
 			.into());
 		}
 		Ok(())
+	}
+
+	/// Read the "raw" kernel backend data file (via temp file for consistent view on data).
+	pub fn kernel_data_read(&self) -> Result<File, Error> {
+		let file = self
+			.pmmr
+			.backend()
+			.data_as_temp_file()
+			.map_err(|_| ErrorKind::FileReadErr("Data file woes".into()))?;
+		Ok(file)
 	}
 }

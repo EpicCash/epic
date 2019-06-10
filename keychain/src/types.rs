@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 // Size of an identifier in bytes
 pub const IDENTIFIER_SIZE: usize = 17;
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub enum Error {
 	Secp(secp::Error),
 	KeyDerivation(extkey_bip32::Error),
@@ -468,6 +468,7 @@ pub trait Keychain: Sync + Send + Clone {
 	fn derive_key(&self, amount: u64, id: &Identifier) -> Result<SecretKey, Error>;
 	fn commit(&self, amount: u64, id: &Identifier) -> Result<Commitment, Error>;
 	fn blind_sum(&self, blind_sum: &BlindSum) -> Result<BlindingFactor, Error>;
+	fn create_nonce(&self, commit: &Commitment) -> Result<SecretKey, Error>;
 	fn sign(&self, msg: &Message, amount: u64, id: &Identifier) -> Result<Signature, Error>;
 	fn sign_with_blinding(&self, _: &Message, _: &BlindingFactor) -> Result<Signature, Error>;
 	fn set_use_switch_commits(&mut self, value: bool);

@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,16 +15,22 @@
 use crate::util::RwLock;
 use std::convert::From;
 use std::fs::File;
-use std::io;
-use std::net::{IpAddr, SocketAddr};
+use std::io::{self, Read};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
+use std::path::PathBuf;
+
 use std::sync::mpsc;
 use std::sync::Arc;
 
 use chrono::prelude::*;
 
+use crate::chain;
+use crate::core::core;
 use crate::core::core::hash::Hash;
+use crate::core::global;
 use crate::core::pow::Difficulty;
-use crate::core::{core, ser};
+use crate::core::ser::{self, Readable, Reader, Writeable, Writer};
+use crate::msg::ProtocolVersion;
 use epic_store;
 
 /// Maximum number of block headers a peer should ever send
@@ -44,7 +50,7 @@ pub const MAX_LOCATORS: u32 = 20;
 const BAN_WINDOW: i64 = 10800;
 
 /// The max peer count
-const PEER_MAX_COUNT: u32 = 25;
+const PEER_MAX_COUNT: u32 = 125;
 
 /// min preferred peer count
 const PEER_MIN_PREFERRED_COUNT: u32 = 8;
@@ -60,18 +66,16 @@ pub enum Error {
 	ConnectionClose,
 	Timeout,
 	Store(epic_store::Error),
+	Chain(chain::Error),
 	PeerWithSelf,
 	NoDandelionRelay,
-	ProtocolMismatch {
-		us: u32,
-		peer: u32,
-	},
 	GenesisMismatch {
 		us: Hash,
 		peer: Hash,
 	},
 	Send(String),
 	PeerException,
+	Internal,
 }
 
 impl From<ser::Error> for Error {
@@ -84,6 +88,11 @@ impl From<epic_store::Error> for Error {
 		Error::Store(e)
 	}
 }
+impl From<chain::Error> for Error {
+	fn from(e: chain::Error) -> Error {
+		Error::Chain(e)
+	}
+}
 impl From<io::Error> for Error {
 	fn from(e: io::Error) -> Error {
 		Error::Connection(e)
@@ -92,6 +101,106 @@ impl From<io::Error> for Error {
 impl<T> From<mpsc::TrySendError<T>> for Error {
 	fn from(e: mpsc::TrySendError<T>) -> Error {
 		Error::Send(e.to_string())
+	}
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct PeerAddr(pub SocketAddr);
+
+impl Writeable for PeerAddr {
+	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
+		match self.0 {
+			SocketAddr::V4(sav4) => {
+				ser_multiwrite!(
+					writer,
+					[write_u8, 0],
+					[write_fixed_bytes, &sav4.ip().octets().to_vec()],
+					[write_u16, sav4.port()]
+				);
+			}
+			SocketAddr::V6(sav6) => {
+				writer.write_u8(1)?;
+				for seg in &sav6.ip().segments() {
+					writer.write_u16(*seg)?;
+				}
+				writer.write_u16(sav6.port())?;
+			}
+		}
+		Ok(())
+	}
+}
+
+impl Readable for PeerAddr {
+	fn read(reader: &mut dyn Reader) -> Result<PeerAddr, ser::Error> {
+		let v4_or_v6 = reader.read_u8()?;
+		if v4_or_v6 == 0 {
+			let ip = reader.read_fixed_bytes(4)?;
+			let port = reader.read_u16()?;
+			Ok(PeerAddr(SocketAddr::V4(SocketAddrV4::new(
+				Ipv4Addr::new(ip[0], ip[1], ip[2], ip[3]),
+				port,
+			))))
+		} else {
+			let ip = try_iter_map_vec!(0..8, |_| reader.read_u16());
+			let port = reader.read_u16()?;
+			Ok(PeerAddr(SocketAddr::V6(SocketAddrV6::new(
+				Ipv6Addr::new(ip[0], ip[1], ip[2], ip[3], ip[4], ip[5], ip[6], ip[7]),
+				port,
+				0,
+				0,
+			))))
+		}
+	}
+}
+
+impl std::hash::Hash for PeerAddr {
+	/// If loopback address then we care about ip and port.
+	/// If regular address then we only care about the ip and ignore the port.
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		if self.0.ip().is_loopback() {
+			self.0.hash(state);
+		} else {
+			self.0.ip().hash(state);
+		}
+	}
+}
+
+impl PartialEq for PeerAddr {
+	/// If loopback address then we care about ip and port.
+	/// If regular address then we only care about the ip and ignore the port.
+	fn eq(&self, other: &PeerAddr) -> bool {
+		if self.0.ip().is_loopback() {
+			self.0 == other.0
+		} else {
+			self.0.ip() == other.0.ip()
+		}
+	}
+}
+
+impl Eq for PeerAddr {}
+
+impl std::fmt::Display for PeerAddr {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(f, "{}", self.0)
+	}
+}
+
+impl PeerAddr {
+	/// Convenient way of constructing a new peer_addr from an ip_addr
+	/// defaults to port 3414 on mainnet and 13414 on floonet.
+	pub fn from_ip(addr: IpAddr) -> PeerAddr {
+		let port = if global::is_floonet() { 13414 } else { 3414 };
+		PeerAddr(SocketAddr::new(addr, port))
+	}
+
+	/// If the ip is loopback then our key is "ip:port" (mainly for local usernet testing).
+	/// Otherwise we only care about the ip (we disallow multiple peers on the same ip address).
+	pub fn as_key(&self) -> String {
+		if self.0.ip().is_loopback() {
+			format!("{}:{}", self.0.ip(), self.0.port())
+		} else {
+			format!("{}", self.0.ip())
+		}
 	}
 }
 
@@ -106,18 +215,18 @@ pub struct P2PConfig {
 	pub seeding_type: Seeding,
 
 	/// The list of seed nodes, if using Seeding as a seed type
-	pub seeds: Option<Vec<String>>,
+	pub seeds: Option<Vec<PeerAddr>>,
 
 	/// Capabilities expose by this node, also conditions which other peers this
 	/// node will have an affinity toward when connection.
 	pub capabilities: Capabilities,
 
-	pub peers_allow: Option<Vec<String>>,
+	pub peers_allow: Option<Vec<PeerAddr>>,
 
-	pub peers_deny: Option<Vec<String>>,
+	pub peers_deny: Option<Vec<PeerAddr>>,
 
 	/// The list of preferred peers that we will try to connect to
-	pub peers_preferred: Option<Vec<String>>,
+	pub peers_preferred: Option<Vec<PeerAddr>>,
 
 	pub ban_window: Option<i64>,
 
@@ -125,7 +234,7 @@ pub struct P2PConfig {
 
 	pub peer_min_preferred_count: Option<u32>,
 
-	pub dandelion_peer: Option<SocketAddr>,
+	pub dandelion_peer: Option<PeerAddr>,
 }
 
 /// Default address for peer-to-peer connections.
@@ -178,7 +287,7 @@ impl P2PConfig {
 }
 
 /// Type of seeding the server will use to find other peers on the network.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Seeding {
 	/// No seeding, mostly for tests that programmatically connect
 	None,
@@ -254,6 +363,7 @@ pub struct PeerLiveInfo {
 	pub height: u64,
 	pub last_seen: DateTime<Utc>,
 	pub stuck_detector: DateTime<Utc>,
+	pub first_seen: DateTime<Utc>,
 }
 
 /// General information about a connected peer that's useful to other modules.
@@ -261,10 +371,22 @@ pub struct PeerLiveInfo {
 pub struct PeerInfo {
 	pub capabilities: Capabilities,
 	pub user_agent: String,
-	pub version: u32,
-	pub addr: SocketAddr,
+	pub version: ProtocolVersion,
+	pub addr: PeerAddr,
 	pub direction: Direction,
 	pub live_info: Arc<RwLock<PeerLiveInfo>>,
+}
+
+impl PeerLiveInfo {
+	pub fn new(difficulty: Difficulty) -> PeerLiveInfo {
+		PeerLiveInfo {
+			total_difficulty: difficulty,
+			height: 0,
+			first_seen: Utc::now(),
+			last_seen: Utc::now(),
+			stuck_detector: Utc::now(),
+		}
+	}
 }
 
 impl PeerInfo {
@@ -287,6 +409,11 @@ impl PeerInfo {
 		self.live_info.read().last_seen
 	}
 
+	/// Time of first_seen for this peer.
+	pub fn first_seen(&self) -> DateTime<Utc> {
+		self.live_info.read().first_seen
+	}
+
 	/// Update the total_difficulty, height and last_seen of the peer.
 	/// Takes a write lock on the live_info.
 	pub fn update(&self, height: u64, total_difficulty: Difficulty) {
@@ -306,8 +433,8 @@ impl PeerInfo {
 pub struct PeerInfoDisplay {
 	pub capabilities: Capabilities,
 	pub user_agent: String,
-	pub version: u32,
-	pub addr: SocketAddr,
+	pub version: ProtocolVersion,
+	pub addr: PeerAddr,
 	pub direction: Direction,
 	pub total_difficulty: Difficulty,
 	pub height: u64,
@@ -318,7 +445,7 @@ impl From<PeerInfo> for PeerInfoDisplay {
 		PeerInfoDisplay {
 			capabilities: info.capabilities.clone(),
 			user_agent: info.user_agent.clone(),
-			version: info.version.clone(),
+			version: info.version,
 			addr: info.addr.clone(),
 			direction: info.direction.clone(),
 			total_difficulty: info.total_difficulty(),
@@ -343,40 +470,66 @@ pub struct TxHashSetRead {
 /// other things.
 pub trait ChainAdapter: Sync + Send {
 	/// Current total difficulty on our chain
-	fn total_difficulty(&self) -> Difficulty;
+	fn total_difficulty(&self) -> Result<Difficulty, chain::Error>;
 
 	/// Current total height
-	fn total_height(&self) -> u64;
+	fn total_height(&self) -> Result<u64, chain::Error>;
 
 	/// A valid transaction has been received from one of our peers
-	fn transaction_received(&self, tx: core::Transaction, stem: bool);
+	fn transaction_received(&self, tx: core::Transaction, stem: bool)
+		-> Result<bool, chain::Error>;
 
 	fn get_transaction(&self, kernel_hash: Hash) -> Option<core::Transaction>;
 
-	fn tx_kernel_received(&self, kernel_hash: Hash, addr: SocketAddr);
+	fn tx_kernel_received(
+		&self,
+		kernel_hash: Hash,
+		peer_info: &PeerInfo,
+	) -> Result<bool, chain::Error>;
 
 	/// A block has been received from one of our peers. Returns true if the
 	/// block could be handled properly and is not deemed defective by the
 	/// chain. Returning false means the block will never be valid and
 	/// may result in the peer being banned.
-	fn block_received(&self, b: core::Block, addr: SocketAddr, was_requested: bool) -> bool;
+	fn block_received(
+		&self,
+		b: core::Block,
+		peer_info: &PeerInfo,
+		was_requested: bool,
+	) -> Result<bool, chain::Error>;
 
-	fn compact_block_received(&self, cb: core::CompactBlock, addr: SocketAddr) -> bool;
+	fn compact_block_received(
+		&self,
+		cb: core::CompactBlock,
+		peer_info: &PeerInfo,
+	) -> Result<bool, chain::Error>;
 
-	fn header_received(&self, bh: core::BlockHeader, addr: SocketAddr) -> bool;
+	fn header_received(
+		&self,
+		bh: core::BlockHeader,
+		peer_info: &PeerInfo,
+	) -> Result<bool, chain::Error>;
 
 	/// A set of block header has been received, typically in response to a
 	/// block
 	/// header request.
-	fn headers_received(&self, bh: &[core::BlockHeader], addr: SocketAddr) -> bool;
+	fn headers_received(
+		&self,
+		bh: &[core::BlockHeader],
+		peer_info: &PeerInfo,
+	) -> Result<bool, chain::Error>;
 
 	/// Finds a list of block headers based on the provided locator. Tries to
 	/// identify the common chain and gets the headers that follow it
 	/// immediately.
-	fn locate_headers(&self, locator: &[Hash]) -> Vec<core::BlockHeader>;
+	fn locate_headers(&self, locator: &[Hash]) -> Result<Vec<core::BlockHeader>, chain::Error>;
 
 	/// Gets a full block by its hash.
 	fn get_block(&self, h: Hash) -> Option<core::Block>;
+
+	fn kernel_data_read(&self) -> Result<File, chain::Error>;
+
+	fn kernel_data_write(&self, reader: &mut Read) -> Result<bool, chain::Error>;
 
 	/// Provides a reading view into the current txhashset state as well as
 	/// the required indexes for a consumer to rewind to a consistant state
@@ -401,7 +554,19 @@ pub trait ChainAdapter: Sync + Send {
 	/// If we're willing to accept that new state, the data stream will be
 	/// read as a zip file, unzipped and the resulting state files should be
 	/// rewound to the provided indexes.
-	fn txhashset_write(&self, h: Hash, txhashset_data: File, peer_addr: SocketAddr) -> bool;
+	fn txhashset_write(
+		&self,
+		h: Hash,
+		txhashset_data: File,
+		peer_peer_info: &PeerInfo,
+	) -> Result<bool, chain::Error>;
+
+	/// Get the Epic specific tmp dir
+	fn get_tmp_dir(&self) -> PathBuf;
+
+	/// Get a tmp file path in above specific tmp dir (create tmp dir if not exist)
+	/// Delete file if tmp file already exists
+	fn get_tmpfile_pathname(&self, tmpfile_name: String) -> PathBuf;
 }
 
 /// Additional methods required by the protocol that don't need to be
@@ -409,14 +574,14 @@ pub trait ChainAdapter: Sync + Send {
 pub trait NetAdapter: ChainAdapter {
 	/// Find good peers we know with the provided capability and return their
 	/// addresses.
-	fn find_peer_addrs(&self, capab: Capabilities) -> Vec<SocketAddr>;
+	fn find_peer_addrs(&self, capab: Capabilities) -> Vec<PeerAddr>;
 
 	/// A list of peers has been received from one of our peers.
-	fn peer_addrs_received(&self, _: Vec<SocketAddr>);
+	fn peer_addrs_received(&self, _: Vec<PeerAddr>);
 
 	/// Heard total_difficulty from a connected peer (via ping/pong).
-	fn peer_difficulty(&self, _: SocketAddr, _: Difficulty, _: u64);
+	fn peer_difficulty(&self, _: PeerAddr, _: Difficulty, _: u64);
 
 	/// Is this peer currently banned?
-	fn is_banned(&self, addr: SocketAddr) -> bool;
+	fn is_banned(&self, addr: PeerAddr) -> bool;
 }

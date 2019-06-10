@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ use crate::rest::*;
 use crate::router::{Handler, ResponseFuture};
 use crate::types::*;
 use crate::web::*;
-use hyper::{Body, Request};
+use hyper::{Body, Request, StatusCode};
 use std::sync::Weak;
 
 // RESTful index of available api endpoints
@@ -36,6 +36,29 @@ impl Handler for IndexHandler {
 	}
 }
 
+pub struct KernelDownloadHandler {
+	pub peers: Weak<p2p::Peers>,
+}
+
+impl Handler for KernelDownloadHandler {
+	fn post(&self, _req: Request<Body>) -> ResponseFuture {
+		if let Some(peer) = w_fut!(&self.peers).most_work_peer() {
+			match peer.send_kernel_data_request() {
+				Ok(_) => response(StatusCode::OK, "{}"),
+				Err(e) => response(
+					StatusCode::INTERNAL_SERVER_ERROR,
+					format!("requesting kernel data from peer failed: {:?}", e),
+				),
+			}
+		} else {
+			response(
+				StatusCode::INTERNAL_SERVER_ERROR,
+				format!("requesting kernel data from peer failed (no peers)"),
+			)
+		}
+	}
+}
+
 /// Status handler. Post a summary of the server status
 /// GET /v1/status
 pub struct StatusHandler {
@@ -45,12 +68,12 @@ pub struct StatusHandler {
 
 impl StatusHandler {
 	fn get_status(&self) -> Result<Status, Error> {
-		let head = w(&self.chain)
+		let head = w(&self.chain)?
 			.head()
 			.map_err(|e| ErrorKind::Internal(format!("can't get head: {}", e)))?;
 		Ok(Status::from_tip_and_peers(
 			head,
-			w(&self.peers).peer_count(),
+			w(&self.peers)?.peer_count(),
 		))
 	}
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ use crate::core::merkle_proof::MerkleProof;
 use crate::core::pmmr::{Backend, ReadonlyPMMR};
 use crate::core::BlockHeader;
 use crate::ser::{PMMRIndexHashable, PMMRable};
-use std::path::Path;
 
 /// 64 bits all ones: 0b11111111...1
 const ALL_ONES: u64 = u64::MAX;
@@ -73,6 +72,11 @@ where
 	/// Build a "readonly" view of this PMMR.
 	pub fn readonly_pmmr(&self) -> ReadonlyPMMR<'_, T, B> {
 		ReadonlyPMMR::at(&self.backend, self.last_pos)
+	}
+
+	/// Iterator over current (unpruned, unremoved) leaf positions.
+	pub fn leaf_pos_iter(&self) -> impl Iterator<Item = u64> + '_ {
+		self.backend.leaf_pos_iter()
 	}
 
 	/// Returns a vec of the peaks of this MMR.
@@ -212,6 +216,13 @@ where
 		Ok(())
 	}
 
+	/// Truncate the MMR by rewinding back to empty state.
+	pub fn truncate(&mut self) -> Result<(), String> {
+		self.backend.rewind(0, &Bitmap::create())?;
+		self.last_pos = 0;
+		Ok(())
+	}
+
 	/// Rewind the PMMR to a previous position, as if all push operations after
 	/// that had been canceled. Expects a position in the PMMR to rewind and
 	/// bitmaps representing the positions added and removed that we want to
@@ -321,11 +332,6 @@ where
 	/// pruning.
 	pub fn unpruned_size(&self) -> u64 {
 		self.last_pos
-	}
-
-	/// Return the path of the data file (needed to sum kernels efficiently)
-	pub fn data_file_path(&self) -> &Path {
-		self.backend.get_data_file_path()
 	}
 
 	/// Debugging utility to print information about the MMRs. Short version

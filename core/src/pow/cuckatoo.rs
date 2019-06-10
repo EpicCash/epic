@@ -20,6 +20,7 @@ use croaring::Bitmap;
 use crate::pow::common::{CuckooParams, EdgeType, Link};
 use crate::pow::error::{Error, ErrorKind};
 use crate::pow::{PoWContext, Proof};
+use crate::global;
 use crate::util;
 
 struct Graph<T>
@@ -280,6 +281,10 @@ where
 	/// Verify that given edges are ascending and form a cycle in a header-generated
 	/// graph
 	pub fn verify_impl(&self, proof: &Proof) -> Result<(), Error> {
+                if proof.proof_size() != global::proofsize() {
+                        return Err(ErrorKind::Verification( 
+                                "wrong cycle length".to_owned(),))?;
+                }
 		let nonces = &proof.nonces;
 		let mut uvs = vec![0u64; 2 * proof.proof_size()];
 		let mut xor0: u64 = (self.params.proof_size as u64 / 2) & 1;
@@ -355,12 +360,12 @@ mod test {
 
 	// Cuckatoo 31 Solution for Header [0u8;80] - nonce 99
 	static V1_31: [u64; 42] = [
-		0x1128e07, 0xc181131, 0x110fad36, 0x1135ddee, 0x1669c7d3, 0x1931e6ea, 0x1c0005f3, 0x1dd6ecca,
-		0x1e29ce7e, 0x209736fc, 0x2692bf1a, 0x27b85aa9, 0x29bb7693, 0x2dc2a047, 0x2e28650a, 0x2f381195,
-		0x350eb3f9, 0x3beed728, 0x3e861cbc, 0x41448cc1, 0x41f08f6d, 0x42fbc48a, 0x4383ab31, 0x4389c61f,
-		0x4540a5ce, 0x49a17405, 0x50372ded, 0x512f0db0, 0x588b6288, 0x5a36aa46, 0x5c29e1fe, 0x6118ab16,
-		0x634705b5, 0x6633d190, 0x6683782f, 0x6728b6e1, 0x67adfb45, 0x68ae2306, 0x6d60f5e1, 0x78af3c4f,
-		0x7dde51ab, 0x7faced21
+		0x1128e07, 0xc181131, 0x110fad36, 0x1135ddee, 0x1669c7d3, 0x1931e6ea, 0x1c0005f3,
+		0x1dd6ecca, 0x1e29ce7e, 0x209736fc, 0x2692bf1a, 0x27b85aa9, 0x29bb7693, 0x2dc2a047,
+		0x2e28650a, 0x2f381195, 0x350eb3f9, 0x3beed728, 0x3e861cbc, 0x41448cc1, 0x41f08f6d,
+		0x42fbc48a, 0x4383ab31, 0x4389c61f, 0x4540a5ce, 0x49a17405, 0x50372ded, 0x512f0db0,
+		0x588b6288, 0x5a36aa46, 0x5c29e1fe, 0x6118ab16, 0x634705b5, 0x6633d190, 0x6683782f,
+		0x6728b6e1, 0x67adfb45, 0x68ae2306, 0x6d60f5e1, 0x78af3c4f, 0x7dde51ab, 0x7faced21,
 	];
 
 	#[test]

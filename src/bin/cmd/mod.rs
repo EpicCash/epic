@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,7 @@
 mod client;
 mod config;
 mod server;
-mod wallet;
-mod wallet_args;
-mod wallet_tests;
 
 pub use self::client::client_command;
-pub use self::config::{config_command_server, config_command_wallet};
+pub use self::config::config_command_server;
 pub use self::server::server_command;
-pub use self::wallet::{seed_exists, wallet_command};

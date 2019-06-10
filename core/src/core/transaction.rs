@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ use crate::core::hash::{DefaultHashable, Hashed};
 use crate::core::verifier_cache::VerifierCache;
 use crate::core::{committed, Committed};
 use crate::keychain::{self, BlindingFactor};
+use crate::libtx::secp_ser;
 use crate::ser::{
 	self, read_multi, FixedLength, PMMRable, Readable, Reader, VerifySortedAndUnique, Writeable,
 	Writer,
@@ -31,7 +32,6 @@ use crate::{consensus, global};
 use enum_primitive::FromPrimitive;
 use std::cmp::Ordering;
 use std::cmp::{max, min};
-use std::collections::HashSet;
 use std::sync::Arc;
 use std::{error, fmt};
 
@@ -68,7 +68,7 @@ impl Readable for KernelFeatures {
 }
 
 /// Errors thrown by Transaction validation
-#[derive(Clone, Eq, Debug, PartialEq)]
+#[derive(Clone, Eq, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Error {
 	/// Underlying Secp256k1 error (signature validation or invalid public key
 	/// typically)
@@ -159,16 +159,23 @@ pub struct TxKernel {
 	/// Options for a kernel's structure or use
 	pub features: KernelFeatures,
 	/// Fee originally included in the transaction this proof is for.
+	#[serde(with = "secp_ser::string_or_u64")]
 	pub fee: u64,
 	/// This kernel is not valid earlier than lock_height blocks
 	/// The max lock_height of all *inputs* to this transaction
+	#[serde(with = "secp_ser::string_or_u64")]
 	pub lock_height: u64,
 	/// Remainder of the sum of all transaction commitments. If the transaction
 	/// is well formed, amounts components should sum to zero and the excess
 	/// is hence a valid public key.
+	#[serde(
+		serialize_with = "secp_ser::as_hex",
+		deserialize_with = "secp_ser::commitment_from_hex"
+	)]
 	pub excess: Commitment,
 	/// The signature proving the excess is a valid public key, which signs
 	/// the transaction fee.
+	#[serde(with = "secp_ser::sig_serde")]
 	pub excess_sig: secp::Signature,
 }
 
@@ -380,10 +387,7 @@ pub enum Weighting {
 	AsTransaction,
 	/// Tx representing a tx with artificially limited max_weight.
 	/// This is used when selecting mineable txs from the pool.
-	AsLimitedTransaction {
-		/// The maximum (block) weight that we will allow.
-		max_weight: usize,
-	},
+	AsLimitedTransaction(usize),
 	/// Tx represents a block (max block weight).
 	AsBlock,
 	/// No max weight limit (skip the weight check).
@@ -621,7 +625,7 @@ impl TransactionBody {
 		//
 		let max_weight = match weighting {
 			Weighting::AsTransaction => global::max_block_weight().saturating_sub(coinbase_weight),
-			Weighting::AsLimitedTransaction { max_weight } => {
+			Weighting::AsLimitedTransaction(max_weight) => {
 				min(global::max_block_weight(), max_weight).saturating_sub(coinbase_weight)
 			}
 			Weighting::AsBlock => global::max_block_weight(),
@@ -647,14 +651,21 @@ impl TransactionBody {
 	}
 
 	// Verify that no input is spending an output from the same block.
+	// Assumes inputs and outputs are sorted
 	fn verify_cut_through(&self) -> Result<(), Error> {
-		let mut out_set = HashSet::new();
-		for out in &self.outputs {
-			out_set.insert(out.commitment());
-		}
-		for inp in &self.inputs {
-			if out_set.contains(&inp.commitment()) {
-				return Err(Error::CutThrough);
+		let mut inputs = self.inputs.iter().map(|x| x.hash()).peekable();
+		let mut outputs = self.outputs.iter().map(|x| x.hash()).peekable();
+		while let (Some(ih), Some(oh)) = (inputs.peek(), outputs.peek()) {
+			match ih.cmp(oh) {
+				Ordering::Less => {
+					inputs.next();
+				}
+				Ordering::Greater => {
+					outputs.next();
+				}
+				Ordering::Equal => {
+					return Err(Error::CutThrough);
+				}
 			}
 		}
 		Ok(())
@@ -751,9 +762,13 @@ impl TransactionBody {
 pub struct Transaction {
 	/// The kernel "offset" k2
 	/// excess is k1G after splitting the key k = k1 + k2
+	#[serde(
+		serialize_with = "secp_ser::as_hex",
+		deserialize_with = "secp_ser::blind_from_hex"
+	)]
 	pub offset: BlindingFactor,
 	/// The transaction body - inputs/outputs/kernels
-	body: TransactionBody,
+	pub body: TransactionBody,
 }
 
 impl DefaultHashable for Transaction {}
@@ -946,6 +961,12 @@ impl Transaction {
 		Ok(())
 	}
 
+	/// Can be used to compare txs by their fee/weight ratio.
+	/// Don't use these values for anything else though due to precision multiplier.
+	pub fn fee_to_weight(&self) -> u64 {
+		self.fee() * 1_000 / self.tx_weight() as u64
+	}
+
 	/// Calculate transaction weight
 	pub fn tx_weight(&self) -> usize {
 		self.body.body_weight()
@@ -968,24 +989,34 @@ impl Transaction {
 /// and outputs.
 pub fn cut_through(inputs: &mut Vec<Input>, outputs: &mut Vec<Output>) -> Result<(), Error> {
 	// assemble output commitments set, checking they're all unique
-	let mut out_set = HashSet::new();
-	let all_uniq = { outputs.iter().all(|o| out_set.insert(o.commitment())) };
-	if !all_uniq {
+	outputs.sort_unstable();
+	if outputs.windows(2).any(|pair| pair[0] == pair[1]) {
 		return Err(Error::AggregationError);
 	}
-
-	let in_set = inputs
-		.iter()
-		.map(|inp| inp.commitment())
-		.collect::<HashSet<_>>();
-
-	let to_cut_through = in_set.intersection(&out_set).collect::<HashSet<_>>();
-
-	// filter and sort
-	inputs.retain(|inp| !to_cut_through.contains(&inp.commitment()));
-	outputs.retain(|out| !to_cut_through.contains(&out.commitment()));
 	inputs.sort_unstable();
-	outputs.sort_unstable();
+	let mut inputs_idx = 0;
+	let mut outputs_idx = 0;
+	let mut ncut = 0;
+	while inputs_idx < inputs.len() && outputs_idx < outputs.len() {
+		match inputs[inputs_idx].hash().cmp(&outputs[outputs_idx].hash()) {
+			Ordering::Less => {
+				inputs[inputs_idx - ncut] = inputs[inputs_idx];
+				inputs_idx += 1;
+			}
+			Ordering::Greater => {
+				outputs[outputs_idx - ncut] = outputs[outputs_idx];
+				outputs_idx += 1;
+			}
+			Ordering::Equal => {
+				inputs_idx += 1;
+				outputs_idx += 1;
+				ncut += 1;
+			}
+		}
+	}
+	// Cut elements that have already been copied
+	outputs.drain(outputs_idx - ncut..outputs_idx);
+	inputs.drain(inputs_idx - ncut..inputs_idx);
 	Ok(())
 }
 
@@ -1109,12 +1140,16 @@ pub fn deaggregate(mk_tx: Transaction, txs: Vec<Transaction>) -> Result<Transact
 /// A transaction input.
 ///
 /// Primarily a reference to an output being spent by the transaction.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Input {
 	/// The features of the output being spent.
 	/// We will check maturity for coinbase output.
 	pub features: OutputFeatures,
 	/// The commit referencing the output being spent.
+	#[serde(
+		serialize_with = "secp_ser::as_hex",
+		deserialize_with = "secp_ser::commitment_from_hex"
+	)]
 	pub commit: Commitment,
 }
 
@@ -1210,17 +1245,22 @@ impl Readable for OutputFeatures {
 /// Output for a transaction, defining the new ownership of coins that are being
 /// transferred. The commitment is a blinded value for the output while the
 /// range proof guarantees the commitment includes a positive value without
-/// overflow and the ownership of the private key. The switch commitment hash
-/// provides future-proofing against quantum-based attacks, as well as providing
-/// wallet implementations with a way to identify their outputs for wallet
-/// reconstruction.
+/// overflow and the ownership of the private key.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Output {
 	/// Options for an output's structure or use
 	pub features: OutputFeatures,
 	/// The homomorphic commitment representing the output amount
+	#[serde(
+		serialize_with = "secp_ser::as_hex",
+		deserialize_with = "secp_ser::commitment_from_hex"
+	)]
 	pub commit: Commitment,
 	/// A proof that the commitment is in the right range
+	#[serde(
+		serialize_with = "secp_ser::as_hex",
+		deserialize_with = "secp_ser::rangeproof_from_hex"
+	)]
 	pub proof: RangeProof,
 }
 

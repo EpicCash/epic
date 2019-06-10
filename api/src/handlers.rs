@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,39 +20,27 @@ mod server_api;
 mod transactions_api;
 mod utils;
 
-use crate::router::{Router, RouterError};
-
-// Server
-use self::server_api::IndexHandler;
-use self::server_api::StatusHandler;
-
-// Blocks
 use self::blocks_api::BlockHandler;
 use self::blocks_api::HeaderHandler;
-
-// TX Set
-use self::transactions_api::TxHashSetHandler;
-
-// Chain
 use self::chain_api::ChainCompactHandler;
 use self::chain_api::ChainHandler;
 use self::chain_api::ChainValidationHandler;
 use self::chain_api::OutputHandler;
-
-// Pool Handlers
-use self::pool_api::PoolInfoHandler;
-use self::pool_api::PoolPushHandler;
-
-// Peers
 use self::peers_api::PeerHandler;
 use self::peers_api::PeersAllHandler;
 use self::peers_api::PeersConnectedHandler;
-
-use crate::auth::BasicAuthMiddleware;
+use self::pool_api::PoolInfoHandler;
+use self::pool_api::PoolPushHandler;
+use self::server_api::IndexHandler;
+use self::server_api::StatusHandler;
+use self::server_api::KernelDownloadHandler;
+use self::transactions_api::TxHashSetHandler;
+use crate::auth::{BasicAuthMiddleware, EPIC_BASIC_REALM};
 use crate::chain;
 use crate::p2p;
 use crate::pool;
 use crate::rest::*;
+use crate::router::{Router, RouterError};
 use crate::util;
 use crate::util::RwLock;
 use std::net::SocketAddr;
@@ -76,11 +64,10 @@ pub fn start_rest_apis(
 ) -> bool {
 	let mut apis = ApiServer::new();
 	let mut router = build_router(chain, tx_pool, peers).expect("unable to build API router");
-	if api_secret.is_some() {
-		let api_basic_auth =
-			"Basic ".to_string() + &util::to_base64(&("epic:".to_string() + &api_secret.unwrap()));
-		let basic_realm = "Basic realm=EpicAPI".to_string();
-		let basic_auth_middleware = Arc::new(BasicAuthMiddleware::new(api_basic_auth, basic_realm));
+	if let Some(api_secret) = api_secret {
+		let api_basic_auth = format!("Basic {}", util::to_base64(&format!("epic:{}", api_secret)));
+		let basic_auth_middleware =
+			Arc::new(BasicAuthMiddleware::new(api_basic_auth, &EPIC_BASIC_REALM));
 		router.add_middleware(basic_auth_middleware);
 	}
 
@@ -103,16 +90,19 @@ pub fn build_router(
 ) -> Result<Router, RouterError> {
 	let route_list = vec![
 		"get blocks".to_string(),
+		"get headers".to_string(),
 		"get chain".to_string(),
 		"post chain/compact".to_string(),
-		"post chain/validate".to_string(),
-		"get chain/outputs".to_string(),
+		"get chain/validate".to_string(),
+		"get chain/outputs/byids?id=xxx,yyy,zzz".to_string(),
+		"get chain/outputs/byheight?start_height=101&end_height=200".to_string(),
 		"get status".to_string(),
 		"get txhashset/roots".to_string(),
 		"get txhashset/lastoutputs?n=10".to_string(),
 		"get txhashset/lastrangeproofs".to_string(),
 		"get txhashset/lastkernels".to_string(),
 		"get txhashset/outputs?start_index=1&max=100".to_string(),
+		"get txhashset/merkleproof?n=1".to_string(),
 		"get pool".to_string(),
 		"post pool/push".to_string(),
 		"post peers/a.b.c.d:p/ban".to_string(),
@@ -146,6 +136,9 @@ pub fn build_router(
 		chain: Arc::downgrade(&chain),
 		peers: Arc::downgrade(&peers),
 	};
+	let kernel_download_handler = KernelDownloadHandler {
+		peers: Arc::downgrade(&peers),
+	};
 	let txhashset_handler = TxHashSetHandler {
 		chain: Arc::downgrade(&chain),
 	};
@@ -176,6 +169,7 @@ pub fn build_router(
 	router.add_route("/v1/chain/validate", Arc::new(chain_validation_handler))?;
 	router.add_route("/v1/txhashset/*", Arc::new(txhashset_handler))?;
 	router.add_route("/v1/status", Arc::new(status_handler))?;
+	router.add_route("/v1/kerneldownload", Arc::new(kernel_download_handler))?;
 	router.add_route("/v1/pool", Arc::new(pool_info_handler))?;
 	router.add_route("/v1/pool/push", Arc::new(pool_push_handler))?;
 	router.add_route("/v1/peers/all", Arc::new(peers_all_handler))?;

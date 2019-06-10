@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -140,6 +140,15 @@ impl Keychain for ExtKeychain {
 
 		let sum = self.secp.blind_sum(pos_keys, neg_keys)?;
 		Ok(BlindingFactor::from_secret_key(sum))
+	}
+
+	fn create_nonce(&self, commit: &Commitment) -> Result<SecretKey, Error> {
+		// hash(commit|wallet root secret key (m)) as nonce
+		let root_key = self.derive_key(0, &Self::root_key_id())?;
+		let res = blake2::blake2b::blake2b(32, &commit.0, &root_key.0[..]);
+		let res = res.as_bytes();
+		SecretKey::from_slice(&self.secp, &res)
+			.map_err(|e| Error::RangeProof(format!("Unable to create nonce: {:?}", e).to_string()))
 	}
 
 	fn sign(&self, msg: &Message, amount: u64, id: &Identifier) -> Result<Signature, Error> {

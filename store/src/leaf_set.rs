@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -46,6 +46,14 @@ impl LeafSet {
 		} else {
 			Bitmap::create()
 		};
+
+		if !bitmap.is_empty() {
+			debug!(
+				"bitmap {} pos ({} bytes)",
+				bitmap.cardinality(),
+				bitmap.get_serialized_size_in_bytes(),
+			);
+		}
 
 		Ok(LeafSet {
 			path: file_path.to_path_buf(),
@@ -198,5 +206,10 @@ impl LeafSet {
 	/// Is the leaf_set empty.
 	pub fn is_empty(&self) -> bool {
 		self.len() == 0
+	}
+
+	/// Iterator over positionns in the leaf_set (all leaf positions).
+	pub fn iter(&self) -> impl Iterator<Item = u64> + '_ {
+		self.bitmap.iter().map(|x| x as u64)
 	}
 }

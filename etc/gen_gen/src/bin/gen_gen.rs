@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ static BCYPHER_URL: &str = "https://api.blockcypher.com/v1/btc/main";
 static BCHAIR_URL: &str = "https://api.blockchair.com/bitcoin/blocks?limit=2";
 
 static GENESIS_RS_PATH: &str = "../../core/src/genesis.rs";
-static PLUGIN_PATH: &str = "/root/epic-new/epic/epic-miner/target/debug/plugins/cuckaroo_cpu_avx2_29.cuckooplugin";
+static PLUGIN_PATH: &str = "./cuckaroo_mean_cuda_29.cuckooplugin";
 static WALLET_SEED_PATH: &str = "./wallet.seed";
 
 fn main() {
@@ -87,7 +87,7 @@ fn main() {
 	.unwrap();
 	let keychain: ExtKeychain = seed.derive_keychain(false).unwrap();
 	let key_id = ExtKeychain::derive_key_id(3, 1, 0, 0, 0);
-	let reward = core::libtx::reward::output(&keychain, &key_id, 0, 0).unwrap();
+	let reward = core::libtx::reward::output(&keychain, &key_id, 0).unwrap();
 	gen = gen.with_reward(reward.0, reward.1);
 
 	{
@@ -281,7 +281,7 @@ fn setup_chain(dir_name: &str, genesis: core::core::Block) -> chain::Chain {
 		core::pow::verify_size,
 		verifier_cache,
 		false,
-		Arc::new(util::Mutex::new(util::StopState::new())),
+		Arc::new(util::StopState::new()),
 	)
 	.unwrap()
 }

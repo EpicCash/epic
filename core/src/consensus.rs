@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -20,17 +20,9 @@
 
 use std::cmp::{max, min};
 
+use crate::core::block::HeaderVersion;
 use crate::global;
 use crate::pow::Difficulty;
-// use crate::chain::OrphanBlockPool;
-
-/// Following is add for getting time stamp (epic)
-
-//extern crate chrono;
-// use chrono::{DateTime, Utc};
-//use chrono::{Utc};
-
-
 
 /// A epic is divisible to 10^9, following the SI prefixes
 pub const EPIC_BASE: u64 = 1_000_000_000;
@@ -48,80 +40,79 @@ pub const NANO_EPIC: u64 = 1;
 pub const BLOCK_TIME_SEC: u64 = 60;
 
 /// The block subsidy amount, one epic per second on average
-/// pub const REWARD: u64 = BLOCK_TIME_SEC * EPIC_BASE;
 pub const REWARD: u64 = 25 * EPIC_BASE;
-
-/// Actual block reward for a given total fee amount
 /*
+/// Actual block reward for a given total fee amount
 pub fn reward(fee: u64) -> u64 {
 	REWARD.saturating_add(fee)
 }
 */
 
-///sundaram Working area
-// Reward inbetween particular timestamp
-pub const INITIAL_REWARD: u64 = 50 * EPIC_BASE;
-pub const SECONDARY_REWARD: u64 = 30 * EPIC_BASE;
+///sundaram Working area		
+// Reward inbetween particular timestamp		
+pub const INITIAL_REWARD: u64 = 50 * EPIC_BASE;		
+pub const SECONDARY_REWARD: u64 = 30 * EPIC_BASE;		
+/// get te reward based on the timestamp (date)		
+pub fn reward(fee: u64, height: u64) -> u64 {		
+	let reward = reward_at_height(height);		
+	return reward.saturating_add(fee);		
+}		
+pub fn reward_at_height(height: u64) -> u64 {		
+	if height <= 1440		
+	{		
+		return 200 * EPIC_BASE;		
+	}		
+	else if height <= 2880		
+	{		
+		return 180 * EPIC_BASE;		
+	}		
+	else if height <= 4320		
+	{		
+		return 160 * EPIC_BASE;		
+	}		
+	else if height <= 5760		
+	{		
+		return 140 * EPIC_BASE;		
+	}		
+	else if height <= 7200		
+	{		
+		return 120 * EPIC_BASE;		
+	}		
+	else if height <= 8640		
+	{		
+		return 100 * EPIC_BASE;		
+	}		
+	else if height <= 10080		
+	{		
+		return 80 * EPIC_BASE;		
+	}		
+	else if height <= 11520		
+	{		
+		return 60 * EPIC_BASE;		
+	}		
+	else if height <= 12960		
+	{		
+		return INITIAL_REWARD;		
+	}		
+	else		
+	{		
+		return REWARD;		
+	}		
+}		
+/// The total overage at a given height. Variable due to changing rewards		
+/// TODOBG: Make this more efficient by hardcoding reward schedule times		
+pub fn total_overage_at_height(height: u64) -> i64 {		
+	let mut sum: i64 = 0;		
+	for i in 0..=height {		
+		let reward = reward_at_height(i as u64) as i64;		
+		sum += reward;		
+	}		
+	return sum;		
+}		
 
-/// get te reward based on the timestamp (date)
-pub fn reward(fee: u64, height: u64) -> u64 {
-	let reward = reward_at_height(height);
-	return reward.saturating_add(fee);
-}
 
-pub fn reward_at_height(height: u64) -> u64 {
-	if height <= 1440
-	{
-		return 200 * EPIC_BASE;
-	}
-	else if height <= 2880
-	{
-		return 180 * EPIC_BASE;
-	}
-	else if height <= 4320
-	{
-		return 160 * EPIC_BASE;
-	}
-	else if height <= 5760
-	{
-		return 140 * EPIC_BASE;
-	}
-	else if height <= 7200
-	{
-		return 120 * EPIC_BASE;
-	}
-	else if height <= 8640
-	{
-		return 100 * EPIC_BASE;
-	}
-	else if height <= 10080
-	{
-		return 80 * EPIC_BASE;
-	}
-	else if height <= 11520
-	{
-		return 60 * EPIC_BASE;
-	}
-	else if height <= 12960
-	{
-		return INITIAL_REWARD;
-	}
-	else
-	{
-		return REWARD;
-	}
-}
 
-/// The total overage at a given height. Variable due to changing rewards
-/// TODOBG: Make this more efficient by hardcoding reward schedule times
-pub fn total_overage_at_height(height: u64) -> i64 {
-	let mut sum: i64 = 0;
-	for i in 0..=height {
-		let reward = reward_at_height(i as u64) as i64;
-		sum += reward;
-	}
-	return sum;
-}
+
 
 /// Nominal height for standard time intervals, hour is 60 blocks
 pub const HOUR_HEIGHT: u64 = 3600 / BLOCK_TIME_SEC;
@@ -205,10 +196,10 @@ pub const HARD_FORK_INTERVAL: u64 = YEAR_HEIGHT / 2;
 
 /// Check whether the block version is valid at a given height, implements
 /// 6 months interval scheduled hard forks for the first 2 years.
-pub fn valid_header_version(height: u64, version: u16) -> bool {
+pub fn valid_header_version(height: u64, version: HeaderVersion) -> bool {
 	// uncomment below as we go from hard fork to hard fork
 	if height < HARD_FORK_INTERVAL {
-		version == 1
+		version == HeaderVersion::default()
 	/* } else if height < 2 * HARD_FORK_INTERVAL {
 		version == 2
 	} else if height < 3 * HARD_FORK_INTERVAL {
@@ -269,7 +260,7 @@ pub const UNIT_DIFFICULTY: u64 =
 /// and difficulty should come down at launch rather than up
 /// Currently grossly over-estimated at 10% of current
 /// ethereum GPUs (assuming 1GPU can solve a block at diff 1 in one block interval)
-pub const INITIAL_DIFFICULTY: u64 = 1 * UNIT_DIFFICULTY;
+pub const INITIAL_DIFFICULTY: u64 = 1_000_000 * UNIT_DIFFICULTY;
 
 /// Minimal header information required for the Difficulty calculation to
 /// take place
@@ -327,7 +318,7 @@ impl HeaderInfo {
 
 /// Move value linearly toward a goal
 pub fn damp(actual: u64, goal: u64, damp_factor: u64) -> u64 {
-	(1 * actual + (damp_factor - 1) * goal) / damp_factor
+	(actual + (damp_factor - 1) * goal) / damp_factor
 }
 
 /// limit value to be within some factor from a goal
@@ -458,5 +449,3 @@ mod test {
 		assert_eq!(graph_weight(4 * YEAR_HEIGHT, 33), 1024 * 32);
 	}
 }
-
-

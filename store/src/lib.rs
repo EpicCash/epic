@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,11 +27,12 @@ use failure;
 extern crate failure_derive;
 #[macro_use]
 extern crate epic_core as core;
+extern crate epic_util as util;
 
 //use epic_core as core;
 
 pub mod leaf_set;
-mod lmdb;
+pub mod lmdb;
 pub mod pmmr;
 pub mod prune_list;
 pub mod types;

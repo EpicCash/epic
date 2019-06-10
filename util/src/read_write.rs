@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ pub fn write_all(stream: &mut dyn Write, mut buf: &[u8], timeout: Duration) -> i
 				return Err(io::Error::new(
 					io::ErrorKind::WriteZero,
 					"failed to write whole buffer",
-				))
+				));
 			}
 			Ok(n) => buf = &buf[n..],
 			Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {}

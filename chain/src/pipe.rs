@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -183,16 +183,21 @@ pub fn sync_block_headers(
 	headers: &[BlockHeader],
 	ctx: &mut BlockContext<'_>,
 ) -> Result<Option<Tip>, Error> {
-	if let Some(header) = headers.first() {
-		debug!(
-			"pipe: sync_block_headers: {} headers from {} at {}",
-			headers.len(),
-			header.hash(),
-			header.height,
-		);
-	} else {
-		return Ok(None);
-	}
+	let first_header = match headers.first() {
+		Some(header) => {
+			debug!(
+				"pipe: sync_block_headers: {} headers from {} at {}",
+				headers.len(),
+				header.hash(),
+				header.height,
+			);
+			header
+		}
+		None => {
+			error!("failed to get the first header");
+			return Ok(None);
+		}
+	};
 
 	let all_known = if let Some(last_header) = headers.last() {
 		ctx.batch.get_block_header(&last_header.hash()).is_ok()
@@ -201,7 +206,6 @@ pub fn sync_block_headers(
 	};
 
 	if !all_known {
-		let first_header = headers.first().unwrap();
 		let prev_header = ctx.batch.get_previous_header(&first_header)?;
 		txhashset::sync_extending(&mut ctx.txhashset, &mut ctx.batch, |extension| {
 			extension.rewind(&prev_header)?;
@@ -337,7 +341,7 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 	// check version, enforces scheduled hard fork
 	if !consensus::valid_header_version(header.height, header.version) {
 		error!(
-			"Invalid block header version received ({}), maybe update Epic?",
+			"Invalid block header version received ({:?}), maybe update Epic?",
 			header.version
 		);
 		return Err(ErrorKind::InvalidBlockVersion(header.version).into());

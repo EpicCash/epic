@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,14 +34,11 @@ use epic_p2p as p2p;
 use epic_pool as pool;
 use epic_store as store;
 use epic_util as util;
-use epic_wallet as wallet;
 
 pub mod common;
 mod epic;
 mod mining;
-mod webwallet;
 
 pub use crate::common::stats::{DiffBlock, PeerStats, ServerStats, StratumStats, WorkerStats};
 pub use crate::common::types::{ServerConfig, StratumServerConfig};
 pub use crate::epic::server::Server;
-pub use crate::webwallet::server::start_webwallet_server;

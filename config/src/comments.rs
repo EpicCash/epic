@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -141,9 +141,17 @@ fn comments() -> HashMap<String, String> {
 	);
 
 	retval.insert(
-		"relay_secs".to_string(),
+		"epoch_secs".to_string(),
 		"
-#dandelion relay time (choose new relay peer every n secs)
+#dandelion epoch duration
+"
+		.to_string(),
+	);
+
+	retval.insert(
+		"aggregation_secs".to_string(),
+		"
+#dandelion aggregation period in secs
 "
 		.to_string(),
 	);
@@ -156,13 +164,6 @@ fn comments() -> HashMap<String, String> {
 		.to_string(),
 	);
 
-	retval.insert(
-		"patience_secs".to_string(),
-		"
-#run dandelion stem/fluff processing every n secs (stem tx aggregation in this window)
-"
-		.to_string(),
-	);
 	retval.insert(
 		"stem_probability".to_string(),
 		"
@@ -228,7 +229,7 @@ fn comments() -> HashMap<String, String> {
 #ban_window = 10800
 
 #maximum number of peers
-#peer_max_count = 25
+#peer_max_count = 125
 
 #preferred minimum number of peers (we'll actively keep trying to add peers
 #until we get to at least this number
@@ -346,110 +347,6 @@ fn comments() -> HashMap<String, String> {
 	);
 
 	retval.insert(
-		"[wallet]".to_string(),
-		"
-#########################################
-### WALLET CONFIGURATION              ###
-#########################################
-"
-		.to_string(),
-	);
-
-	retval.insert(
-		"api_listen_interface".to_string(),
-		"
-#host IP for wallet listener, change to \"0.0.0.0\" to receive epics
-"
-		.to_string(),
-	);
-
-	retval.insert(
-		"api_listen_port".to_string(),
-		"
-#path of TLS certificate file, self-signed certificates are not supported
-#tls_certificate_file = \"\"
-#private key for the TLS certificate
-#tls_certificate_key = \"\"
-
-#port for wallet listener
-"
-		.to_string(),
-	);
-
-	retval.insert(
-		"owner_api_listen_port".to_string(),
-		"
-#port for wallet owner api
-"
-		.to_string(),
-	);
-
-	retval.insert(
-		"api_secret_path".to_string(),
-		"
-#path of the secret token used by the API to authenticate the calls
-#comment it to disable basic auth
-"
-		.to_string(),
-	);
-	retval.insert(
-		"check_node_api_http_addr".to_string(),
-		"
-#where the wallet should find a running node
-"
-		.to_string(),
-	);
-	retval.insert(
-		"node_api_secret_path".to_string(),
-		"
-#location of the node api secret for basic auth on the Epic API
-"
-		.to_string(),
-	);
-	retval.insert(
-		"owner_api_include_foreign".to_string(),
-		"
-#include the foreign API endpoints on the same port as the owner
-#API. Useful for networking environments like AWS ECS that make
-#it difficult to access multiple ports on a single service.
-"
-		.to_string(),
-	);
-	retval.insert(
-		"data_file_dir".to_string(),
-		"
-#where to find wallet files (seed, data, etc)
-"
-		.to_string(),
-	);
-	retval.insert(
-		"no_commit_cache".to_string(),
-		"
-#If true, don't store calculated commits in the database
-#better privacy, but at a performance cost of having to
-#re-calculate commits every time they're used
-"
-		.to_string(),
-	);
-	retval.insert(
-		"dark_background_color_scheme".to_string(),
-		"
-#Whether to use the black background color scheme for command line
-"
-		.to_string(),
-	);
-	retval.insert(
-		"keybase_notify_ttl".to_string(),
-		"
-#The exploding lifetime for keybase notification on coins received.
-#Unit: Minute. Default value 1440 minutes for one day.
-#Refer to https://keybase.io/blog/keybase-exploding-messages for detail.
-#To disable this notification, set it as 0.
-"
-		.to_string(),
-	);
-
-	retval.insert(
 		"[logging]".to_string(),
 		"
 #########################################
@@ -512,6 +409,14 @@ fn comments() -> HashMap<String, String> {
 		"
 #maximum log file size in bytes before performing log rotation
 #comment it to disable log rotation
+"
+		.to_string(),
+	);
+
+	retval.insert(
+		"log_max_files".to_string(),
+		"
+#maximum count of the log files to rotate over
 "
 		.to_string(),
 	);

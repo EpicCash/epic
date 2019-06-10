@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,9 +50,13 @@ impl HeaderSync {
 		}
 	}
 
-	pub fn check_run(&mut self, header_head: &chain::Tip, highest_height: u64) -> bool {
+	pub fn check_run(
+		&mut self,
+		header_head: &chain::Tip,
+		highest_height: u64,
+	) -> Result<bool, chain::Error> {
 		if !self.header_sync_due(header_head) {
-			return false;
+			return Ok(false);
 		}
 
 		let enable_header_sync = match self.sync_state.status() {
@@ -60,7 +64,7 @@ impl HeaderSync {
 			| SyncStatus::HeaderSync { .. }
 			| SyncStatus::TxHashsetDone => true,
 			SyncStatus::NoSync | SyncStatus::Initial | SyncStatus::AwaitingPeers(_) => {
-				let sync_head = self.chain.get_sync_head().unwrap();
+				let sync_head = self.chain.get_sync_head()?;
 				debug!(
 					"sync: initial transition to HeaderSync. sync_head: {} at {}, resetting to: {} at {}",
 					sync_head.hash(),
@@ -77,10 +81,10 @@ impl HeaderSync {
 				// correctly, so reset any previous (and potentially stale) sync_head to match
 				// our last known "good" header_head.
 				//
-				self.chain.reset_sync_head().unwrap();
+				self.chain.reset_sync_head()?;
 
 				// Rebuild the sync MMR to match our updated sync_head.
-				self.chain.rebuild_sync_mmr(&header_head).unwrap();
+				self.chain.rebuild_sync_mmr(&header_head)?;
 
 				self.history_locator.retain(|&x| x.0 == 0);
 				true
@@ -95,9 +99,9 @@ impl HeaderSync {
 			});
 
 			self.syncing_peer = self.header_sync();
-			return true;
+			return Ok(true);
 		}
-		false
+		Ok(false)
 	}
 
 	fn header_sync_due(&mut self, header_head: &chain::Tip) -> bool {
@@ -148,7 +152,7 @@ impl HeaderSync {
 									&& highest_height == peer.info.height()
 								{
 									self.peers
-										.ban_peer(&peer.info.addr, ReasonForBan::FraudHeight);
+										.ban_peer(peer.info.addr, ReasonForBan::FraudHeight);
 									info!(
 										"sync: ban a fraud peer: {}, claimed height: {}, total difficulty: {}",
 										peer.info.addr,

@@ -1,4 +1,4 @@
-// Copyright 2019 The Epic Foundation
+// Copyright 2018 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -95,9 +95,9 @@ pub fn amount_to_hr_string(amount: u64, truncate: bool) -> String {
 	if truncate {
 		let nzeros = hr.chars().rev().take_while(|x| x == &'0').count();
 		if nzeros < *WIDTH {
-			return hr.trim_right_matches('0').to_string();
+			return hr.trim_end_matches('0').to_string();
 		} else {
-			return format!("{}0", hr.trim_right_matches('0'));
+			return format!("{}0", hr.trim_end_matches('0'));
 		}
 	}
 	hr
