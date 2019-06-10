@@ -1,7 +1,7 @@
 [package]
 name = "epic_servers"
 version = "1.1.0-beta.2"
-authors = ["Epic Developers <mimblewimble@lists.launchpad.net>"]
+authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
 repository = "https://github.com/mimblewimble/epic"
