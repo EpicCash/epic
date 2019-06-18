@@ -1,6 +1,6 @@
 [package]
 name = "epic_api"
-version = "1.1.0-beta.2"
+version = "1.0.0"
 authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
 description = "APIs for epic, a simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
@@ -30,9 +30,9 @@ futures = "0.1.21"
 rustls = "0.13"
 url = "1.7.0"
 
-epic_core = { path = "../core", version = "1.1.0-beta.2" }
-epic_chain = { path = "../chain", version = "1.1.0-beta.2" }
-epic_p2p = { path = "../p2p", version = "1.1.0-beta.2" }
-epic_pool = { path = "../pool", version = "1.1.0-beta.2" }
-epic_store = { path = "../store", version = "1.1.0-beta.2" }
-epic_util = { path = "../util", version = "1.1.0-beta.2" }
+epic_core = { path = "../core", version = "1.0.0" }
+epic_chain = { path = "../chain", version = "1.0.0" }
+epic_p2p = { path = "../p2p", version = "1.0.0" }
+epic_pool = { path = "../pool", version = "1.0.0" }
+epic_store = { path = "../store", version = "1.0.0" }
+epic_util = { path = "../util", version = "1.0.0" }

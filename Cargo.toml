@@ -1,6 +1,6 @@
 [package]
 name = "epic"
-version = "1.1.0-beta.2"
+version = "1.0.0"
 authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
@@ -32,13 +32,13 @@ term = "0.5"
 failure = "0.1"
 failure_derive = "0.1"
 
-epic_api = { path = "./api", version = "1.1.0-beta.2" }
-epic_config = { path = "./config", version = "1.1.0-beta.2" }
-epic_core = { path = "./core", version = "1.1.0-beta.2" }
-epic_keychain = { path = "./keychain", version = "1.1.0-beta.2" }
-epic_p2p = { path = "./p2p", version = "1.1.0-beta.2" }
-epic_servers = { path = "./servers", version = "1.1.0-beta.2" }
-epic_util = { path = "./util", version = "1.1.0-beta.2" }
+epic_api = { path = "./api", version = "1.0.0" }
+epic_config = { path = "./config", version = "1.0.0" }
+epic_core = { path = "./core", version = "1.0.0" }
+epic_keychain = { path = "./keychain", version = "1.0.0" }
+epic_p2p = { path = "./p2p", version = "1.0.0" }
+epic_servers = { path = "./servers", version = "1.0.0" }
+epic_util = { path = "./util", version = "1.0.0" }
 
 [target.'cfg(windows)'.dependencies]
 cursive = { version = "0.11.0", default-features = false, features = ["pancurses-backend"] }
@@ -52,5 +52,5 @@ cursive = "0.11.0"
 built = "0.3"
 
 [dev-dependencies]
-epic_chain = { path = "./chain", version = "1.1.0-beta.2" }
-epic_store = { path = "./store", version = "1.1.0-beta.2" }
+epic_chain = { path = "./chain", version = "1.0.0" }
+epic_store = { path = "./store", version = "1.0.0" }
