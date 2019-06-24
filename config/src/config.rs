@@ -58,12 +58,7 @@ fn get_epic_path(chain_type: &global::ChainTypes) -> Result<PathBuf, ConfigError
 
 fn check_config_current_dir(path: &str) -> Option<PathBuf> {
 	let p = env::current_dir();
-	let mut c = match p {
-		Ok(c) => c,
-		Err(_) => {
-			return None;
-		}
-	};
+	let mut c = p.ok()?;
 	c.push(path);
 	if c.exists() {
 		return Some(c);
@@ -282,15 +277,7 @@ impl GlobalConfig {
 	pub fn ser_config(&mut self) -> Result<String, ConfigError> {
 		let encoded: Result<String, toml::ser::Error> =
 			toml::to_string(self.members.as_mut().unwrap());
-		match encoded {
-			Ok(enc) => return Ok(enc),
-			Err(e) => {
-				return Err(ConfigError::SerializationError(String::from(format!(
-					"{}",
-					e
-				))));
-			}
-		}
+		encoded.map_err(|e| ConfigError::SerializationError(String::from(format!("{}", e))))
 	}
 
 	/// Write configuration to a file

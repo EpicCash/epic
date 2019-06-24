@@ -22,6 +22,7 @@
 #![warn(missing_docs)]
 
 use blake2_rfc as blake2;
+extern crate bigint;
 #[macro_use]
 extern crate enum_primitive;
 use epic_keychain as keychain;

@@ -103,7 +103,7 @@ impl Miner {
 			.unwrap();
 			ctx.set_header_nonce(b.header.pre_pow(), None, true)
 				.unwrap();
-			if let Ok(proofs) = ctx.find_cycles() {
+			if let Ok(proofs) = ctx.pow_solve() {
 				b.header.pow.proof = proofs[0].clone();
 				let proof_diff = b.header.pow.to_difficulty(b.header.height);
 				if proof_diff >= (b.header.total_difficulty() - head.total_difficulty()) {

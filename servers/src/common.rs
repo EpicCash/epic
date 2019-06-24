@@ -15,6 +15,6 @@
 //! Modules common to all Epic server types
 
 pub mod adapters;
+pub mod hooks;
 pub mod stats;
 pub mod types;
-pub mod hooks;

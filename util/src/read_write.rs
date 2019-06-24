@@ -108,3 +108,10 @@ pub fn write_all(stream: &mut dyn Write, mut buf: &[u8], timeout: Duration) -> i
 	}
 	Ok(())
 }
+
+pub fn from_slice(bytes: &[u8]) -> [u8; 32] {
+	let mut array = [0; 32];
+	let bytes = &bytes[..array.len()]; // panics if not enough data
+	array.copy_from_slice(bytes);
+	array
+}

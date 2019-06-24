@@ -258,7 +258,7 @@ fn test_coinbase_maturity() {
 			let fees = txs.iter().map(|tx| tx.fee()).sum();
 			let next_header_info = consensus::next_difficulty(1, chain.difficulty_iter().unwrap());
 			let height = prev.height + 1; //modification
-			let reward = libtx::reward::output(&keychain, &key_id4, fees, false,height).unwrap();
+			let reward = libtx::reward::output(&keychain, &key_id4, fees, false, height).unwrap();
 			let mut block = core::core::Block::new(&prev, txs, Difficulty::min(), reward).unwrap();
 
 			block.header.timestamp = prev.timestamp + Duration::seconds(60);

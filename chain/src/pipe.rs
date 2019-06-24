@@ -16,6 +16,7 @@
 
 use crate::chain::OrphanBlockPool;
 use crate::core::consensus;
+use crate::core::core::feijoada::{Deterministic, Feijoada, PoWType, Policy};
 use crate::core::core::hash::Hashed;
 use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::Committed;
@@ -362,10 +363,18 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		}
 		let edge_bits = header.pow.edge_bits();
 		if !(ctx.pow_verifier)(header).is_ok() {
-			error!(
-				"pipe: error validating header with cuckoo edge_bits {}",
-				edge_bits
-			);
+			match header.pow.proof {
+				pow::Proof::RandomXProof { ref hash } => {
+					error!("pipe: error validating header with randomx hash {:?}", hash);
+				}
+				_ => {
+					error!(
+						"pipe: error validating header with cuckoo edge_bits {}",
+						edge_bits
+					);
+				}
+			};
+
 			return Err(ErrorKind::InvalidPow.into());
 		}
 	}
@@ -377,6 +386,23 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 	// header
 	if header.height != prev.height + 1 {
 		return Err(ErrorKind::InvalidBlockHeight.into());
+	}
+
+	let algo = Deterministic::choose_algo(&(global::get_policies()), &prev.bottles);
+	let is_correct = match header.pow.proof {
+		pow::Proof::CuckooProof { edge_bits, .. } => {
+			if edge_bits == 29 {
+				algo == PoWType::Cuckaroo
+			} else {
+				algo == PoWType::Cuckatoo
+			}
+		}
+		pow::Proof::RandomXProof { .. } => algo == PoWType::RandomX,
+		pow::Proof::MD5Proof { .. } => false,
+	};
+
+	if is_correct {
+		return Err(ErrorKind::InvalidSortAlgo.into());
 	}
 
 	// TODO - get rid of the automated testing mode check here somehow
@@ -418,12 +444,14 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 			return Err(ErrorKind::WrongTotalDifficulty.into());
 		}
 		// check the secondary PoW scaling factor if applicable
-		if header.pow.secondary_scaling != next_header_info.secondary_scaling {
-			info!(
-				"validate_header: header secondary scaling {} != {}",
-				header.pow.secondary_scaling, next_header_info.secondary_scaling
-			);
-			return Err(ErrorKind::InvalidScaling.into());
+		if let pow::Proof::CuckooProof { .. } = header.pow.proof {
+			if header.pow.secondary_scaling != next_header_info.secondary_scaling {
+				info!(
+					"validate_header: header secondary scaling {} != {}",
+					header.pow.secondary_scaling, next_header_info.secondary_scaling
+				);
+				return Err(ErrorKind::InvalidScaling.into());
+			}
 		}
 	}
 

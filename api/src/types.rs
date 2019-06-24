@@ -21,10 +21,12 @@ use crate::core::{core, ser};
 use crate::p2p;
 use crate::util;
 use crate::util::secp::pedersen;
+use bigint::uint::U256;
+use epic_core::pow::Proof;
 use serde;
 use serde::de::MapAccess;
 use serde::ser::SerializeStruct;
-use std::fmt;
+use std::fmt::{self, Display};
 
 macro_rules! no_dup {
 	($field:ident) => {
@@ -510,6 +512,23 @@ impl BlockHeaderInfo {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum Solution {
+	Cuckoo(Vec<u64>),
+	MD5(String),
+	RandomX(String),
+}
+
+impl Display for Solution {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Solution::Cuckoo(v) => write!(f, "{:?}", v),
+			Solution::MD5(s) => write!(f, "{}", s),
+			Solution::RandomX(s) => write!(f, "{}", s),
+		}
+	}
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BlockHeaderPrintable {
 	// Hash
 	pub hash: String,
@@ -533,8 +552,10 @@ pub struct BlockHeaderPrintable {
 	pub nonce: u64,
 	/// Size of the cuckoo graph
 	pub edge_bits: u8,
+	/// Proof choosed
+	pub proof: String,
 	/// Nonces of the cuckoo solution
-	pub cuckoo_solution: Vec<u64>,
+	pub solution: Solution,
 	/// Total accumulated difficulty since genesis block
 	pub total_difficulty: u64,
 	/// Variable difficulty scaling factor for secondary proof of work
@@ -557,7 +578,19 @@ impl BlockHeaderPrintable {
 			kernel_root: util::to_hex(header.kernel_root.to_vec()),
 			nonce: header.pow.nonce,
 			edge_bits: header.pow.edge_bits(),
-			cuckoo_solution: header.pow.proof.nonces.clone(),
+			proof: match header.pow.proof {
+				Proof::CuckooProof { .. } => "Cuckoo".to_string(),
+				Proof::MD5Proof { .. } => "MD5".to_string(),
+				Proof::RandomXProof { .. } => "RandomX".to_string(),
+			},
+			solution: match header.pow.proof {
+				Proof::CuckooProof { ref nonces, .. } => Solution::Cuckoo(nonces.clone()),
+				Proof::MD5Proof { ref proof, .. } => Solution::MD5(proof.clone()),
+				Proof::RandomXProof { ref hash } => {
+					let h: U256 = hash.into();
+					Solution::RandomX(format!("{}", h))
+				}
+			},
 			total_difficulty: header.pow.total_difficulty.to_num(),
 			secondary_scaling: header.pow.secondary_scaling,
 			total_kernel_offset: header.total_kernel_offset.to_hex(),

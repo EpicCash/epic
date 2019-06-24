@@ -23,9 +23,9 @@ use self::core::core::hash::Hash;
 use self::core::core::transaction::{self, Transaction};
 use self::core::core::{BlockHeader, BlockSums};
 use self::core::{consensus, global};
-use failure::Fail;
 use epic_core as core;
 use epic_keychain as keychain;
+use failure::Fail;
 
 /// Dandelion "epoch" length.
 const DANDELION_EPOCH_SECS: u16 = 600;
