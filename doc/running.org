@@ -1,0 +1,223 @@
+* Epic
+
+This document describes how to run/test the Epic blockchain (server/node, wallet and miner).
+
+~ Summary
+
+To run the blockchain we need:
+
+- Start at least two Epic nodes running.
+- Start a wallet listening for requests.
+- Start a miner.
+
+~ Server
+
+The first step to get the blockchain running is to configure the Epic server/node. The following steps explain how to do this:
+
+1. Clone the [[https://git.brickabode.com/edna/edna][Edna]] repository.
+2. [OPTIONAL] If you are running scarce of computational resources (for example, running the miner in a laptop), open the file [[https://git.brickabode.com/edna/edna/blob/master/core/src/genesis.rs][~genesis.rs~]] in the folder ~core/src/~ under you Epic server's directory with your text editor and find the function:
+
+   #+begin_src rust
+     pub fn genesis_main() -> core::Block {
+   #+end_src
+
+    Then find the [[https://git.brickabode.com/edna/edna/blob/master/core/src/genesis.rs*L205][line *205]]
+
+    #+begin_src rust
+      total_difficulty: Difficulty::from_num(2_u64.pow(34)),
+    #+end_src
+
+    And change it to:
+
+    #+begin_src rust
+      total_difficulty: Difficulty::from_num(2_u64.pow(1)),
+    #+end_src
+
+3. In the terminal, navigate to the project's (root) directory and build the project with the following command:
+
+    #+begin_src shell
+      cargo build
+    #+end_src
+
+4. Copy the file ~edna.toml~ in the project's root directory to the newly created folder ~target/debug~.
+
+5. In the terminal, navigate to the ~target/debug~ folder inside the project's directory.
+6. Since we going to run the blockchain in test mode, open the ~edna.toml~ with a text editor and find the line:
+
+    #+begin_src toml
+      seeding_type = "DNSSeed"
+    #+end_src
+
+    Change to:
+
+    #+begin_src toml
+      seeding_type = "List"
+    #+end_src
+
+    Next, find the line:
+
+    #+begin_src toml
+      ,*seeds = ["192.168.0.1:3414","192.168.0.2:3414"]
+    #+end_src
+
+    Uncomment and change the ips inside the brackets [ ],  *to the ips of the nodes that you are trying to connect*. Since we need at least two nodes to mine, we are going to run two servers locally (see the next steps for the configuration of the second server), therefore, our line will be the following:
+
+    #+begin_src toml
+      seeds = ["127.0.0.1:3424"]
+    #+end_src
+
+    *OBS: If you have more servers running in the same network, just add the corresponding ips and ports in the variable shown above.*
+
+    To make the current node a mining node, in other words, making it able to accept the miner, find the following line:
+
+    #+begin_src toml
+      enable_stratum_server = false
+    #+end_src
+
+    And change it to:
+
+    #+begin_src toml
+      enable_stratum_server = true
+    #+end_src
+
+    You can change the policy of the blocks being accepted changing (or adding) the following lines:
+
+    #+begin_src toml
+      [[server.policy_config.policies]]
+      cuckaroo = 80
+      cuckatoo = 15
+      randomx  = 5
+    #+end_src
+
+    There are several blocks like the one shown above in sequence in the .toml file, each block is a position of the policy in time. For now, we are not changing the policy in the time, therefore, just find the first block and change it to:
+
+     #+begin_src toml
+       [[server.policy_config.policies]]
+       cuckaroo = 100
+       cuckatoo = 0
+       randomx  = 0
+    #+end_src
+
+    Since this test is running only with one machine without GPU, we can only execute 1 miner at a time (in our example we going to use cuckaroo). If you have gpus, you can use multiple miners in the same computer, each one attached to a device (CPU, GPU 0, GPU1, ...).
+7. Save and close the ~edna.toml~ file.
+
+9. To run the server, open the terminal and navigate to the ~target/debug~ folder inside the project's directory and execute the following line:
+
+    #+begin_src shell
+      export LD_LIBRARY_PATH=$PWD/build/randomx-47886af57bcf7907/out/build/librandomx.so
+      ./grin server -c edna.toml run
+    #+end_src
+
+~* Configuring the second server:
+
+1. Create a new directory called grin2 under the directory ~target/debug~.
+2.  Copy the files ~grin~ and ~edna.toml~ located in the folder ~target/debug~ to the ~grin2 folder~.
+3. Go to the ~grin2 folder~ and open ~edna.toml~ that you copied with your text editor and find the following lines:
+
+    #+begin_src toml
+      api_http_addr = "127.0.0.1:3413"
+    #+end_src
+
+    #+begin_src toml
+      port = 3414
+    #+end_src
+
+    #+begin_src toml
+      seeds = ["127.0.0.1:3424"]
+    #+end_src
+
+    #+begin_src toml
+      enable_stratum_server = true
+    #+end_src
+
+    Just change each line to its corresponding shown below:
+
+    #+begin_src toml
+      api_http_addr = "127.0.0.1:3423"
+    #+end_src
+
+    #+begin_src toml
+      port = 3424
+    #+end_src
+
+    #+begin_src toml
+      seeds = ["127.0.0.1:3414"]
+    #+end_src
+
+    #+begin_src toml
+      enable_stratum_server = false
+    #+end_src
+
+    Basically, what we did were changing the ports to run the two servers locally and disable the miner on the second server.
+
+4. Save and close the ~edna.toml~ file.
+5. To run the server, open a new terminal and navigate to the ~target/debug/grin2~ folder inside the project's directory and execute the following line:
+
+    #+begin_src shell
+      export LD_LIBRARY_PATH=$PWD/build/randomx-47886af57bcf7907/out/build/librandomx.so
+      ./grin server -c edna.toml run
+    #+end_src
+
+~OBS: If you edited the genesis block, or pulled another version from the remote directory (and rebuilded) after doing these steps, remove the folder chain_data from both directories ~target/debug~ and ~target/debug/grin2~ and run the servers again.~
+
+~ Wallet
+
+The next step after we have at least two nodes running is to configure a wallet used by the miner/server. To do this:
+
+1. Clone the [[https://github.com/mimblewimble/grin-wallet][Grin wallet]] repository.
+2. In the terminal, navigate to the project's directory and build the project with the following command:
+
+    #+begin_src shell
+      cargo build
+    #+end_src
+
+3. Before you can use the wallet, it must be initialized. This process will initialize your wallet's database and create your secret master seed file. To do this, open the terminal, navigate to the newly created folder ~target/debug~ inside your wallet project's directory and run the command:
+
+    #+begin_src shell
+      ./grin-wallet init
+    #+end_src
+
+    You will then be prompted to enter a password. This password will be used to encrypt your master seed file, and you will need to provide this password every time you want to use your wallet. Once this is done, your wallet seed file will be generated, and you will be given a 24 word recovery phrase which you can use to recover your wallet if you lose your seed file or forget the password. Your wallet's configuration file is located at ~.grin/main/grin-wallet.toml~.
+
+4. After we initialize the wallet, we can run the wallet, in other words, start listening for the node and miner requests, executing the following command in the terminal:
+
+    #+begin_src shell
+      ./grin-wallet -e listen
+    #+end_src
+
+*OBS: More information about how to run the wallet can be found [[https://github.com/mimblewimble/docs/wiki/how-to-use-the-grin-wallet*initialize-the-wallet][here]].*
+
+~ Miner
+
+The last step to have the blockchain running is to configure the miner. To do this follow the steps:
+
+1. Clone the [[https://git.brickabode.com/edna/edna-miner][Edna miner]] repository.
+2. In the terminal, navigate to the project's (root) directory and execute the following command:
+
+    #+begin_src shell
+      git submodule update --init --recursive
+    #+end_src
+
+3. In the terminal, navigate to the project's (root) directory and build the project with the following command:
+
+    #+begin_src shell
+      cargo build
+    #+end_src
+
+4. Go to the root of your miner project's directory, open the file ~grin-miner.toml~ with your text editor and find the line:
+
+     #+begin_src toml
+       algorithm = "RandomX"
+    #+end_src
+
+    In this line, you can change what algorithm the miner will use to miner (choices are: Cuckoo, RandomX, ProgPow). For this test, we going to use the Cuckoo. Therefore, we will change the line as follows:
+
+    #+begin_src toml
+      algorithm = "Cuckoo"
+    #+end_src
+
+5. With at least 2 servers running, and the wallet listening, the last step is to run the miner. To do this, open the terminal and navigate to the root directory of the miner and run the command:
+
+    #+begin_src shell
+      cargo run
+    #+end_src
