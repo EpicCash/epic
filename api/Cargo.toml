@@ -29,6 +29,7 @@ hyper-rustls = "0.14"
 futures = "0.1.21"
 rustls = "0.13"
 url = "1.7.0"
+bigint = "4.4.1"
 
 epic_core = { path = "../core", version = "1.0.0" }
 epic_chain = { path = "../chain", version = "1.0.0" }

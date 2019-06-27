@@ -23,11 +23,11 @@
 //! In Cuckaroo, edges are calculated by repeatedly hashing the seeds to
 //! obtain blocks of values. Nodes are then extracted from those edges.
 
+use crate::global;
 use crate::pow::common::{CuckooParams, EdgeType};
 use crate::pow::error::{Error, ErrorKind};
 use crate::pow::siphash::siphash_block;
 use crate::pow::{PoWContext, Proof};
-use crate::global;
 
 /// Instantiate a new CuckarooContext as a PowContext. Note that this can't
 /// be moved in the PoWContext trait as this particular trait needs to be
@@ -64,71 +64,70 @@ where
 		self.params.reset_header_nonce(header, nonce)
 	}
 
-	fn find_cycles(&mut self) -> Result<Vec<Proof>, Error> {
+	fn pow_solve(&mut self) -> Result<Vec<Proof>, Error> {
 		unimplemented!()
 	}
 
-	fn verify(&self, proof: &Proof) -> Result<(), Error> {
-		if proof.proof_size() != global::proofsize() {
-			return Err(ErrorKind::Verification(
-				"wrong cycle length".to_owned(),))?;
-		}
-		let nonces = &proof.nonces;
-		let mut uvs = vec![0u64; 2 * proof.proof_size()];
-		let mut xor0: u64 = 0;
-		let mut xor1: u64 = 0;
+	fn verify(&mut self, proof: &Proof) -> Result<(), Error> {
+		if let Proof::CuckooProof { nonces, .. } = proof {
+			let mut uvs = vec![0u64; 2 * proof.proof_size()];
+			let mut xor0: u64 = 0;
+			let mut xor1: u64 = 0;
 
-		for n in 0..proof.proof_size() {
-			if nonces[n] > to_u64!(self.params.edge_mask) {
-				return Err(ErrorKind::Verification("edge too big".to_owned()))?;
+			for n in 0..proof.proof_size() {
+				if nonces[n] > to_u64!(self.params.edge_mask) {
+					return Err(ErrorKind::Verification("edge too big".to_owned()))?;
+				}
+				if n > 0 && nonces[n] <= nonces[n - 1] {
+					return Err(ErrorKind::Verification("edges not ascending".to_owned()))?;
+				}
+				let edge = to_edge!(siphash_block(&self.params.siphash_keys, nonces[n]));
+				uvs[2 * n] = to_u64!(edge & self.params.edge_mask);
+				uvs[2 * n + 1] = to_u64!((edge >> 32) & self.params.edge_mask);
+				xor0 ^= uvs[2 * n];
+				xor1 ^= uvs[2 * n + 1];
 			}
-			if n > 0 && nonces[n] <= nonces[n - 1] {
-				return Err(ErrorKind::Verification("edges not ascending".to_owned()))?;
+			if xor0 | xor1 != 0 {
+				return Err(ErrorKind::Verification(
+					"endpoints don't match up".to_owned(),
+				))?;
 			}
-			let edge = to_edge!(siphash_block(&self.params.siphash_keys, nonces[n]));
-			uvs[2 * n] = to_u64!(edge & self.params.edge_mask);
-			uvs[2 * n + 1] = to_u64!((edge >> 32) & self.params.edge_mask);
-			xor0 ^= uvs[2 * n];
-			xor1 ^= uvs[2 * n + 1];
-		}
-		if xor0 | xor1 != 0 {
-			return Err(ErrorKind::Verification(
-				"endpoints don't match up".to_owned(),
-			))?;
-		}
-		let mut n = 0;
-		let mut i = 0;
-		let mut j;
-		loop {
-			// follow cycle
-			j = i;
-			let mut k = j;
+			let mut n = 0;
+			let mut i = 0;
+			let mut j;
 			loop {
-				k = (k + 2) % (2 * self.params.proof_size);
-				if k == i {
+				// follow cycle
+				j = i;
+				let mut k = j;
+				loop {
+					k = (k + 2) % (2 * self.params.proof_size);
+					if k == i {
+						break;
+					}
+					if uvs[k] == uvs[i] {
+						// find other edge endpoint matching one at i
+						if j != i {
+							return Err(ErrorKind::Verification("branch in cycle".to_owned()))?;
+						}
+						j = k;
+					}
+				}
+				if j == i {
+					return Err(ErrorKind::Verification("cycle dead ends".to_owned()))?;
+				}
+				i = j ^ 1;
+				n += 1;
+				if i == 0 {
 					break;
 				}
-				if uvs[k] == uvs[i] {
-					// find other edge endpoint matching one at i
-					if j != i {
-						return Err(ErrorKind::Verification("branch in cycle".to_owned()))?;
-					}
-					j = k;
-				}
 			}
-			if j == i {
-				return Err(ErrorKind::Verification("cycle dead ends".to_owned()))?;
+			if n == self.params.proof_size {
+				Ok(())
+			} else {
+				Err(ErrorKind::Verification("cycle too short".to_owned()))?
 			}
-			i = j ^ 1;
-			n += 1;
-			if i == 0 {
-				break;
-			}
-		}
-		if n == self.params.proof_size {
-			Ok(())
 		} else {
-			Err(ErrorKind::Verification("cycle too short".to_owned()))?
+			Err(ErrorKind::Verification("wrong pow".to_owned()))?
 		}
 	}
 }

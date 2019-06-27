@@ -18,8 +18,8 @@ use crate::core::ser;
 use crate::keychain;
 use crate::util::secp;
 use crate::util::secp::pedersen::Commitment;
-use failure::{Backtrace, Context, Fail};
 use epic_store as store;
+use failure::{Backtrace, Context, Fail};
 use std::fmt::{self, Display};
 use std::io;
 
@@ -140,6 +140,9 @@ pub enum ErrorKind {
 	/// Internal Roaring Bitmap error
 	#[fail(display = "Roaring Bitmap error")]
 	Bitmap,
+	/// comment here
+	#[fail(display = "Wrong sort algorithm")]
+	InvalidSortAlgo,
 }
 
 impl Display for Error {

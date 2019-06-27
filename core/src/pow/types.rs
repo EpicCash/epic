@@ -21,13 +21,17 @@ use std::{fmt, iter};
 use rand::{thread_rng, Rng};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
+use bigint::uint::U256;
+
 use crate::consensus::{graph_weight, MIN_DIFFICULTY, SECOND_POW_EDGE_BITS};
 use crate::core::hash::{DefaultHashable, Hashed};
 use crate::global;
 use crate::ser::{self, FixedLength, Readable, Reader, Writeable, Writer};
 
+use crate::core::hash::Hash;
 use crate::pow::common::EdgeType;
 use crate::pow::error::Error;
+use crate::util::read_write::from_slice;
 
 /// Generic trait for a solver/verifier providing common interface into Cuckoo-family PoW
 /// Mostly used for verification, but also for test mining if necessary
@@ -44,9 +48,9 @@ where
 		solve: bool,
 	) -> Result<(), Error>;
 	/// find solutions using the stored parameters and header
-	fn find_cycles(&mut self) -> Result<Vec<Proof>, Error>;
+	fn pow_solve(&mut self) -> Result<Vec<Proof>, Error>;
 	/// Verify a solution with the stored parameters
-	fn verify(&self, proof: &Proof) -> Result<(), Error>;
+	fn verify(&mut self, proof: &Proof) -> Result<(), Error>;
 }
 
 /// The difficulty is defined as the maximum target divided by the block hash.
@@ -86,8 +90,18 @@ impl Difficulty {
 	/// provided hash and applies the Cuck(at)oo size adjustment factor (see
 	/// https://lists.launchpad.net/mimblewimble/msg00494.html).
 	fn from_proof_adjusted(height: u64, proof: &Proof) -> Difficulty {
-		// scale with natural scaling factor
-		Difficulty::from_num(proof.scaled_difficulty(graph_weight(height, proof.edge_bits)))
+		match proof {
+			// scale with natural scaling factor
+			Proof::CuckooProof { edge_bits, .. } => {
+				Difficulty::from_num(proof.scaled_difficulty(graph_weight(height, *edge_bits)))
+			}
+			Proof::MD5Proof { edge_bits, .. } => {
+				Difficulty::from_num(proof.scaled_difficulty(graph_weight(height, *edge_bits)))
+			}
+			Proof::RandomXProof { hash } => {
+				Difficulty::from_num(proof.scaled_difficulty(graph_weight(height, 31)))
+			}
+		}
 	}
 
 	/// Same as `from_proof_adjusted` but instead of an adjustment based on
@@ -225,6 +239,8 @@ pub struct ProofOfWork {
 	pub nonce: u64,
 	/// Proof of work data.
 	pub proof: Proof,
+	/// Randomx seed.
+	pub seed: [u8; 32],
 }
 
 impl Default for ProofOfWork {
@@ -235,6 +251,7 @@ impl Default for ProofOfWork {
 			secondary_scaling: 1,
 			nonce: 0,
 			proof: Proof::zero(proof_size),
+			seed: [0; 32],
 		}
 	}
 }
@@ -256,16 +273,31 @@ impl Readable for ProofOfWork {
 		let secondary_scaling = reader.read_u32()?;
 		let nonce = reader.read_u64()?;
 		let proof = Proof::read(reader)?;
+		let seed_bytes = reader.read_fixed_bytes(32)?;
+		let seed: [u8; 32] = from_slice(&seed_bytes);
 		Ok(ProofOfWork {
 			total_difficulty,
 			secondary_scaling,
 			nonce,
 			proof,
+			seed,
 		})
 	}
 }
 
 impl ProofOfWork {
+	/// Write implementation, can't define as trait impl as we need a version
+	pub fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
+		if writer.serialization_mode() != ser::SerializationMode::Hash {
+			self.write_pre_pow(writer)?;
+			writer.write_u64(self.nonce)?;
+		}
+
+		self.proof.write(writer)?;
+		writer.write_fixed_bytes(&self.seed)?;
+		Ok(())
+	}
+
 	/// Write the pre-hash portion of the header
 	pub fn write_pre_pow<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
 		ser_multiwrite!(
@@ -278,65 +310,113 @@ impl ProofOfWork {
 
 	/// Maximum difficulty this proof of work can achieve
 	pub fn to_difficulty(&self, height: u64) -> Difficulty {
-		// 2 proof of works, Cuckoo29 (for now) and Cuckoo30+, which are scaled
-		// differently (scaling not controlled for now)
-		if self.proof.edge_bits == SECOND_POW_EDGE_BITS {
-			Difficulty::from_proof_scaled(&self.proof, self.secondary_scaling)
-		} else {
-			Difficulty::from_proof_adjusted(height, &self.proof)
+		match self.proof {
+			Proof::CuckooProof { edge_bits, .. } => {
+				// 2 proof of works, Cuckoo29 (for now) and Cuckoo30+, which are scaled
+				// differently (scaling not controlled for now)
+				if edge_bits == SECOND_POW_EDGE_BITS {
+					Difficulty::from_proof_scaled(&self.proof, self.secondary_scaling)
+				} else {
+					Difficulty::from_proof_adjusted(height, &self.proof)
+				}
+			}
+			Proof::MD5Proof { edge_bits, .. } => {
+				if edge_bits == SECOND_POW_EDGE_BITS {
+					Difficulty::from_proof_scaled(&self.proof, self.secondary_scaling)
+				} else {
+					Difficulty::from_proof_adjusted(height, &self.proof)
+				}
+			}
+			Proof::RandomXProof { hash } => Difficulty::from_proof_adjusted(height, &self.proof),
 		}
 	}
 
 	/// The edge_bits used for the cuckoo cycle size on this proof
 	pub fn edge_bits(&self) -> u8 {
-		self.proof.edge_bits
+		match self.proof {
+			Proof::CuckooProof { edge_bits, .. } => edge_bits,
+			Proof::MD5Proof { edge_bits, .. } => edge_bits,
+			Proof::RandomXProof { .. } => 16,
+		}
 	}
 
 	/// Whether this proof of work is for the primary algorithm (as opposed
 	/// to secondary). Only depends on the edge_bits at this time.
 	pub fn is_primary(&self) -> bool {
-		// 2 conditions are redundant right now but not necessarily in
-		// the future
-		self.proof.edge_bits != SECOND_POW_EDGE_BITS
-			&& self.proof.edge_bits >= global::min_edge_bits()
+		match self.proof {
+			Proof::CuckooProof { edge_bits, .. } => {
+				// 2 conditions are redundant right now but not necessarily in
+				// the future
+				edge_bits != SECOND_POW_EDGE_BITS && edge_bits >= global::min_edge_bits()
+			}
+			Proof::MD5Proof { edge_bits, .. } => {
+				edge_bits != SECOND_POW_EDGE_BITS && edge_bits >= global::min_edge_bits()
+			}
+			Proof::RandomXProof { .. } => true,
+		}
 	}
 
 	/// Whether this proof of work is for the secondary algorithm (as opposed
 	/// to primary). Only depends on the edge_bits at this time.
 	pub fn is_secondary(&self) -> bool {
-		self.proof.edge_bits == SECOND_POW_EDGE_BITS
+		match self.proof {
+			Proof::CuckooProof { edge_bits, .. } => edge_bits == SECOND_POW_EDGE_BITS,
+			Proof::MD5Proof { edge_bits, .. } => edge_bits == SECOND_POW_EDGE_BITS,
+			Proof::RandomXProof { .. } => false,
+		}
 	}
 }
 
-/// A Cuck(at)oo Cycle proof of work, consisting of the edge_bits to get the graph
-/// size (i.e. the 2-log of the number of edges) and the nonces
-/// of the graph solution. While being expressed as u64 for simplicity,
-/// nonces a.k.a. edge indices range from 0 to (1 << edge_bits) - 1
-///
-/// The hash of the `Proof` is the hash of its packed nonces when serializing
-/// them at their exact bit size. The resulting bit sequence is padded to be
-/// byte-aligned.
-///
+/// A proof of work
 #[derive(Clone, PartialOrd, PartialEq, Serialize)]
-pub struct Proof {
-	/// Power of 2 used for the size of the cuckoo graph
-	pub edge_bits: u8,
-	/// The nonces
-	pub nonces: Vec<u64>,
+pub enum Proof {
+	/// A Cuck(at)oo Cycle proof of work, consisting of the edge_bits to get the graph
+	/// size (i.e. the 2-log of the number of edges) and the nonces
+	/// of the graph solution. While being expressed as u64 for simplicity,
+	/// nonces a.k.a. edge indices range from 0 to (1 << edge_bits) - 1
+	///
+	/// The hash of the `Proof` is the hash of its packed nonces when serializing
+	/// them at their exact bit size. The resulting bit sequence is padded to be
+	/// byte-aligned.
+	///
+	CuckooProof {
+		/// Power of 2 used for the size of the cuckoo graph
+		edge_bits: u8,
+		/// The nonces
+		nonces: Vec<u64>,
+	},
+
+	MD5Proof {
+		proof: String,
+		edge_bits: u8,
+	},
+
+	RandomXProof {
+		hash: [u8; 32],
+	},
 }
 
 impl DefaultHashable for Proof {}
 
 impl fmt::Debug for Proof {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "Cuckoo{}(", self.edge_bits)?;
-		for (i, val) in self.nonces[..].iter().enumerate() {
-			write!(f, "{:x}", val)?;
-			if i < self.nonces.len() - 1 {
-				write!(f, " ")?;
+		match self {
+			Proof::CuckooProof { edge_bits, nonces } => {
+				write!(f, "Cuckoo{}(", *edge_bits)?;
+				for (i, val) in nonces[..].iter().enumerate() {
+					write!(f, "{:x}", val)?;
+					if i < nonces.len() - 1 {
+						write!(f, " ")?;
+					}
+				}
+				write!(f, ")")
+			}
+			Proof::MD5Proof { ref proof, .. } => write!(f, "MD5 ({})", proof),
+			Proof::RandomXProof { ref hash } => {
+				let hash: U256 = hash.into();
+				write!(f, "RandomX ({})", hash)
 			}
 		}
-		write!(f, ")")
 	}
 }
 
@@ -346,7 +426,7 @@ impl Proof {
 	/// Builds a proof with provided nonces at default edge_bits
 	pub fn new(mut in_nonces: Vec<u64>) -> Proof {
 		in_nonces.sort_unstable();
-		Proof {
+		Proof::CuckooProof {
 			edge_bits: global::min_edge_bits(),
 			nonces: in_nonces,
 		}
@@ -354,7 +434,7 @@ impl Proof {
 
 	/// Builds a proof with all bytes zeroed out
 	pub fn zero(proof_size: usize) -> Proof {
-		Proof {
+		Proof::CuckooProof {
 			edge_bits: global::min_edge_bits(),
 			nonces: vec![0; proof_size],
 		}
@@ -373,7 +453,7 @@ impl Proof {
 			.take(proof_size)
 			.collect();
 		v.sort_unstable();
-		Proof {
+		Proof::CuckooProof {
 			edge_bits: global::min_edge_bits(),
 			nonces: v,
 		}
@@ -381,7 +461,11 @@ impl Proof {
 
 	/// Returns the proof size
 	pub fn proof_size(&self) -> usize {
-		self.nonces.len()
+		match self {
+			Proof::CuckooProof { nonces, .. } => nonces.len(),
+			Proof::MD5Proof { .. } => 16,
+			Proof::RandomXProof { .. } => 16,
+		}
 	}
 
 	/// Difficulty achieved by this proof with given scaling factor
@@ -393,58 +477,93 @@ impl Proof {
 
 impl Readable for Proof {
 	fn read(reader: &mut dyn Reader) -> Result<Proof, ser::Error> {
-		let edge_bits = reader.read_u8()?;
-		if edge_bits == 0 || edge_bits > 64 {
-			return Err(ser::Error::CorruptedData);
-		}
-
-		// prepare nonces and read the right number of bytes
-		let mut nonces = Vec::with_capacity(global::proofsize());
-		let nonce_bits = edge_bits as usize;
-		let bits_len = nonce_bits * global::proofsize();
-		let bytes_len = BitVec::bytes_len(bits_len);
-		let bits = reader.read_fixed_bytes(bytes_len)?;
-
-		// set our nonces from what we read in the bitvec
-		let bitvec = BitVec { bits };
-		for n in 0..global::proofsize() {
-			let mut nonce = 0;
-			for bit in 0..nonce_bits {
-				if bitvec.bit_at(n * nonce_bits + (bit as usize)) {
-					nonce |= 1 << bit;
+		let pow_type = reader.read_u8()?;
+		match pow_type {
+			0 => {
+				let edge_bits = reader.read_u8()?;
+				if edge_bits == 0 || edge_bits > 64 {
+					return Err(ser::Error::CorruptedData);
 				}
-			}
-			nonces.push(nonce);
-		}
 
-		// check the last bits of the last byte are zeroed, we don't use them but
-		// still better to enforce to avoid any malleability
-		for n in bits_len..(bytes_len * 8) {
-			if bitvec.bit_at(n) {
-				return Err(ser::Error::CorruptedData);
-			}
-		}
+				// prepare nonces and read the right number of bytes
+				let mut nonces = Vec::with_capacity(global::proofsize());
+				let nonce_bits = edge_bits as usize;
+				let bits_len = nonce_bits * global::proofsize();
+				let bytes_len = BitVec::bytes_len(bits_len);
+				let bits = reader.read_fixed_bytes(bytes_len)?;
 
-		Ok(Proof { edge_bits, nonces })
+				// set our nonces from what we read in the bitvec
+				let bitvec = BitVec { bits };
+				for n in 0..global::proofsize() {
+					let mut nonce = 0;
+					for bit in 0..nonce_bits {
+						if bitvec.bit_at(n * nonce_bits + (bit as usize)) {
+							nonce |= 1 << bit;
+						}
+					}
+					nonces.push(nonce);
+				}
+
+				// check the last bits of the last byte are zeroed, we don't use them but
+				// still better to enforce to avoid any malleability
+				for n in bits_len..(bytes_len * 8) {
+					if bitvec.bit_at(n) {
+						return Err(ser::Error::CorruptedData);
+					}
+				}
+
+				Ok(Proof::CuckooProof { edge_bits, nonces })
+			}
+			1 => {
+				let edge_bits = reader.read_u8()?;
+				let proof_bytes = reader.read_bytes_len_prefix()?;
+				let proof = std::str::from_utf8(&proof_bytes).unwrap().to_string();
+				Ok(Proof::MD5Proof { edge_bits, proof })
+			}
+			2 => {
+				let hash = from_slice(&reader.read_fixed_bytes(32).unwrap());
+				Ok(Proof::RandomXProof { hash })
+			}
+			_ => panic!("Unknown byte"),
+		}
 	}
 }
 
 impl Writeable for Proof {
 	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
-		if writer.serialization_mode() != ser::SerializationMode::Hash {
-			writer.write_u8(self.edge_bits)?;
-		}
-		let nonce_bits = self.edge_bits as usize;
-		let mut bitvec = BitVec::new(nonce_bits * global::proofsize());
-		for (n, nonce) in self.nonces.iter().enumerate() {
-			for bit in 0..nonce_bits {
-				if nonce & (1 << bit) != 0 {
-					bitvec.set_bit_at(n * nonce_bits + (bit as usize))
+		match self {
+			Proof::CuckooProof { edge_bits, nonces } => {
+				writer.write_u8(0)?;
+				if writer.serialization_mode() != ser::SerializationMode::Hash {
+					writer.write_u8(*edge_bits)?;
 				}
+				let nonce_bits = *edge_bits as usize;
+				let mut bitvec = BitVec::new(nonce_bits * global::proofsize());
+				for (n, nonce) in nonces.iter().enumerate() {
+					for bit in 0..nonce_bits {
+						if nonce & (1 << bit) != 0 {
+							bitvec.set_bit_at(n * nonce_bits + (bit as usize))
+						}
+					}
+				}
+				writer.write_fixed_bytes(&bitvec.bits)?;
+				Ok(())
+			}
+			Proof::MD5Proof {
+				ref proof,
+				edge_bits,
+			} => {
+				writer.write_u8(1)?;
+				writer.write_u8(*edge_bits)?;
+				writer.write_bytes(&proof.as_ref())?;
+				Ok(())
+			}
+			Proof::RandomXProof { ref hash } => {
+				writer.write_u8(2)?;
+				writer.write_fixed_bytes(hash)?;
+				Ok(())
 			}
 		}
-		writer.write_fixed_bytes(&bitvec.bits)?;
-		Ok(())
 	}
 }
 

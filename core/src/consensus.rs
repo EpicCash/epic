@@ -48,71 +48,48 @@ pub fn reward(fee: u64) -> u64 {
 }
 */
 
-///sundaram Working area		
-// Reward inbetween particular timestamp		
-pub const INITIAL_REWARD: u64 = 50 * EPIC_BASE;		
-pub const SECONDARY_REWARD: u64 = 30 * EPIC_BASE;		
-/// get te reward based on the timestamp (date)		
-pub fn reward(fee: u64, height: u64) -> u64 {		
-	let reward = reward_at_height(height);		
-	return reward.saturating_add(fee);		
-}		
-pub fn reward_at_height(height: u64) -> u64 {		
-	if height <= 1440		
-	{		
-		return 200 * EPIC_BASE;		
-	}		
-	else if height <= 2880		
-	{		
-		return 180 * EPIC_BASE;		
-	}		
-	else if height <= 4320		
-	{		
-		return 160 * EPIC_BASE;		
-	}		
-	else if height <= 5760		
-	{		
-		return 140 * EPIC_BASE;		
-	}		
-	else if height <= 7200		
-	{		
-		return 120 * EPIC_BASE;		
-	}		
-	else if height <= 8640		
-	{		
-		return 100 * EPIC_BASE;		
-	}		
-	else if height <= 10080		
-	{		
-		return 80 * EPIC_BASE;		
-	}		
-	else if height <= 11520		
-	{		
-		return 60 * EPIC_BASE;		
-	}		
-	else if height <= 12960		
-	{		
-		return INITIAL_REWARD;		
-	}		
-	else		
-	{		
-		return REWARD;		
-	}		
-}		
-/// The total overage at a given height. Variable due to changing rewards		
-/// TODOBG: Make this more efficient by hardcoding reward schedule times		
-pub fn total_overage_at_height(height: u64) -> i64 {		
-	let mut sum: i64 = 0;		
-	for i in 0..=height {		
-		let reward = reward_at_height(i as u64) as i64;		
-		sum += reward;		
-	}		
-	return sum;		
-}		
-
-
-
-
+///sundaram Working area
+// Reward inbetween particular timestamp
+pub const INITIAL_REWARD: u64 = 50 * EPIC_BASE;
+pub const SECONDARY_REWARD: u64 = 30 * EPIC_BASE;
+/// get te reward based on the timestamp (date)
+pub fn reward(fee: u64, height: u64) -> u64 {
+	let reward = reward_at_height(height);
+	return reward.saturating_add(fee);
+}
+pub fn reward_at_height(height: u64) -> u64 {
+	if height <= 1440 {
+		return 200 * EPIC_BASE;
+	} else if height <= 2880 {
+		return 180 * EPIC_BASE;
+	} else if height <= 4320 {
+		return 160 * EPIC_BASE;
+	} else if height <= 5760 {
+		return 140 * EPIC_BASE;
+	} else if height <= 7200 {
+		return 120 * EPIC_BASE;
+	} else if height <= 8640 {
+		return 100 * EPIC_BASE;
+	} else if height <= 10080 {
+		return 80 * EPIC_BASE;
+	} else if height <= 11520 {
+		return 60 * EPIC_BASE;
+	} else if height <= 12960 {
+		return INITIAL_REWARD;
+	} else {
+		return REWARD;
+	}
+}
+/// The total overage at a given height. Variable due to changing rewards
+/// TODOBG: Make this more efficient by hardcoding reward schedule times
+pub fn total_overage_at_height(height: u64) -> i64 {
+	let mut sum: i64 = 0;
+	for i in 0..=height {
+		let reward = reward_at_height(i as u64) as i64;
+		sum += reward;
+	}
+	return sum;
+}
 
 /// Nominal height for standard time intervals, hour is 60 blocks
 pub const HOUR_HEIGHT: u64 = 3600 / BLOCK_TIME_SEC;

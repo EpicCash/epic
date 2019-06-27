@@ -33,7 +33,7 @@ pub fn output<K>(
 where
 	K: Keychain,
 {
-	let value = reward(fees,height);
+	let value = reward(fees, height);
 	let commit = keychain.commit(value, key_id)?;
 
 	trace!("Block reward - Pedersen Commit is: {:?}", commit,);

@@ -1,0 +1,15 @@
+[package]
+name = "randomx"
+version = "0.1.0"
+authors = ["Aron <a@a.com>"]
+build = "build.rs"
+
+[dependencies]
+libc = "0.2.51"
+bigint = "4.4.1"
+byteorder = "^0.5"
+
+[build-dependencies]
+bindgen = "0.37.0"
+cmake = "0.1.40"
+filetime = "0.2"

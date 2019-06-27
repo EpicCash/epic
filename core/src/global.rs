@@ -22,6 +22,7 @@ use crate::consensus::{
 	DAY_HEIGHT, DEFAULT_MIN_EDGE_BITS, DIFFICULTY_ADJUST_WINDOW, INITIAL_DIFFICULTY,
 	MAX_BLOCK_WEIGHT, PROOFSIZE, SECOND_POW_EDGE_BITS, STATE_SYNC_THRESHOLD,
 };
+use crate::core::block::feijoada::{Policy, PolicyConfig};
 use crate::pow::{self, new_cuckaroo_ctx, new_cuckatoo_ctx, EdgeType, PoWContext};
 /// An enum collecting sets of parameters used throughout the
 /// code wherever mining is needed. This should allow for
@@ -133,6 +134,20 @@ lazy_static! {
 	/// PoW context type to instantiate
 	pub static ref POW_CONTEXT_TYPE: RwLock<PoWContextTypes> =
 			RwLock::new(PoWContextTypes::Cuckoo);
+
+	// The policy parameters
+	pub static ref POLICY_CONFIG : RwLock<PolicyConfig> =
+			RwLock::new(PolicyConfig::default());
+}
+
+pub fn set_policy_config(policy: PolicyConfig) {
+	let mut policy_config = POLICY_CONFIG.write();
+	*policy_config = policy;
+}
+
+pub fn get_policies() -> Policy {
+	let policy_config = POLICY_CONFIG.read();
+	policy_config.policies[0].clone()
 }
 
 /// Set the mining mode

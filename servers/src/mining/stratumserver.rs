@@ -35,6 +35,7 @@ use std::{cmp, thread};
 use crate::chain;
 use crate::common::stats::{StratumStats, WorkerStats};
 use crate::common::types::{StratumServerConfig, SyncState};
+use crate::core::core::block::feijoada::{next_block_bottles, Deterministic, PoWType};
 use crate::core::core::hash::Hashed;
 use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::Block;
@@ -43,6 +44,8 @@ use crate::keychain;
 use crate::mining::mine_block;
 use crate::pool;
 use crate::util;
+
+use epic_core::pow::Proof;
 
 use futures::sync::mpsc;
 
@@ -144,12 +147,17 @@ struct LoginParams {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub enum AlgorithmParams {
+	Cuckoo(u64, Vec<u64>),
+	RandomX([u8; 32]),
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct SubmitParams {
 	height: u64,
 	job_id: u64,
 	nonce: u64,
-	edge_bits: u32,
-	pow: Vec<u64>,
+	pow: AlgorithmParams,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -158,6 +166,7 @@ pub struct JobTemplate {
 	job_id: u64,
 	difficulty: u64,
 	pre_pow: String,
+	//seed: [u8; 32],
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -365,9 +374,9 @@ impl Handler {
 		{
 			// Return error status
 			error!(
-					"(Server ID: {}) Share at height {}, edge_bits {}, nonce {}, job_id {} submitted too late",
-					self.id, params.height, params.edge_bits, params.nonce, params.job_id,
-				);
+				"(Server ID: {}) Share at height {}, nonce {}, job_id {} submitted too late",
+				self.id, params.height, params.nonce, params.job_id,
+			);
 			self.workers.update_stats(worker_id, |ws| ws.num_stale += 1);
 			return Err(RpcError::too_late());
 		}
@@ -376,16 +385,39 @@ impl Handler {
 		let mut share_is_block = false;
 
 		let mut b: Block = b.unwrap().clone();
+		let algo: PoWType;
 		// Reconstruct the blocks header with this nonce and pow added
-		b.header.pow.proof.edge_bits = params.edge_bits as u8;
+
 		b.header.pow.nonce = params.nonce;
-		b.header.pow.proof.nonces = params.pow;
+		match params.pow {
+			AlgorithmParams::Cuckoo(edge_bits, nonces) => {
+				let edge_bits = edge_bits as u8;
+				b.header.pow.proof = Proof::CuckooProof { edge_bits, nonces };
+			}
+			AlgorithmParams::RandomX(hash) => {
+				b.header.pow.proof = Proof::RandomXProof { hash };
+			}
+		}
+
+		error!(
+			"Block: height - {}, bottles - {:?}",
+			b.header.height, b.header.bottles
+		);
+		/*if b.header.policy != policy {
+			error!(
+					"(Server ID: {}) Policy invalid to this block {}, hash {}, nonce {}, job_id {}: cuckoo size too small",
+					self.id, params.height, b.hash(), params.nonce, params.job_id,
+				);
+			self.workers
+				.update_stats(worker_id, |worker_stats| worker_stats.num_rejected += 1);
+			return Err(RpcError::cannot_validate());
+		}*/
 
 		if !b.header.pow.is_primary() && !b.header.pow.is_secondary() {
 			// Return error status
 			error!(
-					"(Server ID: {}) Failed to validate solution at height {}, hash {}, edge_bits {}, nonce {}, job_id {}: cuckoo size too small",
-					self.id, params.height, b.hash(), params.edge_bits, params.nonce, params.job_id,
+					"(Server ID: {}) Failed to validate solution at height {}, hash {}, nonce {}, job_id {}: cuckoo size too small",
+					self.id, params.height, b.hash(), params.nonce, params.job_id,
 				);
 			self.workers
 				.update_stats(worker_id, |worker_stats| worker_stats.num_rejected += 1);
@@ -398,8 +430,8 @@ impl Handler {
 		if share_difficulty < state.minimum_share_difficulty {
 			// Return error status
 			error!(
-					"(Server ID: {}) Share at height {}, hash {}, edge_bits {}, nonce {}, job_id {} rejected due to low difficulty: {}/{}",
-					self.id, params.height, b.hash(), params.edge_bits, params.nonce, params.job_id, share_difficulty, state.minimum_share_difficulty,
+					"(Server ID: {}) Share at height {}, hash {}, nonce {}, job_id {} rejected due to low difficulty: {}/{}",
+					self.id, params.height, b.hash(), params.nonce, params.job_id, share_difficulty, state.minimum_share_difficulty,
 				);
 			self.workers
 				.update_stats(worker_id, |worker_stats| worker_stats.num_rejected += 1);
@@ -413,11 +445,10 @@ impl Handler {
 			if let Err(e) = res {
 				// Return error status
 				error!(
-						"(Server ID: {}) Failed to validate solution at height {}, hash {}, edge_bits {}, nonce {}, job_id {}, {}: {}",
+						"(Server ID: {}) Failed to validate solution at height {}, hash {}, nonce {}, job_id {}, {}: {}",
 						self.id,
 						params.height,
 						b.hash(),
-						params.edge_bits,
 						params.nonce,
 						params.job_id,
 						e,
@@ -446,11 +477,10 @@ impl Handler {
 			if !res.is_ok() {
 				// Return error status
 				error!(
-						"(Server ID: {}) Failed to validate share at height {}, hash {}, edge_bits {}, nonce {}, job_id {}. {:?}",
+						"(Server ID: {}) Failed to validate share at height {}, hash {}, nonce {}, job_id {}. {:?}",
 						self.id,
 						params.height,
 						b.hash(),
-						params.edge_bits,
 						b.header.pow.nonce,
 						params.job_id,
 						res,
@@ -468,11 +498,10 @@ impl Handler {
 		};
 
 		info!(
-				"(Server ID: {}) Got share at height {}, hash {}, edge_bits {}, nonce {}, job_id {}, difficulty {}/{}, submitted by {}",
+				"(Server ID: {}) Got share at height {}, hash {}, nonce {}, job_id {}, difficulty {}/{}, submitted by {}",
 				self.id,
 				b.header.height,
 				b.hash(),
-				b.header.pow.proof.edge_bits,
 				b.header.pow.nonce,
 				params.job_id,
 				share_difficulty,

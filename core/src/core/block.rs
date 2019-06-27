@@ -14,15 +14,19 @@
 
 //! Blocks and blockheaders
 
+pub mod feijoada;
+
 use crate::util::RwLock;
 use chrono::naive::{MAX_DATE, MIN_DATE};
 use chrono::prelude::{DateTime, NaiveDateTime, Utc};
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
 use std::iter::FromIterator;
 use std::sync::Arc;
 
-use crate::consensus::{self, reward, REWARD,reward_at_height, total_overage_at_height};
+use crate::consensus::{self, reward, reward_at_height, total_overage_at_height, REWARD};
+use crate::core::block::feijoada::{get_bottles_default, PoWType, Policy};
 use crate::core::committed::{self, Committed};
 use crate::core::compact_block::{CompactBlock, CompactBlockBody};
 use crate::core::hash::{DefaultHashable, Hash, Hashed, ZERO_HASH};
@@ -233,6 +237,10 @@ pub struct BlockHeader {
 	pub kernel_mmr_size: u64,
 	/// Proof of work and related
 	pub pow: ProofOfWork,
+	/// The policy that generated this block
+	pub policy: u8,
+	/// The bottles used in the feijoada algorithm
+	pub bottles: Policy,
 }
 impl DefaultHashable for BlockHeader {}
 
@@ -251,6 +259,8 @@ impl Default for BlockHeader {
 			output_mmr_size: 0,
 			kernel_mmr_size: 0,
 			pow: ProofOfWork::default(),
+			policy: 0,
+			bottles: get_bottles_default(),
 		}
 	}
 }
@@ -276,6 +286,8 @@ impl Writeable for BlockHeader {
 			self.write_pre_pow(writer)?;
 		}
 		self.pow.write(writer)?;
+		writer.write_u8(self.policy)?;
+		self.bottles.write(writer)?;
 		Ok(())
 	}
 }
@@ -293,6 +305,8 @@ impl Readable for BlockHeader {
 		let total_kernel_offset = BlindingFactor::read(reader)?;
 		let (output_mmr_size, kernel_mmr_size) = ser_multiread!(reader, read_u64, read_u64);
 		let pow = ProofOfWork::read(reader)?;
+		let policy = reader.read_u8()?;
+		let bottles = Policy::read(reader)?;
 
 		if timestamp > MAX_DATE.and_hms(0, 0, 0).timestamp()
 			|| timestamp < MIN_DATE.and_hms(0, 0, 0).timestamp()
@@ -321,6 +335,8 @@ impl Readable for BlockHeader {
 			output_mmr_size,
 			kernel_mmr_size,
 			pow,
+			policy,
+			bottles,
 		})
 	}
 }
@@ -364,7 +380,7 @@ impl BlockHeader {
 	pub fn total_difficulty(&self) -> Difficulty {
 		self.pow.total_difficulty
 	}
-    /*
+	/*
 	/// The "overage" to use when verifying the kernel sums.
 	/// For a block header the overage is 0 - reward.
 	pub fn overage(&self) -> i64 {
@@ -381,21 +397,20 @@ impl BlockHeader {
 
 		((reward_count * REWARD) as i64).checked_neg().unwrap_or(0)
 	}
-    */
-    //written by sundar 		
-	pub fn overage(&self) -> i64 {		
-		(reward_at_height(self.height) as i64)		
-			.checked_neg()		
-			.unwrap_or(0)		
-	}		
-	/// The "total overage" to use when verifying the kernel sums for a full
-	/// chain state. For a full chain state this is 0 - (height * reward).	
-	pub fn total_overage(&self, genesis_had_reward: bool) -> i64 {			
-		total_overage_at_height(self.height)		
-			.checked_neg()		
-			.unwrap_or(0)		
+	*/
+	//written by sundar
+	pub fn overage(&self) -> i64 {
+		(reward_at_height(self.height) as i64)
+			.checked_neg()
+			.unwrap_or(0)
 	}
-  
+	/// The "total overage" to use when verifying the kernel sums for a full
+	/// chain state. For a full chain state this is 0 - (height * reward).
+	pub fn total_overage(&self, genesis_had_reward: bool) -> i64 {
+		total_overage_at_height(self.height)
+			.checked_neg()
+			.unwrap_or(0)
+	}
 
 	/// Total kernel offset for the chain state up to and including this block.
 	pub fn total_kernel_offset(&self) -> BlindingFactor {

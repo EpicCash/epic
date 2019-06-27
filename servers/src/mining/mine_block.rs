@@ -25,13 +25,14 @@ use std::time::Duration;
 use crate::api;
 use crate::chain;
 use crate::common::types::Error;
+use crate::core::core::block::feijoada::{next_block_bottles, Deterministic, Feijoada};
 use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::{Output, TxKernel};
+use crate::core::global::get_policies;
 use crate::core::libtx::secp_ser;
 use crate::core::{consensus, core, global};
 use crate::keychain::{ExtKeychain, Identifier, Keychain};
 use crate::pool;
-
 /// Fees in block to use for coinbase amount calculation
 /// (Duplicated from Epic wallet project)
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -183,6 +184,10 @@ fn build_block(
 	b.header.pow.nonce = thread_rng().gen();
 	b.header.pow.secondary_scaling = difficulty.secondary_scaling;
 	b.header.timestamp = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(now_sec, 0), Utc);
+	b.header.bottles = next_block_bottles(
+		Deterministic::choose_algo(&get_policies(), &head.bottles),
+		&head.bottles,
+	);
 
 	debug!(
 		"Built new block with {} inputs and {} outputs, block difficulty: {}, cumulative difficulty {}",
@@ -219,12 +224,16 @@ fn build_block(
 ///
 /// Probably only want to do this when testing.
 ///
-fn burn_reward(block_fees: BlockFees, height: u64) -> Result<(core::Output, core::TxKernel, BlockFees), Error> {
+fn burn_reward(
+	block_fees: BlockFees,
+	height: u64,
+) -> Result<(core::Output, core::TxKernel, BlockFees), Error> {
 	warn!("Burning block fees: {:?}", block_fees);
 	let keychain = ExtKeychain::from_random_seed(global::is_floonet())?;
 	let key_id = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 	let (out, kernel) =
-		crate::core::libtx::reward::output(&keychain, &key_id, block_fees.fees, false, height).unwrap();
+		crate::core::libtx::reward::output(&keychain, &key_id, block_fees.fees, false, height)
+			.unwrap();
 	Ok((out, kernel, block_fees))
 }
 

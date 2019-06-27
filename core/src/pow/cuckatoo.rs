@@ -17,10 +17,10 @@ use std::mem;
 use byteorder::{BigEndian, WriteBytesExt};
 use croaring::Bitmap;
 
+use crate::global;
 use crate::pow::common::{CuckooParams, EdgeType, Link};
 use crate::pow::error::{Error, ErrorKind};
 use crate::pow::{PoWContext, Proof};
-use crate::global;
 use crate::util;
 
 struct Graph<T>
@@ -94,7 +94,9 @@ where
 		let adj_v = self.adj_list[to_usize!(v ^ T::one())];
 		if adj_u != self.nil && adj_v != self.nil {
 			let sol_index = self.solutions.len() - 1;
-			self.solutions[sol_index].nonces[0] = self.links.len() as u64 / 2;
+			if let Proof::CuckooProof { ref mut nonces, .. } = self.solutions[sol_index] {
+				nonces[0] = self.links.len() as u64 / 2;
+			}
 			self.cycles_with_link(1, u, v)?;
 		}
 		let ulink = self.links.len();
@@ -139,7 +141,9 @@ where
 			self.visited.add(to_u32!(u >> 1));
 			while au1 != self.nil {
 				let i = self.solutions.len() - 1;
-				self.solutions[i].nonces[len as usize] = to_u64!(au1) / 2;
+				if let Proof::CuckooProof { ref mut nonces, .. } = self.solutions[i] {
+					nonces[len as usize] = to_u64!(au1) / 2
+				}
 				let link_index = to_usize!(au1 ^ T::one());
 				let link = self.links[link_index].to;
 				if link != self.nil {
@@ -191,12 +195,12 @@ where
 		self.set_header_nonce_impl(header, nonce, solve)
 	}
 
-	fn find_cycles(&mut self) -> Result<Vec<Proof>, Error> {
+	fn pow_solve(&mut self) -> Result<Vec<Proof>, Error> {
 		let num_edges = self.params.num_edges;
 		self.find_cycles_iter(0..num_edges)
 	}
 
-	fn verify(&self, proof: &Proof) -> Result<(), Error> {
+	fn verify(&mut self, proof: &Proof) -> Result<(), Error> {
 		self.verify_impl(proof)
 	}
 }
@@ -265,8 +269,10 @@ where
 		}
 		self.graph.solutions.pop();
 		for s in &mut self.graph.solutions {
-			s.nonces = map_vec!(s.nonces, |n| val[*n as usize]);
-			s.nonces.sort_unstable();
+			if let Proof::CuckooProof { ref mut nonces, .. } = s {
+				*nonces = map_vec!(nonces, |n| val[*n as usize]);
+				nonces.sort_unstable();
+			}
 		}
 		for s in &self.graph.solutions {
 			self.verify_impl(&s)?;
@@ -281,65 +287,64 @@ where
 	/// Verify that given edges are ascending and form a cycle in a header-generated
 	/// graph
 	pub fn verify_impl(&self, proof: &Proof) -> Result<(), Error> {
-                if proof.proof_size() != global::proofsize() {
-                        return Err(ErrorKind::Verification( 
-                                "wrong cycle length".to_owned(),))?;
-                }
-		let nonces = &proof.nonces;
-		let mut uvs = vec![0u64; 2 * proof.proof_size()];
-		let mut xor0: u64 = (self.params.proof_size as u64 / 2) & 1;
-		let mut xor1: u64 = xor0;
+		if let Proof::CuckooProof { nonces, .. } = proof {
+			let mut uvs = vec![0u64; 2 * proof.proof_size()];
+			let mut xor0: u64 = (self.params.proof_size as u64 / 2) & 1;
+			let mut xor1: u64 = xor0;
 
-		for n in 0..proof.proof_size() {
-			if nonces[n] > to_u64!(self.params.edge_mask) {
-				return Err(ErrorKind::Verification("edge too big".to_owned()))?;
+			for n in 0..proof.proof_size() {
+				if nonces[n] > to_u64!(self.params.edge_mask) {
+					return Err(ErrorKind::Verification("edge too big".to_owned()))?;
+				}
+				if n > 0 && nonces[n] <= nonces[n - 1] {
+					return Err(ErrorKind::Verification("edges not ascending".to_owned()))?;
+				}
+				uvs[2 * n] = to_u64!(self.sipnode(to_edge!(nonces[n]), 0)?);
+				uvs[2 * n + 1] = to_u64!(self.sipnode(to_edge!(nonces[n]), 1)?);
+				xor0 ^= uvs[2 * n];
+				xor1 ^= uvs[2 * n + 1];
 			}
-			if n > 0 && nonces[n] <= nonces[n - 1] {
-				return Err(ErrorKind::Verification("edges not ascending".to_owned()))?;
+			if xor0 | xor1 != 0 {
+				return Err(ErrorKind::Verification(
+					"endpoints don't match up".to_owned(),
+				))?;
 			}
-			uvs[2 * n] = to_u64!(self.sipnode(to_edge!(nonces[n]), 0)?);
-			uvs[2 * n + 1] = to_u64!(self.sipnode(to_edge!(nonces[n]), 1)?);
-			xor0 ^= uvs[2 * n];
-			xor1 ^= uvs[2 * n + 1];
-		}
-		if xor0 | xor1 != 0 {
-			return Err(ErrorKind::Verification(
-				"endpoints don't match up".to_owned(),
-			))?;
-		}
-		let mut n = 0;
-		let mut i = 0;
-		let mut j;
-		loop {
-			// follow cycle
-			j = i;
-			let mut k = j;
+			let mut n = 0;
+			let mut i = 0;
+			let mut j;
 			loop {
-				k = (k + 2) % (2 * self.params.proof_size);
-				if k == i {
+				// follow cycle
+				j = i;
+				let mut k = j;
+				loop {
+					k = (k + 2) % (2 * self.params.proof_size);
+					if k == i {
+						break;
+					}
+					if uvs[k] >> 1 == uvs[i] >> 1 {
+						// find other edge endpoint matching one at i
+						if j != i {
+							return Err(ErrorKind::Verification("branch in cycle".to_owned()))?;
+						}
+						j = k;
+					}
+				}
+				if j == i || uvs[j] == uvs[i] {
+					return Err(ErrorKind::Verification("cycle dead ends".to_owned()))?;
+				}
+				i = j ^ 1;
+				n += 1;
+				if i == 0 {
 					break;
 				}
-				if uvs[k] >> 1 == uvs[i] >> 1 {
-					// find other edge endpoint matching one at i
-					if j != i {
-						return Err(ErrorKind::Verification("branch in cycle".to_owned()))?;
-					}
-					j = k;
-				}
 			}
-			if j == i || uvs[j] == uvs[i] {
-				return Err(ErrorKind::Verification("cycle dead ends".to_owned()))?;
+			if n == self.params.proof_size {
+				Ok(())
+			} else {
+				Err(ErrorKind::Verification("cycle too short".to_owned()))?
 			}
-			i = j ^ 1;
-			n += 1;
-			if i == 0 {
-				break;
-			}
-		}
-		if n == self.params.proof_size {
-			Ok(())
 		} else {
-			Err(ErrorKind::Verification("cycle too short".to_owned()))?
+			Err(ErrorKind::Verification("wrong algorithm".to_owned()))?
 		}
 	}
 }
@@ -477,7 +482,7 @@ mod test {
 			ctx_u32.sipkey_hex(2)?,
 			ctx_u32.sipkey_hex(3)?
 		);
-		let sols = ctx_u32.find_cycles()?;
+		let sols = ctx_u32.pow_solve()?;
 		// We know this nonce has 2 solutions
 		assert_eq!(sols.len(), 2);
 		for s in sols {

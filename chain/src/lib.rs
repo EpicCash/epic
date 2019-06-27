@@ -28,10 +28,10 @@ extern crate serde_derive;
 #[macro_use]
 extern crate log;
 
-use failure;
 use epic_core as core;
 use epic_keychain as keychain;
 use epic_util as util;
+use failure;
 
 mod chain;
 mod error;

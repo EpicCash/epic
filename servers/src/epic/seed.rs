@@ -34,15 +34,13 @@ use crate::util::StopState;
 
 // DNS Seeds with contact email associated
 const MAINNET_DNS_SEEDS: &'static [&'static str] = &[
-      "116.203.152.48",
-      "116.203.152.54",
-      "116.203.152.57",
-      "116.203.152.53",
-      "116.203.152.58",
+	"116.203.152.48",
+	"116.203.152.54",
+	"116.203.152.57",
+	"116.203.152.53",
+	"116.203.152.58",
 ];
-const FLOONET_DNS_SEEDS: &'static [&'static str] = &[
-	
-];
+const FLOONET_DNS_SEEDS: &'static [&'static str] = &[];
 
 pub fn connect_and_monitor(
 	p2p_server: Arc<p2p::Server>,

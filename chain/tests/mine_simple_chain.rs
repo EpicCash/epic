@@ -23,7 +23,7 @@ use self::core::libtx::{self, build, reward};
 use self::core::pow::Difficulty;
 use self::core::{consensus, global, pow};
 use self::keychain::{ExtKeychain, ExtKeychainPath, Keychain};
-use self::util::{RwLock, StopState};
+use self::util::{Mutex, RwLock, StopState};
 use chrono::Duration;
 use epic_chain as chain;
 use epic_core as core;
@@ -70,7 +70,7 @@ fn mine_genesis_reward_chain() {
 	let mut genesis = genesis::genesis_dev();
 	let keychain = keychain::ExtKeychain::from_random_seed(false).unwrap();
 	let key_id = keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
-	let reward = reward::output(&keychain, &key_id, 0, false,0).unwrap();
+	let reward = reward::output(&keychain, &key_id, 0, false, 0).unwrap();
 	genesis = genesis.with_reward(reward.0, reward.1);
 
 	let tmp_chain_dir = ".epic.tmp";
@@ -107,7 +107,7 @@ where
 		let prev = chain.head_header().unwrap();
 		let next_header_info = consensus::next_difficulty(1, chain.difficulty_iter().unwrap());
 		let pk = ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
-		let reward = libtx::reward::output(keychain, &pk, 0, false,n).unwrap();
+		let reward = libtx::reward::output(keychain, &pk, 0, false, n).unwrap();
 		let mut b =
 			core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
 				.unwrap();
@@ -121,7 +121,13 @@ where
 		} else {
 			global::min_edge_bits()
 		};
-		b.header.pow.proof.edge_bits = edge_bits;
+		if let pow::Proof::CuckooProof {
+			edge_bits: ref mut bits,
+			..
+		} = b.header.pow.proof
+		{
+			*bits = edge_bits;
+		}
 		pow::pow_size(
 			&mut b.header,
 			next_header_info.difficulty,
@@ -129,7 +135,13 @@ where
 			edge_bits,
 		)
 		.unwrap();
-		b.header.pow.proof.edge_bits = edge_bits;
+		if let pow::Proof::CuckooProof {
+			edge_bits: ref mut bits,
+			..
+		} = b.header.pow.proof
+		{
+			*bits = edge_bits;
+		}
 
 		let bhash = b.hash();
 		chain.process_block(b, chain::Options::MINE).unwrap();
@@ -432,8 +444,7 @@ fn output_header_mappings() {
 			let prev = chain.head_header().unwrap();
 			let next_header_info = consensus::next_difficulty(1, chain.difficulty_iter().unwrap());
 			let pk = ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
-			let height = prev.height + 1; // Modification
-			let reward = libtx::reward::output(&keychain, &pk, 0, false, height).unwrap();
+			let reward = libtx::reward::output(&keychain, &pk, 0, false, n).unwrap();
 			reward_outputs.push(reward.0.clone());
 			let mut b =
 				core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
@@ -448,7 +459,13 @@ fn output_header_mappings() {
 			} else {
 				global::min_edge_bits()
 			};
-			b.header.pow.proof.edge_bits = edge_bits;
+			if let pow::Proof::CuckooProof {
+				edge_bits: ref mut bits,
+				..
+			} = b.header.pow.proof
+			{
+				*bits = edge_bits;
+			}
 			pow::pow_size(
 				&mut b.header,
 				next_header_info.difficulty,
@@ -456,7 +473,13 @@ fn output_header_mappings() {
 				edge_bits,
 			)
 			.unwrap();
-			b.header.pow.proof.edge_bits = edge_bits;
+			if let pow::Proof::CuckooProof {
+				edge_bits: ref mut bits,
+				..
+			} = b.header.pow.proof
+			{
+				*bits = edge_bits;
+			}
 
 			chain.process_block(b, chain::Options::MINE).unwrap();
 

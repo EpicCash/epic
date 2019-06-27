@@ -91,7 +91,7 @@ where
 	K: Keychain,
 {
 	let fees = txs.iter().map(|tx| tx.fee()).sum();
-	let height = previous_header.height + 1;  // current block
+	let height = previous_header.height + 1; // current block
 	let reward_output = reward::output(keychain, &key_id, fees, false, height).unwrap();
 	Block::new(
 		&previous_header,
