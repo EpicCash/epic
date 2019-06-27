@@ -2,17 +2,21 @@
 extern crate cucumber_rust;
 
 use epic_chain::Chain;
-use epic_core::core::block::feijoada::{get_bottles_default, PoWType, PolicyConfig};
+use epic_core::core::block::feijoada::{Deterministic, Feijoada, get_bottles_default, Policy, PolicyConfig};
+use epic_core::core::block::feijoada::PoWType as FType;
 use epic_core::core::Block;
 use epic_core::global::set_policy_config;
 use epic_keychain::keychain::ExtKeychain;
 use epic_util as util;
+
 
 pub struct EdnaWorld {
 	pub output_dir: String,
 	pub genesis: Option<Block>,
 	pub keychain: Option<ExtKeychain>,
 	pub chain: Option<Chain>,
+	pub policy: Policy,
+	pub bottles: Policy,
 }
 
 impl cucumber_rust::World for EdnaWorld {}
@@ -23,6 +27,8 @@ impl std::default::Default for EdnaWorld {
 			genesis: None,
 			keychain: None,
 			chain: None,
+			policy: Policy::new(),
+			bottles: get_bottles_default(),
 		}
 	}
 }
@@ -47,6 +53,8 @@ mod mine_chain {
 	use epic_core::{consensus, pow};
 	use epic_core::{genesis, global};
 	use epic_keychain::Keychain;
+	use epic_core::core::block::feijoada::PoWType as FType;
+	use epic_core::core::block::feijoada::{Deterministic, Feijoada, next_block_bottles, get_bottles_default, Policy, PolicyConfig};
 
 	use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 	use chrono::Duration;
@@ -84,6 +92,9 @@ mod mine_chain {
 		};
 
 		then regex "I mine <([a-zA-Z0-9]+)>" |world, matches, _step| {
+			let chain = world.chain.as_ref().unwrap();
+			//let prev_header = chain.head_header().unwrap();
+			//let prev = chain.get_block(&prev_header.hash()).unwrap();
 			let pow_type = match matches[1].as_str() {
 				"cuckatoo" => PoWType::Cuckatoo,
 				"cuckaroo" => PoWType::Cuckaroo,
@@ -103,7 +114,7 @@ mod mine_chain {
 			let genesis = genesis::genesis_dev();
 			world.keychain = Some(epic_keychain::ExtKeychain::from_random_seed(false).unwrap());
 			let key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
-			let reward = reward::output(world.keychain.as_ref().unwrap(), &key_id, 0, false).unwrap();
+			let reward = reward::output(world.keychain.as_ref().unwrap(), &key_id, 0, false, 0).unwrap();
 			world.genesis = Some(genesis.with_reward(reward.0, reward.1));
 			let genesis_ref = world.genesis.as_mut().unwrap();
 
@@ -262,13 +273,14 @@ mod mine_chain {
 			let proof = match proof_name {
 				"randomx" => pow::Proof::RandomXProof {
 					hash: [
-						117, 45, 118, 229, 30, 85, 213, 172, 117, 184,
-						107, 254, 12, 88, 247, 175, 233, 61, 72, 140,
-						127, 222, 109, 164, 35, 29, 51, 128, 133, 119, 170, 25]
+						14, 249, 121, 13, 43, 74, 180, 213, 122,
+						194, 147, 222, 255, 202, 4, 29, 11, 15,
+						23, 39, 21, 47, 181, 240, 144, 96, 125,
+						172, 122, 45, 49, 227]
 				},
 				"md5" => pow::Proof::MD5Proof {
 					edge_bits: 10,
-					proof: "d201819faed4a50de8e3dc59a1f1456d".to_string()
+					proof: "db5c47e14c9bc431b42288e39c0d5292".to_string()
 				},
 				"cuckoo" => pow::Proof::CuckooProof {
 					edge_bits: 9,
@@ -443,13 +455,14 @@ mod mine_chain {
 				let prev = chain.head_header().unwrap();
 				let next_header_info = consensus::next_difficulty(1, chain.difficulty_iter().unwrap());
 				let pk = epic_keychain::ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
-				let reward = libtx::reward::output(kc, &pk, 0, false).unwrap();
+				let reward = libtx::reward::output(kc, &pk, 0, false, n).unwrap();
 				reward_outputs.push(reward.0.clone());
 				let mut b =
 					core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
 						.unwrap();
 				b.header.timestamp = prev.timestamp + Duration::seconds(60);
 				b.header.pow.secondary_scaling = next_header_info.secondary_scaling;
+				b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles);
 
 				chain.set_txhashset_roots(&mut b).unwrap();
 
@@ -476,7 +489,7 @@ mod mine_chain {
 				chain.process_block(b, chain::Options::MINE).unwrap();
 
 				let header_for_output = chain
-					.get_header_for_output(&OutputIdentifier::from_output(&reward_outputs[n - 1]))
+					.get_header_for_output(&OutputIdentifier::from_output(&reward_outputs[(n - 1) as usize]))
 					.unwrap();
 				assert_eq!(header_for_output.height, n as u64);
 
@@ -491,7 +504,56 @@ mod mine_chain {
 				assert_eq!(header_for_output.height, n as u64);
 			}
 		};
+
+		given regex "I have a policy <([a-zA-Z0-9]+)> with <([0-9]+)>" |world, matches, _step| {
+			let algorithm = matches[1].as_str();
+			let value: u32 = matches[2].parse().unwrap();
+
+			match algorithm {
+				"randomx" => {
+					world.policy.insert(FType::RandomX, value);
+				},
+				"cuckaroo" => {
+					world.policy.insert(FType::Cuckaroo, value);
+				},
+				"cuckatoo" => {
+					world.policy.insert(FType::Cuckatoo, value);
+				}
+				_ => {panic!("algorithm not supported")}
+			};
+
+			set_policy_config(PolicyConfig {
+				policies: vec![world.policy.clone()],
+				..Default::default()
+			});
+		};
+
+		then regex "Next block need to be <([a-zA-Z0-9]+)>" |world, matches, _step| {
+			let chain = world.chain.as_ref().unwrap();
+			let prev = chain.head_header().unwrap();
+			let algo = get_fw_type(matches[1].as_str());
+			assert_eq!(Deterministic::choose_algo(&world.policy, &prev.bottles), algo);
+		};
+
+		then regex "Check the next algorithm <([a-zA-Z0-9]+)>" |world, matches, _step| {
+			let algo = get_fw_type(matches[1].as_str());
+			assert_eq!(Deterministic::choose_algo(&world.policy, &world.bottles), algo);
+		};
+
+		then regex "Increase bottles <([A-Za-z0-9]+)>" |world, matches, _step| {
+			let algo = get_fw_type(matches[1].as_str());
+			world.bottles = next_block_bottles(algo, &world.bottles);
+		};
 	});
+
+	fn get_fw_type(s: &str) -> FType {
+		match s {
+			"randomx" => FType::RandomX,
+			"cuckaroo" => FType::Cuckaroo,
+			"cuckatoo" => FType::Cuckatoo,
+			_ => {panic!("algorithm not supported")}
+		}
+	}
 
 	fn clean_output_dir(dir_name: &str) {
 		let _ = fs::remove_dir_all(dir_name);
@@ -508,7 +570,7 @@ mod mine_chain {
 			pow::verify_size,
 			verifier_cache,
 			false,
-			Arc::new(Mutex::new(StopState::new())),
+			//Arc::new(Mutex::new(StopState::new())),
 		)
 		.unwrap()
 	}
@@ -589,13 +651,18 @@ mod mine_chain {
 			let prev = chain.head_header().unwrap();
 			let next_header_info = consensus::next_difficulty(1, chain.difficulty_iter().unwrap());
 			let pk = epic_keychain::ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
-			let reward = libtx::reward::output(keychain, &pk, 0, false).unwrap();
+			let reward = libtx::reward::output(keychain, &pk, 0, false, 0).unwrap();
 			let mut b =
 				core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
 					.unwrap();
 			b.header.timestamp = prev.timestamp + Duration::seconds(60);
 			b.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-
+			b.header.bottles = next_block_bottles(match pow_type {
+				PoWType::RandomX => FType::RandomX,
+				PoWType::Cuckatoo => FType::Cuckatoo,
+				PoWType::Cuckaroo => FType::Cuckaroo,
+				PoWType::MD5 => FType::Cuckatoo,
+			}, &prev.bottles);
 			chain.set_txhashset_roots(&mut b).unwrap();
 
 			let edge_bits = if n == 2 {
@@ -722,7 +789,7 @@ mod mine_chain {
 		let key_id = epic_keychain::ExtKeychainPath::new(1, diff as u32, 0, 0, 0).to_identifier();
 
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
-		let reward = libtx::reward::output(kc, &key_id, fees, false).unwrap();
+		let reward = libtx::reward::output(kc, &key_id, fees, false, 0).unwrap();
 		let mut b = match core::core::Block::new(
 			prev,
 			txs.into_iter().cloned().collect(),
@@ -735,6 +802,7 @@ mod mine_chain {
 		b.header.timestamp = prev.timestamp + Duration::seconds(60);
 		b.header.pow.total_difficulty = prev.total_difficulty() + Difficulty::from_num(diff);
 		b.header.pow.proof = pow::Proof::random(proof_size);
+		b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles);
 		b
 	}
 
@@ -752,7 +820,7 @@ mod mine_chain {
 		let key_id = epic_keychain::ExtKeychainPath::new(1, diff as u32, 0, 0, 0).to_identifier();
 
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
-		let reward = libtx::reward::output(kc, &key_id, fees, true).unwrap();
+		let reward = libtx::reward::output(kc, &key_id, fees, true, 0).unwrap();
 
 		let mut b = match core::core::Block::new(
 			prev,
@@ -766,6 +834,18 @@ mod mine_chain {
 		b.header.timestamp = prev.timestamp + Duration::seconds(60);
 		b.header.pow.total_difficulty = prev.total_difficulty() + Difficulty::from_num(diff);
 		b.header.pow.proof = proof;
+
+		let fw_type = match b.header.pow.proof {
+			pow::Proof::CuckooProof { ref edge_bits, .. } => if *edge_bits == 29 {
+				FType::Cuckaroo
+			} else {
+				FType::Cuckatoo
+			},
+			pow::Proof::RandomXProof { .. } => FType::RandomX,
+			// just for the test
+			pow::Proof::MD5Proof { .. } => FType::Cuckatoo,
+		};
+		b.header.bottles = next_block_bottles(fw_type, &prev.bottles);
 		b
 	}
 }
@@ -786,9 +866,9 @@ fn setup() {
 	println!("Test 2");
 
 	let policies = [
-		(PoWType::Cuckaroo, 80),
-		(PoWType::Cuckatoo, 15),
-		(PoWType::RandomX, 5),
+		(FType::Cuckaroo, 100),
+		(FType::Cuckatoo, 0),
+		(FType::RandomX, 0),
 	]
 	.into_iter()
 	.map(|&x| x)

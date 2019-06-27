@@ -381,14 +381,8 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 
 	// First I/O cost, delayed as late as possible.
 	let prev = prev_header_store(header, &mut ctx.batch)?;
-
-	// make sure this header has a height exactly one higher than the previous
-	// header
-	if header.height != prev.height + 1 {
-		return Err(ErrorKind::InvalidBlockHeight.into());
-	}
-
 	let algo = Deterministic::choose_algo(&(global::get_policies()), &prev.bottles);
+
 	let is_correct = match header.pow.proof {
 		pow::Proof::CuckooProof { edge_bits, .. } => {
 			if edge_bits == 29 {
@@ -398,10 +392,16 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 			}
 		}
 		pow::Proof::RandomXProof { .. } => algo == PoWType::RandomX,
-		pow::Proof::MD5Proof { .. } => false,
+		pow::Proof::MD5Proof { .. } => true,
 	};
 
-	if is_correct {
+	// make sure this header has a height exactly one higher than the previous
+	// header
+	if header.height != prev.height + 1 {
+		return Err(ErrorKind::InvalidBlockHeight.into());
+	}
+
+	if !is_correct {
 		return Err(ErrorKind::InvalidSortAlgo.into());
 	}
 
