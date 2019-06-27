@@ -84,11 +84,13 @@ impl Server {
 	where
 		F: FnMut(Server),
 	{
+		// set the policies configs from the .toml file
+		global::set_policy_config(config.policy_config.clone());
 		let mining_config = config.stratum_mining_config.clone();
 		let enable_test_miner = config.run_test_miner;
 		let test_miner_wallet_url = config.test_miner_wallet_url.clone();
 		let serv = Server::new(config)?;
-
+		
 		if let Some(c) = mining_config {
 			let enable_stratum_server = c.enable_stratum_server;
 			if let Some(s) = enable_stratum_server {
