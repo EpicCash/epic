@@ -152,11 +152,18 @@ impl Feijoada for Deterministic {
 	fn choose_algo(policy: &Policy, bottles: &Policy) -> PoWType {
 		let bean_total = count_beans(bottles);
 		// Mapping to a vec because we need the algos to be sorted
+		// Filtering because when the bottles are filled, a proportion of 0 might be selected
 		let mut policy_vec: Vec<(PoWType, f32)> = policy
-			.iter
-			().map(|(&algo,&proportion)| (algo, proportion as f32))
+			.iter()
+			.filter_map(|(&algo, &proportion)| {
+				if proportion > 0 {
+					Some((algo, proportion as f32))
+				} else {
+					None
+				}
+			})
 			.collect();
-		policy_vec.sort_by(|(algo1,_), (algo2,_)| algo1.cmp(algo2));
+		policy_vec.sort_by(|(algo1, _), (algo2, _)| algo1.cmp(algo2));
 		let scores: HashMap<PoWType, f32> = bottles
 			.iter()
 			.map(|(&algo, &beans)| (algo, 100.0 * (beans as f32) / (bean_total as f32)))
