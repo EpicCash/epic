@@ -151,13 +151,19 @@ pub struct Deterministic;
 impl Feijoada for Deterministic {
 	fn choose_algo(policy: &Policy, bottles: &Policy) -> PoWType {
 		let bean_total = count_beans(bottles);
+		// Mapping to a vec because we need the algos to be sorted
+		let mut policy_vec: Vec<(PoWType, f32)> = policy
+			.iter
+			().map(|(&algo,&proportion)| (algo, proportion as f32))
+			.collect();
+		policy_vec.sort_by(|(algo1,_), (algo2,_)| algo1.cmp(algo2));
 		let scores: HashMap<PoWType, f32> = bottles
 			.iter()
 			.map(|(&algo, &beans)| (algo, 100.0 * (beans as f32) / (bean_total as f32)))
 			.collect();
-		*(policy
+		*(policy_vec
 			.iter()
-			.map(|(a, &v)| (a, v as f32 - scores[a]))
+			.map(|(a, v)| (a, v - scores[a]))
 			.max_by(|&(_, x), &(_, y)| x.partial_cmp(&y).unwrap())
 			.unwrap()
 			.0)
