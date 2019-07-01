@@ -2,13 +2,14 @@
 extern crate cucumber_rust;
 
 use epic_chain::Chain;
-use epic_core::core::block::feijoada::{Deterministic, Feijoada, get_bottles_default, Policy, PolicyConfig};
 use epic_core::core::block::feijoada::PoWType as FType;
+use epic_core::core::block::feijoada::{
+	get_bottles_default, Deterministic, Feijoada, Policy, PolicyConfig,
+};
 use epic_core::core::Block;
 use epic_core::global::set_policy_config;
 use epic_keychain::keychain::ExtKeychain;
 use epic_util as util;
-
 
 pub struct EdnaWorld {
 	pub output_dir: String,
@@ -41,10 +42,15 @@ mod mine_chain {
 
 	use epic_chain::types::NoopAdapter;
 	use epic_chain::Chain;
+	use epic_core::core::block::feijoada::PoWType as FType;
+	use epic_core::core::block::feijoada::{
+		count_beans, get_bottles_default, next_block_bottles, Deterministic, Feijoada, Policy,
+		PolicyConfig,
+	};
 	use epic_core::core::hash::Hashed;
 	use epic_core::core::verifier_cache::LruVerifierCache;
 	use epic_core::core::{Block, BlockHeader, OutputIdentifier, Transaction};
-	use epic_core::global::{set_policy_config, ChainTypes};
+	use epic_core::global::{get_policies, set_policy_config, ChainTypes};
 	use epic_core::libtx::{self, build, reward};
 	use epic_core::pow::{
 		new_cuckaroo_ctx, new_cuckatoo_ctx, new_md5_ctx, new_randomx_ctx, Difficulty, EdgeType,
@@ -53,8 +59,6 @@ mod mine_chain {
 	use epic_core::{consensus, pow};
 	use epic_core::{genesis, global};
 	use epic_keychain::Keychain;
-	use epic_core::core::block::feijoada::PoWType as FType;
-	use epic_core::core::block::feijoada::{Deterministic, Feijoada, next_block_bottles, get_bottles_default, Policy, PolicyConfig};
 
 	use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 	use chrono::Duration;
@@ -505,10 +509,10 @@ mod mine_chain {
 			}
 		};
 
-		given regex "I have a policy <([a-zA-Z0-9]+)> with <([0-9]+)>" |world, matches, _step| {
-			let algorithm = matches[1].as_str();
-			let value: u32 = matches[2].parse().unwrap();
-
+		given regex "I have the policy <([0-9]+)> with <([a-zA-Z0-9]+)> equals <([0-9]+)>" |world, matches, _step| {
+			// let index: usize = matches[1].parse().unwrap();
+			let algorithm = matches[2].as_str();
+			let value: u32 = matches[3].parse().unwrap();
 			match algorithm {
 				"randomx" => {
 					world.policy.insert(FType::RandomX, value);
@@ -521,37 +525,125 @@ mod mine_chain {
 				}
 				_ => {panic!("algorithm not supported")}
 			};
+		};
 
+		given "I setup all the policies" |world, _step|{
 			set_policy_config(PolicyConfig {
 				policies: vec![world.policy.clone()],
 				..Default::default()
 			});
+			// reset the policy
+			world.policy = get_bottles_default();
 		};
 
-		then regex "Next block need to be <([a-zA-Z0-9]+)>" |world, matches, _step| {
+		then regex "Next block needs to be <([a-zA-Z0-9]+)>" |world, matches, _step| {
 			let chain = world.chain.as_ref().unwrap();
 			let prev = chain.head_header().unwrap();
 			let algo = get_fw_type(matches[1].as_str());
-			assert_eq!(Deterministic::choose_algo(&world.policy, &prev.bottles), algo);
+			assert_eq!(Deterministic::choose_algo(&get_policies(), &prev.bottles), algo);
 		};
 
 		then regex "Check the next algorithm <([a-zA-Z0-9]+)>" |world, matches, _step| {
 			let algo = get_fw_type(matches[1].as_str());
-			assert_eq!(Deterministic::choose_algo(&world.policy, &world.bottles), algo);
+			assert_eq!(Deterministic::choose_algo(&get_policies(), &world.bottles), algo);
 		};
 
 		then regex "Increase bottles <([A-Za-z0-9]+)>" |world, matches, _step| {
 			let algo = get_fw_type(matches[1].as_str());
 			world.bottles = next_block_bottles(algo, &world.bottles);
 		};
+
+		given regex "I setup a chain with genesis block mined with <([a-zA-Z0-9]+)>" |world, matches, _step| {
+			let algo = get_fw_type(matches[1].as_str());
+			let mut genesis = pow::mine_genesis_block().unwrap();
+			genesis.header.bottles = next_block_bottles(algo, &world.bottles);
+			world.genesis = Some(genesis);
+			//println!("My genenis is {:?}", world.genesis.as_ref().unwrap());
+			world.chain = Some(setup(&world.output_dir, world.genesis.as_ref().unwrap().clone()));
+			world.keychain = Some(epic_keychain::ExtKeychain::from_seed(&[2,0,0], false).unwrap());
+		};
+
+		then regex "I add <([0-9]+)> blocks following the policy <([0-9]+)>" |world, matches, _step| {
+			let num: u64 = matches[1].parse().unwrap();
+			// The policy index is ignored for now, as we are only using a unique policy.
+			// index = matches[2].parse().unwrap();
+			let chain = world.chain.as_ref().unwrap();
+			let height = chain.head_header().unwrap().height;
+
+			for i in 0..num {
+				let kc = epic_keychain::ExtKeychain::from_seed(&[i as u8], false).unwrap().clone();
+				let prev = chain.head_header().unwrap();
+				let mut block = prepare_block(&kc, &prev, &chain, height + i);
+				let algo = Deterministic::choose_algo(&get_policies(), &prev.bottles);
+				block.header.bottles = next_block_bottles(algo, &prev.bottles);
+				block.header.pow.proof = get_pow_type(&algo, prev.height);
+				chain.process_block(block, chain::Options::SKIP_POW).unwrap();
+			};
+
+		};
+
+		then regex "I add <([0-9]+)> blocks mined with <([a-zA-Z0-9]+)> and accept <([0-9]+)>" |world, matches, _step| {
+			let num: u64 = matches[1].parse().unwrap();
+			let algo = get_fw_type(matches[2].as_str());
+			let num_accepted: u64 = matches[3].parse().unwrap();
+			let chain = world.chain.as_ref().unwrap();
+			let mut count : u64 = 0;
+
+			for i in 0..num {
+				let kc = epic_keychain::ExtKeychain::from_seed(&[i as u8], false).unwrap().clone();
+				let prev = chain.head_header().unwrap();
+				let mut block = prepare_block(&kc, &prev, &chain, prev.height + 1);
+				block.header.bottles = next_block_bottles(algo, &prev.bottles);
+				block.header.pow.proof = get_pow_type(&algo, prev.height);
+				count = match chain.process_block(block, chain::Options::SKIP_POW){
+					Err(_) => count,
+					_ => count + 1,
+				};
+			};
+			assert_eq!(count, num_accepted);
+
+		};
+
+
+
+		then "I check if the bottle matches the policy" |world, _step| {
+			let chain = world.chain.as_ref().unwrap();
+			let bottles = chain.head_header().unwrap().bottles;
+			assert_eq!(bottles, get_policies());
+		};
+
+		then "I check if the bottle is being emptied" |world, _step| {
+			let chain = world.chain.as_ref().unwrap();
+			let bottles = chain.head_header().unwrap().bottles;
+			assert_eq!(count_beans(&bottles), 1);
+		};
+
+
 	});
+
+	fn get_pow_type(ftype: &FType, seed: u64) -> pow::Proof {
+		match ftype {
+			FType::Cuckaroo => pow::Proof::CuckooProof {
+				edge_bits: 29,
+				nonces: vec![seed; 3],
+			},
+			FType::RandomX => pow::Proof::RandomXProof {
+				hash: [seed as u8; 32],
+			},
+			FType::Cuckatoo => pow::Proof::CuckooProof {
+				edge_bits: 31,
+				nonces: vec![seed; 3],
+			},
+			_ => panic!("algorithm not supported"),
+		}
+	}
 
 	fn get_fw_type(s: &str) -> FType {
 		match s {
 			"randomx" => FType::RandomX,
 			"cuckaroo" => FType::Cuckaroo,
 			"cuckatoo" => FType::Cuckatoo,
-			_ => {panic!("algorithm not supported")}
+			_ => panic!("algorithm not supported"),
 		}
 	}
 
@@ -590,7 +682,6 @@ mod mine_chain {
 		pow_type: &PoWType,
 	) -> Result<(), Error> {
 		let start_nonce = bh.pow.nonce;
-
 		// set the nonce for faster solution finding in user testing
 		if bh.height == 0 && global::is_user_testing_mode() {
 			bh.pow.nonce = global::get_genesis_nonce();
@@ -657,12 +748,15 @@ mod mine_chain {
 					.unwrap();
 			b.header.timestamp = prev.timestamp + Duration::seconds(60);
 			b.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-			b.header.bottles = next_block_bottles(match pow_type {
-				PoWType::RandomX => FType::RandomX,
-				PoWType::Cuckatoo => FType::Cuckatoo,
-				PoWType::Cuckaroo => FType::Cuckaroo,
-				PoWType::MD5 => FType::Cuckatoo,
-			}, &prev.bottles);
+			b.header.bottles = next_block_bottles(
+				match pow_type {
+					PoWType::RandomX => FType::RandomX,
+					PoWType::Cuckatoo => FType::Cuckatoo,
+					PoWType::Cuckaroo => FType::Cuckaroo,
+					PoWType::MD5 => FType::Cuckatoo,
+				},
+				&prev.bottles,
+			);
 			chain.set_txhashset_roots(&mut b).unwrap();
 
 			let edge_bits = if n == 2 {
@@ -787,7 +881,6 @@ mod mine_chain {
 	{
 		let proof_size = global::proofsize();
 		let key_id = epic_keychain::ExtKeychainPath::new(1, diff as u32, 0, 0, 0).to_identifier();
-
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
 		let reward = libtx::reward::output(kc, &key_id, fees, false, 0).unwrap();
 		let mut b = match core::core::Block::new(
@@ -836,11 +929,13 @@ mod mine_chain {
 		b.header.pow.proof = proof;
 
 		let fw_type = match b.header.pow.proof {
-			pow::Proof::CuckooProof { ref edge_bits, .. } => if *edge_bits == 29 {
-				FType::Cuckaroo
-			} else {
-				FType::Cuckatoo
-			},
+			pow::Proof::CuckooProof { ref edge_bits, .. } => {
+				if *edge_bits == 29 {
+					FType::Cuckaroo
+				} else {
+					FType::Cuckatoo
+				}
+			}
 			pow::Proof::RandomXProof { .. } => FType::RandomX,
 			// just for the test
 			pow::Proof::MD5Proof { .. } => FType::Cuckatoo,
