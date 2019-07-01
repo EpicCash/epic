@@ -84,13 +84,27 @@ impl Server {
 	where
 		F: FnMut(Server),
 	{
+		let policy_config = config.policy_config.clone();
+		for i in 0..policy_config.policies.len() {
+			if policy_config.policies[i]
+				.values()
+				.fold(0, |acc, &x| x + acc)
+				!= 100
+			{
+				panic!("Error reading the .toml file!\n The values of the policy number <{}> must sum to 100 and be integers!\n", i);
+			};
+		}
 		// set the policies configs from the .toml file
-		global::set_policy_config(config.policy_config.clone());
+		global::set_policy_config(policy_config);
+		info!(
+			"The policy configuration is: {:?}",
+			global::get_policy_config()
+		);
 		let mining_config = config.stratum_mining_config.clone();
 		let enable_test_miner = config.run_test_miner;
 		let test_miner_wallet_url = config.test_miner_wallet_url.clone();
 		let serv = Server::new(config)?;
-		
+
 		if let Some(c) = mining_config {
 			let enable_stratum_server = c.enable_stratum_server;
 			if let Some(s) = enable_stratum_server {

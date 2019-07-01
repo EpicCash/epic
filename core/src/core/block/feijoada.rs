@@ -83,7 +83,7 @@ fn next_should_reset(bottle: &Policy) -> bool {
 
 pub fn next_block_bottles(pow: PoWType, bottle: &Policy) -> Policy {
 	let mut new_bottle = if next_should_reset(bottle) {
-		HashMap::new()
+		get_bottles_default()
 	} else {
 		bottle.clone()
 	};
@@ -138,7 +138,7 @@ fn check_policy(policy: &Policy) {
 	assert_eq!(100, policy.values().fold(0, |acc, &x| x + acc));
 }
 
-fn count_beans(bottles: &Policy) -> u32 {
+pub fn count_beans(bottles: &Policy) -> u32 {
 	std::cmp::max(bottles.values().fold(0, |acc, &x| x + acc), 1)
 }
 

@@ -402,6 +402,10 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 	}
 
 	if !is_correct {
+		debug!(
+			"Block rejected: Expected {:?} got {:?}",
+			algo, header.pow.proof
+		);
 		return Err(ErrorKind::InvalidSortAlgo.into());
 	}
 

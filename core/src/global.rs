@@ -150,6 +150,11 @@ pub fn get_policies() -> Policy {
 	policy_config.policies[0].clone()
 }
 
+pub fn get_policy_config() -> PolicyConfig {
+	let policy_config = POLICY_CONFIG.read();
+	policy_config.clone()
+}
+
 /// Set the mining mode
 pub fn set_mining_mode(mode: ChainTypes) {
 	let mut param_ref = CHAIN_TYPE.write();
