@@ -606,6 +606,7 @@ mod mine_chain {
 		given "I add foundation wallet pubkeys" |world, _step| {
 			// WIP: Add your personalized keychain here
 			world.keychain = Some(epic_keychain::ExtKeychain::from_seed(&[2,0,0], false).unwrap());
+
 			// WIP: maybe use this ?
 			// let kc = epic_keychain::ExtKeychain::from_mnemonic(
 			// 	"legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth title",
@@ -623,20 +624,23 @@ mod mine_chain {
 				let prev = chain.head_header().unwrap();
 				let diff = prev.height + 1;
 				// WIP: This is the critical part to check coinbase and tax ?
-				let transactions: Vec<&Transaction>  = vec![];
+				//let transactions: Vec<&Transaction>  = vec![];
 				let key_id = epic_keychain::ExtKeychainPath::new(1, diff as u32, 0, 0, 0).to_identifier();
-				let fees = transactions.iter().map(|tx| tx.fee()).sum();
-				let reward = libtx::reward::output(kc, &key_id, fees, false, 0).unwrap();
-				// Creating the block
-				let mut block = prepare_block_with_coinbase(&prev, diff, transactions, reward);
-				chain.set_txhashset_roots(&mut block).unwrap();
-				// Mining
-				let algo = Deterministic::choose_algo(&get_policies(), &prev.bottles);
-				block.header.bottles = next_block_bottles(algo, &prev.bottles);
-				block.header.pow.proof = get_pow_type(&algo, prev.height);
-				chain.process_block(block, chain::Options::SKIP_POW).unwrap();
+				// let fees = transactions.iter().map(|tx| tx.fee()).sum();
+				let reward = libtx::reward::output_foundation(kc, &key_id).unwrap();
+				reward.1.verify();
+				println!("Reward:{:?}", reward);
+				// // Creating the block
+				// let mut block = prepare_block_with_coinbase(&prev, diff, transactions, reward);
+				// chain.set_txhashset_roots(&mut block).unwrap();
+				// // Mining
+				// let algo = Deterministic::choose_algo(&get_policies(), &prev.bottles);
+				// block.header.bottles = next_block_bottles(algo, &prev.bottles);
+				// block.header.pow.proof = get_pow_type(&algo, prev.height);
+				// chain.process_block(block, chain::Options::SKIP_POW).unwrap();
 			};
 		};
+
 
 		then regex "I add <([0-9]+)> blocks following the policy <([0-9]+)>" |world, matches, _step| {
 			let num: u64 = matches[1].parse().unwrap();
