@@ -1,5 +1,18 @@
 Feature: Mine a simple chain
 
+Scenario: add coinbase to each mined block
+  Given I have the policy <0> with <cuckaroo> equals <0>
+  And I have the policy <0> with <randomx> equals <0>
+  And I have the policy <0> with <cuckatoo> equals <100>
+  And I setup all the policies
+  Given I have a <testing> chain
+  And I define my output dir as <.epic-coinbase>
+  And I add foundation wallet pubkeys
+  And I add a genesis block with coinbase and mined with <cuckatoo>
+  And I setup the chain for coinbase test
+  Then I add <10> blocks with coinbase following the policy <0>
+  Then I check if foundation received the taxes
+
 Scenario: checks a policy sequence of cuckatoo using feijoada deterministic
   Given I have the policy <0> with <cuckaroo> equals <0>
   And I have the policy <0> with <randomx> equals <0>
@@ -53,6 +66,7 @@ Scenario: refuse blocks that were not mined with a desired algorithm
   Then I add <5> blocks mined with <cuckaroo> and accept <1>
   Then I add <5> blocks mined with <cuckatoo> and accept <1>
   Then I add <5> blocks mined with <randomx> and accept <1>
+
 
 Scenario: Mine empty chain
   Given I have the policy <0> with <cuckaroo> equals <0>

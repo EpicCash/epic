@@ -49,7 +49,7 @@ mod mine_chain {
 	};
 	use epic_core::core::hash::Hashed;
 	use epic_core::core::verifier_cache::LruVerifierCache;
-	use epic_core::core::{Block, BlockHeader, OutputIdentifier, Transaction};
+	use epic_core::core::{Block, BlockHeader, Output, OutputIdentifier, Transaction, TxKernel};
 	use epic_core::global::{get_policies, set_policy_config, ChainTypes};
 	use epic_core::libtx::{self, build, reward};
 	use epic_core::pow::{
@@ -558,9 +558,69 @@ mod mine_chain {
 			let mut genesis = pow::mine_genesis_block().unwrap();
 			genesis.header.bottles = next_block_bottles(algo, &world.bottles);
 			world.genesis = Some(genesis);
-			//println!("My genenis is {:?}", world.genesis.as_ref().unwrap());
 			world.chain = Some(setup(&world.output_dir, world.genesis.as_ref().unwrap().clone()));
 			world.keychain = Some(epic_keychain::ExtKeychain::from_seed(&[2,0,0], false).unwrap());
+		};
+
+		given regex "I add a genesis block with coinbase and mined with <([a-zA-Z0-9]+)>" |world, matches, _step| {
+			let algo = get_fw_type(matches[1].as_str());
+			let key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
+			let reward = reward::output(world.keychain.as_ref().unwrap(), &key_id, 0, false, 0).unwrap();
+			// creating a placeholder for the genesis block
+			let mut genesis = genesis::genesis_dev();
+			// creating the block with the desired reward
+			genesis = genesis.with_reward(reward.0, reward.1);
+			genesis.header.bottles = next_block_bottles(algo, &world.bottles);
+			// mining "manually" the genesis
+			let genesis_difficulty = genesis.header.pow.total_difficulty;
+			let sz = global::min_edge_bits();
+			let proof_size = global::proofsize();
+			pow::pow_size(&mut genesis.header, genesis_difficulty, proof_size, sz).unwrap();
+			world.genesis = Some(genesis);
+		};
+
+		given "I setup the chain for coinbase test" |world, _step| {
+			let chain = setup(&world.output_dir, world.genesis.as_ref().unwrap().clone());
+			let genesis_ref = world.genesis.as_mut().unwrap();
+			world.chain = Some(chain);
+			// WIP: maybe we need to change this, since are 2 outputs ?
+			genesis_ref.header.output_mmr_size = 1;
+			genesis_ref.header.kernel_mmr_size = 1;
+		};
+
+		given "I add foundation wallet pubkeys" |world, _step| {
+			// WIP: Add your personalized keychain here
+			world.keychain = Some(epic_keychain::ExtKeychain::from_seed(&[2,0,0], false).unwrap());
+			// WIP: maybe use this ?
+			// let kc = epic_keychain::ExtKeychain::from_mnemonic(
+			// 	"legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth title",
+			// 	"", false).unwrap();
+		};
+
+		then regex "I add <([0-9]+)> blocks with coinbase following the policy <([0-9]+)>" |world, matches, _step| {
+			let num: u64 = matches[1].parse().unwrap();
+			// The policy index is ignored for now, as we are only using a unique policy.
+			// index = matches[2].parse().unwrap();
+			let chain = world.chain.as_ref().unwrap();
+			let kc = world.keychain.as_ref().unwrap();
+
+			for i in 0..num {
+				let prev = chain.head_header().unwrap();
+				let diff = prev.height + 1;
+				// WIP: This is the critical part to check coinbase and tax ?
+				let transactions: Vec<&Transaction>  = vec![];
+				let key_id = epic_keychain::ExtKeychainPath::new(1, diff as u32, 0, 0, 0).to_identifier();
+				let fees = transactions.iter().map(|tx| tx.fee()).sum();
+				let reward = libtx::reward::output(kc, &key_id, fees, false, 0).unwrap();
+				// Creating the block
+				let mut block = prepare_block_with_coinbase(&prev, diff, transactions, reward);
+				chain.set_txhashset_roots(&mut block).unwrap();
+				// Mining
+				let algo = Deterministic::choose_algo(&get_policies(), &prev.bottles);
+				block.header.bottles = next_block_bottles(algo, &prev.bottles);
+				block.header.pow.proof = get_pow_type(&algo, prev.height);
+				chain.process_block(block, chain::Options::SKIP_POW).unwrap();
+			};
 		};
 
 		then regex "I add <([0-9]+)> blocks following the policy <([0-9]+)>" |world, matches, _step| {
@@ -603,8 +663,6 @@ mod mine_chain {
 			assert_eq!(count, num_accepted);
 
 		};
-
-
 
 		then "I check if the bottle matches the policy" |world, _step| {
 			let chain = world.chain.as_ref().unwrap();
@@ -883,6 +941,29 @@ mod mine_chain {
 		let key_id = epic_keychain::ExtKeychainPath::new(1, diff as u32, 0, 0, 0).to_identifier();
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
 		let reward = libtx::reward::output(kc, &key_id, fees, false, 0).unwrap();
+		let mut b = match core::core::Block::new(
+			prev,
+			txs.into_iter().cloned().collect(),
+			Difficulty::from_num(diff),
+			reward,
+		) {
+			Err(e) => panic!("{:?}", e),
+			Ok(b) => b,
+		};
+		b.header.timestamp = prev.timestamp + Duration::seconds(60);
+		b.header.pow.total_difficulty = prev.total_difficulty() + Difficulty::from_num(diff);
+		b.header.pow.proof = pow::Proof::random(proof_size);
+		b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles);
+		b
+	}
+
+	fn prepare_block_with_coinbase(
+		prev: &BlockHeader,
+		diff: u64,
+		txs: Vec<&Transaction>,
+		reward: (Output, TxKernel),
+	) -> Block {
+		let proof_size = global::proofsize();
 		let mut b = match core::core::Block::new(
 			prev,
 			txs.into_iter().cloned().collect(),
