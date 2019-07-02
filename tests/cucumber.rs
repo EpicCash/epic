@@ -49,7 +49,7 @@ mod mine_chain {
 	};
 	use epic_core::core::hash::Hashed;
 	use epic_core::core::verifier_cache::LruVerifierCache;
-	use epic_core::core::{Block, BlockHeader, OutputIdentifier, Transaction, Output, TxKernel};
+	use epic_core::core::{Block, BlockHeader, Output, OutputIdentifier, Transaction, TxKernel};
 	use epic_core::global::{get_policies, set_policy_config, ChainTypes};
 	use epic_core::libtx::{self, build, reward};
 	use epic_core::pow::{
@@ -961,9 +961,8 @@ mod mine_chain {
 		prev: &BlockHeader,
 		diff: u64,
 		txs: Vec<&Transaction>,
-		reward : (Output, TxKernel),
-	) -> Block
-	{
+		reward: (Output, TxKernel),
+	) -> Block {
 		let proof_size = global::proofsize();
 		let mut b = match core::core::Block::new(
 			prev,
