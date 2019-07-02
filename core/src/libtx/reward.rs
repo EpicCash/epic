@@ -14,7 +14,7 @@
 
 //! Builds the blinded output and related signature proof for the block
 //! reward.
-use crate::consensus::reward;
+use crate::consensus::{FOUNDATION_REWARD, reward};
 use crate::core::transaction::kernel_sig_msg;
 use crate::core::{KernelFeatures, Output, OutputFeatures, TxKernel};
 use crate::keychain::{Identifier, Keychain};
@@ -30,7 +30,7 @@ where
 	K: Keychain,
 {
 	// TODO put it in an actual constant with a proper value
-	let value: u64 = 7;
+	let value: u64 = FOUNDATION_REWARD;
 	let commit = keychain.commit(value, key_id)?;
 
 	trace!("Block Foundation reward - Pedersen Commit is: {:?}", commit,);
@@ -52,7 +52,7 @@ where
 	let msg = kernel_sig_msg(0, 0, KernelFeatures::Coinbase)?;
 	let sig = aggsig::sign_from_key_id(&secp, keychain, &msg, value, &key_id, None, Some(&pubkey))?;
 	let proof = TxKernel {
-		features: KernelFeatures::Coinbase,
+		features: KernelFeatures::Foundation,
 		excess: excess,
 		excess_sig: sig,
 		fee: 0,

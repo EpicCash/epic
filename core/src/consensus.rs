@@ -41,6 +41,8 @@ pub const BLOCK_TIME_SEC: u64 = 60;
 
 /// The block subsidy amount, one epic per second on average
 pub const REWARD: u64 = 200 * EPIC_BASE;
+
+pub const FOUNDATION_REWARD: u64 = 7 * EPIC_BASE;
 /*
 /// Actual block reward for a given total fee amount
 pub fn reward(fee: u64) -> u64 {

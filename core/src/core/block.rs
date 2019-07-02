@@ -25,7 +25,7 @@ use std::fmt;
 use std::iter::FromIterator;
 use std::sync::Arc;
 
-use crate::consensus::{self, reward, reward_at_height, total_overage_at_height, REWARD};
+use crate::consensus::{self, reward, FOUNDATION_REWARD, reward_at_height, total_overage_at_height, REWARD};
 use crate::core::block::feijoada::{get_bottles_default, PoWType, Policy};
 use crate::core::committed::{self, Committed};
 use crate::core::compact_block::{CompactBlock, CompactBlockBody};
@@ -723,6 +723,7 @@ impl Block {
 
 		self.verify_kernel_lock_heights()?;
 		self.verify_coinbase()?;
+		self.verify_foundation_coinbase()?;
 
 		// take the kernel offset for this block (block offset minus previous) and
 		// verify.body.outputs and kernel sums
@@ -763,6 +764,39 @@ impl Block {
 			let kerns_sum = secp.commit_sum(cb_kerns.iter().map(|x| x.excess).collect(), vec![])?;
 
 			// Verify the kernel sum equals the output sum accounting for block fees.
+			if kerns_sum != out_adjust_sum {
+				return Err(Error::CoinbaseSumMismatch);
+			}
+		}
+
+		Ok(())
+	}
+
+	// TODO verify if the public key of every output/kernel corresponds to
+	// the Foundation public key
+	pub fn verify_foundation_coinbase(&self) -> Result<(), Error> {
+		let outputs = self
+			.body
+			.outputs
+			.iter()
+			.filter(|out| out.is_foundation())
+			.collect::<Vec<&Output>>();
+
+		let kerns = self
+			.body
+			.kernels
+			.iter()
+			.filter(|kernel| kernel.is_foundation())
+			.collect::<Vec<&TxKernel>>();
+
+		{
+			let secp = static_secp_instance();
+			let secp = secp.lock();
+			let over_commit = secp.commit_value(FOUNDATION_REWARD)?;
+			let out_adjust_sum =
+				secp.commit_sum(map_vec!(outputs, |x| x.commitment()), vec![over_commit])?;
+			let kerns_sum = secp.commit_sum(kerns.iter().map(|x| x.excess).collect(), vec![])?;
+
 			if kerns_sum != out_adjust_sum {
 				return Err(Error::CoinbaseSumMismatch);
 			}
