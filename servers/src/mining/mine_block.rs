@@ -269,14 +269,11 @@ fn get_coinbase(
 /// Will retry based on default "retry forever with backoff" behavior.
 fn create_coinbase(dest: &str, block_fees: &BlockFees) -> Result<CbData, Error> {
 	let url = format!("{}/v1/wallet/foreign/build_coinbase", dest);
-	match api::client::post(&url, None, &block_fees) {
-		Err(e) => {
-			error!(
-				"Failed to get coinbase from {}. Is the wallet listening?",
-				url
-			);
-			Err(Error::WalletComm(format!("{}", e)))
-		}
-		Ok(res) => Ok(res),
-	}
+	api::client::post(&url, None, &block_fees).map_err(|e| {
+		error!(
+			"Failed to get coinbase from {}. Is the wallet listening?",
+			url
+		);
+		Error::WalletComm(format!("{}", e))
+	})
 }

@@ -1224,6 +1224,7 @@ enum_from_primitive! {
 		Plain = 0,
 		/// A coinbase output.
 		Coinbase = 1,
+		Foundation = 2,
 	}
 }
 
