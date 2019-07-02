@@ -70,8 +70,9 @@ pub fn output<K>(
 	height: u64,
 ) -> Result<(Output, TxKernel), Error>
 where
-	K: Keychain,
+	K: Keychain + std::fmt::Debug,
 {
+	println!("{:?}", keychain);
 	let value = reward(fees, height);
 	let commit = keychain.commit(value, key_id)?;
 
