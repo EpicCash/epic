@@ -58,7 +58,8 @@ where
 	fn set_header_nonce(
 		&mut self,
 		header: Vec<u8>,
-		nonce: Option<u32>,
+		nonce: Option<u64>,
+		height: Option<u64>,
 		_solve: bool,
 	) -> Result<(), Error> {
 		self.params.reset_header_nonce(header, nonce)

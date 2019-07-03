@@ -44,7 +44,7 @@ impl Lean {
 
 	/// Sets the header and nonce to seed the graph
 	pub fn set_header_nonce(&mut self, header: Vec<u8>, nonce: u32) {
-		self.params.reset_header_nonce(header, Some(nonce)).unwrap();
+		self.params.reset_header_nonce(header, Some(nonce as u64)).unwrap();
 	}
 
 	/// Trim edges in the Cuckatoo graph. This applies multiple trimming rounds

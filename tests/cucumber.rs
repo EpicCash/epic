@@ -48,7 +48,7 @@ mod mine_chain {
 	use epic_core::libtx::{self, build, reward};
 	use epic_core::pow::{
 		new_cuckaroo_ctx, new_cuckatoo_ctx, new_md5_ctx, new_randomx_ctx, Difficulty, EdgeType,
-		Error, PoWContext,
+		Error, PoWContext, new_progpow_ctx,
 	};
 	use epic_core::{consensus, pow};
 	use epic_core::{genesis, global};
@@ -100,6 +100,7 @@ mod mine_chain {
 				"cuckaroo" => PoWType::Cuckaroo,
 				"md5" => PoWType::MD5,
 				"randomx" => PoWType::RandomX,
+				"progpow" => PoWType::ProgPow,
 				_ => panic!("Non supported PoW Type"),
 			};
 			let genesis = world.genesis.as_ref().unwrap();
@@ -147,6 +148,7 @@ mod mine_chain {
 				"cuckaroo" => PoWType::Cuckaroo,
 				"md5" => PoWType::MD5,
 				"randomx" => PoWType::RandomX,
+				"progpow" => PoWType::ProgPow,
 				_ => panic!("Non supported PoW Type"),
 			};
 			let genesis = world.genesis.as_mut().unwrap();
@@ -238,6 +240,9 @@ mod mine_chain {
 			let proof_name = matches[1].as_str();
 
 			let proof = match proof_name {
+				"progpow" => pow::Proof::ProgPowProof {
+					mix: [0; 32],
+				},
 				"randomx" => pow::Proof::RandomXProof {
 					hash: [0; 32]
 				},
@@ -271,26 +276,32 @@ mod mine_chain {
 			let proof_name = matches[1].as_str();
 
 			let proof = match proof_name {
+				"progpow" => pow::Proof::ProgPowProof{
+					mix: [
+						176, 216, 144, 11, 129, 186, 141, 9, 18, 217, 110,
+						192, 237, 240, 176, 184, 159, 21, 216, 180, 18, 130,
+						49, 91, 79, 84, 33, 92, 44, 178, 109, 131],
+				},
 				"randomx" => pow::Proof::RandomXProof {
 					hash: [
-						14, 249, 121, 13, 43, 74, 180, 213, 122,
-						194, 147, 222, 255, 202, 4, 29, 11, 15,
-						23, 39, 21, 47, 181, 240, 144, 96, 125,
-						172, 122, 45, 49, 227]
+						14, 249, 121, 13, 43, 74, 180, 213, 122, 194,
+						147, 222, 255, 202, 4, 29, 11, 15, 23, 39, 21,
+						47, 181, 240, 144, 96, 125, 172, 122, 45, 49, 227
+					]
 				},
 				"md5" => pow::Proof::MD5Proof {
 					edge_bits: 10,
-					proof: "db5c47e14c9bc431b42288e39c0d5292".to_string()
+					proof: "7ed7d6d5b405274bd11ea6971d1f9890".to_string()
 				},
 				"cuckoo" => pow::Proof::CuckooProof {
 					edge_bits: 9,
 					nonces: vec![27, 209, 166, 497]
 				},
-				_ => {panic!("invalid type proof")}
+				_ => {panic!("invalid type proof")},
 			};
 
 			let mut block = prepare_block_pow(&kc, &head, 3, vec![], proof);
-			chain.set_txhashset_roots(&mut block).unwrap();
+			chain.set_txhashset_roots(&mut block);
 
 			if let Err(e) = chain.process_block(block, chain::Options::MINE) {
 				panic!("The proof need to be valid: {}", e);
@@ -455,7 +466,7 @@ mod mine_chain {
 				let prev = chain.head_header().unwrap();
 				let next_header_info = consensus::next_difficulty(1, chain.difficulty_iter().unwrap());
 				let pk = epic_keychain::ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
-				let reward = libtx::reward::output(kc, &pk, 0, false, n).unwrap();
+				let reward = libtx::reward::output(kc, &pk, 0, false, prev.height + 1).unwrap();
 				reward_outputs.push(reward.0.clone());
 				let mut b =
 					core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
@@ -510,6 +521,9 @@ mod mine_chain {
 			let value: u32 = matches[2].parse().unwrap();
 
 			match algorithm {
+				"progpow" => {
+					world.policy.insert(FType::ProgPow, value);
+				},
 				"randomx" => {
 					world.policy.insert(FType::RandomX, value);
 				},
@@ -548,6 +562,7 @@ mod mine_chain {
 
 	fn get_fw_type(s: &str) -> FType {
 		match s {
+			"progpow" => FType::ProgPow,
 			"randomx" => FType::RandomX,
 			"cuckaroo" => FType::Cuckaroo,
 			"cuckatoo" => FType::Cuckatoo,
@@ -580,6 +595,7 @@ mod mine_chain {
 		Cuckatoo,
 		MD5,
 		RandomX,
+		ProgPow
 	}
 
 	fn pow_size_custom(
@@ -602,7 +618,7 @@ mod mine_chain {
 			// diff, we're all good
 			let mut ctx =
 				create_pow_context_custom::<u32>(bh.height, sz, proof_size, MAX_SOLS, pow_type)?;
-			ctx.set_header_nonce(bh.pre_pow(), None, true)?;
+			ctx.set_header_nonce(bh.pre_pow(), Some(bh.pow.nonce), Some(bh.height), true)?;
 			if let Ok(proofs) = ctx.pow_solve() {
 				bh.pow.proof = proofs[0].clone();
 				if bh.pow.to_difficulty(bh.height) >= diff {
@@ -638,6 +654,7 @@ mod mine_chain {
 			PoWType::Cuckatoo => new_cuckatoo_ctx(edge_bits, proof_size, max_sols),
 			PoWType::MD5 => new_md5_ctx(edge_bits, proof_size, max_sols),
 			PoWType::RandomX => new_randomx_ctx([0; 32]),
+			PoWType::ProgPow => new_progpow_ctx(),
 		}
 	}
 
@@ -651,7 +668,7 @@ mod mine_chain {
 			let prev = chain.head_header().unwrap();
 			let next_header_info = consensus::next_difficulty(1, chain.difficulty_iter().unwrap());
 			let pk = epic_keychain::ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
-			let reward = libtx::reward::output(keychain, &pk, 0, false, 0).unwrap();
+			let reward = libtx::reward::output(keychain, &pk, 0, false, n).unwrap();
 			let mut b =
 				core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
 					.unwrap();
@@ -659,6 +676,7 @@ mod mine_chain {
 			b.header.pow.secondary_scaling = next_header_info.secondary_scaling;
 			b.header.bottles = next_block_bottles(match pow_type {
 				PoWType::RandomX => FType::RandomX,
+				PoWType::ProgPow => FType::ProgPow,
 				PoWType::Cuckatoo => FType::Cuckatoo,
 				PoWType::Cuckaroo => FType::Cuckaroo,
 				PoWType::MD5 => FType::Cuckatoo,
@@ -842,6 +860,7 @@ mod mine_chain {
 				FType::Cuckatoo
 			},
 			pow::Proof::RandomXProof { .. } => FType::RandomX,
+			pow::Proof::ProgPowProof { .. } => FType::ProgPow,
 			// just for the test
 			pow::Proof::MD5Proof { .. } => FType::Cuckatoo,
 		};
@@ -869,6 +888,7 @@ fn setup() {
 		(FType::Cuckaroo, 100),
 		(FType::Cuckatoo, 0),
 		(FType::RandomX, 0),
+		(FType::ProgPow, 0),
 	]
 	.into_iter()
 	.map(|&x| x)

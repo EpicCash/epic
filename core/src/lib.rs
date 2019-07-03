@@ -23,6 +23,7 @@
 
 use blake2_rfc as blake2;
 extern crate bigint;
+extern crate keccak_hash;
 #[macro_use]
 extern crate enum_primitive;
 use epic_keychain as keychain;

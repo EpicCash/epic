@@ -14,7 +14,7 @@ where
 	pub proof_size: usize,
 	pub max_sols: u32,
 	header: Vec<u8>,
-	nonce: u32,
+	nonce: u64,
 }
 
 pub fn new_md5_ctx<T>(
@@ -42,7 +42,8 @@ where
 	fn set_header_nonce(
 		&mut self,
 		header: Vec<u8>,
-		nonce: Option<u32>,
+		nonce: Option<u64>,
+		height: Option<u64>,
 		_solve: bool,
 	) -> Result<(), Error> {
 		self.header = header;
