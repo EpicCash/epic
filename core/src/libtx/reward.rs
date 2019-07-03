@@ -32,7 +32,6 @@ where
 	// TODO put it in an actual constant with a proper value
 	let value: u64 = FOUNDATION_REWARD;
 	let commit = keychain.commit(value, key_id)?;
-
 	trace!("Block Foundation reward - Pedersen Commit is: {:?}", commit,);
 
 	let rproof = proof::create(keychain, value, key_id, commit, None)?;
@@ -70,9 +69,8 @@ pub fn output<K>(
 	height: u64,
 ) -> Result<(Output, TxKernel), Error>
 where
-	K: Keychain + std::fmt::Debug,
+	K: Keychain,
 {
-	println!("{:?}", keychain);
 	let value = reward(fees, height);
 	let commit = keychain.commit(value, key_id)?;
 

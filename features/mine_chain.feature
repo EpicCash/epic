@@ -1,5 +1,7 @@
 Feature: Mine a simple chain
 
+Scenario: add hardcoded coinbase
+  Given I have a hardcoded coinbase
 
 Scenario: add coinbase to each mined block
   Given I have the policy <0> with <cuckaroo> equals <0>
@@ -11,7 +13,7 @@ Scenario: add coinbase to each mined block
   And I add foundation wallet pubkeys
   And I add a genesis block with coinbase and mined with <cuckatoo>
   And I setup the chain for coinbase test
-  Then I add <10> blocks with coinbase following the policy <0>
+  Then I add <10> blocks with foundation reward following the policy <0>
   # Then I check if foundation received the taxes
 
 Scenario: checks a policy sequence of cuckatoo using feijoada deterministic
