@@ -8,10 +8,11 @@ pub enum PoWType {
 	Cuckaroo,
 	Cuckatoo,
 	RandomX,
+	ProgPow
 }
 
-static POW_TYPE_STRING: [&'static str; 3] = ["cuckaroo", "cuckatoo", "randomx"];
-static POW_TYPE_VALUE: [PoWType; 3] = [PoWType::Cuckaroo, PoWType::Cuckatoo, PoWType::RandomX];
+static POW_TYPE_STRING: [&'static str; 4] = ["cuckaroo", "cuckatoo", "randomx", "progpow"];
+static POW_TYPE_VALUE: [PoWType; 4] = [PoWType::Cuckaroo, PoWType::Cuckatoo, PoWType::RandomX, PoWType::ProgPow];
 
 impl Serialize for PoWType {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -22,6 +23,7 @@ impl Serialize for PoWType {
 			PoWType::Cuckaroo => "cuckaroo",
 			PoWType::Cuckatoo => "cuckatoo",
 			PoWType::RandomX => "randomx",
+			PoWType::ProgPow => "progpow",
 		})
 	}
 }
@@ -74,6 +76,7 @@ pub fn get_bottles_default() -> Policy {
 	policy.insert(PoWType::Cuckaroo, 0);
 	policy.insert(PoWType::Cuckatoo, 0);
 	policy.insert(PoWType::RandomX, 0);
+	policy.insert(PoWType::ProgPow, 0);
 	policy
 }
 
@@ -102,6 +105,7 @@ impl Writeable for Policy {
 				PoWType::Cuckaroo => 0,
 				PoWType::Cuckatoo => 1,
 				PoWType::RandomX => 2,
+				PoWType::ProgPow => 3,
 			})?;
 			writer.write_u32(*num)?;
 		}
@@ -118,6 +122,7 @@ impl Readable for Policy {
 				0 => PoWType::Cuckaroo,
 				1 => PoWType::Cuckatoo,
 				2 => PoWType::RandomX,
+				3 => PoWType::ProgPow,
 				_ => {
 					return Err(ser::Error::CorruptedData);
 				}

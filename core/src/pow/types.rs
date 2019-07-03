@@ -44,7 +44,8 @@ where
 	fn set_header_nonce(
 		&mut self,
 		header: Vec<u8>,
-		nonce: Option<u32>,
+		nonce: Option<u64>,
+		height: Option<u64>,
 		solve: bool,
 	) -> Result<(), Error>;
 	/// find solutions using the stored parameters and header
@@ -98,7 +99,7 @@ impl Difficulty {
 			Proof::MD5Proof { edge_bits, .. } => {
 				Difficulty::from_num(proof.scaled_difficulty(graph_weight(height, *edge_bits)))
 			}
-			Proof::RandomXProof { hash } => {
+			_ => {
 				Difficulty::from_num(proof.scaled_difficulty(graph_weight(height, 31)))
 			}
 		}
@@ -327,7 +328,7 @@ impl ProofOfWork {
 					Difficulty::from_proof_adjusted(height, &self.proof)
 				}
 			}
-			Proof::RandomXProof { hash } => Difficulty::from_proof_adjusted(height, &self.proof),
+			_ => Difficulty::from_proof_adjusted(height, &self.proof),
 		}
 	}
 
@@ -336,7 +337,7 @@ impl ProofOfWork {
 		match self.proof {
 			Proof::CuckooProof { edge_bits, .. } => edge_bits,
 			Proof::MD5Proof { edge_bits, .. } => edge_bits,
-			Proof::RandomXProof { .. } => 16,
+			_ => 16,
 		}
 	}
 
@@ -352,7 +353,7 @@ impl ProofOfWork {
 			Proof::MD5Proof { edge_bits, .. } => {
 				edge_bits != SECOND_POW_EDGE_BITS && edge_bits >= global::min_edge_bits()
 			}
-			Proof::RandomXProof { .. } => true,
+			_ => true,
 		}
 	}
 
@@ -362,7 +363,7 @@ impl ProofOfWork {
 		match self.proof {
 			Proof::CuckooProof { edge_bits, .. } => edge_bits == SECOND_POW_EDGE_BITS,
 			Proof::MD5Proof { edge_bits, .. } => edge_bits == SECOND_POW_EDGE_BITS,
-			Proof::RandomXProof { .. } => false,
+			_ => false,
 		}
 	}
 }
@@ -394,6 +395,10 @@ pub enum Proof {
 	RandomXProof {
 		hash: [u8; 32],
 	},
+
+	ProgPowProof {
+		mix: [u8; 32],
+	}
 }
 
 impl DefaultHashable for Proof {}
@@ -415,6 +420,9 @@ impl fmt::Debug for Proof {
 			Proof::RandomXProof { ref hash } => {
 				let hash: U256 = hash.into();
 				write!(f, "RandomX ({})", hash)
+			},
+			Proof::ProgPowProof { ref mix } => {
+				write!(f, "Progpow: mix({:?})", mix)
 			}
 		}
 	}
@@ -464,7 +472,7 @@ impl Proof {
 		match self {
 			Proof::CuckooProof { nonces, .. } => nonces.len(),
 			Proof::MD5Proof { .. } => 16,
-			Proof::RandomXProof { .. } => 16,
+			_ => 16,
 		}
 	}
 
@@ -523,6 +531,11 @@ impl Readable for Proof {
 			2 => {
 				let hash = from_slice(&reader.read_fixed_bytes(32).unwrap());
 				Ok(Proof::RandomXProof { hash })
+			},
+			3 => {
+				let mix = from_slice(&reader.read_fixed_bytes(32).unwrap());
+				//let value = from_slice(&reader.read_fixed_bytes(32).unwrap());
+				Ok(Proof::ProgPowProof { mix })
 			}
 			_ => panic!("Unknown byte"),
 		}
@@ -561,6 +574,12 @@ impl Writeable for Proof {
 			Proof::RandomXProof { ref hash } => {
 				writer.write_u8(2)?;
 				writer.write_fixed_bytes(hash)?;
+				Ok(())
+			}
+			Proof::ProgPowProof { ref mix } => {
+				writer.write_u8(3)?;
+				writer.write_fixed_bytes(mix)?;
+				//writer.write_fixed_bytes(value)?;
 				Ok(())
 			}
 		}

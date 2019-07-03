@@ -101,7 +101,7 @@ impl Miner {
 				10,
 			)
 			.unwrap();
-			ctx.set_header_nonce(b.header.pre_pow(), None, true)
+			ctx.set_header_nonce(b.header.pre_pow(), None, None, true)
 				.unwrap();
 			if let Ok(proofs) = ctx.pow_solve() {
 				b.header.pow.proof = proofs[0].clone();
