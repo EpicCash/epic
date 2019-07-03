@@ -239,7 +239,7 @@ Scenario: mine progpow genesis reward chain
   Given I have the policy <0> with <cuckaroo> equals <0>
   And I have the policy <0> with <progpow> equals <100>
   And I have the policy <0> with <cuckatoo> equals <0>
-  Given I have the <testing> chain
+  Given I have a <testing> chain
   Given I setup a chain
   Given I define my output dir as <.epic.genesis20>
   Given I add coinbase data from the dev genesis block
