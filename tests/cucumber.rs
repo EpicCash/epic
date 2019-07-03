@@ -15,6 +15,7 @@ pub struct EdnaWorld {
 	pub output_dir: String,
 	pub genesis: Option<Block>,
 	pub keychain: Option<ExtKeychain>,
+	pub keychain_foundation: Option<ExtKeychain>,
 	pub chain: Option<Chain>,
 	pub policy: Policy,
 	pub bottles: Policy,
@@ -27,6 +28,7 @@ impl std::default::Default for EdnaWorld {
 			output_dir: ".epic".to_string(),
 			genesis: None,
 			keychain: None,
+			keychain_foundation: None,
 			chain: None,
 			policy: get_bottles_default(),
 			bottles: get_bottles_default(),
@@ -596,10 +598,11 @@ mod mine_chain {
 			let algo = get_fw_type(matches[1].as_str());
 			let key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
 			let reward = reward::output(world.keychain.as_ref().unwrap(), &key_id, 0, false, 0).unwrap();
+			let foundation = libtx::reward::output_foundation(world.keychain_foundation.as_ref().unwrap(), &key_id).unwrap();
 			// creating a placeholder for the genesis block
 			let mut genesis = genesis::genesis_dev();
 			// creating the block with the desired reward
-			genesis = genesis.with_reward(reward.0, reward.1);
+			genesis = genesis.with_coinbase(reward, foundation);
 			genesis.header.bottles = next_block_bottles(algo, &world.bottles);
 			// mining "manually" the genesis
 			let genesis_difficulty = genesis.header.pow.total_difficulty;
@@ -611,6 +614,7 @@ mod mine_chain {
 
 		given "I setup the chain for coinbase test" |world, _step| {
 			let chain = setup(&world.output_dir, world.genesis.as_ref().unwrap().clone());
+			println!("I got here!");
 			let genesis_ref = world.genesis.as_mut().unwrap();
 			world.chain = Some(chain);
 			// WIP: maybe we need to change this, since are 2 outputs ?
@@ -620,13 +624,13 @@ mod mine_chain {
 
 		given "I add foundation wallet pubkeys" |world, _step| {
 			// WIP: Add your personalized keychain here
-			//world.keychain = Some(epic_keychain::ExtKeychain::from_seed(&[2,0,0], false).unwrap());
+			world.keychain = Some(epic_keychain::ExtKeychain::from_seed(&[2,0,0], false).unwrap());
 
 			// WIP: maybe use this ?
 			let kc = epic_keychain::ExtKeychain::from_mnemonic(
 				"shop dignity online camera various front stay prosper bench dash learn chimney huge crush develop rack beauty prison wear manual harbor theory bachelor exile",
 				"", false).unwrap();
-			world.keychain = Some(kc);
+			world.keychain_foundation = Some(kc);
 		};
 
 		then regex "I add <([0-9]+)> blocks with foundation reward following the policy <([0-9]+)>" |world, matches, _step| {
@@ -634,21 +638,21 @@ mod mine_chain {
 			// The policy index is ignored for now, as we are only using a unique policy.
 			// index = matches[2].parse().unwrap();
 			let chain = world.chain.as_ref().unwrap();
+			let kc_foundation = world.keychain_foundation.as_ref().unwrap();
 			let kc = world.keychain.as_ref().unwrap();
 			// println!("Keychain: {:?}", kc);
 
 			for i in 0..num {
 				let prev = chain.head_header().unwrap();
 				let diff = prev.height + 1;
-				println!("{:?}", diff);
 				let transactions: Vec<&Transaction>  = vec![];
 				let key_id = epic_keychain::ExtKeychainPath::new(3, 0, 0, diff as u32, 0).to_identifier();
 				println!("Key_id: {:?}\n", key_id);
 				let fees = transactions.iter().map(|tx| tx.fee()).sum();
 				let mining_reward = libtx::reward::output(kc, &key_id, fees, false, 0).unwrap();
-				let foundation_reward = libtx::reward::output_foundation(kc, &key_id).unwrap();
+				let foundation_reward = libtx::reward::output_foundation(kc_foundation, &key_id).unwrap();
 				foundation_reward.1.verify();
-				println!("Foundation Reward:{:?}\n", foundation_reward);
+				println!("\nFoundation Reward:{:?}\n", foundation_reward);
 				// Creating the block
 				let mut block = prepare_block_with_coinbase(&prev, diff, transactions, mining_reward, foundation_reward);
 				chain.set_txhashset_roots(&mut block).unwrap();
