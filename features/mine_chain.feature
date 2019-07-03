@@ -234,12 +234,12 @@ Scenario: refuse invalid randomx pow
   Then clean tmp chain dir
   Then clean output dir
 
-# randomx tests
+# progpow tests
 Scenario: mine progpow genesis reward chain
-  Given I have a policy <cuckaroo> with <0>
-  Given I have a policy <progpow> with <100>
-  Given I have a policy <cuckatoo> with <0>
-  Given I have a <testing> chain
+  Given I have the policy <0> with <cuckaroo> equals <0>
+  And I have the policy <0> with <progpow> equals <100>
+  And I have the policy <0> with <cuckatoo> equals <0>
+  Given I have the <testing> chain
   Given I setup a chain
   Given I define my output dir as <.epic.genesis20>
   Given I add coinbase data from the dev genesis block
@@ -249,9 +249,9 @@ Scenario: mine progpow genesis reward chain
   Then clean output dir
 
 Scenario: accept valid progpow
-  Given I have a policy <cuckaroo> with <0>
-  Given I have a policy <progpow> with <100>
-  Given I have a policy <cuckatoo> with <0>
+  Given I have the policy <0> with <cuckaroo> equals <0>
+  And I have the policy <0> with <progpow> equals <100>
+  And I have the policy <0> with <cuckatoo> equals <0>
   Given I have a <testing> chain
   And I define my output dir as <.epic11>
   And I setup a chain
@@ -260,9 +260,9 @@ Scenario: accept valid progpow
   Then clean output dir
 
 Scenario: refuse invalid progpow pow
-  Given I have a policy <cuckaroo> with <0>
-  Given I have a policy <progpow> with <100>
-  Given I have a policy <cuckatoo> with <0>
+  Given I have the policy <0> with <cuckaroo> equals <0>
+  And I have the policy <0> with <progpow> equals <100>
+  And I have the policy <0> with <cuckatoo> equals <0>
   Given I have a <testing> chain
   And I define my output dir as <.epic10>
   And I setup a chain
