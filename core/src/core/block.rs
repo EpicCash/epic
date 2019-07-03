@@ -690,6 +690,14 @@ impl Block {
 		self
 	}
 
+	/// Consumes this block and returns a new block with the coinbase output
+	/// and kernels added
+	pub fn with_coinbase(mut self, reward: (Output, TxKernel), foundation: (Output, TxKernel))-> Block {
+		self.body.outputs = vec![reward.0, foundation.0];
+		self.body.kernels = vec![reward.1, foundation.1];
+		self
+	}
+
 	/// Get inputs
 	pub fn inputs(&self) -> &Vec<Input> {
 		&self.body.inputs
