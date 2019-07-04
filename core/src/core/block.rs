@@ -24,6 +24,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::iter::FromIterator;
 use std::sync::Arc;
+use keccak_hash::keccak_256;
 
 use crate::consensus::{self, reward, reward_at_height, total_overage_at_height, REWARD};
 use crate::core::block::feijoada::{get_bottles_default, PoWType, Policy};
@@ -374,6 +375,18 @@ impl BlockHeader {
 			writer.write_u64(self.pow.nonce).unwrap();
 		}
 		header_buf
+	}
+
+	pub fn pre_pow_hash(&self) -> [u8; 32] {
+		let mut header_buf = vec![];
+		{
+			let mut writer = ser::BinWriter::new(&mut header_buf);
+			self.write_pre_pow(&mut writer).unwrap();
+			self.pow.write_pre_pow(&mut writer).unwrap();
+		}
+		let mut result = [0u8; 32];
+		keccak_256(&header_buf, &mut result);
+		result
 	}
 
 	/// Total difficulty accumulated by the proof of work on this header

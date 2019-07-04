@@ -78,12 +78,12 @@ where
 	}
 }
 
-pub fn set_header_nonce(header: &[u8], nonce: Option<u32>) -> Result<[u64; 4], Error> {
+pub fn set_header_nonce(header: &[u8], nonce: Option<u64>) -> Result<[u64; 4], Error> {
 	if let Some(n) = nonce {
 		let len = header.len();
 		let mut header = header.to_owned();
 		header.truncate(len - 4); // drop last 4 bytes (u32) off the end
-		header.write_u32::<LittleEndian>(n)?;
+		header.write_u32::<LittleEndian>(n as u32)?;
 		create_siphash_keys(&header)
 	} else {
 		create_siphash_keys(&header)
@@ -166,7 +166,7 @@ where
 	}
 
 	/// Reset the main keys used for siphash from the header and nonce
-	pub fn reset_header_nonce(&mut self, header: Vec<u8>, nonce: Option<u32>) -> Result<(), Error> {
+	pub fn reset_header_nonce(&mut self, header: Vec<u8>, nonce: Option<u64>) -> Result<(), Error> {
 		self.siphash_keys = set_header_nonce(&header, nonce)?;
 		Ok(())
 	}

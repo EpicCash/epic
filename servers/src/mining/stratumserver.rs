@@ -150,6 +150,7 @@ struct LoginParams {
 pub enum AlgorithmParams {
 	Cuckoo(u64, Vec<u64>),
 	RandomX([u8; 32]),
+	ProgPow([u8; 32]),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -396,6 +397,9 @@ impl Handler {
 			}
 			AlgorithmParams::RandomX(hash) => {
 				b.header.pow.proof = Proof::RandomXProof { hash };
+			}
+			AlgorithmParams::ProgPow(mix) => {
+				b.header.pow.proof = Proof::ProgPowProof { mix };
 			}
 		}
 

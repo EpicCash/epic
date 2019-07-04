@@ -22,6 +22,7 @@ where
 {
 	pub seed: [u8; 32],
 	pub header: Vec<u8>,
+	pub nonce: u64,
 	phantom: PhantomData<T>,
 }
 
@@ -32,6 +33,7 @@ where
 	Ok(Box::new(RXContext {
 		phantom: PhantomData,
 		header: vec![],
+		nonce: 0,
 		seed,
 	}))
 }
@@ -43,11 +45,12 @@ where
 	fn set_header_nonce(
 		&mut self,
 		header: Vec<u8>,
-		nonce: Option<u32>,
+		nonce: Option<u64>,
+		height: Option<u64>,
 		_solve: bool,
 	) -> Result<(), Error> {
 		self.header = header;
-		//self.nonce = nonce.unwrap_or(self.nonce);
+		self.nonce = nonce.unwrap_or(self.nonce);
 		Ok(())
 	}
 

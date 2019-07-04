@@ -135,7 +135,7 @@ impl RxState {
 		let cache = self.cache.as_ref().ok_or("cache is not initialized")?;
 
 		let mut dataset_ptr =
-			unsafe { randomx_alloc_dataset(randomx_flags_RANDOMX_FLAG_LARGE_PAGES) };
+			unsafe { randomx_alloc_dataset(self.get_flags() | randomx_flags_RANDOMX_FLAG_LARGE_PAGES) };
 
 		if dataset_ptr.is_null() {
 			dataset_ptr = unsafe { randomx_alloc_dataset(self.get_flags()) };

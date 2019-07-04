@@ -67,7 +67,6 @@ Scenario: refuse blocks that were not mined with a desired algorithm
   Then I add <5> blocks mined with <cuckatoo> and accept <1>
   Then I add <5> blocks mined with <randomx> and accept <1>
 
-
 Scenario: Mine empty chain
   Given I have the policy <0> with <cuckaroo> equals <0>
   And I have the policy <0> with <randomx> equals <0>
@@ -232,5 +231,41 @@ Scenario: refuse invalid randomx pow
   And I define my output dir as <.epic10>
   And I setup a chain
   Then I refuse a block with <randomx> invalid
+  Then clean tmp chain dir
+  Then clean output dir
+
+# progpow tests
+Scenario: mine progpow genesis reward chain
+  Given I have the policy <0> with <cuckaroo> equals <0>
+  And I have the policy <0> with <progpow> equals <100>
+  And I have the policy <0> with <cuckatoo> equals <0>
+  Given I have a <testing> chain
+  Given I setup a chain
+  Given I define my output dir as <.epic.genesis20>
+  Given I add coinbase data from the dev genesis block
+  Then I get a valid <progpow> PoW
+  Then I mine <progpow>
+  Then clean tmp chain dir
+  Then clean output dir
+
+Scenario: accept valid progpow
+  Given I have the policy <0> with <cuckaroo> equals <0>
+  And I have the policy <0> with <progpow> equals <100>
+  And I have the policy <0> with <cuckatoo> equals <0>
+  Given I have a <testing> chain
+  And I define my output dir as <.epic11>
+  And I setup a chain
+  Then I accept a block with a pow <progpow> valid
+  Then clean tmp chain dir
+  Then clean output dir
+
+Scenario: refuse invalid progpow pow
+  Given I have the policy <0> with <cuckaroo> equals <0>
+  And I have the policy <0> with <progpow> equals <100>
+  And I have the policy <0> with <cuckatoo> equals <0>
+  Given I have a <testing> chain
+  And I define my output dir as <.epic10>
+  And I setup a chain
+  Then I refuse a block with <progpow> invalid
   Then clean tmp chain dir
   Then clean output dir

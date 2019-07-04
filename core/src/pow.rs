@@ -40,6 +40,7 @@ mod error;
 pub mod lean;
 pub mod md5;
 pub mod randomx;
+pub mod progpow;
 mod siphash;
 mod types;
 
@@ -55,6 +56,7 @@ pub use crate::pow::cuckatoo::{new_cuckatoo_ctx, CuckatooContext};
 pub use crate::pow::error::Error;
 pub use crate::pow::md5::{new_md5_ctx, MD5Context};
 pub use crate::pow::randomx::{new_randomx_ctx, RXContext};
+pub use crate::pow::progpow::{new_progpow_ctx, ProgPowContext};
 
 const MAX_SOLS: u32 = 10;
 
@@ -62,6 +64,7 @@ const MAX_SOLS: u32 = 10;
 /// satisfies the requirements of the header.
 pub fn verify_size(bh: &BlockHeader) -> Result<(), Error> {
 	let mut ctx = match bh.pow.proof {
+		Proof::ProgPowProof { .. } => new_progpow_ctx(),
 		Proof::RandomXProof { .. } => new_randomx_ctx(bh.pow.seed),
 		Proof::MD5Proof { .. } => new_md5_ctx(bh.pow.edge_bits(), global::proofsize(), MAX_SOLS),
 		Proof::CuckooProof { ref nonces, .. } => Ok(global::create_pow_context::<u64>(
@@ -73,7 +76,7 @@ pub fn verify_size(bh: &BlockHeader) -> Result<(), Error> {
 	}
 	.unwrap();
 
-	ctx.set_header_nonce(bh.pre_pow(), None, false)?;
+	ctx.set_header_nonce(bh.pre_pow(), Some(bh.pow.nonce), Some(bh.height), false)?;
 	ctx.verify(&bh.pow.proof)
 }
 
@@ -81,9 +84,7 @@ pub fn verify_size(bh: &BlockHeader) -> Result<(), Error> {
 pub fn mine_genesis_block() -> Result<Block, Error> {
 	let mut gen = genesis::genesis_dev();
 
-	if global::is_user_testing_mode() {
-		//|| global::is_automated_testing_mode() {
-		gen = genesis::genesis_dev();
+	if global::is_user_testing_mode(){
 		gen.header.timestamp = Utc::now();
 	}
 
@@ -118,7 +119,7 @@ pub fn pow_size(
 		// if we found a cycle (not guaranteed) and the proof hash is higher that the
 		// diff, we're all good
 		let mut ctx = global::create_pow_context::<u32>(bh.height, sz, proof_size, MAX_SOLS)?;
-		ctx.set_header_nonce(bh.pre_pow(), None, true)?;
+		ctx.set_header_nonce(bh.pre_pow(), None, None, true)?;
 		if let Ok(proofs) = ctx.pow_solve() {
 			bh.pow.proof = proofs[0].clone();
 			if bh.pow.to_difficulty(bh.height) >= diff {

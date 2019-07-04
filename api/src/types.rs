@@ -516,6 +516,7 @@ pub enum Solution {
 	Cuckoo(Vec<u64>),
 	MD5(String),
 	RandomX(String),
+	ProgPow([u8; 32])
 }
 
 impl Display for Solution {
@@ -524,6 +525,7 @@ impl Display for Solution {
 			Solution::Cuckoo(v) => write!(f, "{:?}", v),
 			Solution::MD5(s) => write!(f, "{}", s),
 			Solution::RandomX(s) => write!(f, "{}", s),
+			Solution::ProgPow(x) => write!(f, "{:?}", x),
 		}
 	}
 }
@@ -582,6 +584,7 @@ impl BlockHeaderPrintable {
 				Proof::CuckooProof { .. } => "Cuckoo".to_string(),
 				Proof::MD5Proof { .. } => "MD5".to_string(),
 				Proof::RandomXProof { .. } => "RandomX".to_string(),
+				Proof::ProgPowProof { .. } => "ProgPow".to_string(),
 			},
 			solution: match header.pow.proof {
 				Proof::CuckooProof { ref nonces, .. } => Solution::Cuckoo(nonces.clone()),
@@ -589,6 +592,9 @@ impl BlockHeaderPrintable {
 				Proof::RandomXProof { ref hash } => {
 					let h: U256 = hash.into();
 					Solution::RandomX(format!("{}", h))
+				}
+				Proof::ProgPowProof { ref mix } => {
+					Solution::ProgPow(mix.clone())
 				}
 			},
 			total_difficulty: header.pow.total_difficulty.to_num(),
