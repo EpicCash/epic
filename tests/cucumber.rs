@@ -28,7 +28,7 @@ impl std::default::Default for EdnaWorld {
 			genesis: None,
 			keychain: None,
 			chain: None,
-			policy: Policy::new(),
+			policy: get_bottles_default(),
 			bottles: get_bottles_default(),
 		}
 	}
@@ -769,7 +769,7 @@ mod mine_chain {
 			let mut ctx =
 				create_pow_context_custom::<u32>(bh.height, sz, proof_size, MAX_SOLS, pow_type)?;
 
-			if let Proof::CuckooProof { .. } = bh.pow.proof {
+			if let pow::Proof::CuckooProof { .. } = bh.pow.proof {
 				ctx.set_header_nonce(bh.pre_pow(), None, Some(bh.height), true)?;
 			} else {
 				ctx.set_header_nonce(bh.pre_pow(), Some(bh.pow.nonce), Some(bh.height), true)?;
