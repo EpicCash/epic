@@ -53,8 +53,8 @@ mod mine_chain {
 	use epic_core::global::{get_policies, set_policy_config, ChainTypes};
 	use epic_core::libtx::{self, build, reward};
 	use epic_core::pow::{
-		new_cuckaroo_ctx, new_cuckatoo_ctx, new_md5_ctx, new_randomx_ctx, Difficulty, EdgeType,
-		Error, PoWContext, new_progpow_ctx,
+		new_cuckaroo_ctx, new_cuckatoo_ctx, new_md5_ctx, new_progpow_ctx, new_randomx_ctx,
+		Difficulty, EdgeType, Error, PoWContext,
 	};
 	use epic_core::{consensus, pow};
 	use epic_core::{genesis, global};
@@ -746,7 +746,7 @@ mod mine_chain {
 		Cuckatoo,
 		MD5,
 		RandomX,
-		ProgPow
+		ProgPow,
 	}
 
 	fn pow_size_custom(
@@ -768,7 +768,13 @@ mod mine_chain {
 			// diff, we're all good
 			let mut ctx =
 				create_pow_context_custom::<u32>(bh.height, sz, proof_size, MAX_SOLS, pow_type)?;
-			ctx.set_header_nonce(bh.pre_pow(), Some(bh.pow.nonce), Some(bh.height), true)?;
+
+			if let Proof::CuckooProof { .. } = bh.pow.proof {
+				ctx.set_header_nonce(bh.pre_pow(), None, Some(bh.height), true)?;
+			} else {
+				ctx.set_header_nonce(bh.pre_pow(), Some(bh.pow.nonce), Some(bh.height), true)?;
+			}
+
 			if let Ok(proofs) = ctx.pow_solve() {
 				bh.pow.proof = proofs[0].clone();
 				if bh.pow.to_difficulty(bh.height) >= diff {
@@ -824,13 +830,16 @@ mod mine_chain {
 					.unwrap();
 			b.header.timestamp = prev.timestamp + Duration::seconds(60);
 			b.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-			b.header.bottles = next_block_bottles(match pow_type {
-				PoWType::RandomX => FType::RandomX,
-				PoWType::ProgPow => FType::ProgPow,
-				PoWType::Cuckatoo => FType::Cuckatoo,
-				PoWType::Cuckaroo => FType::Cuckaroo,
-				PoWType::MD5 => FType::Cuckatoo,
-			}, &prev.bottles);
+			b.header.bottles = next_block_bottles(
+				match pow_type {
+					PoWType::RandomX => FType::RandomX,
+					PoWType::ProgPow => FType::ProgPow,
+					PoWType::Cuckatoo => FType::Cuckatoo,
+					PoWType::Cuckaroo => FType::Cuckaroo,
+					PoWType::MD5 => FType::Cuckatoo,
+				},
+				&prev.bottles,
+			);
 			chain.set_txhashset_roots(&mut b).unwrap();
 
 			let edge_bits = if n == 2 {
