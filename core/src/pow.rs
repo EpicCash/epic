@@ -76,7 +76,12 @@ pub fn verify_size(bh: &BlockHeader) -> Result<(), Error> {
 	}
 	.unwrap();
 
-	ctx.set_header_nonce(bh.pre_pow(), Some(bh.pow.nonce), Some(bh.height), false)?;
+	if let Proof::CuckooProof { .. } = bh.pow.proof{
+		ctx.set_header_nonce(bh.pre_pow(), None, Some(bh.height), false)?;
+	} else {
+		ctx.set_header_nonce(bh.pre_pow(), Some(bh.pow.nonce), Some(bh.height), false)?;
+	}
+
 	ctx.verify(&bh.pow.proof)
 }
 
