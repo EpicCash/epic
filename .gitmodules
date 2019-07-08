@@ -1,3 +1,6 @@
 [submodule "progpow-rust"]
 	path = progpow-rust
 	url = git@gitlab.com:ShunFreeman/progpow-rust.git
+[submodule "randomx-rust"]
+	path = randomx-rust
+	url = ../randomx-rust.git

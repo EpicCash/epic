@@ -13,4 +13,4 @@ test_output
 wallet_data
 wallet/db
 .idea/
-
+build/

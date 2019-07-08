@@ -1,0 +1,12 @@
+Source: epic
+Section: utils
+Priority: optional
+Maintainer: Yuri Albuquerque <yurialbuquerque@brickabode.com>
+Build-Depends: cmake, libclang-dev, libncurses5-dev, clang, libncursesw5-dev
+Standards-Version: 4.0.0
+Homepage: http://brickabode.com/
+
+Package: epic
+Architecture: amd64
+Depends: build-essential, ${misc:Depends}, libncurses5-dev, libclang-dev, libncursesw5-dev, librandomx
+Description: Epic server

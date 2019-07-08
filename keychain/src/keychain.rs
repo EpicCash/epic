@@ -78,7 +78,7 @@ impl Keychain for ExtKeychain {
 	fn derive_key(&self, amount: u64, id: &Identifier) -> Result<SecretKey, Error> {
 		let mut h = self.hasher.clone();
 		let p = id.to_path();
-		let mut ext_key = self.master;
+		let mut ext_key = self.master.clone();
 		for i in 0..p.depth {
 			ext_key = ext_key.ckd_priv(&self.secp, &mut h, p.path[i as usize])?;
 		}
