@@ -8,11 +8,16 @@ pub enum PoWType {
 	Cuckaroo,
 	Cuckatoo,
 	RandomX,
-	ProgPow
+	ProgPow,
 }
 
 static POW_TYPE_STRING: [&'static str; 4] = ["cuckaroo", "cuckatoo", "randomx", "progpow"];
-static POW_TYPE_VALUE: [PoWType; 4] = [PoWType::Cuckaroo, PoWType::Cuckatoo, PoWType::RandomX, PoWType::ProgPow];
+static POW_TYPE_VALUE: [PoWType; 4] = [
+	PoWType::Cuckaroo,
+	PoWType::Cuckatoo,
+	PoWType::RandomX,
+	PoWType::ProgPow,
+];
 
 impl Serialize for PoWType {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
