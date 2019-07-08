@@ -8,11 +8,16 @@ pub enum PoWType {
 	Cuckaroo,
 	Cuckatoo,
 	RandomX,
-	ProgPow
+	ProgPow,
 }
 
 static POW_TYPE_STRING: [&'static str; 4] = ["cuckaroo", "cuckatoo", "randomx", "progpow"];
-static POW_TYPE_VALUE: [PoWType; 4] = [PoWType::Cuckaroo, PoWType::Cuckatoo, PoWType::RandomX, PoWType::ProgPow];
+static POW_TYPE_VALUE: [PoWType; 4] = [
+	PoWType::Cuckaroo,
+	PoWType::Cuckatoo,
+	PoWType::RandomX,
+	PoWType::ProgPow,
+];
 
 impl Serialize for PoWType {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -58,7 +63,10 @@ impl Default for PolicyConfig {
 	fn default() -> Self {
 		// default just in tests
 		let mut policies = get_bottles_default();
-		policies.insert(PoWType::Cuckaroo, 100);
+		policies.insert(PoWType::Cuckaroo, 25);
+		policies.insert(PoWType::Cuckatoo, 25);
+		policies.insert(PoWType::RandomX, 25);
+		policies.insert(PoWType::ProgPow, 25);
 
 		PolicyConfig {
 			allowed_policies: 0,
