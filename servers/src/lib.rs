@@ -37,6 +37,7 @@ use epic_util as util;
 
 pub mod common;
 mod epic;
+pub mod foundation;
 mod mining;
 
 pub use crate::common::stats::{DiffBlock, PeerStats, ServerStats, StratumStats, WorkerStats};

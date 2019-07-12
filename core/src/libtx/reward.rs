@@ -14,7 +14,7 @@
 
 //! Builds the blinded output and related signature proof for the block
 //! reward.
-use crate::consensus::{FOUNDATION_REWARD, reward};
+use crate::consensus::{reward, FOUNDATION_REWARD};
 use crate::core::transaction::kernel_sig_msg;
 use crate::core::{KernelFeatures, Output, OutputFeatures, TxKernel};
 use crate::keychain::{Identifier, Keychain};
@@ -22,10 +22,7 @@ use crate::libtx::error::Error;
 use crate::libtx::{aggsig, proof};
 use crate::util::{secp, static_secp_instance};
 
-pub fn output_foundation<K>(
-	keychain: &K,
-	key_id: &Identifier,
-) -> Result<(Output, TxKernel), Error>
+pub fn output_foundation<K>(keychain: &K, key_id: &Identifier) -> Result<(Output, TxKernel), Error>
 where
 	K: Keychain,
 {

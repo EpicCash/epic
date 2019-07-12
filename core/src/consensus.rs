@@ -86,8 +86,8 @@ pub fn reward_at_height(height: u64) -> u64 {
 /// TODOBG: Make this more efficient by hardcoding reward schedule times
 pub fn total_overage_at_height(height: u64, genesis_had_reward: bool) -> i64 {
 	let mut sum: i64 = 0;
-	let mut n =1;
-	if genesis_had_reward{
+	let mut n = 1;
+	if genesis_had_reward {
 		n = 0;
 	}
 	for i in n..=height {

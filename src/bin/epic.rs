@@ -29,6 +29,9 @@ use epic_core as core;
 use epic_p2p as p2p;
 use epic_servers as servers;
 use epic_util as util;
+use servers::foundation;
+use std::env;
+use std::path::Path;
 
 mod cmd;
 pub mod tui;
@@ -73,6 +76,49 @@ fn real_main() -> i32 {
 	let args = App::from_yaml(yml).get_matches();
 	let node_config;
 
+	if let ("taxes", Some(taxes_args)) = args.subcommand() {
+		let generate: u32 = taxes_args
+			.value_of("generate")
+			.unwrap()
+			.parse()
+			.unwrap_or_else(|e| {
+				panic!("The generate value must be a positive integer: {}", e);
+			});
+
+		let url = taxes_args.value_of("from_wallet").unwrap().clone();
+		let mut wallet_url = String::new();
+		if !url.contains("http") {
+			wallet_url.push_str("http://");
+		}
+		wallet_url.push_str(url);
+
+		let path_str = taxes_args
+			.value_of("path")
+			.map(|p| Some(p.to_owned()))
+			.unwrap_or_else(|| {
+				let p = env::current_dir().ok()?;
+				let s = p.to_str()?;
+				Some(s.to_owned())
+			})
+			.expect("Should have a path");
+		let path = Path::new(path_str.as_str());
+		assert_eq!(
+			path.exists(),
+			true,
+			"The path: {} does not exist!",
+			path.display()
+		);
+
+		let foundation_coinbases = foundation::create_foundation(&wallet_url, generate);
+		let serialized = foundation::serialize_foundation(foundation_coinbases);
+		println!(
+			"Total size in bytes serialized: {:?}",
+			serialized.as_bytes().len()
+		);
+		foundation::save_in_disk(serialized, &path);
+		return 0;
+	}
+
 	// Temporary wallet warning message
 	match args.subcommand() {
 		("wallet", _) => {
@@ -86,7 +132,6 @@ fn real_main() -> i32 {
 		}
 		_ => {}
 	}
-
 	let chain_type = if args.is_present("floonet") {
 		global::ChainTypes::Floonet
 	} else if args.is_present("usernet") {

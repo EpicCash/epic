@@ -267,7 +267,7 @@ fn get_coinbase(
 
 /// Call the wallet API to create a coinbase output for the given block_fees.
 /// Will retry based on default "retry forever with backoff" behavior.
-fn create_coinbase(dest: &str, block_fees: &BlockFees) -> Result<CbData, Error> {
+pub fn create_coinbase(dest: &str, block_fees: &BlockFees) -> Result<CbData, Error> {
 	let url = format!("{}/v1/wallet/foreign/build_coinbase", dest);
 	api::client::post(&url, None, &block_fees).map_err(|e| {
 		error!(
