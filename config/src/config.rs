@@ -248,6 +248,18 @@ impl GlobalConfig {
 		secret_path.push(API_SECRET_FILE_NAME);
 		self.members.as_mut().unwrap().server.api_secret_path =
 			Some(secret_path.to_str().unwrap().to_owned());
+		let mut foundation_path = epic_home.clone();
+		foundation_path.push(
+			self.members
+				.as_ref()
+				.unwrap()
+				.server
+				.foundation_path
+				.clone(),
+		);
+		foundation_path.push("foundation.json");
+		self.members.as_mut().unwrap().server.foundation_path =
+			foundation_path.to_str().unwrap().to_owned();
 		let mut log_path = epic_home.clone();
 		log_path.push(SERVER_LOG_FILE_NAME);
 		self.members

@@ -91,7 +91,6 @@ pub fn server_command(
 
 	// just get defaults from the global config
 	let mut server_config = global_config.members.as_ref().unwrap().server.clone();
-
 	if let Some(a) = server_args {
 		if let Some(port) = a.value_of("port") {
 			server_config.p2p_config.port = port.parse().unwrap();

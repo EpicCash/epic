@@ -26,7 +26,9 @@ use std::iter::FromIterator;
 use std::sync::Arc;
 use keccak_hash::keccak_256;
 
-use crate::consensus::{self, reward, FOUNDATION_REWARD, reward_at_height, total_overage_at_height, REWARD};
+use crate::consensus::{
+	self, reward, reward_at_height, total_overage_at_height, FOUNDATION_REWARD, REWARD,
+};
 use crate::core::block::feijoada::{get_bottles_default, PoWType, Policy};
 use crate::core::committed::{self, Committed};
 use crate::core::compact_block::{CompactBlock, CompactBlockBody};
@@ -544,8 +546,7 @@ impl Block {
 		reward: (Output, TxKernel),
 		foundation: (Output, TxKernel),
 	) -> Result<Block, Error> {
-		let mut block =
-			Block::from_coinbases(prev, txs, reward, foundation, difficulty)?;
+		let mut block = Block::from_coinbases(prev, txs, reward, foundation, difficulty)?;
 
 		// Now set the pow on the header so block hashing works as expected.
 		{
@@ -656,7 +657,7 @@ impl Block {
 		prev: &BlockHeader,
 		txs: Vec<Transaction>,
 		reward: (Output, TxKernel),
-		foundation:(Output, TxKernel),
+		foundation: (Output, TxKernel),
 		difficulty: Difficulty,
 	) -> Result<Block, Error> {
 		// A block is just a big transaction, aggregate and add the reward output
@@ -705,7 +706,11 @@ impl Block {
 
 	/// Consumes this block and returns a new block with the coinbase output
 	/// and kernels added
-	pub fn with_coinbase(mut self, reward: (Output, TxKernel), foundation: (Output, TxKernel))-> Block {
+	pub fn with_coinbase(
+		mut self,
+		reward: (Output, TxKernel),
+		foundation: (Output, TxKernel),
+	) -> Block {
 		self.body.outputs = vec![reward.0, foundation.0];
 		self.body.kernels = vec![reward.1, foundation.1];
 		self

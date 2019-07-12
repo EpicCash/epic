@@ -60,7 +60,7 @@ mod mine_chain {
 	};
 	use epic_core::{consensus, pow};
 	use epic_core::{genesis, global};
-	use epic_keychain::{Keychain, Identifier};
+	use epic_keychain::{Identifier, Keychain};
 
 	use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 	use chrono::Duration;
@@ -72,12 +72,11 @@ mod mine_chain {
 	use serde::{Deserialize, Serialize};
 	use serde_json;
 
-
 	const MAX_SOLS: u32 = 10;
 
 	/// Response to build a coinbase output.
 	#[derive(Serialize, Deserialize, Debug, Clone)]
-		pub struct CbData {
+	pub struct CbData {
 		/// Output
 		pub output: Output,
 		/// Kernel

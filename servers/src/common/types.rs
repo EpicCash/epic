@@ -150,6 +150,9 @@ pub struct ServerConfig {
 	/// Location of secret for basic auth on Rest API HTTP server.
 	pub api_secret_path: Option<String>,
 
+	/// Path to the directory where the file of pre-generated foundation coinbases is in.
+	pub foundation_path: String,
+
 	/// TLS certificate file
 	pub tls_certificate_file: Option<String>,
 	/// TLS certificate private key file
@@ -200,7 +203,7 @@ pub struct ServerConfig {
 	pub webhook_config: WebHooksConfig,
 
 	#[serde(default)]
-	/// Configuration for the proportions policy on EDNA
+	/// Configuration for the proportions policy on EPIC
 	pub policy_config: PolicyConfig,
 }
 
@@ -210,6 +213,7 @@ impl Default for ServerConfig {
 			db_root: "epic_chain".to_string(),
 			api_http_addr: "127.0.0.1:3413".to_string(),
 			api_secret_path: Some(".api_secret".to_string()),
+			foundation_path: "foundation".to_string(),
 			tls_certificate_file: None,
 			tls_certificate_key: None,
 			p2p_config: p2p::P2PConfig::default(),
