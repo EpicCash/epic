@@ -415,7 +415,7 @@ impl BlockHeader {
 	*/
 	//written by sundar
 	pub fn overage(&self) -> i64 {
-		(reward_at_height(self.height) as i64)
+		((reward_at_height(self.height) + consensus::FOUNDATION_REWARD) as i64 )
 			.checked_neg()
 			.unwrap_or(0)
 	}
