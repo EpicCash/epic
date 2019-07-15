@@ -1,3 +1,3 @@
 [submodule "progpow-rust"]
 	path = progpow-rust
-	url = git@gitlab.com:ShunFreeman/progpow-rust.git
+	url = ../progpow-rust.git
