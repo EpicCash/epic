@@ -29,7 +29,8 @@ use epic_core as core;
 use epic_p2p as p2p;
 use epic_servers as servers;
 use epic_util as util;
-use servers::foundation;
+use crate::core::core::foundation;
+use servers::foundation::create_foundation;
 use std::env;
 use std::path::Path;
 
@@ -109,7 +110,7 @@ fn real_main() -> i32 {
 			path.display()
 		);
 
-		let foundation_coinbases = foundation::create_foundation(&wallet_url, generate);
+		let foundation_coinbases = create_foundation(&wallet_url, generate);
 		let serialized = foundation::serialize_foundation(foundation_coinbases);
 		println!(
 			"Total size in bytes serialized: {:?}",

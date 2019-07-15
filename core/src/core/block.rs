@@ -43,6 +43,8 @@ use crate::pow::{Difficulty, Proof, ProofOfWork};
 use crate::ser::{self, FixedLength, PMMRable, Readable, Reader, Writeable, Writer};
 use crate::util::{secp, static_secp_instance};
 
+use crate::core::foundation::load_foundation_output;
+
 /// Errors thrown by Block validation
 #[derive(Debug, Clone, Eq, PartialEq, Fail)]
 pub enum Error {
@@ -53,6 +55,7 @@ pub enum Error {
 	InvalidTotalKernelSum,
 	/// Same as above but for the coinbase part of a block, including reward
 	CoinbaseSumMismatch,
+	InvalidFoundationOutput,
 	/// Restrict block total weight.
 	TooHeavy,
 	/// Block weight (based on inputs|outputs|kernels) exceeded.
@@ -844,6 +847,12 @@ impl Block {
 			.collect::<Vec<&TxKernel>>();
 
 		{
+			let cb_data = load_foundation_output(self.header.height);
+
+			if cb_outs.iter().filter(|x| x.commitment() == cb_data.output.commitment()).count() == 0 {
+				return Err(Error::InvalidFoundationOutput);
+			}
+
 			let secp = static_secp_instance();
 			let secp = secp.lock();
 			let over_commit = secp.commit_value(reward(self.total_fees(), self.header.height) + consensus::FOUNDATION_REWARD)?;
