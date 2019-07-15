@@ -92,7 +92,7 @@ pub fn total_overage_at_height(height: u64, genesis_had_reward: bool) -> i64 {
 	}
 	for i in n..=height {
 		let reward = reward_at_height(i as u64) as i64;
-		sum += reward;
+		sum += (reward + (FOUNDATION_REWARD as i64));
 	}
 	return sum;
 }
