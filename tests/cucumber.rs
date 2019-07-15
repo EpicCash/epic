@@ -579,7 +579,7 @@ mod mine_chain {
 			world.chain = Some(setup(&world.output_dir, world.genesis.as_ref().unwrap().clone()));
 			world.keychain = Some(epic_keychain::ExtKeychain::from_seed(&[2,0,0], false).unwrap());
 		};
-
+	
 		given regex "I add a genesis block with coinbase and mined with <([a-zA-Z0-9]+)>" |world, matches, _step| {
 			let algo = get_fw_type(matches[1].as_str());
 			let key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
@@ -641,11 +641,10 @@ mod mine_chain {
 				println!("Key_id: {:?}\n", key_id);
 				let fees = transactions.iter().map(|tx| tx.fee()).sum();
 				let mining_reward = libtx::reward::output(kc, &key_id, fees, false, 0).unwrap();
-				let foundation_reward = libtx::reward::output_foundation(kc_foundation, &key_id, true).unwrap();
-				foundation_reward.1.verify();
+				let foundation_reward = load_foundation_output(prev.height + 1);
 				println!("\nFoundation Reward:{:?}\n", foundation_reward);
 				// Creating the block
-				let mut block = prepare_block_with_coinbase(&prev, diff, transactions, mining_reward, foundation_reward);
+				let mut block = prepare_block_with_coinbase(&prev, diff, transactions, mining_reward, (foundation_reward.output, foundation_reward.kernel));
 				chain.set_txhashset_roots(&mut block).unwrap();
 				// Mining
 				let algo = Deterministic::choose_algo(&get_policies(), &prev.bottles);
