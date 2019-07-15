@@ -31,9 +31,9 @@ pub fn create_foundation(wallet_listener_url: &str, num_to_generate: u32) -> Vec
 					wallet_listener_url
 				));
 			}
-			Ok(mut foundation) => {
-				foundation.output.features = OutputFeatures::Foundation;
-				foundation.kernel.features = KernelFeatures::Foundation;
+			Ok(foundation) => {
+				//foundation.output.features = OutputFeatures::Coinbase;
+				//foundation.kernel.features = KernelFeatures::Coinbase;
 				result.push(foundation);
 			}
 		}

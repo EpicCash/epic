@@ -582,7 +582,7 @@ mod mine_chain {
 			let algo = get_fw_type(matches[1].as_str());
 			let key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
 			let reward = reward::output(world.keychain.as_ref().unwrap(), &key_id, 0, false, 0).unwrap();
-			let foundation = libtx::reward::output_foundation(world.keychain_foundation.as_ref().unwrap(), &key_id).unwrap();
+			let foundation = libtx::reward::output_foundation(world.keychain_foundation.as_ref().unwrap(), &key_id, true).unwrap();
 			// creating a placeholder for the genesis block
 			let mut genesis = genesis::genesis_dev();
 			// creating the block with the desired reward
@@ -634,7 +634,7 @@ mod mine_chain {
 				println!("Key_id: {:?}\n", key_id);
 				let fees = transactions.iter().map(|tx| tx.fee()).sum();
 				let mining_reward = libtx::reward::output(kc, &key_id, fees, false, 0).unwrap();
-				let foundation_reward = libtx::reward::output_foundation(kc_foundation, &key_id).unwrap();
+				let foundation_reward = libtx::reward::output_foundation(kc_foundation, &key_id, true).unwrap();
 				foundation_reward.1.verify();
 				println!("\nFoundation Reward:{:?}\n", foundation_reward);
 				// Creating the block

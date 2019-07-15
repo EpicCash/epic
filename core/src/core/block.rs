@@ -402,7 +402,7 @@ impl BlockHeader {
 	*/
 	//written by sundar
 	pub fn overage(&self) -> i64 {
-		((reward_at_height(self.height) + consensus::FOUNDATION_REWARD) as i64 )
+		((reward_at_height(self.height) + consensus::FOUNDATION_REWARD) as i64)
 			.checked_neg()
 			.unwrap_or(0)
 	}
@@ -655,7 +655,6 @@ impl Block {
 			.with_kernel(reward.1)
 			.with_output(foundation.0)
 			.with_kernel(foundation.1);
-		println!("agg_tx {:?}", agg_tx);
 		// Now add the kernel offset of the previous block for a total
 		let total_kernel_offset =
 			committed::sum_kernel_offsets(vec![agg_tx.offset, prev.total_kernel_offset], vec![])?;
@@ -802,8 +801,6 @@ impl Block {
 
 		self.verify_kernel_lock_heights()?;
 		self.verify_coinbase()?;
-		//TODO-FOUNDATION
-		//caself.verify_foundation_coinbase()?;
 
 		// take the kernel offset for this block (block offset minus previous) and
 		// verify.body.outputs and kernel sums
@@ -836,7 +833,7 @@ impl Block {
 		{
 			let secp = static_secp_instance();
 			let secp = secp.lock();
-			let over_commit = secp.commit_value(reward(self.total_fees(), self.header.height))?;
+			let over_commit = secp.commit_value(reward(self.total_fees(), self.header.height) + consensus::FOUNDATION_REWARD)?;
 
 			let out_adjust_sum =
 				secp.commit_sum(map_vec!(cb_outs, |x| x.commitment()), vec![over_commit])?;
@@ -854,7 +851,7 @@ impl Block {
 
 	// TODO verify if the public key of every output/kernel corresponds to
 	// the Foundation public key
-	pub fn verify_foundation_coinbase(&self) -> Result<(), Error> {
+	/*pub fn verify_foundation_coinbase(&self) -> Result<(), Error> {
 		let outputs = self
 			.body
 			.outputs
@@ -883,7 +880,7 @@ impl Block {
 		}
 
 		Ok(())
-	}
+	}*/
 
 	fn verify_kernel_lock_heights(&self) -> Result<(), Error> {
 		for k in &self.body.kernels {
