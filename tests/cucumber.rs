@@ -10,6 +10,7 @@ use epic_core::core::Block;
 use epic_core::global::set_policy_config;
 use epic_keychain::keychain::ExtKeychain;
 use epic_util as util;
+use epic_core::global;
 
 pub struct EdnaWorld {
 	pub output_dir: String,
@@ -1091,6 +1092,8 @@ fn setup() {
 	});
 
 	util::init_test_logger();
+
+	global::set_foundation_path("./tests/assets/foundation.json".to_string());
 }
 
 cucumber! {

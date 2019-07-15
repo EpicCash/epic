@@ -32,6 +32,7 @@ use crate::core::global::get_policies;
 use crate::core::libtx::secp_ser;
 use crate::core::{consensus, core, global};
 use crate::keychain::{ExtKeychain, Identifier, Keychain};
+pub use crate::core::core::foundation::CbData;
 use crate::pool;
 /// Fees in block to use for coinbase amount calculation
 /// (Duplicated from Epic wallet project)
@@ -55,7 +56,7 @@ impl BlockFees {
 }
 
 /// Response to build a coinbase output.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+/*#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CbData {
 	/// Output
 	pub output: Output,
@@ -63,7 +64,7 @@ pub struct CbData {
 	pub kernel: TxKernel,
 	/// Key Id
 	pub key_id: Option<Identifier>,
-}
+}*/
 
 // Ensure a block suitable for mining is built and returned
 // If a wallet listener URL is not provided the reward will be "burnt"
