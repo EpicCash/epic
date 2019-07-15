@@ -1,0 +1,42 @@
+#!/usr/bin/make -f
+
+PATH := $(HOME)/.cargo/bin:$(PATH)
+ROOTDIR := debian/epic
+
+.PHONY: clean
+clean: debian/control build/rustup
+	dh_clean
+	cargo clean
+	rm build/stamp -rf
+	mkdir -p build
+
+.ONESHELL:
+build/stamp: build/rustup Cargo.toml api chain config core keychain p2p pool progpow-rust randomx-rust servers src store util
+	cargo build --release
+	mkdir -p build
+	touch $(@)
+
+.PHONY: build build-arch build-indep
+build build-arch build-indep: build/stamp
+
+.PHONY: build/rustup
+.ONESHELL:
+build/rustup:
+	curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+	rustup default 1.35.0
+
+.PHONY: binary binary-arch binary-indep
+binary binary-arch binary-indep: build/stamp debian/control
+	dh_testroot
+	dh_prep
+	cargo install --path . --root $(ROOTDIR)/usr/
+	strip $(ROOTDIR)/usr/bin/epic
+	rm $(ROOTDIR)/usr/.crates.toml
+	dh_installdocs
+	dh_installchangelogs
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb

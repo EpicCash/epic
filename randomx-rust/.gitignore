@@ -1,6 +1,0 @@
-*.swp
-.DS_Store
-target
-*/Cargo.lock
-*.iml
-.idea/

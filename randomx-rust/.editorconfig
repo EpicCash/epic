@@ -1,3 +1,0 @@
-# use hard tabs for rust source files
-[*.rs]
-indent_style = tab
