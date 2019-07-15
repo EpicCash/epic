@@ -724,7 +724,6 @@ impl TransactionBody {
 		weighting: Weighting,
 		verifier: Arc<RwLock<dyn VerifierCache>>,
 	) -> Result<(), Error> {
-		println!("mano doido");
 		self.validate_read(weighting)?;
 
 		// Find all the outputs that have not had their rangeproofs verified.
