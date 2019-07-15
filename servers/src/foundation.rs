@@ -1,6 +1,6 @@
 use crate::core::core::{KernelFeatures, OutputFeatures};
 use crate::core::global::{get_foundation_path};
-use crate::mining::mine_block::create_coinbase;
+use crate::mining::mine_block::create_foundation as c_foundation;
 use crate::mining::mine_block::{BlockFees, CbData};
 use std::error::Error;
 use std::fs::File;
@@ -21,7 +21,7 @@ pub fn create_foundation(wallet_listener_url: &str, num_to_generate: u32) -> Vec
 	let mut result: Vec<CbData> = vec![];
 	for _ in 0..num_to_generate {
 		block_fees.height += 1;
-		match create_coinbase(&wallet_listener_url, &block_fees) {
+		match c_foundation(&wallet_listener_url, &block_fees) {
 			Err(_) => {
 				panic!(format!(
 					"Failed to get coinbase from {}. Is the wallet listening?",
