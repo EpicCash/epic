@@ -123,19 +123,17 @@ impl Keychain for ExtKeychain {
 			.collect();
 
 		pos_keys.extend(
-			&blind_sum
+			blind_sum
 				.positive_blinding_factors
 				.iter()
-				.filter_map(|b| b.secret_key(&self.secp).ok())
-				.collect::<Vec<SecretKey>>(),
+				.filter_map(|b| b.secret_key(&self.secp).ok()),
 		);
 
 		neg_keys.extend(
-			&blind_sum
+			blind_sum
 				.negative_blinding_factors
 				.iter()
-				.filter_map(|b| b.secret_key(&self.secp).ok())
-				.collect::<Vec<SecretKey>>(),
+				.filter_map(|b| b.secret_key(&self.secp).ok()),
 		);
 
 		let sum = self.secp.blind_sum(pos_keys, neg_keys)?;
