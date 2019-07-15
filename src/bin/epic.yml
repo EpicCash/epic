@@ -29,7 +29,7 @@ subcommands:
             takes_value: true
             required: true
         - path:
-            help: The path to the folder where the generated file will be saved. If no path is given, the current directory is chosen
+            help: The path to the folder where the generated file will be saved. If no path is given, the current_directory/foundation is used.
             short: p
             long: path
             takes_value: true
