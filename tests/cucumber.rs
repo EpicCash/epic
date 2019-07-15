@@ -11,7 +11,6 @@ use epic_core::global;
 use epic_core::global::set_policy_config;
 use epic_keychain::keychain::ExtKeychain;
 use epic_util as util;
-use epic_core::global;
 
 pub struct EdnaWorld {
 	pub output_dir: String,
@@ -53,7 +52,6 @@ mod mine_chain {
 	};
 	use epic_core::core::foundation::load_foundation_output;
 	use epic_core::core::hash::Hashed;
-	use epic_core::core::foundation::load_foundation_output;
 	use epic_core::core::verifier_cache::LruVerifierCache;
 	use epic_core::core::{Block, BlockHeader, Output, OutputIdentifier, Transaction, TxKernel};
 	use epic_core::global::{get_policies, set_policy_config, ChainTypes};
@@ -625,11 +623,6 @@ mod mine_chain {
 			// WIP: maybe we need to change this, since are 2 outputs ?
 			//genesis_ref.header.output_mmr_size = 2;
 			//genesis_ref.header.kernel_mmr_size = 2;
-<<<<<<< HEAD
-
-=======
-		
->>>>>>> e66df208a364bfd16de5e18684922fe08edd82a8
 			let chain = setup(&world.output_dir, genesis_ref.clone());
 			world.chain = Some(chain);
 		};
