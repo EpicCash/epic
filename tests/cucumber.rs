@@ -51,6 +51,7 @@ mod mine_chain {
 		PolicyConfig,
 	};
 	use epic_core::core::hash::Hashed;
+	use epic_core::core::foundation::load_foundation_output;
 	use epic_core::core::verifier_cache::LruVerifierCache;
 	use epic_core::core::{Block, BlockHeader, Output, OutputIdentifier, Transaction, TxKernel};
 	use epic_core::global::{get_policies, set_policy_config, ChainTypes};
@@ -582,29 +583,34 @@ mod mine_chain {
 		given regex "I add a genesis block with coinbase and mined with <([a-zA-Z0-9]+)>" |world, matches, _step| {
 			let algo = get_fw_type(matches[1].as_str());
 			let key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
+			
 			let reward = reward::output(world.keychain.as_ref().unwrap(), &key_id, 0, false, 0).unwrap();
-			let foundation = libtx::reward::output_foundation(world.keychain_foundation.as_ref().unwrap(), &key_id, true).unwrap();
+			//let foundation = libtx::reward::output_foundation(world.keychain_foundation.as_ref().unwrap(), &key_id, true).unwrap();
+			let cb_data = load_foundation_output(0);
+
 			// creating a placeholder for the genesis block
 			let mut genesis = genesis::genesis_dev();
 			// creating the block with the desired reward
-			genesis = genesis.with_coinbase(reward, foundation);
+			genesis = genesis.with_coinbase(reward, (cb_data.output, cb_data.kernel));
 			genesis.header.bottles = next_block_bottles(algo, &world.bottles);
 			// mining "manually" the genesis
 			let genesis_difficulty = genesis.header.pow.total_difficulty;
 			let sz = global::min_edge_bits();
 			let proof_size = global::proofsize();
+	
 			pow::pow_size(&mut genesis.header, genesis_difficulty, proof_size, sz).unwrap();
 			world.genesis = Some(genesis);
 		};
 
 		given "I setup the chain for coinbase test" |world, _step| {
-			let chain = setup(&world.output_dir, world.genesis.as_ref().unwrap().clone());
-			println!("I got here!");
 			let genesis_ref = world.genesis.as_mut().unwrap();
-			world.chain = Some(chain);
+
 			// WIP: maybe we need to change this, since are 2 outputs ?
-			genesis_ref.header.output_mmr_size = 1;
-			genesis_ref.header.kernel_mmr_size = 1;
+			//genesis_ref.header.output_mmr_size = 2;
+			//genesis_ref.header.kernel_mmr_size = 2;
+		
+			let chain = setup(&world.output_dir, genesis_ref.clone());
+			world.chain = Some(chain);
 		};
 
 		given "I add foundation wallet pubkeys" |world, _step| {
