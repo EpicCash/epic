@@ -22,7 +22,7 @@ use crate::libtx::error::Error;
 use crate::libtx::{aggsig, proof};
 use crate::util::{secp, static_secp_instance};
 
-pub fn output_foundation<K>(keychain: &K, key_id: &Identifier) -> Result<(Output, TxKernel), Error>
+pub fn output_foundation<K>(keychain: &K, key_id: &Identifier, test_mode: bool) -> Result<(Output, TxKernel), Error>
 where
 	K: Keychain,
 {
@@ -33,7 +33,7 @@ where
 
 	let rproof = proof::create(keychain, value, key_id, commit, None)?;
 	let output = Output {
-		features: OutputFeatures::Foundation,
+		features: OutputFeatures::Coinbase,
 		commit: commit,
 		proof: rproof,
 	};
@@ -46,9 +46,22 @@ where
 	let pubkey = excess.to_pubkey(&secp)?;
 
 	let msg = kernel_sig_msg(0, 0, KernelFeatures::Coinbase)?;
-	let sig = aggsig::sign_from_key_id(&secp, keychain, &msg, value, &key_id, None, Some(&pubkey))?;
+	let sig = if test_mode {
+		let test_nonce = secp::key::SecretKey::from_slice(&secp, &[1; 32])?;
+		aggsig::sign_from_key_id(
+			&secp,
+			keychain,
+			&msg,
+			value,
+			&key_id,
+			Some(&test_nonce),
+			Some(&pubkey),
+		)?
+	} else {
+		aggsig::sign_from_key_id(&secp, keychain, &msg, value, &key_id, None, Some(&pubkey))?
+	};
 	let proof = TxKernel {
-		features: KernelFeatures::Foundation,
+		features: KernelFeatures::Coinbase,
 		excess: excess,
 		excess_sig: sig,
 		fee: 0,
