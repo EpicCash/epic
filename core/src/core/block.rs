@@ -802,7 +802,8 @@ impl Block {
 
 		self.verify_kernel_lock_heights()?;
 		self.verify_coinbase()?;
-		self.verify_foundation_coinbase()?;
+		//TODO-FOUNDATION
+		//caself.verify_foundation_coinbase()?;
 
 		// take the kernel offset for this block (block offset minus previous) and
 		// verify.body.outputs and kernel sums

@@ -1,4 +1,5 @@
 use crate::core::core::{KernelFeatures, OutputFeatures};
+use crate::core::global::{get_foundation_path};
 use crate::mining::mine_block::create_coinbase;
 use crate::mining::mine_block::{BlockFees, CbData};
 use std::error::Error;
@@ -53,7 +54,8 @@ pub fn serialize_foundation(foundation_coinbases: Vec<CbData>) -> String {
 
 // Save the serialization of the foundation coinbases in the disk with the extension .json
 pub fn save_in_disk(serialization: String, path: &Path) {
-	let path = path.join("foundations.json");
+	let mut path = path.join("foundation");
+	path = path.join("foundation.json");
 	println!("Saving the file as: {}", path.display());
 	let mut file = match File::create(&path) {
 		Err(why) => panic!("Couldn't create {}: {}", path.display(), why.description()),
@@ -64,8 +66,10 @@ pub fn save_in_disk(serialization: String, path: &Path) {
 }
 
 // Load the foundation coinbase relative to the height of the chain
-pub fn load_from_disk(path: &Path, height: u64) -> CbData {
-	let path = path.join("foundations.json"); //ERASEE
+pub fn load_from_disk(height: u64) -> CbData {
+	let path_str = get_foundation_path().unwrap_or_else(|| panic!("No path to the foundation.json was provided!"));
+	let path = Path::new(&path_str);
+	println!("path: {:?}", path.display());
 	let mut file = match File::open(&path) {
 		Err(why) => panic!(
 			"Error trying to read the foundation coinbase. Couldn't open the file {}: {}",
