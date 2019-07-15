@@ -21,6 +21,7 @@ use chrono::prelude::{TimeZone, Utc};
 
 use crate::core;
 use crate::core::block::feijoada::{get_bottles_default, PoWType};
+use crate::core::foundation::load_foundation_output;
 use crate::global;
 use crate::pow::{Difficulty, Proof, ProofOfWork};
 use crate::util;
@@ -75,8 +76,8 @@ pub fn genesis_floo() -> core::Block {
 			"0000000000000000000000000000000000000000000000000000000000000000",
 		)
 		.unwrap(),
-		output_mmr_size: 1,
-		kernel_mmr_size: 1,
+		output_mmr_size: 2,
+		kernel_mmr_size: 2,
 		bottles: bottles,
 		pow: ProofOfWork {
 			total_difficulty: Difficulty::from_num(10_u64.pow(2)),
@@ -167,7 +168,9 @@ pub fn genesis_floo() -> core::Block {
 			],
 		},
 	};
-	gen.with_reward(output, kernel)
+
+	let cb_data = load_foundation_output(0);
+	gen.with_coinbase((output, kernel), (cb_data.output, cb_data.kernel))
 }
 
 /// Placeholder for mainnet genesis block, will definitely change before
@@ -290,7 +293,10 @@ pub fn genesis_main() -> core::Block {
 			],
 		},
 	};
-	gen.with_reward(output, kernel)
+
+	// foundation
+	let cb_data = load_foundation_output(0);
+	gen.with_coinbase((output, kernel), (cb_data.output, cb_data.kernel))
 }
 
 #[cfg(test)]

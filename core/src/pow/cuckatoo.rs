@@ -415,7 +415,7 @@ mod test {
 		T: EdgeType,
 	{
 		let mut ctx = CuckatooContext::<u32>::new_impl(29, 42, 10).unwrap();
-		ctx.set_header_nonce([0u8; 80].to_vec(), Some(20), false)?;
+		ctx.set_header_nonce([0u8; 80].to_vec(), Some(20), None, false)?;
 		assert!(ctx.verify(&Proof::new(V1_29.to_vec().clone())).is_ok());
 		Ok(())
 	}
@@ -425,7 +425,7 @@ mod test {
 		T: EdgeType,
 	{
 		let mut ctx = CuckatooContext::<u32>::new_impl(31, 42, 10).unwrap();
-		ctx.set_header_nonce([0u8; 80].to_vec(), Some(99), false)?;
+		ctx.set_header_nonce([0u8; 80].to_vec(), Some(99), None, false)?;
 		assert!(ctx.verify(&Proof::new(V1_31.to_vec().clone())).is_ok());
 		Ok(())
 	}
@@ -437,10 +437,10 @@ mod test {
 		let mut ctx = CuckatooContext::<u32>::new_impl(29, 42, 10).unwrap();
 		let mut header = [0u8; 80];
 		header[0] = 1u8;
-		ctx.set_header_nonce(header.to_vec(), Some(20), false)?;
+		ctx.set_header_nonce(header.to_vec(), Some(20), None, false)?;
 		assert!(!ctx.verify(&Proof::new(V1_29.to_vec().clone())).is_ok());
 		header[0] = 0u8;
-		ctx.set_header_nonce(header.to_vec(), Some(20), false)?;
+		ctx.set_header_nonce(header.to_vec(), Some(20), None, false)?;
 		assert!(ctx.verify(&Proof::new(V1_29.to_vec().clone())).is_ok());
 		let mut bad_proof = V1_29.clone();
 		bad_proof[0] = 0x48a9e1;
@@ -474,7 +474,7 @@ mod test {
 			unit += 1;
 		}
 		println!("Using {}{}B memory", bytes, [' ', 'K', 'M', 'G', 'T'][unit]);
-		ctx_u32.set_header_nonce(header, Some(nonce), true)?;
+		ctx_u32.set_header_nonce(header, Some(nonce), None, true)?;
 		println!(
 			"Nonce {} k0 k1 k2 k3 {} {} {} {}",
 			nonce,

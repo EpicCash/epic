@@ -7,10 +7,10 @@ use epic_core::core::block::feijoada::{
 	get_bottles_default, Deterministic, Feijoada, Policy, PolicyConfig,
 };
 use epic_core::core::Block;
+use epic_core::global;
 use epic_core::global::set_policy_config;
 use epic_keychain::keychain::ExtKeychain;
 use epic_util as util;
-use epic_core::global;
 
 pub struct EdnaWorld {
 	pub output_dir: String,
@@ -50,8 +50,8 @@ mod mine_chain {
 		count_beans, get_bottles_default, next_block_bottles, Deterministic, Feijoada, Policy,
 		PolicyConfig,
 	};
-	use epic_core::core::hash::Hashed;
 	use epic_core::core::foundation::load_foundation_output;
+	use epic_core::core::hash::Hashed;
 	use epic_core::core::verifier_cache::LruVerifierCache;
 	use epic_core::core::{Block, BlockHeader, Output, OutputIdentifier, Transaction, TxKernel};
 	use epic_core::global::{get_policies, set_policy_config, ChainTypes};
@@ -138,15 +138,16 @@ mod mine_chain {
 			world.keychain = Some(epic_keychain::ExtKeychain::from_random_seed(false).unwrap());
 			let key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
 			let reward = reward::output(world.keychain.as_ref().unwrap(), &key_id, 0, false, 0).unwrap();
-			world.genesis = Some(genesis.with_reward(reward.0, reward.1));
+			let foundation = load_foundation_output(0);
+			world.genesis = Some(genesis.with_coinbase((reward.0, reward.1), (foundation.output, foundation.kernel)));
 			let genesis_ref = world.genesis.as_mut().unwrap();
 
 			let tmp_chain_dir = ".epic.tmp";
 			{
 				let tmp_chain = setup(tmp_chain_dir, pow::mine_genesis_block().unwrap());
 				tmp_chain.set_txhashset_roots(genesis_ref).unwrap();
-				genesis_ref.header.output_mmr_size = 1;
-				genesis_ref.header.kernel_mmr_size = 1;
+				genesis_ref.header.output_mmr_size = 2;
+				genesis_ref.header.kernel_mmr_size = 2;
 			}
 		};
 
@@ -300,21 +301,19 @@ mod mine_chain {
 			let proof = match proof_name {
 				"progpow" => pow::Proof::ProgPowProof{
 					mix: [
-						3, 141, 60, 90, 219, 139, 235, 183, 130,
-						191, 189, 88, 192, 144, 226, 88, 200, 152,
-						198, 193, 105, 169, 122, 175, 111, 7,
-						242, 162, 122, 125, 152, 6],
+						232, 223, 150, 179, 189, 49, 124, 130, 30, 27, 170,
+						97, 184, 21, 73, 195, 203, 182, 153, 11, 135, 37, 86,
+						126, 167, 53, 48, 214, 238, 2, 190, 230],
 				},
 				"randomx" => pow::Proof::RandomXProof {
 					hash: [
-						73, 39, 212, 217, 143, 200, 166, 25, 175, 173, 77,
-						193, 110, 155, 187, 169, 218, 215, 179, 218, 241,
-						73, 81, 247, 138, 233, 232, 66, 202, 251, 110, 68
-					],
+						117, 78, 223, 58, 190, 143, 56, 78, 47, 90, 112,
+						165, 157, 156, 237, 22, 210, 151, 100, 47, 208,
+						52, 72, 196, 126, 148, 17, 244, 139, 71, 203, 242],
 				},
 				"md5" => pow::Proof::MD5Proof {
 					edge_bits: 10,
-					proof: "453425efbb42af60faca5c7322c2325a".to_string()
+					proof: "63da2f23f7fca7abf4c573216df095de".to_string()
 				},
 				"cuckoo" => pow::Proof::CuckooProof {
 					edge_bits: 9,
@@ -489,10 +488,11 @@ mod mine_chain {
 				let prev = chain.head_header().unwrap();
 				let next_header_info = consensus::next_difficulty(1, chain.difficulty_iter().unwrap());
 				let pk = epic_keychain::ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
-				let reward = libtx::reward::output(kc, &pk, 0, false, prev.height + 1).unwrap();
+				let reward = libtx::reward::output(kc, &pk, 0, false, n).unwrap();
+				let foundation = load_foundation_output(prev.height + 1);
 				reward_outputs.push(reward.0.clone());
 				let mut b =
-					core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
+					core::core::Block::new_with_coinbase(&prev, vec![], next_header_info.clone().difficulty, reward, (foundation.output, foundation.kernel))
 						.unwrap();
 				b.header.timestamp = prev.timestamp + Duration::seconds(60);
 				b.header.pow.secondary_scaling = next_header_info.secondary_scaling;
@@ -623,7 +623,7 @@ mod mine_chain {
 			// WIP: maybe we need to change this, since are 2 outputs ?
 			//genesis_ref.header.output_mmr_size = 2;
 			//genesis_ref.header.kernel_mmr_size = 2;
-		
+
 			let chain = setup(&world.output_dir, genesis_ref.clone());
 			world.chain = Some(chain);
 		};
@@ -863,10 +863,16 @@ mod mine_chain {
 			let prev = chain.head_header().unwrap();
 			let next_header_info = consensus::next_difficulty(1, chain.difficulty_iter().unwrap());
 			let pk = epic_keychain::ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
-			let reward = libtx::reward::output(keychain, &pk, 0, false, n).unwrap();
-			let mut b =
-				core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
-					.unwrap();
+			let reward = libtx::reward::output(keychain, &pk, 0, false, 0).unwrap();
+			let foundation = load_foundation_output(prev.height + 1);
+			let mut b = core::core::Block::new_with_coinbase(
+				&prev,
+				vec![],
+				next_header_info.clone().difficulty,
+				reward,
+				(foundation.output, foundation.kernel),
+			)
+			.unwrap();
 			b.header.timestamp = prev.timestamp + Duration::seconds(60);
 			b.header.pow.secondary_scaling = next_header_info.secondary_scaling;
 			b.header.bottles = next_block_bottles(
@@ -934,7 +940,7 @@ mod mine_chain {
 			let block = chain.get_block(&header.hash()).unwrap();
 			assert_eq!(block.header.height, n);
 			assert_eq!(block.hash(), bhash);
-			assert_eq!(block.outputs().len(), 1);
+			assert_eq!(block.outputs().len(), 2);
 
 			// now check the block height index
 			let header_by_height = chain.get_header_by_height(n).unwrap();
@@ -1005,11 +1011,13 @@ mod mine_chain {
 		let key_id = epic_keychain::ExtKeychainPath::new(1, diff as u32, 0, 0, 0).to_identifier();
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
 		let reward = libtx::reward::output(kc, &key_id, fees, false, 0).unwrap();
-		let mut b = match core::core::Block::new(
+		let foundation = load_foundation_output(prev.height + 1);
+		let mut b = match core::core::Block::new_with_coinbase(
 			prev,
 			txs.into_iter().cloned().collect(),
 			Difficulty::from_num(diff),
 			reward,
+			(foundation.output, foundation.kernel),
 		) {
 			Err(e) => panic!("{:?}", e),
 			Ok(b) => b,
@@ -1061,12 +1069,13 @@ mod mine_chain {
 
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
 		let reward = libtx::reward::output(kc, &key_id, fees, true, 0).unwrap();
-
-		let mut b = match core::core::Block::new(
+		let foundation = load_foundation_output(prev.height + 1);
+		let mut b = match core::core::Block::new_with_coinbase(
 			prev,
 			txs.into_iter().cloned().collect(),
 			Difficulty::from_num(diff),
 			reward,
+			(foundation.output, foundation.kernel),
 		) {
 			Err(e) => panic!("{:?}", e),
 			Ok(b) => b,
@@ -1106,8 +1115,6 @@ after!(an_after_fn => |_scenario| {
 
 // A setup function to be called before everything else
 fn setup() {
-	println!("Test 2");
-
 	let policies = [
 		(FType::Cuckaroo, 100),
 		(FType::Cuckatoo, 0),
