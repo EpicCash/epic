@@ -181,22 +181,10 @@ pub fn genesis_main() -> core::Block {
 	let gen = core::Block::with_header(core::BlockHeader {
 		height: 0,
 		timestamp: Utc.ymd(2019, 4, 10).and_hms(11, 9, 38),
-		prev_root: Hash::from_hex(
-			"00000000000000000004de683e7aa4d35c51f46ec76c6852b0f3161bd1e2e00e",
-		)
-		.unwrap(),
-		output_root: Hash::from_hex(
-			"b10fe806a4373d9b8d8edde98a4ec39d726b542036971c2f14c0738b0605c9cd",
-		)
-		.unwrap(),
-		range_proof_root: Hash::from_hex(
-			"e05333e51d9294f08cd6d2d7cea19de2843f92c285a61fd5d61d771c3ac74222",
-		)
-		.unwrap(),
-		kernel_root: Hash::from_hex(
-			"4d9ddf437dfbb86f8563ac4e96a0d86842eda609a5125244f43261d4188292e4",
-		)
-		.unwrap(),
+		prev_root: Hash::from_vec(&[133, 114, 198, 186, 202, 200, 76, 105, 108, 228, 159, 199, 141, 21, 61, 94, 232, 127, 147, 33, 53, 154, 126, 56, 181, 141, 124, 87, 85, 172, 178, 172]),
+		output_root: Hash::from_vec(&[75, 192, 124, 84, 42, 18, 227, 70, 149, 157, 94, 86, 175, 70, 73, 54, 82, 244, 50, 185, 211, 45, 99, 78, 132, 8, 74, 185, 0, 194, 254, 225]),
+		range_proof_root: Hash::from_vec(&[67, 226, 5, 24, 21, 150, 237, 171, 21, 164, 78, 225, 34, 147, 181, 133, 98, 220, 164, 173, 36, 97, 206, 130, 144, 55, 63, 221, 122, 37, 142, 83]),
+		kernel_root: Hash::from_vec(&[155, 46, 203, 167, 135, 54, 113, 12, 121, 20, 79, 141, 145, 203, 33, 234, 117, 190, 19, 137, 114, 104, 116, 37, 29, 195, 99, 253, 48, 240, 195, 92]),
 		total_kernel_offset: BlindingFactor::from_hex(
 			"0000000000000000000000000000000000000000000000000000000000000000",
 		)
@@ -293,7 +281,6 @@ pub fn genesis_main() -> core::Block {
 			],
 		},
 	};
-
 	// foundation
 	let cb_data = load_foundation_output(0);
 	gen.with_coinbase((output, kernel), (cb_data.output, cb_data.kernel))
