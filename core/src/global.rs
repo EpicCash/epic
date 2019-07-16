@@ -138,6 +138,20 @@ lazy_static! {
 	// The policy parameters
 	pub static ref POLICY_CONFIG : RwLock<PolicyConfig> =
 			RwLock::new(PolicyConfig::default());
+	
+	// The path to the file that contains the foundation 
+	pub static ref FOUNDATION_FILE : RwLock<Option<String>> =
+			RwLock::new(None);
+}
+
+pub fn set_foundation_path(path: String){
+	let mut foundation_path = FOUNDATION_FILE.write();
+	*foundation_path = Some(path);
+}
+
+pub fn get_foundation_path() -> Option<String>{
+	let foundation_path = FOUNDATION_FILE.read();
+	foundation_path.clone()
 }
 
 pub fn set_policy_config(policy: PolicyConfig) {

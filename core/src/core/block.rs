@@ -26,7 +26,9 @@ use std::iter::FromIterator;
 use std::sync::Arc;
 use keccak_hash::keccak_256;
 
-use crate::consensus::{self, reward, reward_at_height, total_overage_at_height, REWARD};
+use crate::consensus::{
+	self, reward, reward_at_height, total_overage_at_height, FOUNDATION_REWARD, REWARD,
+};
 use crate::core::block::feijoada::{get_bottles_default, PoWType, Policy};
 use crate::core::committed::{self, Committed};
 use crate::core::compact_block::{CompactBlock, CompactBlockBody};
@@ -41,6 +43,8 @@ use crate::pow::{Difficulty, Proof, ProofOfWork};
 use crate::ser::{self, FixedLength, PMMRable, Readable, Reader, Writeable, Writer};
 use crate::util::{secp, static_secp_instance};
 
+use crate::core::foundation::load_foundation_output;
+
 /// Errors thrown by Block validation
 #[derive(Debug, Clone, Eq, PartialEq, Fail)]
 pub enum Error {
@@ -51,6 +55,7 @@ pub enum Error {
 	InvalidTotalKernelSum,
 	/// Same as above but for the coinbase part of a block, including reward
 	CoinbaseSumMismatch,
+	InvalidFoundationOutput,
 	/// Restrict block total weight.
 	TooHeavy,
 	/// Block weight (based on inputs|outputs|kernels) exceeded.
@@ -413,7 +418,7 @@ impl BlockHeader {
 	*/
 	//written by sundar
 	pub fn overage(&self) -> i64 {
-		(reward_at_height(self.height) as i64)
+		((reward_at_height(self.height) + consensus::FOUNDATION_REWARD) as i64)
 			.checked_neg()
 			.unwrap_or(0)
 	}
@@ -536,6 +541,25 @@ impl Block {
 		Ok(block)
 	}
 
+	#[warn(clippy::new_ret_no_self)]
+	pub fn new_with_coinbase(
+		prev: &BlockHeader,
+		txs: Vec<Transaction>,
+		difficulty: Difficulty,
+		reward: (Output, TxKernel),
+		foundation: (Output, TxKernel),
+	) -> Result<Block, Error> {
+		let mut block = Block::from_coinbases(prev, txs, reward, foundation, difficulty)?;
+
+		// Now set the pow on the header so block hashing works as expected.
+		{
+			let proof_size = global::proofsize();
+			block.header.pow.proof = Proof::random(proof_size);
+		}
+
+		Ok(block)
+	}
+
 	/// Hydrate a block from a compact block.
 	/// Note: caller must validate the block themselves, we do not validate it
 	/// here.
@@ -629,11 +653,68 @@ impl Block {
 		.cut_through()
 	}
 
+	/// Builds a new block ready to mine from the header of the previous block,
+	/// a vector of transactions and the vector with the reward and foundation coinbase. Checks
+	/// that all transactions are valid and calculates the Merkle tree.
+	pub fn from_coinbases(
+		prev: &BlockHeader,
+		txs: Vec<Transaction>,
+		reward: (Output, TxKernel),
+		foundation: (Output, TxKernel),
+		difficulty: Difficulty,
+	) -> Result<Block, Error> {
+		// A block is just a big transaction, aggregate and add the reward output
+		// and reward kernel. At this point the tx is technically invalid but the
+		// tx body is valid if we account for the reward (i.e. as a block).
+		let agg_tx = transaction::aggregate(txs)?
+			.with_output(reward.0)
+			.with_kernel(reward.1)
+			.with_output(foundation.0)
+			.with_kernel(foundation.1);
+		// Now add the kernel offset of the previous block for a total
+		let total_kernel_offset =
+			committed::sum_kernel_offsets(vec![agg_tx.offset, prev.total_kernel_offset], vec![])?;
+
+		let now = Utc::now().timestamp();
+		let timestamp = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(now, 0), Utc);
+
+		// Now build the block with all the above information.
+		// Note: We have not validated the block here.
+		// Caller must validate the block as necessary.
+		Block {
+			header: BlockHeader {
+				height: prev.height + 1,
+				timestamp,
+				prev_hash: prev.hash(),
+				total_kernel_offset,
+				pow: ProofOfWork {
+					total_difficulty: difficulty + prev.pow.total_difficulty,
+					..Default::default()
+				},
+				..Default::default()
+			},
+			body: agg_tx.into(),
+		}
+		.cut_through()
+	}
+
 	/// Consumes this block and returns a new block with the coinbase output
 	/// and kernels added
 	pub fn with_reward(mut self, reward_out: Output, reward_kern: TxKernel) -> Block {
 		self.body.outputs = vec![reward_out];
 		self.body.kernels = vec![reward_kern];
+		self
+	}
+
+	/// Consumes this block and returns a new block with the coinbase output
+	/// and kernels added
+	pub fn with_coinbase(
+		mut self,
+		reward: (Output, TxKernel),
+		foundation: (Output, TxKernel),
+	) -> Block {
+		self.body.outputs = vec![reward.0, foundation.0];
+		self.body.kernels = vec![reward.1, foundation.1];
 		self
 	}
 
@@ -766,9 +847,15 @@ impl Block {
 			.collect::<Vec<&TxKernel>>();
 
 		{
+			let cb_data = load_foundation_output(self.header.height);
+
+			if cb_outs.iter().filter(|x| x.commitment() == cb_data.output.commitment()).count() == 0 {
+				return Err(Error::InvalidFoundationOutput);
+			}
+
 			let secp = static_secp_instance();
 			let secp = secp.lock();
-			let over_commit = secp.commit_value(reward(self.total_fees(), self.header.height))?;
+			let over_commit = secp.commit_value(reward(self.total_fees(), self.header.height) + consensus::FOUNDATION_REWARD)?;
 
 			let out_adjust_sum =
 				secp.commit_sum(map_vec!(cb_outs, |x| x.commitment()), vec![over_commit])?;

@@ -41,6 +41,8 @@ pub const BLOCK_TIME_SEC: u64 = 60;
 
 /// The block subsidy amount, one epic per second on average
 pub const REWARD: u64 = 200 * EPIC_BASE;
+
+pub const FOUNDATION_REWARD: u64 = 7 * EPIC_BASE;
 /*
 /// Actual block reward for a given total fee amount
 pub fn reward(fee: u64) -> u64 {
@@ -84,13 +86,13 @@ pub fn reward_at_height(height: u64) -> u64 {
 /// TODOBG: Make this more efficient by hardcoding reward schedule times
 pub fn total_overage_at_height(height: u64, genesis_had_reward: bool) -> i64 {
 	let mut sum: i64 = 0;
-	let mut n =1;
-	if genesis_had_reward{
+	let mut n = 1;
+	if genesis_had_reward {
 		n = 0;
 	}
 	for i in n..=height {
 		let reward = reward_at_height(i as u64) as i64;
-		sum += reward;
+		sum += (reward + (FOUNDATION_REWARD as i64));
 	}
 	return sum;
 }

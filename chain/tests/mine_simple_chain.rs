@@ -484,7 +484,9 @@ fn output_header_mappings() {
 			chain.process_block(b, chain::Options::MINE).unwrap();
 
 			let header_for_output = chain
-				.get_header_for_output(&OutputIdentifier::from_output(&reward_outputs[n - 1]))
+				.get_header_for_output(&OutputIdentifier::from_output(
+					&reward_outputs[(n - 1) as usize],
+				))
 				.unwrap();
 			assert_eq!(header_for_output.height, n as u64);
 
@@ -494,7 +496,9 @@ fn output_header_mappings() {
 		// Check all output positions are as expected
 		for n in 1..15 {
 			let header_for_output = chain
-				.get_header_for_output(&OutputIdentifier::from_output(&reward_outputs[n - 1]))
+				.get_header_for_output(&OutputIdentifier::from_output(
+					&reward_outputs[(n - 1) as usize],
+				))
 				.unwrap();
 			assert_eq!(header_for_output.height, n as u64);
 		}

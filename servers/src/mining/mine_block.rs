@@ -31,7 +31,9 @@ use crate::core::core::{Output, TxKernel};
 use crate::core::global::get_policies;
 use crate::core::libtx::secp_ser;
 use crate::core::{consensus, core, global};
+use crate::core::core::foundation::load_foundation_output;
 use crate::keychain::{ExtKeychain, Identifier, Keychain};
+pub use crate::core::core::foundation::CbData;
 use crate::pool;
 /// Fees in block to use for coinbase amount calculation
 /// (Duplicated from Epic wallet project)
@@ -55,7 +57,7 @@ impl BlockFees {
 }
 
 /// Response to build a coinbase output.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+/*#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CbData {
 	/// Output
 	pub output: Output,
@@ -63,7 +65,7 @@ pub struct CbData {
 	pub kernel: TxKernel,
 	/// Key Id
 	pub key_id: Option<Identifier>,
-}
+}*/
 
 // Ensure a block suitable for mining is built and returned
 // If a wallet listener URL is not provided the reward will be "burnt"
@@ -175,8 +177,10 @@ fn build_block(
 		height,
 	};
 
+	let cb_data = load_foundation_output(height);
+
 	let (output, kernel, block_fees) = get_coinbase(wallet_listener_url, block_fees, height)?;
-	let mut b = core::Block::from_reward(&head, txs, output, kernel, difficulty.difficulty)?;
+	let mut b = core::Block::from_coinbases(&head, txs, (output, kernel), (cb_data.output, cb_data.kernel), difficulty.difficulty)?;
 
 	// making sure we're not spending time mining a useless block
 	b.validate(&head.total_kernel_offset, verifier_cache)?;
@@ -267,16 +271,13 @@ fn get_coinbase(
 
 /// Call the wallet API to create a coinbase output for the given block_fees.
 /// Will retry based on default "retry forever with backoff" behavior.
-fn create_coinbase(dest: &str, block_fees: &BlockFees) -> Result<CbData, Error> {
+pub fn create_coinbase(dest: &str, block_fees: &BlockFees) -> Result<CbData, Error> {
 	let url = format!("{}/v1/wallet/foreign/build_coinbase", dest);
-	match api::client::post(&url, None, &block_fees) {
-		Err(e) => {
-			error!(
-				"Failed to get coinbase from {}. Is the wallet listening?",
-				url
-			);
-			Err(Error::WalletComm(format!("{}", e)))
-		}
-		Ok(res) => Ok(res),
-	}
+	api::client::post(&url, None, &block_fees).map_err(|e| {
+		error!(
+			"Failed to get coinbase from {}. Is the wallet listening?",
+			url
+		);
+		Error::WalletComm(format!("{}", e))
+	})
 }

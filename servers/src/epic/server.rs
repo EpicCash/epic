@@ -96,10 +96,12 @@ impl Server {
 		}
 		// set the policies configs from the .toml file
 		global::set_policy_config(policy_config);
+		global::set_foundation_path(config.foundation_path.clone().to_owned());
 		info!(
 			"The policy configuration is: {:?}",
 			global::get_policy_config()
 		);
+		info!("The foundation.json is being read from {:?}", global::get_foundation_path().unwrap());
 		let mining_config = config.stratum_mining_config.clone();
 		let enable_test_miner = config.run_test_miner;
 		let test_miner_wallet_url = config.test_miner_wallet_url.clone();

@@ -14,13 +14,61 @@
 
 //! Builds the blinded output and related signature proof for the block
 //! reward.
-use crate::consensus::reward;
+use crate::consensus::{reward, FOUNDATION_REWARD};
 use crate::core::transaction::kernel_sig_msg;
 use crate::core::{KernelFeatures, Output, OutputFeatures, TxKernel};
 use crate::keychain::{Identifier, Keychain};
 use crate::libtx::error::Error;
 use crate::libtx::{aggsig, proof};
 use crate::util::{secp, static_secp_instance};
+
+pub fn output_foundation<K>(keychain: &K, key_id: &Identifier, test_mode: bool) -> Result<(Output, TxKernel), Error>
+where
+	K: Keychain,
+{
+	// TODO put it in an actual constant with a proper value
+	let value: u64 = FOUNDATION_REWARD;
+	let commit = keychain.commit(value, key_id)?;
+	trace!("Block Foundation reward - Pedersen Commit is: {:?}", commit,);
+
+	let rproof = proof::create(keychain, value, key_id, commit, None)?;
+	let output = Output {
+		features: OutputFeatures::Coinbase,
+		commit: commit,
+		proof: rproof,
+	};
+
+	let secp = static_secp_instance();
+	let secp = secp.lock();
+	let over_commit = secp.commit_value(value)?;
+	let out_commit = output.commitment();
+	let excess = secp.commit_sum(vec![out_commit], vec![over_commit])?;
+	let pubkey = excess.to_pubkey(&secp)?;
+
+	let msg = kernel_sig_msg(0, 0, KernelFeatures::Coinbase)?;
+	let sig = if test_mode {
+		let test_nonce = secp::key::SecretKey::from_slice(&secp, &[1; 32])?;
+		aggsig::sign_from_key_id(
+			&secp,
+			keychain,
+			&msg,
+			value,
+			&key_id,
+			Some(&test_nonce),
+			Some(&pubkey),
+		)?
+	} else {
+		aggsig::sign_from_key_id(&secp, keychain, &msg, value, &key_id, None, Some(&pubkey))?
+	};
+	let proof = TxKernel {
+		features: KernelFeatures::Coinbase,
+		excess: excess,
+		excess_sig: sig,
+		fee: 0,
+		lock_height: 0,
+	};
+	Ok((output, proof))
+}
 
 /// output a reward output
 pub fn output<K>(
@@ -56,22 +104,19 @@ where
 	// NOTE: Remember we sign the fee *and* the lock_height.
 	// For a coinbase output the fee is 0 and the lock_height is 0
 	let msg = kernel_sig_msg(0, 0, KernelFeatures::Coinbase)?;
-	let sig = match test_mode {
-		true => {
-			let test_nonce = secp::key::SecretKey::from_slice(&secp, &[1; 32])?;
-			aggsig::sign_from_key_id(
-				&secp,
-				keychain,
-				&msg,
-				value,
-				&key_id,
-				Some(&test_nonce),
-				Some(&pubkey),
-			)?
-		}
-		false => {
-			aggsig::sign_from_key_id(&secp, keychain, &msg, value, &key_id, None, Some(&pubkey))?
-		}
+	let sig = if test_mode {
+		let test_nonce = secp::key::SecretKey::from_slice(&secp, &[1; 32])?;
+		aggsig::sign_from_key_id(
+			&secp,
+			keychain,
+			&msg,
+			value,
+			&key_id,
+			Some(&test_nonce),
+			Some(&pubkey),
+		)?
+	} else {
+		aggsig::sign_from_key_id(&secp, keychain, &msg, value, &key_id, None, Some(&pubkey))?
 	};
 
 	let proof = TxKernel {

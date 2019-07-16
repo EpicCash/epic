@@ -44,7 +44,9 @@ impl Lean {
 
 	/// Sets the header and nonce to seed the graph
 	pub fn set_header_nonce(&mut self, header: Vec<u8>, nonce: u32) {
-		self.params.reset_header_nonce(header, Some(nonce as u64)).unwrap();
+		self.params
+			.reset_header_nonce(header, Some(nonce as u64))
+			.unwrap();
 	}
 
 	/// Trim edges in the Cuckatoo graph. This applies multiple trimming rounds
@@ -101,7 +103,9 @@ mod test {
 		lean.trim();
 
 		let mut ctx_u32 = CuckatooContext::<u32>::new_impl(edge_bits, 42, 10).unwrap();
-		ctx_u32.set_header_nonce(header, Some(nonce), true).unwrap();
+		ctx_u32
+			.set_header_nonce(header, Some(nonce as u64), None, true)
+			.unwrap();
 		lean.find_cycles(ctx_u32).unwrap();
 	}
 }
