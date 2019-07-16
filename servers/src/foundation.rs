@@ -1,12 +1,5 @@
-use crate::core::core::{KernelFeatures, OutputFeatures};
-use crate::core::global::{get_foundation_path};
-use crate::mining::mine_block::create_foundation as c_foundation;
+use crate::mining::mine_block::create_coinbase as c_foundation;
 use crate::mining::mine_block::{BlockFees, CbData};
-use std::error::Error;
-use std::fs::File;
-use std::io::prelude::*;
-use std::io::SeekFrom;
-use std::path::Path;
 
 // Call the wallet API to create a given number of foundations coinbases (output/kernel)
 pub fn create_foundation(wallet_listener_url: &str, num_to_generate: u32) -> Vec<CbData> {
@@ -29,8 +22,6 @@ pub fn create_foundation(wallet_listener_url: &str, num_to_generate: u32) -> Vec
 				));
 			}
 			Ok(foundation) => {
-				//foundation.output.features = OutputFeatures::Coinbase;
-				//foundation.kernel.features = KernelFeatures::Coinbase;
 				result.push(foundation);
 			}
 		}

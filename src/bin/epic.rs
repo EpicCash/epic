@@ -101,7 +101,7 @@ fn real_main() -> i32 {
 				let s = p.to_str()?;
 				Some(s.to_owned())
 			})
-			.expect("Should have a path");
+			.expect("Any valid path was found to save the foundation.json");
 		let path = Path::new(path_str.as_str());
 		assert_eq!(
 			path.exists(),

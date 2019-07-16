@@ -281,16 +281,3 @@ pub fn create_coinbase(dest: &str, block_fees: &BlockFees) -> Result<CbData, Err
 		Error::WalletComm(format!("{}", e))
 	})
 }
-
-/// Call the wallet API to create a coinbase output for the given block_fees.
-/// Will retry based on default "retry forever with backoff" behavior.
-pub fn create_foundation(dest: &str, block_fees: &BlockFees) -> Result<CbData, Error> {
-	let url = format!("{}/v1/wallet/foreign/build_foundation", dest);
-	api::client::post(&url, None, &block_fees).map_err(|e| {
-		error!(
-			"Failed to get coinbase from {}. Is the wallet listening?",
-			url
-		);
-		Error::WalletComm(format!("{}", e))
-	})
-}

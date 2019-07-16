@@ -871,39 +871,6 @@ impl Block {
 		Ok(())
 	}
 
-	// TODO verify if the public key of every output/kernel corresponds to
-	// the Foundation public key
-	/*pub fn verify_foundation_coinbase(&self) -> Result<(), Error> {
-		let outputs = self
-			.body
-			.outputs
-			.iter()
-			.filter(|out| out.is_foundation())
-			.collect::<Vec<&Output>>();
-
-		let kerns = self
-			.body
-			.kernels
-			.iter()
-			.filter(|kernel| kernel.is_foundation())
-			.collect::<Vec<&TxKernel>>();
-
-		{
-			let secp = static_secp_instance();
-			let secp = secp.lock();
-			let over_commit = secp.commit_value(FOUNDATION_REWARD)?;
-			let out_adjust_sum =
-				secp.commit_sum(map_vec!(outputs, |x| x.commitment()), vec![over_commit])?;
-			let kerns_sum = secp.commit_sum(kerns.iter().map(|x| x.excess).collect(), vec![])?;
-
-			if kerns_sum != out_adjust_sum {
-				return Err(Error::CoinbaseSumMismatch);
-			}
-		}
-
-		Ok(())
-	}*/
-
 	fn verify_kernel_lock_heights(&self) -> Result<(), Error> {
 		for k in &self.body.kernels {
 			// check we have no kernels with lock_heights greater than current height

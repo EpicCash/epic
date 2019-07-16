@@ -1,10 +1,9 @@
-use crate::core::{KernelFeatures, OutputFeatures};
 use crate::core::{Output, TxKernel};
 use crate::global::{get_foundation_path};
 use crate::serde::{Serialize, Deserialize};
 use crate::keychain::{Identifier};
 use std::error::Error;
-use std::fs::File;
+use std::fs::{File, create_dir};
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::path::Path;
@@ -38,6 +37,9 @@ pub fn serialize_foundation(foundation_coinbases: Vec<CbData>) -> String {
 // Save the serialization of the foundation coinbases in the disk with the extension .json
 pub fn save_in_disk(serialization: String, path: &Path) {
 	let mut path = path.join("foundation");
+	if path.exists() == false {
+		create_dir(path.clone()).expect(format!("Was not possible to create the file {:?}", path).as_str());
+	};
 	path = path.join("foundation.json");
 	println!("Saving the file as: {}", path.display());
 	let mut file = match File::create(&path) {
@@ -62,13 +64,15 @@ pub fn load_foundation_output(height: u64) -> CbData {
 		Ok(file) => file,
 	};
 	let file_len = file.metadata().unwrap().len();
-	/*assert_eq!(
+	// Checks if the file has its size multiple of 1 json
+	// Each json has to have a fixed size in bytes (FOUNDATION_COINBASE_SIZE) for the reading occurs successfully.
+	assert_eq!(
 		file_len % (FOUNDATION_COINBASE_SIZE as u64),
 		0,
 		"The file {} has an invalid size! The size should be multiple of {}",
 		path.display(),
 		FOUNDATION_COINBASE_SIZE
-	);*/
+	);
 	let offset = height * (FOUNDATION_COINBASE_SIZE as u64);
 	if offset >= file_len {
 		// TODO: What should we do when the foundations blocks ends ?

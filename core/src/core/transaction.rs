@@ -47,7 +47,6 @@ enum_from_primitive! {
 		Coinbase = 1,
 		/// A kernel with an expicit lock height.
 		HeightLocked = 2,
-		//Foundation = 3,
 	}
 }
 
@@ -233,10 +232,6 @@ impl KernelFeatures {
 		*self == KernelFeatures::Plain
 	}
 
-	/*pub fn is_foundation(&self) -> bool {
-		*self == KernelFeatures::Foundation
-	}*/
-
 	/// Is this a height locked kernel?
 	pub fn is_height_locked(&self) -> bool {
 		*self == KernelFeatures::HeightLocked
@@ -253,10 +248,6 @@ impl TxKernel {
 	pub fn is_plain(&self) -> bool {
 		self.features.is_plain()
 	}
-
-	/*pub fn is_foundation(&self) -> bool {
-		self.features.is_foundation()
-	}*/
 
 	/// Is this a height locked kernel?
 	pub fn is_height_locked(&self) -> bool {
@@ -1233,7 +1224,6 @@ enum_from_primitive! {
 		Plain = 0,
 		/// A coinbase output.
 		Coinbase = 1,
-		Foundation = 2,
 	}
 }
 
@@ -1331,10 +1321,6 @@ impl OutputFeatures {
 	pub fn is_plain(&self) -> bool {
 		*self == OutputFeatures::Plain
 	}
-
-	/*pub fn is_foundation(&self) -> bool {
-		*self == OutputFeatures::Foundation
-	}*/
 }
 
 impl Output {
@@ -1352,10 +1338,6 @@ impl Output {
 	pub fn is_plain(&self) -> bool {
 		self.features.is_plain()
 	}
-
-	/*pub fn is_foundation(&self) -> bool {
-		self.features.is_foundation()
-	}*/
 
 	/// Range proof for the output
 	pub fn proof(&self) -> RangeProof {
@@ -1491,7 +1473,6 @@ pub fn kernel_sig_msg(
 		KernelFeatures::Coinbase => fee == 0 && lock_height == 0,
 		KernelFeatures::Plain => lock_height == 0,
 		KernelFeatures::HeightLocked => true,
-		//KernelFeatures::Foundation => fee == 0 && lock_height == 0,
 	};
 	if !valid_features {
 		return Err(Error::InvalidKernelFeatures);
@@ -1500,7 +1481,6 @@ pub fn kernel_sig_msg(
 		KernelFeatures::Coinbase => (features).hash(),
 		KernelFeatures::Plain => (features, fee).hash(),
 		KernelFeatures::HeightLocked => (features, fee, lock_height).hash(),
-		//KernelFeatures::Foundation => (features).hash(),
 	};
 	Ok(secp::Message::from_slice(&hash.as_bytes())?)
 }
