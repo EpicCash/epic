@@ -151,6 +151,28 @@ mod mine_chain {
 			}
 		};
 
+		then "Refuse a foundation commit invalid" |world, _step| {
+			let chain = world.chain.as_ref().unwrap();
+			let kc = world.keychain.as_ref().unwrap();
+			let prev = chain.head_header().unwrap();
+
+			let key_id = epic_keychain::ExtKeychain::derive_key_id(1, 3, 0, 0, 0);
+			let reward = reward::output(kc, &key_id, 0, false, 0).unwrap();
+			let foundation = libtx::reward::output_foundation(kc, &key_id, true).unwrap();
+
+			let mut block = prepare_block_with_coinbase(&prev, 2, vec![], reward, foundation);
+			chain.set_txhashset_roots(&mut block).unwrap();
+
+			// Mining
+			let algo = Deterministic::choose_algo(&get_policies(), &prev.bottles);
+			block.header.bottles = next_block_bottles(algo, &prev.bottles);
+			block.header.pow.proof = get_pow_type(&algo, prev.height);
+
+			if let Ok(_) = chain.process_block(block, chain::Options::SKIP_POW) {
+				panic!("Block need to be refused with foundation invalid!");
+			}
+		};
+
 		then "clean tmp chain dir" |_world, _step| {
 			clean_output_dir(".epic.tmp");
 		};
@@ -594,11 +616,11 @@ mod mine_chain {
 			world.chain = Some(setup(&world.output_dir, world.genesis.as_ref().unwrap().clone()));
 			world.keychain = Some(epic_keychain::ExtKeychain::from_seed(&[2,0,0], false).unwrap());
 		};
-	
+
 		given regex "I add a genesis block with coinbase and mined with <([a-zA-Z0-9]+)>" |world, matches, _step| {
 			let algo = get_fw_type(matches[1].as_str());
 			let key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
-			
+
 			let reward = reward::output(world.keychain.as_ref().unwrap(), &key_id, 0, false, 0).unwrap();
 			//let foundation = libtx::reward::output_foundation(world.keychain_foundation.as_ref().unwrap(), &key_id, true).unwrap();
 			let cb_data = load_foundation_output(0);
@@ -612,7 +634,7 @@ mod mine_chain {
 			let genesis_difficulty = genesis.header.pow.total_difficulty;
 			let sz = global::min_edge_bits();
 			let proof_size = global::proofsize();
-	
+
 			pow::pow_size(&mut genesis.header, genesis_difficulty, proof_size, sz).unwrap();
 			world.genesis = Some(genesis);
 		};
