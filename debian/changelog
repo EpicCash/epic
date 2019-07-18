@@ -1,3 +1,9 @@
+epic (1.0.0-2) unstable; urgency=medium
+
+  * Fixing the dependencies
+  * Removing the pipe from the network
+
+ -- Yuri Albuquerque <yurialbuquerque@brickabode.com>  Thu, 18 Jul 2019 20:34:12 +0000
 epic (1.0.0-1) unstable; urgency=medium
 
   * Initial release
