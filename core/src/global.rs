@@ -138,18 +138,18 @@ lazy_static! {
 	// The policy parameters
 	pub static ref POLICY_CONFIG : RwLock<PolicyConfig> =
 			RwLock::new(PolicyConfig::default());
-	
-	// The path to the file that contains the foundation 
+
+	// The path to the file that contains the foundation
 	pub static ref FOUNDATION_FILE : RwLock<Option<String>> =
 			RwLock::new(None);
 }
 
-pub fn set_foundation_path(path: String){
+pub fn set_foundation_path(path: String) {
 	let mut foundation_path = FOUNDATION_FILE.write();
 	*foundation_path = Some(path);
 }
 
-pub fn get_foundation_path() -> Option<String>{
+pub fn get_foundation_path() -> Option<String> {
 	let foundation_path = FOUNDATION_FILE.read();
 	foundation_path.clone()
 }
@@ -189,12 +189,12 @@ where
 	let chain_type = CHAIN_TYPE.read().clone();
 	match chain_type {
 		// Mainnet has Cuckaroo29 for AR and Cuckatoo30+ for AF
-		ChainTypes::Mainnet if edge_bits == 29 => new_cuckaroo_ctx(edge_bits, proof_size),
-		ChainTypes::Mainnet => new_cuckatoo_ctx(edge_bits, proof_size, max_sols),
+		ChainTypes::Mainnet if edge_bits > 29 => new_cuckatoo_ctx(edge_bits, proof_size, max_sols),
+		ChainTypes::Mainnet => new_cuckaroo_ctx(edge_bits, proof_size),
 
 		// Same for Floonet
-		ChainTypes::Floonet if edge_bits == 29 => new_cuckaroo_ctx(edge_bits, proof_size),
-		ChainTypes::Floonet => new_cuckatoo_ctx(edge_bits, proof_size, max_sols),
+		ChainTypes::Floonet if edge_bits > 29 => new_cuckatoo_ctx(edge_bits, proof_size, max_sols),
+		ChainTypes::Floonet => new_cuckaroo_ctx(edge_bits, proof_size),
 
 		// Everything else is Cuckatoo only
 		_ => new_cuckatoo_ctx(edge_bits, proof_size, max_sols),
