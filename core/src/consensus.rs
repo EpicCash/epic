@@ -58,6 +58,16 @@ pub fn reward(fee: u64) -> u64 {
 }
 */
 
+/// Check if the parameter height is multiple of FOUNDATION_HEIGHT
+pub fn is_foundation_height(height: u64) -> bool {
+	height % FOUNDATION_HEIGHT == 0
+}
+
+/// Get the current position of the foundation coinbase in the file `foundation.json` based on the block's height
+pub fn foundation_index(height: u64) -> u64 {
+	height / FOUNDATION_HEIGHT
+}
+
 ///sundaram Working area
 // Reward inbetween particular timestamp
 pub const INITIAL_REWARD: u64 = 50 * EPIC_BASE;

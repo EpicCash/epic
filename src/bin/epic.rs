@@ -78,7 +78,7 @@ fn real_main() -> i32 {
 	let node_config;
 
 	if let ("taxes", Some(taxes_args)) = args.subcommand() {
-		let generate: u32 = taxes_args
+		let generate: u64 = taxes_args
 			.value_of("generate")
 			.unwrap()
 			.parse()
@@ -109,8 +109,16 @@ fn real_main() -> i32 {
 			"The path: {} does not exist!",
 			path.display()
 		);
-
-		let foundation_coinbases = create_foundation(&wallet_url, generate);
+		let height: u64 = if let Some(h) = taxes_args.value_of("height"){
+			h.parse()
+			.unwrap_or_else(|e| {
+				panic!("The height value must be a positive integer: {}", e);
+			})
+		}else{
+			0
+		};
+		// TODO-FOUNDATION: PUT THE FUNCTION TO CHECK IF THE FILE EXISTS HERE IF HEIGHT != 0
+		let foundation_coinbases = create_foundation(&wallet_url, generate, height);
 		let serialized = foundation::serialize_foundation(foundation_coinbases);
 		println!(
 			"Total size in bytes serialized: {:?}",

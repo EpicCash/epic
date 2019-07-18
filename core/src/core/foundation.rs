@@ -23,6 +23,8 @@ pub struct CbData {
 // Size in bytes of each foundation coinbase (Output + Kernel)
 pub const FOUNDATION_COINBASE_SIZE: usize = 1803;
 
+// TODO-FOUNDATION : Create a function to verify if the file exists if the height is different form 0 in the CLI
+
 // Serialize a vector of foundation coinbases in a series of json
 pub fn serialize_foundation(foundation_coinbases: Vec<CbData>) -> String {
 	let mut result = String::new();
