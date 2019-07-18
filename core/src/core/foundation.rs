@@ -1,13 +1,13 @@
 use crate::core::{Output, TxKernel};
-use crate::global::{get_foundation_path};
-use crate::serde::{Serialize, Deserialize};
-use crate::keychain::{Identifier};
+use crate::global::get_foundation_path;
+use crate::keychain::Identifier;
+use crate::serde::{Deserialize, Serialize};
+use serde_json;
 use std::error::Error;
-use std::fs::{File, create_dir};
+use std::fs::{create_dir, File};
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::path::Path;
-use serde_json;
 
 /// Response to build a coinbase output.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -40,7 +40,8 @@ pub fn serialize_foundation(foundation_coinbases: Vec<CbData>) -> String {
 pub fn save_in_disk(serialization: String, path: &Path) {
 	let mut path = path.join("foundation");
 	if path.exists() == false {
-		create_dir(path.clone()).expect(format!("Was not possible to create the file {:?}", path).as_str());
+		create_dir(path.clone())
+			.expect(format!("Was not possible to create the file {:?}", path).as_str());
 	};
 	path = path.join("foundation.json");
 	println!("Saving the file as: {}", path.display());
@@ -54,7 +55,8 @@ pub fn save_in_disk(serialization: String, path: &Path) {
 
 // Load the foundation coinbase relative to the height of the chain
 pub fn load_foundation_output(height: u64) -> CbData {
-	let path_str = get_foundation_path().unwrap_or_else(|| panic!("No path to the foundation.json was provided!"));
+	let path_str = get_foundation_path()
+		.unwrap_or_else(|| panic!("No path to the foundation.json was provided!"));
 	let path = Path::new(&path_str);
 	//println!("path: {:?}", path.display());
 	let mut file = match File::open(&path) {

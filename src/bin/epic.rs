@@ -20,6 +20,7 @@ extern crate clap;
 #[macro_use]
 extern crate log;
 use crate::config::config::SERVER_CONFIG_FILE_NAME;
+use crate::core::core::foundation;
 use crate::core::global;
 use crate::util::init_logger;
 use clap::App;
@@ -29,7 +30,6 @@ use epic_core as core;
 use epic_p2p as p2p;
 use epic_servers as servers;
 use epic_util as util;
-use crate::core::core::foundation;
 use servers::foundation::create_foundation;
 use std::env;
 use std::path::Path;
@@ -109,12 +109,11 @@ fn real_main() -> i32 {
 			"The path: {} does not exist!",
 			path.display()
 		);
-		let height: u64 = if let Some(h) = taxes_args.value_of("height"){
-			h.parse()
-			.unwrap_or_else(|e| {
+		let height: u64 = if let Some(h) = taxes_args.value_of("height") {
+			h.parse().unwrap_or_else(|e| {
 				panic!("The height value must be a positive integer: {}", e);
 			})
-		}else{
+		} else {
 			0
 		};
 		// TODO-FOUNDATION: PUT THE FUNCTION TO CHECK IF THE FILE EXISTS HERE IF HEIGHT != 0
