@@ -42,13 +42,31 @@ pub const BLOCK_TIME_SEC: u64 = 60;
 /// The block subsidy amount, one epic per second on average
 pub const REWARD: u64 = 200 * EPIC_BASE;
 
+/// The amount of grins per block sent to the Epic foundation wallet
 pub const FOUNDATION_REWARD: u64 = 7 * EPIC_BASE;
+
+/// Set the height (and its multiples) where the foundation coinbase will be added to the block.
+/// This variable will sparse the blocks that receive the foundation coinbase
+/// Therefore, the FOUNDATION_REWARD will be multiplied by this variable to adjust the amount of grins
+/// sent to the Epic foundation.
+pub const FOUNDATION_HEIGHT: u64 = 1;
+
 /*
 /// Actual block reward for a given total fee amount
 pub fn reward(fee: u64) -> u64 {
 	REWARD.saturating_add(fee)
 }
 */
+
+/// Check if the parameter height is multiple of FOUNDATION_HEIGHT
+pub fn is_foundation_height(height: u64) -> bool {
+	height % FOUNDATION_HEIGHT == 0
+}
+
+/// Get the current position of the foundation coinbase in the file `foundation.json` based on the block's height
+pub fn foundation_index(height: u64) -> u64 {
+	height / FOUNDATION_HEIGHT
+}
 
 ///sundaram Working area
 // Reward inbetween particular timestamp

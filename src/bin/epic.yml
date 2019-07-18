@@ -33,7 +33,12 @@ subcommands:
             short: p
             long: path
             takes_value: true
-        
+        - height:
+            help: The height to start the generation of foundation coinbases. If no height is given, the height of 0 is used.
+            short: h
+            long: height
+            takes_value: true
+
   - wallet:
       about: As of v1.1.0, the wallet has been split into a separate executable. See https://github.com/mimblewimble/epic-wallet/releases
       usage: As of v1.1.0, the wallet has been split into a separate executable. See https://github.com/mimblewimble/epic-wallet/releases to download
