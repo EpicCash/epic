@@ -17,8 +17,6 @@ Epic Cash is an in-progress implementation of the MimbleWimble protocol. Epic Ca
 Epic is live with testnet. 
 ## Getting Started
 
-To learn more about the technology, read our [introduction](doc/intro.md).
-
 To build and try out Epic, see the [build docs](doc/build.md).
 
 ## Credits
