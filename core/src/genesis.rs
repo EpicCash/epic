@@ -80,7 +80,7 @@ pub fn genesis_floo() -> core::Block {
 		kernel_mmr_size: 2,
 		bottles: bottles,
 		pow: ProofOfWork {
-			total_difficulty: Difficulty::from_num(10_u64.pow(6)),
+			total_difficulty: Difficulty::from_num(10_u64.pow(1)),
 			secondary_scaling: 1856,
 			nonce: 23,
 			proof: Proof::CuckooProof {
@@ -205,7 +205,7 @@ pub fn genesis_main() -> core::Block {
 		kernel_mmr_size: 1,
 		bottles: bottles,
 		pow: ProofOfWork {
-			total_difficulty: Difficulty::from_num(2_u64.pow(20)),
+			total_difficulty: Difficulty::from_num(2_u64.pow(1)),
 			secondary_scaling: 1856,
 			nonce: 41,
 			proof: Proof::CuckooProof {
