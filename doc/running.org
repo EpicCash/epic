@@ -424,6 +424,7 @@ If you executed the epic-miner in TUI mode (the default is true in
 
 #+CAPTION: Epic miner in TUI mode 
 #+NAME:   fig:epic-miner
+#+ATTR_HTML: :width 60% :height 60% 
 [[./images/epic-miner.png]]
 
 Press the key *Tab* or the *Arrows* keys to change windows inside the epic
