@@ -142,8 +142,12 @@ The following steps explain how to install and run the epic-wallet:
     #+begin_src shell
       sudo dpkg -i <your-epic-wallet.deb>
     #+end_src
+
+#+ATTR_HTML: :id init_wallet
 *** Initialize the Wallet
-    
+  :PROPERTIES:
+  :CUSTOM_ID: init_wallet
+  :END:    
 Before you can use the Epic wallet, it must be initialized. This
 process will initialize your wallet's database and create your secret
 master seed file. For this, we need to run the following command in
