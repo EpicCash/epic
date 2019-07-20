@@ -48,7 +48,7 @@ rustc 1.35.0 (3c235d560 2019-05-20)
 ## Build steps
 
 ```sh
-git clone https://github.com/mimblewimble/epic.git
+git clone https://gitlab.com/epiccash/epic
 cd epic
 git submodule update --init --recursive
 cargo build --release
