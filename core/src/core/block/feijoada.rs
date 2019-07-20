@@ -3,13 +3,7 @@ use serde::de;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
-pub enum PoWType {
-	Cuckaroo,
-	Cuckatoo,
-	RandomX,
-	ProgPow,
-}
+pub use crate::pow::PoWType;
 
 static POW_TYPE_STRING: [&'static str; 4] = ["cuckaroo", "cuckatoo", "randomx", "progpow"];
 static POW_TYPE_VALUE: [PoWType; 4] = [

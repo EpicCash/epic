@@ -29,7 +29,7 @@ use keccak_hash::keccak_256;
 use crate::consensus::{
 	self, reward, reward_at_height, total_overage_at_height, FOUNDATION_REWARD, REWARD,
 };
-use crate::core::block::feijoada::{get_bottles_default, PoWType, Policy};
+use crate::core::block::feijoada::{get_bottles_default, Policy};
 use crate::core::committed::{self, Committed};
 use crate::core::compact_block::{CompactBlock, CompactBlockBody};
 use crate::core::hash::{DefaultHashable, Hash, Hashed, ZERO_HASH};
@@ -39,7 +39,7 @@ use crate::core::{
 };
 use crate::global;
 use crate::keychain::{self, BlindingFactor};
-use crate::pow::{Difficulty, Proof, ProofOfWork};
+use crate::pow::{Difficulty, Proof, ProofOfWork, PoWType};
 use crate::ser::{self, FixedLength, PMMRable, Readable, Reader, Writeable, Writer};
 use crate::util::{secp, static_secp_instance};
 
@@ -396,7 +396,7 @@ impl BlockHeader {
 
 	/// Total difficulty accumulated by the proof of work on this header
 	pub fn total_difficulty(&self) -> Difficulty {
-		self.pow.total_difficulty
+		self.pow.total_difficulty.clone()
 	}
 	/*
 	/// The "overage" to use when verifying the kernel sums.
@@ -643,7 +643,7 @@ impl Block {
 				prev_hash: prev.hash(),
 				total_kernel_offset,
 				pow: ProofOfWork {
-					total_difficulty: difficulty + prev.pow.total_difficulty,
+					total_difficulty: difficulty + prev.pow.total_difficulty.clone(),
 					..Default::default()
 				},
 				..Default::default()
@@ -688,7 +688,7 @@ impl Block {
 				prev_hash: prev.hash(),
 				total_kernel_offset,
 				pow: ProofOfWork {
-					total_difficulty: difficulty + prev.pow.total_difficulty,
+					total_difficulty: difficulty + prev.pow.total_difficulty.clone(),
 					..Default::default()
 				},
 				..Default::default()

@@ -186,9 +186,9 @@ impl Peer {
 		let now = Utc::now().timestamp_millis();
 		// if last updated difficulty is 2 hours ago, we're sure this peer is a stuck node.
 		if now > peer_live_info.stuck_detector.timestamp_millis() + global::STUCK_PEER_KICK_TIME {
-			(true, peer_live_info.total_difficulty)
+			(true, peer_live_info.total_difficulty.clone())
 		} else {
-			(false, peer_live_info.total_difficulty)
+			(false, peer_live_info.total_difficulty.clone())
 		}
 	}
 

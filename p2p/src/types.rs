@@ -392,7 +392,7 @@ impl PeerLiveInfo {
 impl PeerInfo {
 	/// The current total_difficulty of the peer.
 	pub fn total_difficulty(&self) -> Difficulty {
-		self.live_info.read().total_difficulty
+		self.live_info.read().total_difficulty.clone()
 	}
 
 	pub fn is_outbound(&self) -> bool {

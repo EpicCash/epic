@@ -375,7 +375,7 @@ where
 		} else {
 			BLOCK_TIME_SEC
 		};
-		let last_diff = last_n[0].difficulty;
+		let last_diff = last_n[0].difficulty.clone();
 
 		// fill in simulated blocks with values from the previous real block
 		let mut last_ts = last_n.last().unwrap().timestamp;

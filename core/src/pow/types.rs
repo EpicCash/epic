@@ -17,9 +17,11 @@
 use std::cmp::{max, min};
 use std::ops::{Add, Div, Mul, Sub};
 use std::{fmt, iter};
+use std::cmp::Ordering;
 
 use rand::{thread_rng, Rng};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::ser::SerializeMap;
 
 use bigint::uint::U256;
 
@@ -32,6 +34,60 @@ use crate::core::hash::Hash;
 use crate::pow::common::EdgeType;
 use crate::pow::error::Error;
 use crate::util::read_write::from_slice;
+
+use std::collections::HashMap;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
+pub enum PoWType {
+	Cuckaroo,
+	Cuckatoo,
+	RandomX,
+	ProgPow,
+}
+
+impl PoWType {
+	fn to_u8(&self) -> u8 {
+		match self {
+			PoWType::Cuckaroo => 0,
+			PoWType::Cuckatoo => 1,
+			PoWType::RandomX => 2,
+			PoWType::ProgPow => 3,
+		}
+	}
+}
+
+impl From<u8> for PoWType {
+	fn from(v: u8) -> PoWType {
+		match v {
+			0 => PoWType::Cuckaroo,
+			1 => PoWType::Cuckatoo,
+			2 => PoWType::RandomX,
+			3 => PoWType::ProgPow,
+			_ => panic!("data corrupted")
+		}
+	}
+}
+
+impl From<Proof> for PoWType {
+	fn from(v: Proof) -> PoWType {
+		match v {
+			Proof::CuckooProof { ref edge_bits, .. } => {
+				if *edge_bits > 29 {
+					PoWType::Cuckatoo
+				} else {
+					PoWType::Cuckaroo
+				}
+			},
+			Proof::RandomXProof { .. } => {
+				PoWType::RandomX
+			},
+			Proof::ProgPowProof { .. } => {
+				PoWType::ProgPow
+			}
+			Proof::MD5Proof { .. } => panic!("algorithm is not working!")
+		}
+	}
+}
 
 /// Generic trait for a solver/verifier providing common interface into Cuckoo-family PoW
 /// Mostly used for verification, but also for test mining if necessary
@@ -54,37 +110,56 @@ where
 	fn verify(&mut self, proof: &Proof) -> Result<(), Error>;
 }
 
+pub trait DifficultyNumberBasic {
+	fn number(v: u64) -> Self;
+}
+
+pub type DifficultyNumber = HashMap<PoWType, u64>;
+
+impl DifficultyNumberBasic for DifficultyNumber {
+	fn number(v: u64) -> DifficultyNumber {
+		let mut h = HashMap::new();
+
+		h.insert(PoWType::Cuckaroo, v);
+		h.insert(PoWType::Cuckatoo, v);
+		h.insert(PoWType::RandomX, v);
+		h.insert(PoWType::ProgPow, v);
+
+		h
+	}
+}
+
 /// The difficulty is defined as the maximum target divided by the block hash.
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Difficulty {
-	num: u64,
+	pub num: DifficultyNumber,
 }
 
 impl Difficulty {
 	/// Difficulty of zero, which is invalid (no target can be
 	/// calculated from it) but very useful as a start for additions.
 	pub fn zero() -> Difficulty {
-		Difficulty { num: 0 }
+		Difficulty { num: DifficultyNumber::number(0) }
 	}
 
 	/// Difficulty of MIN_DIFFICULTY
 	pub fn min() -> Difficulty {
 		Difficulty {
-			num: MIN_DIFFICULTY,
+			num: DifficultyNumber::number(MIN_DIFFICULTY),
 		}
 	}
 
 	/// Difficulty unit, which is the graph weight of minimal graph
 	pub fn unit() -> Difficulty {
 		Difficulty {
-			num: global::initial_graph_weight() as u64,
+			num: DifficultyNumber::number(global::initial_graph_weight() as u64),
 		}
 	}
 
 	/// Convert a `u32` into a `Difficulty`
 	pub fn from_num(num: u64) -> Difficulty {
 		// can't have difficulty lower than 1
-		Difficulty { num: max(num, 1) }
+		Difficulty { num: DifficultyNumber::number(max(num, 1)) }
 	}
 
 	/// Computes the difficulty from a hash. Divides the maximum target by the
@@ -114,63 +189,98 @@ impl Difficulty {
 	}
 
 	/// Converts the difficulty into a u64
-	pub fn to_num(&self) -> u64 {
-		self.num
+	pub fn to_num(&self, pow: PoWType) -> u64 {
+		*self.num.get(&pow).unwrap_or(&0)
 	}
 }
 
 impl fmt::Display for Difficulty {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", self.num)
+		write!(f, "{:?}", self.num)
 	}
+}
+
+impl Ord for Difficulty {
+	fn cmp(&self, other: &Self) -> Ordering {
+        self.num.get(&PoWType::Cuckatoo).unwrap()
+			.cmp(&other.num.get(&PoWType::Cuckatoo).unwrap())
+    }
+}
+
+impl PartialOrd for Difficulty {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.num.get(&PoWType::Cuckatoo).unwrap()
+			.cmp(&other.num.get(&PoWType::Cuckatoo).unwrap()))
+    }
 }
 
 impl Add<Difficulty> for Difficulty {
 	type Output = Difficulty;
 	fn add(self, other: Difficulty) -> Difficulty {
-		Difficulty {
-			num: self.num + other.num,
+		let mut d = DifficultyNumber::number(0);
+		for (algo, v) in &self.num {
+			d.insert(*algo, v + *other.num.get(algo).unwrap_or(&0));
 		}
+		Difficulty { num: d }
 	}
 }
 
 impl Sub<Difficulty> for Difficulty {
 	type Output = Difficulty;
 	fn sub(self, other: Difficulty) -> Difficulty {
-		Difficulty {
-			num: self.num - other.num,
+		let mut d = DifficultyNumber::number(0);
+		for (algo, v) in &self.num {
+			d.insert(*algo, v - *other.num.get(algo).unwrap_or(&0));
 		}
+		Difficulty { num: d }
 	}
 }
 
 impl Mul<Difficulty> for Difficulty {
 	type Output = Difficulty;
 	fn mul(self, other: Difficulty) -> Difficulty {
-		Difficulty {
-			num: self.num * other.num,
+		let mut d = DifficultyNumber::number(0);
+		for (algo, v) in &self.num {
+			d.insert(*algo, v * *other.num.get(algo).unwrap_or(&0));
 		}
+		Difficulty { num: d }
 	}
 }
 
 impl Div<Difficulty> for Difficulty {
 	type Output = Difficulty;
 	fn div(self, other: Difficulty) -> Difficulty {
-		Difficulty {
-			num: self.num / other.num,
+		let mut d = DifficultyNumber::number(0);
+		for (algo, v) in &self.num {
+			d.insert(*algo, v / *other.num.get(algo).unwrap_or(&0));
 		}
+		Difficulty { num: d }
 	}
 }
 
 impl Writeable for Difficulty {
 	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
-		writer.write_u64(self.num)
+		writer.write_u64(self.num.len() as u64)?;
+		let mut diff_vec: Vec<(PoWType, u64)> = self.num.iter().map(|(&x, &num)| (x, num)).collect();
+		diff_vec.sort();
+		for (algo, num) in diff_vec.iter() {
+			writer.write_u8(algo.to_u8())?;
+			writer.write_u64(*num)?;
+		}
+		Ok(())
 	}
 }
 
 impl Readable for Difficulty {
 	fn read(reader: &mut dyn Reader) -> Result<Difficulty, ser::Error> {
-		let data = reader.read_u64()?;
-		Ok(Difficulty { num: data })
+		let len = reader.read_u64()?;
+		let mut result = HashMap::new();
+		for _ in 0..len {
+			let pow = reader.read_u8()?;
+			let count = reader.read_u64()?;
+			result.insert(pow.into(), count);
+		}
+		Ok(Difficulty { num: result })
 	}
 }
 
@@ -183,7 +293,15 @@ impl Serialize for Difficulty {
 	where
 		S: Serializer,
 	{
-		serializer.serialize_u64(self.num)
+		let mut map = serializer.serialize_map(Some(self.num.len()))?;
+		let mut diff_vec: Vec<(PoWType, u64)> = self.num.iter().map(|(&x, &num)| (x, num)).collect();
+		diff_vec.sort();
+		
+		for (algo, num) in &diff_vec {
+			map.serialize_entry(&algo.to_u8(), num)?;
+		}
+
+		map.end()
 	}
 }
 
@@ -192,41 +310,32 @@ impl<'de> Deserialize<'de> for Difficulty {
 	where
 		D: Deserializer<'de>,
 	{
-		deserializer.deserialize_u64(DiffVisitor)
+		deserializer.deserialize_map(DifficultyMap)
 	}
 }
 
-struct DiffVisitor;
+struct DifficultyMap;
 
-impl<'de> de::Visitor<'de> for DiffVisitor {
-	type Value = Difficulty;
+impl<'de> de::Visitor<'de> for DifficultyMap
+{
+    type Value = Difficulty;
 
-	fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-		formatter.write_str("a difficulty")
-	}
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a difficulty map")
+    }
 
-	fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
-	where
-		E: de::Error,
-	{
-		let num_in = s.parse::<u64>();
-		if num_in.is_err() {
-			return Err(de::Error::invalid_value(
-				de::Unexpected::Str(s),
-				&"a value number",
-			));
-		};
-		Ok(Difficulty {
-			num: num_in.unwrap(),
-		})
-	}
+    fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
+    where
+        M: de::MapAccess<'de>,
+    {
+        let mut map = DifficultyNumber::with_capacity(access.size_hint().unwrap_or(0));
 
-	fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
-	where
-		E: de::Error,
-	{
-		Ok(Difficulty { num: value })
-	}
+        while let Some((key, value)) = access.next_entry()? {
+            map.insert(key, value);
+        }
+
+        Ok(Difficulty{ num: map })
+    }
 }
 
 /// Block header information pertaining to the proof of work
@@ -301,9 +410,9 @@ impl ProofOfWork {
 
 	/// Write the pre-hash portion of the header
 	pub fn write_pre_pow<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
+		self.total_difficulty.write(writer)?;
 		ser_multiwrite!(
 			writer,
-			[write_u64, self.total_difficulty.to_num()],
 			[write_u32, self.secondary_scaling]
 		);
 		Ok(())

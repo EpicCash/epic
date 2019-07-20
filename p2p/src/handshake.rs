@@ -97,7 +97,7 @@ impl Handshake {
 			user_agent: shake.user_agent,
 			addr: peer_addr,
 			version: shake.version,
-			live_info: Arc::new(RwLock::new(PeerLiveInfo::new(shake.total_difficulty))),
+			live_info: Arc::new(RwLock::new(PeerLiveInfo::new(shake.total_difficulty.clone()))),
 			direction: Direction::Outbound,
 		};
 
@@ -108,8 +108,8 @@ impl Handshake {
 		}
 
 		debug!(
-			"Connected! Cumulative {} offered from {:?} {:?} {:?}",
-			shake.total_difficulty.to_num(),
+			"Connected! Cumulative {:?} offered from {:?} {:?} {:?}",
+			shake.total_difficulty.num,
 			peer_info.addr,
 			peer_info.user_agent,
 			peer_info.capabilities

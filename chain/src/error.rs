@@ -41,6 +41,10 @@ pub enum ErrorKind {
 	/// Difficulty is too low either compared to ours or the block PoW hash
 	#[fail(display = "Difficulty is too low compared to ours or the block PoW hash")]
 	DifficultyTooLow,
+
+	#[fail(display = "Difficulty is too high compared to ours or the block PoW hash")]
+	DifficultyTooHigh,
+
 	/// Addition of difficulties on all previous block is wrong
 	#[fail(display = "Addition of difficulties on all previous blocks is wrong")]
 	WrongTotalDifficulty,

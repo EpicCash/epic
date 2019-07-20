@@ -94,7 +94,7 @@ pub fn mine_genesis_block() -> Result<Block, Error> {
 	}
 
 	// total_difficulty on the genesis header *is* the difficulty of that block
-	let genesis_difficulty = gen.header.pow.total_difficulty;
+	let genesis_difficulty = gen.header.pow.total_difficulty.clone();
 
 	let sz = global::min_edge_bits();
 	let proof_size = global::proofsize();
@@ -127,9 +127,9 @@ pub fn pow_size(
 		ctx.set_header_nonce(bh.pre_pow(), None, None, true)?;
 		if let Ok(proofs) = ctx.pow_solve() {
 			bh.pow.proof = proofs[0].clone();
-			if bh.pow.to_difficulty(bh.height) >= diff {
+			/*if bh.pow.to_difficulty(bh.height) >= diff {
 				return Ok(());
-			}
+			}*/
 		}
 
 		// otherwise increment the nonce

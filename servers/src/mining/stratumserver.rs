@@ -589,7 +589,7 @@ impl Handler {
 					);
 
 					state.current_difficulty =
-						(new_block.header.total_difficulty() - head.total_difficulty).to_num();
+						(new_block.header.total_difficulty() - head.total_difficulty);
 
 					state.current_key_id = block_fees.key_id();
 

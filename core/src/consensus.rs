@@ -22,7 +22,7 @@ use std::cmp::{max, min};
 
 use crate::core::block::HeaderVersion;
 use crate::global;
-use crate::pow::Difficulty;
+use crate::pow::{PoWType, Difficulty};
 
 /// A epic is divisible to 10^9, following the SI prefixes
 pub const EPIC_BASE: u64 = 1_000_000_000;
@@ -361,7 +361,7 @@ where
 	let diff_sum: u64 = diff_data
 		.iter()
 		.skip(1)
-		.map(|dd| dd.difficulty.to_num())
+		.map(|dd| dd.difficulty.to_num(PoWType::Cuckatoo))
 		.sum();
 
 	// adjust time delta toward goal subject to dampening and clamping

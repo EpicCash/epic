@@ -20,7 +20,8 @@
 use chrono::prelude::{TimeZone, Utc};
 
 use crate::core;
-use crate::core::block::feijoada::{get_bottles_default, PoWType};
+use crate::pow::PoWType;
+use crate::core::block::feijoada::{get_bottles_default};
 use crate::core::foundation::load_foundation_output;
 use crate::global;
 use crate::pow::{Difficulty, Proof, ProofOfWork};

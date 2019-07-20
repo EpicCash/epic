@@ -201,24 +201,24 @@ impl Chain {
 	fn log_heads(store: &store::ChainStore) -> Result<(), Error> {
 		let head = store.head()?;
 		debug!(
-			"init: head: {} @ {} [{}]",
-			head.total_difficulty.to_num(),
+			"init: head: {:?} @ {} [{}]",
+			head.total_difficulty.num,
 			head.height,
 			head.last_block_h,
 		);
 
 		let header_head = store.header_head()?;
 		debug!(
-			"init: header_head: {} @ {} [{}]",
-			header_head.total_difficulty.to_num(),
+			"init: header_head: {:?} @ {} [{}]",
+			header_head.total_difficulty.num,
 			header_head.height,
 			header_head.last_block_h,
 		);
 
 		let sync_head = store.get_sync_head()?;
 		debug!(
-			"init: sync_head: {} @ {} [{}]",
-			sync_head.total_difficulty.to_num(),
+			"init: sync_head: {:?} @ {} [{}]",
+			sync_head.total_difficulty.num,
 			sync_head.height,
 			sync_head.last_block_h,
 		);
@@ -770,13 +770,13 @@ impl Chain {
 			sync_head.height,
 		);
 
-		if body_head.total_difficulty >= header_head.total_difficulty {
+		/*if body_head.total_difficulty >= header_head.total_difficulty {
 			debug!(
 				"{}: no need txhashset. header_head.total_difficulty: {} <= body_head.total_difficulty: {}",
 				caller, header_head.total_difficulty, body_head.total_difficulty,
 			);
 			return Ok(false);
-		}
+		}*/
 
 		let mut oldest_height = 0;
 		let mut oldest_hash = ZERO_HASH;
