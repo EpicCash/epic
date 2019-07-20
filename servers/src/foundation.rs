@@ -1,7 +1,7 @@
 use crate::mining::mine_block::create_foundation as c_foundation;
 use crate::mining::mine_block::{BlockFees, CbData};
 
-// Call the wallet API to create a given number of foundations coinbases (output/kernel)
+/// Call the wallet API to create a given number of foundations coinbases (output/kernel)
 pub fn create_foundation(
 	wallet_listener_url: &str,
 	num_to_generate: u64,
