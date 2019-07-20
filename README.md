@@ -22,6 +22,8 @@ To learn more about the technology, read our [introduction](doc/intro.md).
 
 To build and try out Epic, see the [build docs](doc/build.md).
 
+To run the Testnet, see the [Running the test net](doc/running.org).
+
 ## Credits
 
 Tom Elvis Jedusor for the first formulation of MimbleWimble.
