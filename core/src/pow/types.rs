@@ -37,6 +37,8 @@ use crate::util::read_write::from_slice;
 
 use std::collections::HashMap;
 
+const ALGORITHM_COUNTS: usize = 4;
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub enum PoWType {
 	Cuckaroo,
@@ -80,7 +82,7 @@ impl From<Proof> for PoWType {
 			}
 			Proof::RandomXProof { .. } => PoWType::RandomX,
 			Proof::ProgPowProof { .. } => PoWType::ProgPow,
-			Proof::MD5Proof { .. } => panic!("algorithm is not working!"),
+			Proof::MD5Proof { .. } => PoWType::RandomX, //panic!("algorithm is not working!"),
 		}
 	}
 }
@@ -268,10 +270,12 @@ impl Writeable for Difficulty {
 		let mut diff_vec: Vec<(PoWType, u64)> =
 			self.num.iter().map(|(&x, &num)| (x, num)).collect();
 		diff_vec.sort();
+
 		for (algo, num) in diff_vec.iter() {
 			writer.write_u8(algo.to_u8())?;
 			writer.write_u64(*num)?;
 		}
+
 		Ok(())
 	}
 }
@@ -290,7 +294,7 @@ impl Readable for Difficulty {
 }
 
 impl FixedLength for Difficulty {
-	const LEN: usize = 8;
+	const LEN: usize = 8 + ALGORITHM_COUNTS * 9;
 }
 
 impl Serialize for Difficulty {
@@ -304,7 +308,7 @@ impl Serialize for Difficulty {
 		diff_vec.sort();
 
 		for (algo, num) in &diff_vec {
-			map.serialize_entry(&algo.to_u8(), num)?;
+			map.serialize_entry(&algo, num)?;
 		}
 
 		map.end()
@@ -386,10 +390,13 @@ impl Readable for ProofOfWork {
 	fn read(reader: &mut dyn Reader) -> Result<ProofOfWork, ser::Error> {
 		let total_difficulty = Difficulty::read(reader)?;
 		let secondary_scaling = reader.read_u32()?;
+
 		let nonce = reader.read_u64()?;
 		let proof = Proof::read(reader)?;
+
 		let seed_bytes = reader.read_fixed_bytes(32)?;
 		let seed: [u8; 32] = from_slice(&seed_bytes);
+
 		Ok(ProofOfWork {
 			total_difficulty,
 			secondary_scaling,
@@ -416,8 +423,7 @@ impl ProofOfWork {
 	/// Write the pre-hash portion of the header
 	pub fn write_pre_pow<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
 		self.total_difficulty.write(writer)?;
-		ser_multiwrite!(writer, [write_u32, self.secondary_scaling]);
-		Ok(())
+		writer.write_u32(self.secondary_scaling)
 	}
 
 	/// Maximum difficulty this proof of work can achieve

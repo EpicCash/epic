@@ -202,25 +202,19 @@ impl Chain {
 		let head = store.head()?;
 		debug!(
 			"init: head: {:?} @ {} [{}]",
-			head.total_difficulty.num,
-			head.height,
-			head.last_block_h,
+			head.total_difficulty.num, head.height, head.last_block_h,
 		);
 
 		let header_head = store.header_head()?;
 		debug!(
 			"init: header_head: {:?} @ {} [{}]",
-			header_head.total_difficulty.num,
-			header_head.height,
-			header_head.last_block_h,
+			header_head.total_difficulty.num, header_head.height, header_head.last_block_h,
 		);
 
 		let sync_head = store.get_sync_head()?;
 		debug!(
 			"init: sync_head: {:?} @ {} [{}]",
-			sync_head.total_difficulty.num,
-			sync_head.height,
-			sync_head.last_block_h,
+			sync_head.total_difficulty.num, sync_head.height, sync_head.last_block_h,
 		);
 
 		Ok(())

@@ -265,6 +265,7 @@ mod mine_chain {
 			assert_eq!(forked_block.height, h);
 
 			let mut prev = forked_block;
+
 			for i in 1..(n+1) {
 				let block = prepare_fork_block(kc, &prev, &chain, 2 * i + height);
 				prev = block.header.clone();
@@ -322,20 +323,14 @@ mod mine_chain {
 
 			let proof = match proof_name {
 				"progpow" => pow::Proof::ProgPowProof{
-					mix: [
-						232, 223, 150, 179, 189, 49, 124, 130, 30, 27, 170,
-						97, 184, 21, 73, 195, 203, 182, 153, 11, 135, 37, 86,
-						126, 167, 53, 48, 214, 238, 2, 190, 230],
+					mix: [187, 194, 242, 68, 123, 9, 252, 162, 204, 42, 144, 1, 30, 99, 55, 253, 133, 203, 124, 69, 126, 7, 144, 198, 19, 103, 225, 131, 28, 75, 201, 168],
 				},
 				"randomx" => pow::Proof::RandomXProof {
-					hash: [
-						117, 78, 223, 58, 190, 143, 56, 78, 47, 90, 112,
-						165, 157, 156, 237, 22, 210, 151, 100, 47, 208,
-						52, 72, 196, 126, 148, 17, 244, 139, 71, 203, 242],
+					hash: [68, 197, 201, 55, 215, 145, 190, 131, 49, 136, 23, 94, 167, 10, 74, 152, 153, 179, 70, 222, 156, 8, 195, 220, 237, 3, 242, 17, 18, 234, 171, 79],
 				},
 				"md5" => pow::Proof::MD5Proof {
 					edge_bits: 10,
-					proof: "63da2f23f7fca7abf4c573216df095de".to_string()
+					proof: "882a8db2a364a9b50354840e8081e6e8".to_string()
 				},
 				"cuckoo" => pow::Proof::CuckooProof {
 					edge_bits: 9,

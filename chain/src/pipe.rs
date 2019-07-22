@@ -424,15 +424,19 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 	// check the pow hash shows a difficulty at least as large
 	// as the target difficulty
 	if !ctx.opts.contains(Options::SKIP_POW) {
-		let header_difficulty = header.total_difficulty().to_num(header.pow.proof.clone().into());
-
-		if let pow::Proof::CuckooProof { .. } = header.pow.proof {
-			if header_difficulty <= prev.total_difficulty().to_num(header.pow.proof.clone().into()) {
-				return Err(ErrorKind::DifficultyTooLow.into());
-			}
-		}
+		let header_difficulty = header
+			.total_difficulty()
+			.to_num(header.pow.proof.clone().into());
 
 		let target_difficulty = header.total_difficulty() - prev.total_difficulty();
+
+		if header_difficulty
+			<= prev
+				.total_difficulty()
+				.to_num(header.pow.proof.clone().into())
+		{
+			return Err(ErrorKind::DifficultyTooLow.into());
+		}
 
 		if header_difficulty < target_difficulty.to_num(header.pow.proof.clone().into()) {
 			return Err(ErrorKind::DifficultyTooLow.into());
@@ -447,8 +451,7 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		if target_difficulty != next_header_info.difficulty {
 			info!(
 				"validate_header: header target difficulty {:?} != {:?}",
-				target_difficulty.num,
-				next_header_info.difficulty.num
+				target_difficulty.num, next_header_info.difficulty.num
 			);
 			return Err(ErrorKind::WrongTotalDifficulty.into());
 		}
@@ -582,7 +585,12 @@ fn update_head(b: &Block, ctx: &BlockContext<'_>) -> Result<Option<Tip>, Error> 
 
 // Whether the provided block totals more work than the chain tip
 fn has_more_work(header: &BlockHeader, head: &Tip) -> bool {
-	header.total_difficulty().to_num(header.pow.proof.clone().into()) > head.total_difficulty.to_num(header.pow.proof.clone().into())
+	header
+		.total_difficulty()
+		.to_num(header.pow.proof.clone().into())
+		> head
+			.total_difficulty
+			.to_num(header.pow.proof.clone().into())
 }
 
 /// Update the sync head so we can keep syncing from where we left off.
