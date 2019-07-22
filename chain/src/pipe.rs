@@ -582,11 +582,7 @@ fn update_head(b: &Block, ctx: &BlockContext<'_>) -> Result<Option<Tip>, Error> 
 
 // Whether the provided block totals more work than the chain tip
 fn has_more_work(header: &BlockHeader, head: &Tip) -> bool {
-	if let pow::Proof::CuckooProof { .. } = header.pow.proof {
-		header.total_difficulty().to_num(header.pow.proof.clone().into()) > head.total_difficulty.to_num(header.pow.proof.clone().into())
-	}else {
-		header.total_difficulty().to_num(header.pow.proof.clone().into()) < head.total_difficulty.to_num(header.pow.proof.clone().into())
-	}
+	header.total_difficulty().to_num(header.pow.proof.clone().into()) > head.total_difficulty.to_num(header.pow.proof.clone().into())
 }
 
 /// Update the sync head so we can keep syncing from where we left off.

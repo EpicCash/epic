@@ -770,13 +770,13 @@ impl Chain {
 			sync_head.height,
 		);
 
-		/*if body_head.total_difficulty >= header_head.total_difficulty {
+		if body_head.total_difficulty >= header_head.total_difficulty {
 			debug!(
 				"{}: no need txhashset. header_head.total_difficulty: {} <= body_head.total_difficulty: {}",
 				caller, header_head.total_difficulty, body_head.total_difficulty,
 			);
 			return Ok(false);
-		}*/
+		}
 
 		let mut oldest_height = 0;
 		let mut oldest_hash = ZERO_HASH;
