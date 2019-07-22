@@ -29,6 +29,8 @@ use crate::pow::{self, new_cuckaroo_ctx, new_cuckatoo_ctx, EdgeType, PoWContext}
 /// different sets of parameters for different purposes,
 /// e.g. CI, User testing, production values
 use crate::util::RwLock;
+use std::env;
+use std::path::Path;
 
 /// Define these here, as they should be developer-set, not really tweakable
 /// by users
@@ -135,25 +137,52 @@ lazy_static! {
 	pub static ref POW_CONTEXT_TYPE: RwLock<PoWContextTypes> =
 			RwLock::new(PoWContextTypes::Cuckoo);
 
-	// The policy parameters
+	/// The policy parameters
 	pub static ref POLICY_CONFIG : RwLock<PolicyConfig> =
 			RwLock::new(PolicyConfig::default());
 
-	// The path to the file that contains the foundation
+	/// The path to the file that contains the foundation
 	pub static ref FOUNDATION_FILE : RwLock<Option<String>> =
 			RwLock::new(None);
 }
 
+/// Set the path to the foundation.json file (file with the foundation wallet outputs/kernels)
 pub fn set_foundation_path(path: String) {
 	let mut foundation_path = FOUNDATION_FILE.write();
-	*foundation_path = Some(path);
+	let path_str = use_alternative_path(path);
+	*foundation_path = Some(path_str);
 }
 
+///	Check if the foundation.json exists in the directory appointed by the .toml file, if not,
+/// use the alternative path ../../debian/foundation.json relative to the folder where the executable is in.
+pub fn use_alternative_path(path_str: String) -> String {
+	let check_path = Path::new(&path_str);
+	if !check_path.exists() {
+		let mut p = env::current_exe().expect("Failed to get the executable's directory and no path to the foundation.json was provided!");
+		//removing the file from the path and going back 2 directories
+		for _ in 0..3 {
+			p.pop();
+		}
+		p.push("debian");
+		p.push("foundation.json");
+		warn!(
+			"The file `{}` was not found! Will try to use the alternative file `{}`!",
+			check_path.display(),
+			p.display()
+		);
+		p.to_str().expect("Failed to get the executable's directory and no path to the foundation.json was provided!").to_owned()
+	} else {
+		path_str
+	}
+}
+
+/// Get the current path to the foundation.json file (file with the foundation wallet outputs/kernels)
 pub fn get_foundation_path() -> Option<String> {
 	let foundation_path = FOUNDATION_FILE.read();
 	foundation_path.clone()
 }
 
+/// Set the policy configuration that will be used by the blockchain
 pub fn set_policy_config(policy: PolicyConfig) {
 	let mut policy_config = POLICY_CONFIG.write();
 	*policy_config = policy;
@@ -164,6 +193,7 @@ pub fn get_policies() -> Policy {
 	policy_config.policies[0].clone()
 }
 
+/// Get the policy configuration that is being used by the blockchain
 pub fn get_policy_config() -> PolicyConfig {
 	let policy_config = POLICY_CONFIG.read();
 	policy_config.clone()

@@ -20,12 +20,12 @@ pub struct CbData {
 	pub key_id: Option<Identifier>,
 }
 
-// Size in bytes of each foundation coinbase (Output + Kernel)
+/// Size in bytes of each foundation coinbase (Output + Kernel)
 pub const FOUNDATION_COINBASE_SIZE: usize = 1803;
 
 // TODO-FOUNDATION : Create a function to verify if the file exists if the height is different form 0 in the CLI
 
-// Serialize a vector of foundation coinbases in a series of json
+/// Serialize a vector of foundation coinbases in a series of json
 pub fn serialize_foundation(foundation_coinbases: Vec<CbData>) -> String {
 	let mut result = String::new();
 	for f_cb in foundation_coinbases {
@@ -36,7 +36,7 @@ pub fn serialize_foundation(foundation_coinbases: Vec<CbData>) -> String {
 	result
 }
 
-// Save the serialization of the foundation coinbases in the disk with the extension .json
+/// Save the serialization of the foundation coinbases in the disk with the extension .json
 pub fn save_in_disk(serialization: String, path: &Path) {
 	let mut path = path.join("foundation");
 	if path.exists() == false {
@@ -53,12 +53,11 @@ pub fn save_in_disk(serialization: String, path: &Path) {
 		.expect("Couldn't save the serialization in the disk!")
 }
 
-// Load the foundation coinbase relative to the height of the chain
+/// Load the foundation coinbase relative to the height of the chain
 pub fn load_foundation_output(height: u64) -> CbData {
 	let path_str = get_foundation_path()
 		.unwrap_or_else(|| panic!("No path to the foundation.json was provided!"));
 	let path = Path::new(&path_str);
-	//println!("path: {:?}", path.display());
 	let mut file = match File::open(&path) {
 		Err(why) => panic!(
 			"Error trying to read the foundation coinbase. Couldn't open the file {}: {}",
