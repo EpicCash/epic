@@ -280,7 +280,11 @@ the epic-miner:
       sudo dpkg -i <your-epic-miner.deb>
     #+end_src
 
+#+ATTR_HTML: :id config_miner_server
 *** Configuring the Epic Server to work with the miner
+  :PROPERTIES:
+  :CUSTOM_ID: config_miner_server
+  :END:    
 
 To run the epic server with an epic-miner some configurations need to
 be changed in the ~epic-server.toml~. Close any epic server running
@@ -308,7 +312,12 @@ And change it to:
 
 Then, save and close the file. After that, you can start your [[#run_epic][epic server]].
 
+
+#+ATTR_HTML: :id config_miner
 *** Configuring your epic-miner
+  :PROPERTIES:
+  :CUSTOM_ID: config_miner
+  :END:    
 
 To configure your miner, open the ~epic-miner.toml~ in the folder
 ~/etc/~ with your text editor. The following terminal command shows how
