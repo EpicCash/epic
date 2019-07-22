@@ -27,7 +27,11 @@ brew install openssl
 ```
 
 ### Rust
-Instructions of how to install rust can be found [here](https://www.rust-lang.org/tools/install). After you have rust installed, execute the following command in the terminal:
+Instructions of how to install rust can be found [here](https://www.rust-lang.org/tools/install).
+
+During installation __rustup__ will attempt to configure the [__PATH__](https://en.wikipedia.org/wiki/PATH_(variable)). Because of differences between platforms, command shells, and bugs in __rustup__, the modifications to __PATH__ may not take effect until the console is restarted, or the user is logged out, or it may not succeed at all. **So, restart your console before proceeding to the next steps.**
+
+After you have rust installed, execute the following command in the terminal:
 
 ```sh
 rustup default 1.35.0
@@ -71,8 +75,13 @@ If you want to execute the epic server, in the root directory of your Epic insta
     ```sh
     cd target/release
     ```
-
- 2. Execute the epic server using the following command:
+ 2. Configuring the __$PATH__ environment variable
+ 
+     ```sh
+    export LD_LIBRARY_PATH=$(find . -iname librandomx.so | head -n 1 | xargs dirname | xargs realpath)
+    ```
+ 
+ 3. Execute the epic server using the following command:
   
     ```sh
     ./epic
