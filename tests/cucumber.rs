@@ -630,8 +630,9 @@ mod mine_chain {
 			// creating the block with the desired reward
 			genesis = genesis.with_coinbase(reward, (cb_data.output, cb_data.kernel));
 			genesis.header.bottles = next_block_bottles(algo, &world.bottles);
+
 			// mining "manually" the genesis
-			let genesis_difficulty = genesis.header.pow.total_difficulty;
+			let genesis_difficulty = genesis.header.pow.total_difficulty.clone();
 			let sz = global::min_edge_bits();
 			let proof_size = global::proofsize();
 

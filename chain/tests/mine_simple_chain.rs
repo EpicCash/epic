@@ -605,7 +605,7 @@ fn actual_diff_iter_output() {
 		println!(
 			"next_difficulty time: {}, diff: {}, duration: {} ",
 			elem.timestamp,
-			elem.difficulty.to_num(),
+			elem.difficulty.num,
 			last_time - elem.timestamp
 		);
 		last_time = elem.timestamp;

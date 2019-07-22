@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::cmp::Ordering;
 /// Types for a Cuck(at)oo proof of work and its encapsulation as a fully usable
 /// proof of work within a block header.
 use std::cmp::{max, min};
 use std::ops::{Add, Div, Mul, Sub};
 use std::{fmt, iter};
-use std::cmp::Ordering;
 
 use rand::{thread_rng, Rng};
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde::ser::SerializeMap;
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use bigint::uint::U256;
 
@@ -63,7 +63,7 @@ impl From<u8> for PoWType {
 			1 => PoWType::Cuckatoo,
 			2 => PoWType::RandomX,
 			3 => PoWType::ProgPow,
-			_ => panic!("data corrupted")
+			_ => panic!("data corrupted"),
 		}
 	}
 }
@@ -77,14 +77,10 @@ impl From<Proof> for PoWType {
 				} else {
 					PoWType::Cuckaroo
 				}
-			},
-			Proof::RandomXProof { .. } => {
-				PoWType::RandomX
-			},
-			Proof::ProgPowProof { .. } => {
-				PoWType::ProgPow
 			}
-			Proof::MD5Proof { .. } => panic!("algorithm is not working!")
+			Proof::RandomXProof { .. } => PoWType::RandomX,
+			Proof::ProgPowProof { .. } => PoWType::ProgPow,
+			Proof::MD5Proof { .. } => panic!("algorithm is not working!"),
 		}
 	}
 }
@@ -139,7 +135,9 @@ impl Difficulty {
 	/// Difficulty of zero, which is invalid (no target can be
 	/// calculated from it) but very useful as a start for additions.
 	pub fn zero() -> Difficulty {
-		Difficulty { num: DifficultyNumber::number(0) }
+		Difficulty {
+			num: DifficultyNumber::number(0),
+		}
 	}
 
 	/// Difficulty of MIN_DIFFICULTY
@@ -159,7 +157,9 @@ impl Difficulty {
 	/// Convert a `u32` into a `Difficulty`
 	pub fn from_num(num: u64) -> Difficulty {
 		// can't have difficulty lower than 1
-		Difficulty { num: DifficultyNumber::number(max(num, 1)) }
+		Difficulty {
+			num: DifficultyNumber::number(max(num, 1)),
+		}
 	}
 
 	/// Computes the difficulty from a hash. Divides the maximum target by the
@@ -174,9 +174,7 @@ impl Difficulty {
 			Proof::MD5Proof { edge_bits, .. } => {
 				Difficulty::from_num(proof.scaled_difficulty(graph_weight(height, *edge_bits)))
 			}
-			_ => {
-				Difficulty::from_num(proof.scaled_difficulty(graph_weight(height, 31)))
-			}
+			_ => Difficulty::from_num(proof.scaled_difficulty(graph_weight(height, 31))),
 		}
 	}
 
@@ -202,16 +200,22 @@ impl fmt::Display for Difficulty {
 
 impl Ord for Difficulty {
 	fn cmp(&self, other: &Self) -> Ordering {
-        self.num.get(&PoWType::Cuckatoo).unwrap()
+		self.num
+			.get(&PoWType::Cuckatoo)
+			.unwrap()
 			.cmp(&other.num.get(&PoWType::Cuckatoo).unwrap())
-    }
+	}
 }
 
 impl PartialOrd for Difficulty {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.num.get(&PoWType::Cuckatoo).unwrap()
-			.cmp(&other.num.get(&PoWType::Cuckatoo).unwrap()))
-    }
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(
+			self.num
+				.get(&PoWType::Cuckatoo)
+				.unwrap()
+				.cmp(&other.num.get(&PoWType::Cuckatoo).unwrap()),
+		)
+	}
 }
 
 impl Add<Difficulty> for Difficulty {
@@ -261,7 +265,8 @@ impl Div<Difficulty> for Difficulty {
 impl Writeable for Difficulty {
 	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
 		writer.write_u64(self.num.len() as u64)?;
-		let mut diff_vec: Vec<(PoWType, u64)> = self.num.iter().map(|(&x, &num)| (x, num)).collect();
+		let mut diff_vec: Vec<(PoWType, u64)> =
+			self.num.iter().map(|(&x, &num)| (x, num)).collect();
 		diff_vec.sort();
 		for (algo, num) in diff_vec.iter() {
 			writer.write_u8(algo.to_u8())?;
@@ -294,9 +299,10 @@ impl Serialize for Difficulty {
 		S: Serializer,
 	{
 		let mut map = serializer.serialize_map(Some(self.num.len()))?;
-		let mut diff_vec: Vec<(PoWType, u64)> = self.num.iter().map(|(&x, &num)| (x, num)).collect();
+		let mut diff_vec: Vec<(PoWType, u64)> =
+			self.num.iter().map(|(&x, &num)| (x, num)).collect();
 		diff_vec.sort();
-		
+
 		for (algo, num) in &diff_vec {
 			map.serialize_entry(&algo.to_u8(), num)?;
 		}
@@ -316,26 +322,25 @@ impl<'de> Deserialize<'de> for Difficulty {
 
 struct DifficultyMap;
 
-impl<'de> de::Visitor<'de> for DifficultyMap
-{
-    type Value = Difficulty;
+impl<'de> de::Visitor<'de> for DifficultyMap {
+	type Value = Difficulty;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a difficulty map")
-    }
+	fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+		formatter.write_str("a difficulty map")
+	}
 
-    fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
-    where
-        M: de::MapAccess<'de>,
-    {
-        let mut map = DifficultyNumber::with_capacity(access.size_hint().unwrap_or(0));
+	fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
+	where
+		M: de::MapAccess<'de>,
+	{
+		let mut map = DifficultyNumber::with_capacity(access.size_hint().unwrap_or(0));
 
-        while let Some((key, value)) = access.next_entry()? {
-            map.insert(key, value);
-        }
+		while let Some((key, value)) = access.next_entry()? {
+			map.insert(key, value);
+		}
 
-        Ok(Difficulty{ num: map })
-    }
+		Ok(Difficulty { num: map })
+	}
 }
 
 /// Block header information pertaining to the proof of work
@@ -411,10 +416,7 @@ impl ProofOfWork {
 	/// Write the pre-hash portion of the header
 	pub fn write_pre_pow<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
 		self.total_difficulty.write(writer)?;
-		ser_multiwrite!(
-			writer,
-			[write_u32, self.secondary_scaling]
-		);
+		ser_multiwrite!(writer, [write_u32, self.secondary_scaling]);
 		Ok(())
 	}
 
@@ -507,7 +509,7 @@ pub enum Proof {
 
 	ProgPowProof {
 		mix: [u8; 32],
-	}
+	},
 }
 
 impl DefaultHashable for Proof {}
@@ -529,10 +531,8 @@ impl fmt::Debug for Proof {
 			Proof::RandomXProof { ref hash } => {
 				let hash: U256 = hash.into();
 				write!(f, "RandomX ({})", hash)
-			},
-			Proof::ProgPowProof { ref mix } => {
-				write!(f, "Progpow: mix({:?})", mix)
 			}
+			Proof::ProgPowProof { ref mix } => write!(f, "Progpow: mix({:?})", mix),
 		}
 	}
 }
@@ -640,7 +640,7 @@ impl Readable for Proof {
 			2 => {
 				let hash = from_slice(&reader.read_fixed_bytes(32).unwrap());
 				Ok(Proof::RandomXProof { hash })
-			},
+			}
 			3 => {
 				let mix = from_slice(&reader.read_fixed_bytes(32).unwrap());
 				//let value = from_slice(&reader.read_fixed_bytes(32).unwrap());

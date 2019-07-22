@@ -26,14 +26,14 @@ use crate::api;
 use crate::chain;
 use crate::common::types::Error;
 use crate::core::core::block::feijoada::{next_block_bottles, Deterministic, Feijoada};
+use crate::core::core::foundation::load_foundation_output;
+pub use crate::core::core::foundation::CbData;
 use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::{Output, TxKernel};
 use crate::core::global::get_policies;
 use crate::core::libtx::secp_ser;
 use crate::core::{consensus, core, global};
-use crate::core::core::foundation::load_foundation_output;
 use crate::keychain::{ExtKeychain, Identifier, Keychain};
-pub use crate::core::core::foundation::CbData;
 use crate::pool;
 /// Fees in block to use for coinbase amount calculation
 /// (Duplicated from Epic wallet project)
@@ -180,7 +180,13 @@ fn build_block(
 	let cb_data = load_foundation_output(height);
 
 	let (output, kernel, block_fees) = get_coinbase(wallet_listener_url, block_fees, height)?;
-	let mut b = core::Block::from_coinbases(&head, txs, (output, kernel), (cb_data.output, cb_data.kernel), difficulty.difficulty)?;
+	let mut b = core::Block::from_coinbases(
+		&head,
+		txs,
+		(output, kernel),
+		(cb_data.output, cb_data.kernel),
+		difficulty.difficulty.clone(),
+	)?;
 
 	// making sure we're not spending time mining a useless block
 	b.validate(&head.total_kernel_offset, verifier_cache)?;
@@ -194,11 +200,11 @@ fn build_block(
 	);
 
 	debug!(
-		"Built new block with {} inputs and {} outputs, block difficulty: {}, cumulative difficulty {}",
+		"Built new block with {} inputs and {} outputs, block difficulty: {:?}, cumulative difficulty {:?}",
 		b.inputs().len(),
 		b.outputs().len(),
 		difficulty.difficulty,
-		b.header.total_difficulty().to_num(),
+		b.header.total_difficulty().num,
 	);
 
 	// Now set txhashset roots and sizes on the header of the block being built.
@@ -294,4 +300,3 @@ pub fn create_foundation(dest: &str, block_fees: &BlockFees) -> Result<CbData, E
 		Error::WalletComm(format!("{}", e))
 	})
 }
-

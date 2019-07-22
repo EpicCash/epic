@@ -17,7 +17,7 @@ use epic_core as core;
 use self::core::consensus::*;
 use self::core::core::block::HeaderVersion;
 use self::core::global;
-use self::core::pow::Difficulty;
+use self::core::pow::{Difficulty, DifficultyNumber};
 use chrono::prelude::Utc;
 use std::fmt::{self, Display};
 

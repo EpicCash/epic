@@ -39,6 +39,7 @@ use crate::core::core::block::feijoada::{next_block_bottles, Deterministic, PoWT
 use crate::core::core::hash::Hashed;
 use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::Block;
+use crate::core::pow::DifficultyNumber;
 use crate::core::{pow, ser};
 use crate::keychain;
 use crate::mining::mine_block;
@@ -429,7 +430,11 @@ impl Handler {
 		}
 
 		// Get share difficulty
-		share_difficulty = b.header.pow.to_difficulty(b.header.height).to_num();
+		share_difficulty = b
+			.header
+			.pow
+			.to_difficulty(b.header.height)
+			.to_num(b.header.pow.proof.clone().into());
 		// If the difficulty is too low its an error
 		if share_difficulty < state.minimum_share_difficulty {
 			// Return error status
@@ -588,8 +593,11 @@ impl Handler {
 						wallet_listener_url,
 					);
 
-					state.current_difficulty =
-						(new_block.header.total_difficulty() - head.total_difficulty);
+					state.current_difficulty = (new_block
+						.header
+						.total_difficulty()
+						.to_num(PoWType::Cuckatoo)
+						- head.total_difficulty.to_num(PoWType::Cuckatoo));
 
 					state.current_key_id = block_fees.key_id();
 

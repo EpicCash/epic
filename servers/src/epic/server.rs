@@ -39,6 +39,7 @@ use crate::common::stats::{DiffBlock, DiffStats, PeerStats, ServerStateInfo, Ser
 use crate::common::types::{Error, ServerConfig, StratumServerConfig, SyncState, SyncStatus};
 use crate::core::core::hash::{Hashed, ZERO_HASH};
 use crate::core::core::verifier_cache::{LruVerifierCache, VerifierCache};
+use crate::core::pow::PoWType;
 use crate::core::{consensus, genesis, global, pow};
 use crate::epic::{dandelion_monitor, seed, sync};
 use crate::mining::stratumserver;
@@ -101,7 +102,10 @@ impl Server {
 			"The policy configuration is: {:?}",
 			global::get_policy_config()
 		);
-		info!("The foundation.json is being read from {:?}", global::get_foundation_path().unwrap());
+		info!(
+			"The foundation.json is being read from {:?}",
+			global::get_foundation_path().unwrap()
+		);
 		let mining_config = config.stratum_mining_config.clone();
 		let enable_test_miner = config.run_test_miner;
 		let test_miner_wallet_url = config.test_miner_wallet_url.clone();
@@ -485,7 +489,7 @@ impl Server {
 					DiffBlock {
 						block_height: height,
 						block_hash: hash,
-						difficulty: next.difficulty.to_num(),
+						difficulty: next.difficulty.to_num(PoWType::Cuckatoo),
 						time: next.timestamp,
 						duration: next.timestamp - prev.timestamp,
 						secondary_scaling: next.secondary_scaling,
