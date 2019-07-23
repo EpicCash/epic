@@ -54,6 +54,14 @@ pub fn genesis_dev() -> core::Block {
 pub fn genesis_floo() -> core::Block {
 	let mut bottles = get_bottles_default();
 	bottles.insert(PoWType::Cuckaroo, 1);
+
+	let mut diff = DifficultyNumber::new();
+
+	diff.insert(PoWType::Cuckaroo, 2_u64.pow(1));
+	diff.insert(PoWType::Cuckatoo, 2_u64.pow(1));
+	diff.insert(PoWType::RandomX, 2_u64.pow(16));
+	diff.insert(PoWType::ProgPow, 2_u64.pow(8));
+
 	let gen = core::Block::with_header(core::BlockHeader {
 		height: 0,
 		timestamp: Utc.ymd(2018, 12, 28).and_hms(20, 48, 4),
