@@ -234,7 +234,7 @@ You should see an output like this:
    Command 'info' completed successfully
  #+end_src
 
-- *Total* is your total amount,including any balance awaiting
+- *Total* is your total amount, including any balance awaiting
   confirmation.
 - *Immature Coinbase* denotes any coinbase transactions (i.e. won
   blocks by mining) that have yet to mature before they can be
@@ -350,12 +350,17 @@ following line:
       driver = 2
     #+end_src
 
-The *device* parameter sets your GPU ID if you have multiple GPUS, if
-you only have one, leave it with the value of 0. The *driver*
-parameter specifies the type driver that will be used to mine with the
-GPU. The value *1* corresponds to CUDA (exclusive to Nvidia GPUs) and
-the value *2* corresponds to OpenCL(OCL). Following there is an
-example of how to mine with the GPU (primary) using CUDA:
+The *device* parameter sets your GPU ID if you have multiple GPUS, if you only
+have one, leave it with the value of 0. You may want to use device numbers in
+the same PCI Bus ID enumeration order as used by non-CUDA programs. To do this
+set the *CUDA_​DEVICE_​ORDER* environment variable to *PCI_BUS_ID* in your shell.
+The default value of this variable is *FASTEST_FIRST*. More info on this can be
+found [[https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#env-vars][here]]. Note that this is available only in CUDA 7 and later.
+
+The *driver* parameter specifies the type driver that will be used to mine with
+the GPU. The value *1* corresponds to CUDA (exclusive to Nvidia GPUs) and the
+value *2* corresponds to OpenCL(OCL). Following there is an example of how to
+mine with the GPU (primary) using CUDA:
 
     #+begin_src toml
       [[mining.gpu_config]]
@@ -374,8 +379,8 @@ following line:
       cpu_threads = 4
     #+end_src
 
-You can specify the desired number of threads used by the randomx
-algorithm by setting its value in the variable *cpu_threads*.
+You can specify the desired number of threads used by the RandomX algorithm by
+setting its value in the variable *cpu_threads*.
 
 After you finish all your modification, save and close the file.
 
@@ -437,15 +442,15 @@ If you executed the epic-miner in TUI mode (the default is true in
 
 #+CAPTION: Epic miner in TUI mode 
 #+NAME:   fig:epic-miner
-#+ATTR_HTML: :width 60% :height 60% 
+#+ATTR_HTML: :width 50%
 [[./images/epic-miner.png]]
 
 Press the key *Tab* or the *Arrows* keys to change windows inside the epic
-miner. Press the key *Enter* to select an item. Press the key *Q* to
-quit the epic miner.
+miner. Press the key *Enter* to select an item. Press the key *Q* to quit the
+epic miner.
 
-In the image above, we were mining with RandomX algorithm with 3
-threads in the cpu.
+In the image above, we were mining with RandomX algorithm with 3 threads in the
+cpu.
 
 More details about the epic miner stats can be found in [[#epic_miner_stats][Mining Stats]]. 
 
