@@ -52,9 +52,9 @@ pub fn get_progpow_value(header: &[u8], height: u64, nonce: u64) -> [u8; 32] {
 			.unwrap()
 	};
 
-	let d: [u8; 32] = unsafe { ::std::mem::transmute(value) };
+	let digest: [u8; 32] = unsafe { ::std::mem::transmute(value) };
 
-	d
+	digest
 }
 
 pub struct ProgPowContext<T>

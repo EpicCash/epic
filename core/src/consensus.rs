@@ -22,7 +22,7 @@ use std::cmp::{max, min};
 
 use crate::core::block::HeaderVersion;
 use crate::global;
-use crate::pow::{Difficulty, PoWType};
+use crate::pow::{Difficulty, DifficultyNumber, PoWType};
 
 /// A epic is divisible to 10^9, following the SI prefixes
 pub const EPIC_BASE: u64 = 1_000_000_000;
@@ -102,7 +102,7 @@ pub fn reward_at_height(height: u64) -> u64 {
 }
 
 pub fn reward_foundation(fees: u64, height: u64) -> u64 {
-	reward(fees, height) + if height > 0 { FOUNDATION_REWARD } else {0}
+	reward(fees, height) + if height > 0 { FOUNDATION_REWARD } else { 0 }
 }
 /// The total overage at a given height. Variable due to changing rewards
 /// TODOBG: Make this more efficient by hardcoding reward schedule times
@@ -346,7 +346,7 @@ pub fn clamp(actual: u64, goal: u64, clamp_factor: u64) -> u64 {
 ///
 /// The secondary proof-of-work factor is calculated along the same lines, as
 /// an adjustment on the deviation against the ideal value.
-pub fn next_difficulty<T>(height: u64, cursor: T) -> HeaderInfo
+pub fn next_difficulty<T>(height: u64, diff: Difficulty, cursor: T) -> HeaderInfo
 where
 	T: IntoIterator<Item = HeaderInfo>,
 {
@@ -379,7 +379,7 @@ where
 	// minimum difficulty avoids getting stuck due to dampening
 	let difficulty = max(MIN_DIFFICULTY, diff_sum * BLOCK_TIME_SEC / adj_ts);
 
-	HeaderInfo::from_diff_scaling(Difficulty::from_num(difficulty), sec_pow_scaling)
+	HeaderInfo::from_diff_scaling(diff, sec_pow_scaling)
 }
 
 /// Count, in units of 1/100 (a percent), the number of "secondary" (AR) blocks in the provided window of blocks.

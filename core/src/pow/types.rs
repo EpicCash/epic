@@ -165,6 +165,11 @@ impl Difficulty {
 		}
 	}
 
+	pub fn from_dic_number(num: DifficultyNumber) -> Difficulty {
+		// can't have difficulty lower than 1
+		Difficulty { num }
+	}
+
 	/// Computes the difficulty from a hash. Divides the maximum target by the
 	/// provided hash and applies the Cuck(at)oo size adjustment factor (see
 	/// https://lists.launchpad.net/mimblewimble/msg00494.html).
@@ -375,7 +380,7 @@ impl Default for ProofOfWork {
 	fn default() -> ProofOfWork {
 		let proof_size = global::proofsize();
 		ProofOfWork {
-			total_difficulty: Difficulty::min(),
+			total_difficulty: Difficulty::from_num(1),
 			secondary_scaling: 1,
 			nonce: 0,
 			proof: Proof::zero(proof_size),

@@ -24,7 +24,7 @@ use crate::core::block::feijoada::get_bottles_default;
 use crate::core::foundation::load_foundation_output;
 use crate::global;
 use crate::pow::PoWType;
-use crate::pow::{Difficulty, Proof, ProofOfWork};
+use crate::pow::{Difficulty, DifficultyNumber, Proof, ProofOfWork};
 use crate::util;
 use crate::util::secp::constants::SINGLE_BULLET_PROOF_SIZE;
 use crate::util::secp::pedersen::{Commitment, RangeProof};
@@ -178,6 +178,14 @@ pub fn genesis_floo() -> core::Block {
 pub fn genesis_main() -> core::Block {
 	let mut bottles = get_bottles_default();
 	bottles.insert(PoWType::Cuckaroo, 1);
+
+	let mut diff = DifficultyNumber::new();
+
+	diff.insert(PoWType::Cuckaroo, 2_u64.pow(1));
+	diff.insert(PoWType::Cuckatoo, 2_u64.pow(1));
+	diff.insert(PoWType::RandomX, 2_u64.pow(16));
+	diff.insert(PoWType::ProgPow, 2_u64.pow(8));
+
 	let gen = core::Block::with_header(core::BlockHeader {
 		height: 0,
 		timestamp: Utc.ymd(2019, 4, 10).and_hms(11, 9, 38),
@@ -205,7 +213,7 @@ pub fn genesis_main() -> core::Block {
 		kernel_mmr_size: 1,
 		bottles: bottles,
 		pow: ProofOfWork {
-			total_difficulty: Difficulty::from_num(2_u64.pow(1)),
+			total_difficulty: Difficulty::from_dic_number(diff),
 			secondary_scaling: 1856,
 			nonce: 41,
 			proof: Proof::CuckooProof {

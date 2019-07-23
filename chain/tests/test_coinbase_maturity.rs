@@ -64,7 +64,7 @@ fn test_coinbase_maturity() {
 		let key_id3 = ExtKeychainPath::new(1, 3, 0, 0, 0).to_identifier();
 		let key_id4 = ExtKeychainPath::new(1, 4, 0, 0, 0).to_identifier();
 		let height = prev.height + 1; //modification
-		let next_header_info = consensus::next_difficulty(1, chain.difficulty_iter().unwrap());
+		let next_header_info = consensus::next_difficulty(1, prev.pow.total_difficulty.clone(), chain.difficulty_iter().unwrap());
 		let reward = libtx::reward::output(&keychain, &key_id1, 0, false, height).unwrap(); //modification
 		let mut block = core::core::Block::new(&prev, vec![], Difficulty::min(), reward).unwrap();
 		block.header.timestamp = prev.timestamp + Duration::seconds(60);
