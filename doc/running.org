@@ -7,9 +7,9 @@ This document describes how to run each of the elements of the testnet
 for the Epic blockchain.
 
 There are three cases that you can do with testnet. 
-- Running only the server.
-- Running the server and the wallet.
-- Running the server, the wallet and the miner.
+- [[#server][Running only the server]].
+- [[#wallet_server][Running the server and the wallet.]]
+- [[#miner_wallet_server][Running the server, the wallet and the miner]].
 
 If you want to just have a copy of the chain or help the propagation
 of the blocks in the network, all you need is to run the server.
@@ -37,7 +37,7 @@ We plan to add support for Windows soon.
       sudo apt install libncurses5 libncursesw5 zlib1g openssl
     #+end_src
 
-*** LibRandomX
+** LibRandomX
 
 Before installing the epic components (server, wallet, miner), we need
 to install the libRandomX dependency. The following steps explain how
@@ -53,12 +53,14 @@ to install this dependency:
     #+begin_src shell
       sudo dpkg -i <your-librandomX.deb>
     #+end_src
-
-    
+#+ATTR_HTML: :id server
 * Server
+  :PROPERTIES:
+  :CUSTOM_ID: server
+  :END:
 
 The epic server is a node in the network that validates, propagates
-and sometimes produces new blocks (for the latter you need a miner),
+and sometimes produces new blocks (for the latter, you need a miner),
 which is a basically a collection of processed transactions. In this
 section we explain how to install and setup your epic server.
 
@@ -141,14 +143,21 @@ instead of* *~~/.epic/main/epic-server.toml~.* Therefore, we always
 have to navigate to the custom directory before running the
 epic server.
 
-* Wallet
+#+ATTR_HTML: :id wallet_server
+* Wallet + Server
+  :PROPERTIES:
+  :CUSTOM_ID: wallet_server
+  :END:
 
 The epic wallet is quite literally your wallet. It's where your
 account's balance is stored and where you spend and receive money.
 
-*To run the epic-wallet you also need an epic server
-running*. Instruction of how to run the epic server can be found on
-[[#run_epic][Running the Epic Server]].
+*To run the epic-wallet you also need an epic server running*. The
+wallet request transactions from the epic server. The epic server is
+responsible for propagating and receiving the transactions.
+
+Instruction of how to run the epic server can be found on [[#run_epic][Running the
+Epic Server]].
 
 ** Installation
 The following steps explain how to install and run the epic-wallet:
@@ -271,8 +280,11 @@ You should see an output like this:
   transactions. These will generally disappear (become spent) when the
   transaction confirms.
 
-* Miner
-
+#+ATTR_HTML: :id miner_wallet_server
+* Miner + Wallet + Server
+  :PROPERTIES:
+  :CUSTOM_ID: miner_wallet_server
+  :END:
 Miners are responsible for processing the transactions in the
 blockchain. When a batch of transactions is processed, the first one
 responsible for processing it gains a reward and the fees on
@@ -287,7 +299,12 @@ Based on the links shown above, you should select the algorithm that
 best fits your hardware.
 
 *To run the epic-miner you also need an epic server running and a
-wallet listening*. Instruction of how to run you epic server can be
+wallet listening*. You need the wallet listening to receive the epics
+(currency) that come from the mining reward and transaction fees (if
+you succeed in process a block in the network) and you need the epic
+server to propagate the transactions.
+
+Instruction of how to run you epic server can be
 found on [[#run_epic][Running the Epic Server]] and the instructions of how to get
 the wallet listening can be found on [[#run_wallet][Running the wallet API]].
 
@@ -330,7 +347,7 @@ using the text editor vim. For this, Open the terminal and type the
 command:
 
     #+begin_src shell
-      sudo vim ~/.epic/main/epic-server.toml
+      vim ~/.epic/main/epic-server.toml
     #+end_src
 
 Find the line:
@@ -546,15 +563,12 @@ server, you will need to remove the directory called
 **/chain/data**. This directory is where the epic cash blockchain
 stores its data. Therefore, if the testnet is restarted, all this data
 needs to be removed in order to run and store the newest version of
-the blockchain. The following steps explain how to erase this data
-using the terminal:
+the blockchain. The following step explain how to erase this data
+using the terminal (if used the epic server [[#epic_config_default][default configurations]]):
 
-1. Open a new terminal window in the directory where you saved the
-   epic server data. If you used the [[#epic_config_default][default configuration]], this
-   folder should be under ~~/.epic/main~ in you home directory.
-2. Then execute the following command:
+1. Open a new terminal window and execute the command:
     #+begin_src shell
-    rm -rf chain_data/
+    rm -rf ~/.epic/main/chain_data/
     #+end_src
 
 
