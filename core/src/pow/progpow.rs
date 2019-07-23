@@ -13,6 +13,8 @@ use keccak_hash::keccak_256;
 use progpow::hardware::cpu::PpCPU;
 use progpow::types::PpCompute;
 
+use bigint::uint::U256;
+
 lazy_static! {
 	pub static ref PP_CPU: RwLock<PpCPU> = RwLock::new(PpCPU::new());
 }
@@ -29,6 +31,34 @@ where
 	}))
 }
 
+fn transform_header(header: &[u8]) -> [u8; 32] {
+	// slice header
+	let sheader = &header[0..(header.len() - 8)];
+
+	// copy header
+	let cheader = sheader.to_vec();
+
+	let mut header = [0u8; 32];
+	keccak_256(&cheader, &mut header);
+
+	println!("header: {:?}", header);
+
+	header
+}
+
+pub fn get_progpow_value(header: &[u8], height: u64, nonce: u64) -> [u8; 32] {
+	let (value, _) = {
+		let progpow = PP_CPU.read();
+		progpow
+			.verify(&transform_header(&header), height, nonce)
+			.unwrap()
+	};
+
+	let d: [u8; 32] = unsafe { ::std::mem::transmute(value) };
+
+	d
+}
+
 pub struct ProgPowContext<T>
 where
 	T: EdgeType,
@@ -37,25 +67,6 @@ where
 	pub nonce: u64,
 	pub height: u64,
 	phantom: PhantomData<T>,
-}
-
-impl<T> ProgPowContext<T>
-where
-	T: EdgeType,
-{
-	// make hash keccak256 with header pre pow
-	fn header_hash(&self) -> [u8; 32] {
-		// slice header
-		let sheader = &self.header[0..(self.header.len() - 8)];
-
-		// copy header
-		let cheader = sheader.to_vec();
-
-		let mut header = [0u8; 32];
-		keccak_256(&cheader, &mut header);
-
-		header
-	}
 }
 
 impl<T> PoWContext<T> for ProgPowContext<T>
@@ -79,7 +90,7 @@ where
 		let (_, m) = {
 			let progpow = PP_CPU.read();
 			progpow
-				.verify(&self.header_hash(), self.height, self.nonce)
+				.verify(&transform_header(&self.header), self.height, self.nonce)
 				.unwrap()
 		};
 
@@ -92,7 +103,7 @@ where
 		let (_, tm) = {
 			let progpow = PP_CPU.read();
 			progpow
-				.verify(&self.header_hash(), self.height, self.nonce)
+				.verify(&transform_header(&self.header), self.height, self.nonce)
 				.unwrap()
 		};
 
