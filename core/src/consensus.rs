@@ -100,17 +100,24 @@ pub fn reward_at_height(height: u64) -> u64 {
 		return REWARD;
 	}
 }
+
+pub fn reward_foundation(fees: u64, height: u64) -> u64 {
+	reward(fees, height) + if height > 0 { FOUNDATION_REWARD } else {0}
+}
 /// The total overage at a given height. Variable due to changing rewards
 /// TODOBG: Make this more efficient by hardcoding reward schedule times
 pub fn total_overage_at_height(height: u64, genesis_had_reward: bool) -> i64 {
 	let mut sum: i64 = 0;
+
 	if genesis_had_reward {
 		sum += reward_at_height(0) as i64;
 	}
+
 	for i in 1..=height {
 		let reward = reward_at_height(i as u64) as i64;
 		sum += (reward + (FOUNDATION_REWARD as i64));
 	}
+
 	return sum;
 }
 

@@ -27,7 +27,7 @@ use std::sync::Arc;
 use keccak_hash::keccak_256;
 
 use crate::consensus::{
-	self, reward, reward_at_height, total_overage_at_height, FOUNDATION_REWARD, REWARD,
+	self, reward, reward_foundation, reward_at_height, total_overage_at_height, FOUNDATION_REWARD, REWARD,
 };
 use crate::core::block::feijoada::{get_bottles_default, Policy};
 use crate::core::committed::{self, Committed};
@@ -418,7 +418,7 @@ impl BlockHeader {
 	*/
 	//written by sundar
 	pub fn overage(&self) -> i64 {
-		((reward_at_height(self.height) + consensus::FOUNDATION_REWARD) as i64)
+		((reward_at_height(self.height) + if self.height > 0 { consensus::FOUNDATION_REWARD } else { 0 }) as i64)
 			.checked_neg()
 			.unwrap_or(0)
 	}
@@ -847,15 +847,17 @@ impl Block {
 			.collect::<Vec<&TxKernel>>();
 
 		{
-			let cb_data = load_foundation_output(self.header.height);
+			if self.header.height > 0 {
+				let cb_data = load_foundation_output(self.header.height);
 
-			if cb_outs.iter().filter(|x| x.commitment() == cb_data.output.commitment()).count() == 0 {
-				return Err(Error::InvalidFoundationOutput);
+				if cb_outs.iter().filter(|x| x.commitment() == cb_data.output.commitment()).count() == 0 {
+					return Err(Error::InvalidFoundationOutput);
+				}
 			}
 
 			let secp = static_secp_instance();
 			let secp = secp.lock();
-			let over_commit = secp.commit_value(reward(self.total_fees(), self.header.height) + consensus::FOUNDATION_REWARD)?;
+			let over_commit = secp.commit_value(reward_foundation(self.total_fees(), self.header.height))?;
 
 			let out_adjust_sum =
 				secp.commit_sum(map_vec!(cb_outs, |x| x.commitment()), vec![over_commit])?;
