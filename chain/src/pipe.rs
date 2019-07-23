@@ -28,6 +28,7 @@ use crate::store;
 use crate::txhashset;
 use crate::types::{Options, Tip};
 use crate::util::RwLock;
+use bigint::uint::U256;
 use chrono::prelude::Utc;
 use chrono::Duration;
 use epic_store;
@@ -430,15 +431,11 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 
 		let target_difficulty = header.total_difficulty() - prev.total_difficulty();
 
-		if header_difficulty
-			<= prev
-				.total_difficulty()
-				.to_num(header.pow.proof.clone().into())
-		{
-			return Err(ErrorKind::DifficultyTooLow.into());
-		}
+		let diff = header
+			.pow
+			.to_difficulty(&header.pre_pow(), header.height, header.pow.nonce);
 
-		if header_difficulty < target_difficulty.to_num(header.pow.proof.clone().into()) {
+		if diff < target_difficulty {
 			return Err(ErrorKind::DifficultyTooLow.into());
 		}
 

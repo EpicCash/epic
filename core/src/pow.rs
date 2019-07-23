@@ -127,7 +127,7 @@ pub fn pow_size(
 		ctx.set_header_nonce(bh.pre_pow(), None, None, true)?;
 		if let Ok(proofs) = ctx.pow_solve() {
 			bh.pow.proof = proofs[0].clone();
-			if bh.pow.to_difficulty(bh.height) >= diff {
+			if bh.pow.to_difficulty(&bh.pre_pow(), bh.height, bh.pow.nonce) >= diff {
 				return Ok(());
 			}
 		}

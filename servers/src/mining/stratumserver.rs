@@ -46,6 +46,7 @@ use crate::mining::mine_block;
 use crate::pool;
 use crate::util;
 
+use bigint::uint::U256;
 use epic_core::pow::Proof;
 
 use futures::sync::mpsc;
@@ -433,7 +434,7 @@ impl Handler {
 		share_difficulty = b
 			.header
 			.pow
-			.to_difficulty(b.header.height)
+			.to_difficulty(&b.header.pre_pow(), b.header.height, b.header.pow.nonce)
 			.to_num(b.header.pow.proof.clone().into());
 		// If the difficulty is too low its an error
 		if share_difficulty < state.minimum_share_difficulty {

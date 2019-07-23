@@ -33,6 +33,7 @@ use crate::ser::{self, FixedLength, Readable, Reader, Writeable, Writer};
 use crate::core::hash::Hash;
 use crate::pow::common::EdgeType;
 use crate::pow::error::Error;
+use crate::pow::progpow::get_progpow_value;
 use crate::util::read_write::from_slice;
 
 use std::collections::HashMap;
@@ -177,6 +178,14 @@ impl Difficulty {
 				Difficulty::from_num(proof.scaled_difficulty(graph_weight(height, *edge_bits)))
 			}
 			_ => Difficulty::from_num(proof.scaled_difficulty(graph_weight(height, 31))),
+		}
+	}
+
+	fn from_proof_hash(hash: &[u8; 32]) -> Difficulty {
+		let d: U256 = hash.into();
+		let result: U256 = U256::max_value() / d;
+		Difficulty {
+			num: DifficultyNumber::number(result.low_u64()),
 		}
 	}
 
@@ -427,7 +436,7 @@ impl ProofOfWork {
 	}
 
 	/// Maximum difficulty this proof of work can achieve
-	pub fn to_difficulty(&self, height: u64) -> Difficulty {
+	pub fn to_difficulty(&self, header: &[u8], height: u64, nonce: u64) -> Difficulty {
 		match self.proof {
 			Proof::CuckooProof { edge_bits, .. } => {
 				// 2 proof of works, Cuckoo29 (for now) and Cuckoo30+, which are scaled
@@ -445,7 +454,10 @@ impl ProofOfWork {
 					Difficulty::from_proof_adjusted(height, &self.proof)
 				}
 			}
-			_ => Difficulty::from_proof_adjusted(height, &self.proof),
+			Proof::RandomXProof { ref hash } => Difficulty::from_proof_hash(hash),
+			Proof::ProgPowProof { ref mix } => {
+				Difficulty::from_proof_hash(&get_progpow_value(header, height, nonce))
+			}
 		}
 	}
 

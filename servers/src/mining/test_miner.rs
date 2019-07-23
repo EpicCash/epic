@@ -105,7 +105,11 @@ impl Miner {
 				.unwrap();
 			if let Ok(proofs) = ctx.pow_solve() {
 				b.header.pow.proof = proofs[0].clone();
-				let proof_diff = b.header.pow.to_difficulty(b.header.height);
+				let proof_diff = b.header.pow.to_difficulty(
+					&b.header.pre_pow(),
+					b.header.height,
+					b.header.pow.nonce,
+				);
 				if proof_diff >= (b.header.total_difficulty() - head.total_difficulty()) {
 					return true;
 				}
