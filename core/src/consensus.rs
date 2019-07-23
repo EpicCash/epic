@@ -22,7 +22,7 @@ use std::cmp::{max, min};
 
 use crate::core::block::HeaderVersion;
 use crate::global;
-use crate::pow::{PoWType, Difficulty};
+use crate::pow::{Difficulty, PoWType};
 
 /// A epic is divisible to 10^9, following the SI prefixes
 pub const EPIC_BASE: u64 = 1_000_000_000;
@@ -104,11 +104,10 @@ pub fn reward_at_height(height: u64) -> u64 {
 /// TODOBG: Make this more efficient by hardcoding reward schedule times
 pub fn total_overage_at_height(height: u64, genesis_had_reward: bool) -> i64 {
 	let mut sum: i64 = 0;
-	let mut n = 1;
 	if genesis_had_reward {
-		n = 0;
+		sum += reward_at_height(0) as i64;
 	}
-	for i in n..=height {
+	for i in 1..=height {
 		let reward = reward_at_height(i as u64) as i64;
 		sum += (reward + (FOUNDATION_REWARD as i64));
 	}

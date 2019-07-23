@@ -41,8 +41,6 @@ fn transform_header(header: &[u8]) -> [u8; 32] {
 	let mut header = [0u8; 32];
 	keccak_256(&cheader, &mut header);
 
-	println!("header: {:?}", header);
-
 	header
 }
 
