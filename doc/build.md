@@ -111,3 +111,22 @@ The following steps describe how to execute epic from any location in **the curr
 
 All mining functions for Epic are in a separate project called
 [epic-miner](https://gitlab.com/epiccash/epic-miner).
+
+## Testnet Reset
+
+If the testnet is restarted or there's a new version of the epic
+server, you will need to remove the directory called
+**/chain/data**. This directory is where the epic cash blockchain
+stores its data. Therefore, if the testnet is restarted, all this data
+needs to be removed in order to run and store the newest version of
+the blockchain. The following steps explain how to erase this data
+using the terminal:
+
+1. Open a new terminal window in the directory where you saved the
+   epic server data. If you used the [default configuration](./running.org#epic_config_default), this
+   folder should be under __~/.epic/main__ in you home directory.
+2. Then execute the following command:
+   
+   ```sh
+    rm -rf chain_data/
+   ```

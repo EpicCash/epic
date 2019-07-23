@@ -249,7 +249,6 @@ You should see an output like this:
   transactions. These will generally disappear (become spent) when the
   transaction confirms.
 
-
 ** Miner
 *To run the epic-miner you also need an epic server running and a
 wallet listening*. Instruction of how to run you epic server can be
@@ -482,3 +481,28 @@ else on the network solved the block before the solution was submit).
 *Blocks* found is the actual number of blocks that you've solved, in
 other words, valid solutions that passed the difficulty check and were
 also accepted by the network.
+
+** Testnet Reset
+
+If the testnet is restarted or there's a new version of the epic
+server, you will need to remove the directory called
+**/chain/data**. This directory is where the epic cash blockchain
+stores its data. Therefore, if the testnet is restarted, all this data
+needs to be removed in order to run and store the newest version of
+the blockchain. The following steps explain how to erase this data
+using the terminal:
+
+1. Open a new terminal window in the directory where you saved the
+   epic server data. If you used the [[#epic_config_default][default configuration]], this
+   folder should be under ~~/.epic/main~ in you home directory.
+2. Then execute the following command:
+    #+begin_src shell
+    rm -rf chain_data/
+    #+end_src
+
+
+
+
+
+
+
