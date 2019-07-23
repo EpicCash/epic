@@ -14,7 +14,7 @@
 For Debian-based distributions (Debian, Ubuntu, Mint, etc), all in one line (except Rust):
 
 ```sh
-apt install build-essential cmake git libgit2-dev clang libncurses5-dev libncursesw5-dev zlib1g-dev pkg-config libssl-dev llvm
+sudo apt install build-essential cmake git libgit2-dev clang libncurses5-dev libncursesw5-dev zlib1g-dev pkg-config libssl-dev llvm
 ```
 
 For Mac using [brew](https://brew.sh/):
