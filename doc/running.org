@@ -1,13 +1,27 @@
 #+TITLE: Epic Testnet
 #+OPTIONS: ^:nil
 
-* Epic
-
+* Introduction
 
 This document describes how to run each of the elements of the testnet
 for the Epic blockchain.
 
-** Supported Platforms
+There are three cases that you can do with testnet. 
+- Running only the server.
+- Running the server and the wallet.
+- Running the server, the wallet and the miner.
+
+If you want to just have a copy of the chain or help the propagation
+of the blocks in the network, all you need is to run the server.
+
+If you want to make transactions such as payments or receiving
+payments, you need to run the epic server and the epic wallet.
+
+If you want to produce new blocks and with that gain rewards (both new
+coins and transactions fees), you will need to run the epic server
+with an epic wallet listening to it and an epic miner.
+
+* Supported Platforms
 
 For now, these are the supported platforms:
 
@@ -17,7 +31,7 @@ For now, these are the supported platforms:
 
 We plan to add support for Windows soon.
 
-** Requirements
+* Requirements
    
     #+begin_src shell
       sudo apt install libncurses5 libncursesw5 zlib1g openssl
@@ -41,9 +55,14 @@ to install this dependency:
     #+end_src
 
     
+* Server
 
-** Server
-*** Installation
+The epic server is a node in the network that validates, propagates
+and sometimes produces new blocks (for the latter you need a miner),
+which is a basically a collection of processed transactions. In this
+section we explain how to install and setup your epic server.
+
+** Installation
 
 The following steps explain how to install and run the epic server:
 
@@ -59,7 +78,7 @@ The following steps explain how to install and run the epic server:
     #+end_src
 
 #+ATTR_HTML: :id run_epic
-*** Running the Epic Server
+** Running the Epic Server
   :PROPERTIES:
   :CUSTOM_ID: run_epic
   :END:
@@ -88,7 +107,7 @@ server. Press the key *Enter* to select an item. Press the key *Q* to
 quit the epic server.
 
 #+ATTR_HTML: :id run_config_default
-*** Configuring your Epic node
+** Configuring your Epic node
   :PROPERTIES:
   :CUSTOM_ID: epic_config_default
   :END:
@@ -101,7 +120,7 @@ contains many configuration options for your Epic server. Leaving
 these values at their defaults should work for most people who simply
 want to run a node.
 #+ATTR_HTML: :id epic_config_custom
-**** Configuring a Custom Directory
+*** Configuring a Custom Directory
   :PROPERTIES:
   :CUSTOM_ID: epic_config_custom
   :END:
@@ -122,13 +141,16 @@ instead of* *~~/.epic/main/epic-server.toml~.* Therefore, we always
 have to navigate to the custom directory before running the
 epic server.
 
-** Wallet
+* Wallet
+
+The epic wallet is quite literally your wallet. It's where your
+account's balance is stored and where you spend and receive money.
 
 *To run the epic-wallet you also need an epic server
 running*. Instruction of how to run the epic server can be found on
 [[#run_epic][Running the Epic Server]].
 
-*** Installation
+** Installation
 The following steps explain how to install and run the epic-wallet:
 
 1. Download the latest version of the [[https://internal.brickabode.com/edna/packages/epic-wallet_1.0.0-2_amd64.deb][epic wallet]]. Checksum SHA256:
@@ -144,7 +166,7 @@ The following steps explain how to install and run the epic-wallet:
     #+end_src
 
 #+ATTR_HTML: :id init_wallet
-*** Initialize the Wallet
+** Initialize the Wallet
   :PROPERTIES:
   :CUSTOM_ID: init_wallet
   :END:    
@@ -179,7 +201,7 @@ Your wallet's configuration file is located at
 ~~/.epic/main/epic-wallet.toml~. You can change the default node address,
 default listener ports and many more options by editing this file.
 
-*** Initializing from a Custom Directory
+** Initializing from a Custom Directory
 
 You can also keep epic wallet's data and configuration files in a
 custom directory. In the terminal, navigate to the directory in which
@@ -195,7 +217,7 @@ epic-wallet command will always check the current directory for a
 ~epic-wallet.toml~ file, and if one is found it will use it instead of
 ~~/.epic/main/epic-wallet.toml~.
 #+ATTR_HTML: :id run_wallet
-*** Running the wallet API
+** Running the wallet API
   :PROPERTIES:
   :CUSTOM_ID: run_wallet
   :END:
@@ -211,7 +233,7 @@ in a new terminal window:
 You will be prompted to enter your wallet password. After you have
 inserted it, the wallet will start to listen for requests.
 
-*** Check the wallet balance
+** Check the wallet balance
 
 To check your contents of your wallet, use the info command:
 
@@ -249,13 +271,27 @@ You should see an output like this:
   transactions. These will generally disappear (become spent) when the
   transaction confirms.
 
-** Miner
+* Miner
+
+Miners are responsible for processing the transactions in the
+blockchain. When a batch of transactions is processed, the first one
+responsible for processing it gains a reward and the fees on
+those transactions. That involves both computing power and luck. 
+
+There are three algorithms that help producing the blocks.
+- [[https://github.com/ifdefelse/ProgPOW][ProgPow]]
+- [[https://github.com/tromp/cuckoo][Cuckoo]]
+- [[https://github.com/tevador/RandomX][RandomX]]
+
+Based on the links shown above, you should select the algorithm that
+best fits your hardware.
+
 *To run the epic-miner you also need an epic server running and a
 wallet listening*. Instruction of how to run you epic server can be
 found on [[#run_epic][Running the Epic Server]] and the instructions of how to get
 the wallet listening can be found on [[#run_wallet][Running the wallet API]].
 
-*** Prerequisites
+** Prerequisites
 
     For Debian-based distributions (Debian, Ubuntu, Mint, etc), all in
     one line:
@@ -264,7 +300,7 @@ the wallet listening can be found on [[#run_wallet][Running the wallet API]].
       sudo apt install ocl-icd-opencl-dev
     #+end_src
 
-*** Installation
+** Installation
 The following steps explain how to install and run
 the epic-miner:
 
@@ -280,7 +316,7 @@ the epic-miner:
     #+end_src
 
 #+ATTR_HTML: :id config_miner_server
-*** Configuring the Epic Server to work with the miner
+** Configuring the Epic Server to work with the miner
   :PROPERTIES:
   :CUSTOM_ID: config_miner_server
   :END:    
@@ -309,11 +345,33 @@ And change it to:
       enable_stratum_server = true
     #+end_src
 
+After that, find the line:
+
+  #+begin_src toml
+    minimum_share_difficulty = 1
+  #+end_src
+
+And change it according to the algorithm used to mine:
+
+  #+begin_src toml
+    #RandomX
+    minimum_share_difficulty = 10000
+  #+end_src
+
+  #+begin_src toml
+    #ProgPow
+    minimum_share_difficulty = 100
+  #+end_src
+
+  #+begin_src toml
+    #Cuckoo
+    minimum_share_difficulty = 1
+  #+end_src
+
 Then, save and close the file. After that, you can start your [[#run_epic][epic server]].
 
-
 #+ATTR_HTML: :id config_miner
-*** Configuring your epic-miner
+** Configuring your epic-miner
   :PROPERTIES:
   :CUSTOM_ID: config_miner
   :END:    
@@ -335,8 +393,7 @@ With the ~epic-miner.toml~ opened, find the line:
 Changing this line you can change what algorithm you are going to use
 for mining. There are 3 possible choices: ProgPow, RandomX, Cuckoo.
 
-
-*** Additional configuration: ProgPow
+** Additional configuration: ProgPow
 
 If you are going to mine with ProgPow, you will need to set some
 additional parameters in the ~epic-miner.toml~. Open the
@@ -367,7 +424,7 @@ mine with the GPU (primary) using CUDA:
       driver = 1
     #+end_src
 
-*** Additional configuration: RandomX
+** Additional configuration: RandomX
 
 If you are going to mine with RandomX, you will need to set some
 additional parameters in the ~epic-miner.toml~. Open the
@@ -383,7 +440,7 @@ setting its value in the variable *cpu_threads*.
 
 After you finish all your modification, save and close the file.
 
-*** Additional configuration: Cuckoo
+** Additional configuration: Cuckoo
 
 If you are going to mine with Cuckoo, you will need to set some
 additional parameters in the ~epic-miner.toml~. Open the
@@ -426,7 +483,7 @@ After you finish all your modification, save and close the file.
 If you want more details about the cuckoo plugins, there are more
 examples of how to use the cuckoo plugins in the ~epic-miner.toml~.
 
-*** Runing the miner
+** Runing the miner
 
 Once the [[#run_epic][epic server is running]] and your [[#run_wallet][wallet is listening]], to
 execute the epic-miner open a new terminal window and execute the
@@ -454,7 +511,7 @@ cpu.
 More details about the epic miner stats can be found in [[#epic_miner_stats][Mining Stats]]. 
 
 #+ATTR_HTML: :id epic_miner_stats
-*** Mining Stats
+** Mining Stats
   :PROPERTIES:
   :CUSTOM_ID: epic_miner_stats
   :END:
@@ -482,7 +539,7 @@ else on the network solved the block before the solution was submit).
 other words, valid solutions that passed the difficulty check and were
 also accepted by the network.
 
-** Testnet Reset
+* Testnet Reset
 
 If the testnet is restarted or there's a new version of the epic
 server, you will need to remove the directory called
