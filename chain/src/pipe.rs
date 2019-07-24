@@ -425,17 +425,17 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 	// check the pow hash shows a difficulty at least as large
 	// as the target difficulty
 	if !ctx.opts.contains(Options::SKIP_POW) {
-		let header_difficulty = header
-			.total_difficulty()
-			.to_num(header.pow.proof.clone().into());
+		let target_difficulty = header.total_difficulty() - prev.total_difficulty();
 
-		let target_difficulty = prev.total_difficulty(); //header.total_difficulty() - prev.total_difficulty();
+		let target_difficulty_proof = target_difficulty.to_num(header.pow.proof.clone().into());
 
 		let diff = header
 			.pow
 			.to_difficulty(&header.pre_pow(), header.height, header.pow.nonce);
 
-		if diff < target_difficulty {
+		let diff_proof = diff.to_num(header.pow.proof.clone().into());
+
+		if diff_proof < target_difficulty_proof {
 			return Err(ErrorKind::DifficultyTooLow.into());
 		}
 

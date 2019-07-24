@@ -68,6 +68,7 @@ mod mine_chain {
 	use chrono::Duration;
 
 	use epic_util::{Mutex, RwLock, StopState};
+	use std::collections::HashMap;
 	use std::fs;
 	use std::sync::Arc;
 
@@ -303,7 +304,13 @@ mod mine_chain {
 				_ => panic!("invalid type proof")
 			};
 
-			let mut block = prepare_block_pow(&kc, &head, 3, vec![], proof);
+			let mut diff = HashMap::new();
+			diff.insert(FType::Cuckaroo, 3);
+			diff.insert(FType::Cuckatoo, 3);
+			diff.insert(FType::RandomX, 1);
+			diff.insert(FType::ProgPow, 1);
+
+			let mut block = prepare_block_pow(&kc, &head, Difficulty::from_dic_number(diff), vec![], proof);
 			chain.set_txhashset_roots(&mut block).unwrap();
 
 			if let Ok(_) = chain.process_block(block, chain::Options::MINE) {
@@ -324,19 +331,19 @@ mod mine_chain {
 			let proof = match proof_name {
 				"progpow" => pow::Proof::ProgPowProof{
 					mix: [
-						78, 17, 202, 156, 159, 86, 23, 40, 126, 222, 114, 151,
-						125, 70, 254, 191, 178, 188, 58, 23, 1, 77, 232, 86,
-						216, 195, 139, 175, 223, 127, 140, 25],
+						172, 95, 8, 146, 144, 78, 254, 223, 103, 95, 54, 53,
+						109, 43, 77, 105, 178, 249, 177, 43, 144, 254, 124,
+						19, 132, 139, 88, 181, 223, 224, 214, 209],
 				},
 				"randomx" => pow::Proof::RandomXProof {
 					hash: [
-						188, 76, 23, 153, 112, 120, 180, 23, 29, 35, 147, 172,
-						0, 101, 104, 251, 98, 189, 73, 252, 133, 99, 96, 104,
-						158, 57, 237, 214, 8, 33, 193, 174],
+						100, 134, 40, 88, 134, 86, 148, 201, 135, 13, 185,
+						201, 154, 68, 23, 174, 79, 167, 22, 173, 41, 212, 233,
+						186, 116, 21, 186, 248, 5, 154, 120, 93],
 				},
 				"md5" => pow::Proof::MD5Proof {
 					edge_bits: 10,
-					proof: "97b8b7414e8986d6e78527ccbdc3636e".to_string()
+					proof: "2829a258c87bf3984799f498d726621e".to_string()
 				},
 				"cuckoo" => pow::Proof::CuckooProof {
 					edge_bits: 9,
@@ -345,7 +352,13 @@ mod mine_chain {
 				_ => {panic!("invalid type proof")},
 			};
 
-			let mut block = prepare_block_pow(&kc, &head, 3, vec![], proof);
+			let mut diff = HashMap::new();
+			diff.insert(FType::Cuckaroo, 3);
+			diff.insert(FType::Cuckatoo, 3);
+			diff.insert(FType::RandomX, 1);
+			diff.insert(FType::ProgPow, 1);
+
+			let mut block = prepare_block_pow(&kc, &head, Difficulty::from_dic_number(diff), vec![], proof);
 			chain.set_txhashset_roots(&mut block);
 
 			if let Err(e) = chain.process_block(block, chain::Options::MINE) {
@@ -1084,7 +1097,7 @@ mod mine_chain {
 	fn prepare_block_pow<K>(
 		kc: &K,
 		prev: &BlockHeader,
-		diff: u64,
+		diff: Difficulty,
 		txs: Vec<&Transaction>,
 		proof: pow::Proof,
 	) -> Block
@@ -1092,7 +1105,7 @@ mod mine_chain {
 		K: Keychain,
 	{
 		let proof_size = global::proofsize();
-		let key_id = epic_keychain::ExtKeychainPath::new(1, diff as u32, 0, 0, 0).to_identifier();
+		let key_id = epic_keychain::ExtKeychainPath::new(1, 3, 0, 0, 0).to_identifier();
 
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
 		let reward = libtx::reward::output(kc, &key_id, fees, true, 0).unwrap();
@@ -1100,7 +1113,7 @@ mod mine_chain {
 		let mut b = match core::core::Block::new_with_coinbase(
 			prev,
 			txs.into_iter().cloned().collect(),
-			Difficulty::from_num(diff),
+			diff.clone(),
 			reward,
 			(foundation.output, foundation.kernel),
 		) {
@@ -1108,7 +1121,7 @@ mod mine_chain {
 			Ok(b) => b,
 		};
 		b.header.timestamp = prev.timestamp + Duration::seconds(60);
-		b.header.pow.total_difficulty = prev.total_difficulty() + Difficulty::from_num(diff);
+		b.header.pow.total_difficulty = prev.total_difficulty() + diff;
 		b.header.pow.proof = proof;
 
 		let fw_type = match b.header.pow.proof {

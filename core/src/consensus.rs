@@ -19,6 +19,7 @@
 //! here.
 
 use std::cmp::{max, min};
+use std::collections::HashMap;
 
 use crate::core::block::HeaderVersion;
 use crate::global;
@@ -351,19 +352,39 @@ pub fn clamp(actual: u64, goal: u64, clamp_factor: u64) -> u64 {
 ///
 /// The secondary proof-of-work factor is calculated along the same lines, as
 /// an adjustment on the deviation against the ideal value.
-pub fn next_difficulty<T>(height: u64, diff: Difficulty, cursor: T) -> HeaderInfo
+pub fn next_difficulty<T>(height: u64, prev_diff: Difficulty, cursor: T) -> HeaderInfo
 where
 	T: IntoIterator<Item = HeaderInfo>,
 {
-	// Create vector of difficulty data running from earliest
-	// to latest, and pad with simulated pre-genesis data to allow earlier
-	// adjustment if there isn't enough window data length will be
-	// DIFFICULTY_ADJUST_WINDOW + 1 (for initial block time bound)
 	let diff_data = global::difficulty_data_to_vector(cursor);
-
 	// First, get the ratio of secondary PoW vs primary, skipping initial header
 	let sec_pow_scaling = secondary_pow_scaling(height, &diff_data[1..]);
 
+	let mut diff = HashMap::new();
+
+	diff.insert(
+		PoWType::Cuckatoo,
+		next_cuckoo_difficulty(height, PoWType::Cuckatoo, &diff_data),
+	);
+	diff.insert(
+		PoWType::Cuckaroo,
+		next_cuckoo_difficulty(height, PoWType::Cuckaroo, &diff_data),
+	);
+	diff.insert(
+		PoWType::RandomX,
+		next_hash_difficulty(height, prev_diff.to_num(PoWType::RandomX), &diff_data),
+	);
+	diff.insert(
+		PoWType::ProgPow,
+		next_hash_difficulty(height, prev_diff.to_num(PoWType::ProgPow), &diff_data),
+	);
+
+	println!("diff: {:?}", diff);
+
+	HeaderInfo::from_diff_scaling(Difficulty::from_dic_number(diff), sec_pow_scaling)
+}
+
+fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	// Get the timestamp delta across the window
 	let ts_delta: u64 =
 		diff_data[DIFFICULTY_ADJUST_WINDOW as usize].timestamp - diff_data[0].timestamp;
@@ -372,7 +393,7 @@ where
 	let diff_sum: u64 = diff_data
 		.iter()
 		.skip(1)
-		.map(|dd| dd.difficulty.to_num(PoWType::Cuckatoo))
+		.map(|dd| dd.difficulty.to_num(pow))
 		.sum();
 
 	// adjust time delta toward goal subject to dampening and clamping
@@ -381,10 +402,39 @@ where
 		BLOCK_TIME_WINDOW,
 		CLAMP_FACTOR,
 	);
-	// minimum difficulty avoids getting stuck due to dampening
-	let difficulty = max(MIN_DIFFICULTY, diff_sum * BLOCK_TIME_SEC / adj_ts);
 
-	HeaderInfo::from_diff_scaling(diff, sec_pow_scaling)
+	// minimum difficulty avoids getting stuck due to dampening
+	max(MIN_DIFFICULTY, diff_sum * BLOCK_TIME_SEC / adj_ts)
+}
+
+pub fn next_hash_difficulty(height: u64, prev_diff: u64, diff_data: &Vec<HeaderInfo>) -> u64 {
+	let prev_timestamp = diff_data[0].timestamp;
+
+	// Get the timestamp delta across the window
+	let ts_delta: u64 = diff_data[DIFFICULTY_ADJUST_WINDOW as usize].timestamp - prev_timestamp;
+
+	let block_diff_factor = 2048;
+	let min_diff = 10000;
+	let diff_adjustment_cutoff = 10;
+	let expdiff_period = 10000;
+	let expdiff_free_periods = 2;
+
+	let offset: i64 = (prev_diff / block_diff_factor) as i64;
+	let sign: i64 = max(1 - 2 * (ts_delta as i64 / diff_adjustment_cutoff), -99);
+	let mut o: i64 = max(
+		(prev_diff as i64 + offset * sign),
+		min(prev_diff as i64, min_diff),
+	);
+
+	let period_count: i64 = ((height + 1) / expdiff_period) as i64;
+	if period_count >= expdiff_free_periods {
+		o = max(
+			o + 2_i64.pow((period_count - expdiff_free_periods) as u32),
+			min_diff,
+		);
+	}
+
+	o as u64
 }
 
 /// Count, in units of 1/100 (a percent), the number of "secondary" (AR) blocks in the provided window of blocks.
