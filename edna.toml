@@ -165,7 +165,13 @@ stratum_server_addr = "127.0.0.1:3416"
 attempt_time_per_block = 15
 
 #the minimum acceptable share difficulty to request from miners
-minimum_share_difficulty = 1
+cuckatoo_minimum_share_difficulty = 1
+
+#the minimum acceptable share difficulty to request from miners
+randomx_minimum_share_difficulty = 1
+
+#the minimum acceptable share difficulty to request from miners
+progpow_minimum_share_difficulty = 1
 
 #the wallet receiver to which coinbase rewards will be sent
 wallet_listener_url = "http://127.0.0.1:3415"

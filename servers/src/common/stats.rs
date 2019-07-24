@@ -16,12 +16,13 @@
 //! to collect information about server status
 
 use crate::util::RwLock;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::SystemTime;
 
 use crate::core::consensus::graph_weight;
 use crate::core::core::hash::Hash;
-use crate::core::pow::PoWType;
+use crate::core::pow::{DifficultyNumber, PoWType};
 
 use chrono::prelude::*;
 
@@ -99,7 +100,7 @@ pub struct StratumStats {
 	/// what block height we're mining at
 	pub block_height: u64,
 	/// current network difficulty we're working on
-	pub network_difficulty: u64,
+	pub network_difficulty: DifficultyNumber,
 	/// cuckoo size used for mining
 	pub edge_bits: u16,
 	/// Individual worker status
@@ -168,7 +169,8 @@ pub struct PeerStats {
 impl StratumStats {
 	/// Calculate network hashrate
 	pub fn network_hashrate(&self, height: u64) -> f64 {
-		42.0 * (self.network_difficulty as f64 / graph_weight(height, self.edge_bits as u8) as f64)
+		42.0 * (*self.network_difficulty.get(&PoWType::Cuckatoo).unwrap() as f64
+			/ graph_weight(height, self.edge_bits as u8) as f64)
 			/ 60.0
 	}
 }
@@ -222,12 +224,18 @@ impl Default for WorkerStats {
 
 impl Default for StratumStats {
 	fn default() -> StratumStats {
+		let mut h = HashMap::new();
+		h.insert(PoWType::Cuckatoo, 1000);
+		h.insert(PoWType::Cuckaroo, 1000);
+		h.insert(PoWType::RandomX, 1000);
+		h.insert(PoWType::ProgPow, 1000);
+
 		StratumStats {
 			is_enabled: false,
 			is_running: false,
 			num_workers: 0,
 			block_height: 0,
-			network_difficulty: 1000,
+			network_difficulty: h,
 			edge_bits: 29,
 			worker_stats: Vec::new(),
 		}

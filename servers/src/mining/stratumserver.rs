@@ -35,11 +35,11 @@ use std::{cmp, thread};
 use crate::chain;
 use crate::common::stats::{StratumStats, WorkerStats};
 use crate::common::types::{StratumServerConfig, SyncState};
-use crate::core::core::block::feijoada::{next_block_bottles, Deterministic, PoWType};
+use crate::core::core::block::feijoada::{next_block_bottles, Deterministic};
 use crate::core::core::hash::Hashed;
 use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::Block;
-use crate::core::pow::DifficultyNumber;
+use crate::core::pow::{DifficultyNumber, PoWType};
 use crate::core::{pow, ser};
 use crate::keychain;
 use crate::mining::mine_block;
@@ -149,6 +149,11 @@ struct LoginParams {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct JobParams {
+	algorithm: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub enum AlgorithmParams {
 	Cuckoo(u64, Vec<u64>),
 	RandomX([u8; 32]),
@@ -169,6 +174,7 @@ pub struct JobTemplate {
 	job_id: u64,
 	difficulty: u64,
 	pre_pow: String,
+	algorithm: String,
 	//seed: [u8; 32],
 }
 
@@ -189,19 +195,35 @@ struct State {
 	// nothing has changed. We only want to create a key_id for each new block,
 	// and reuse it when we rebuild the current block to add new tx.
 	current_key_id: Option<keychain::Identifier>,
-	current_difficulty: u64,
-	minimum_share_difficulty: u64,
+	current_difficulty: DifficultyNumber,
+	minimum_share_difficulty: DifficultyNumber,
 }
 
 impl State {
-	pub fn new(minimum_share_difficulty: u64) -> Self {
+	pub fn new(minimum_share_difficulty: DifficultyNumber) -> Self {
 		let blocks = vec![Block::default()];
+
+		let mut current_difficulty = HashMap::new();
+
+		current_difficulty.insert(PoWType::Cuckatoo, <u64>::max_value());
+		current_difficulty.insert(PoWType::Cuckaroo, <u64>::max_value());
+		current_difficulty.insert(PoWType::RandomX, <u64>::max_value());
+		current_difficulty.insert(PoWType::ProgPow, <u64>::max_value());
+
 		State {
 			current_block_versions: blocks,
 			current_key_id: None,
-			current_difficulty: <u64>::max_value(),
+			current_difficulty,
 			minimum_share_difficulty: minimum_share_difficulty,
 		}
+	}
+
+	pub fn get_minimum_difficulty(&self, pow: PoWType) -> u64 {
+		*self.minimum_share_difficulty.get(&pow).unwrap()
+	}
+
+	pub fn get_current_difficulty(&self, pow: PoWType) -> u64 {
+		*self.current_difficulty.get(&pow).unwrap()
 	}
 }
 
@@ -218,7 +240,7 @@ impl Handler {
 		id: String,
 		stratum_stats: Arc<RwLock<StratumStats>>,
 		sync_state: Arc<SyncState>,
-		minimum_share_difficulty: u64,
+		minimum_share_difficulty: DifficultyNumber,
 		chain: Arc<chain::Chain>,
 	) -> Self {
 		Handler {
@@ -230,11 +252,28 @@ impl Handler {
 		}
 	}
 	pub fn from_stratum(stratum: &StratumServer) -> Self {
+		let mut minimum_share_difficulty = HashMap::new();
+		minimum_share_difficulty.insert(
+			PoWType::Cuckatoo,
+			stratum.config.cuckatoo_minimum_share_difficulty,
+		);
+		minimum_share_difficulty.insert(
+			PoWType::Cuckaroo,
+			stratum.config.cuckatoo_minimum_share_difficulty,
+		);
+		minimum_share_difficulty.insert(
+			PoWType::RandomX,
+			stratum.config.randomx_minimum_share_difficulty,
+		);
+		minimum_share_difficulty.insert(
+			PoWType::ProgPow,
+			stratum.config.progpow_minimum_share_difficulty,
+		);
 		Handler::new(
 			stratum.id.clone(),
 			stratum.stratum_stats.clone(),
 			stratum.sync_state.clone(),
-			stratum.config.minimum_share_difficulty,
+			minimum_share_difficulty,
 			stratum.chain.clone(),
 		)
 	}
@@ -257,7 +296,7 @@ impl Handler {
 				if self.sync_state.is_syncing() {
 					Err(RpcError::node_is_syncing())
 				} else {
-					self.handle_getjobtemplate()
+					self.handle_getjobtemplate(request.params)
 				}
 			}
 			"status" => self.handle_status(worker_id),
@@ -319,9 +358,10 @@ impl Handler {
 		return Ok(response);
 	}
 	// Handle GETJOBTEMPLATE message
-	fn handle_getjobtemplate(&self) -> Result<Value, RpcError> {
+	fn handle_getjobtemplate(&self, params: Option<Value>) -> Result<Value, RpcError> {
+		let params: JobParams = parse_params(params)?;
 		// Build a JobTemplate from a BlockHeader and return JSON
-		let job_template = self.build_block_template();
+		let job_template = self.build_block_template(params.algorithm);
 		let response = serde_json::to_value(&job_template).unwrap();
 		debug!(
 			"(Server ID: {}) sending block {} with id {} to single worker",
@@ -330,8 +370,17 @@ impl Handler {
 		return Ok(response);
 	}
 
+	fn get_parse_algorithm(&self, algo: &str) -> PoWType {
+		match algo {
+			"cuckoo" => PoWType::Cuckatoo,
+			"randomx" => PoWType::RandomX,
+			"progpow" => PoWType::ProgPow,
+			_ => panic!("algorithm is not supported"),
+		}
+	}
+
 	// Build and return a JobTemplate for mining the current block
-	fn build_block_template(&self) -> JobTemplate {
+	fn build_block_template(&self, algo: String) -> JobTemplate {
 		let bh = self
 			.current_state
 			.read()
@@ -341,6 +390,7 @@ impl Handler {
 			.header
 			.clone();
 		// Serialize the block header into pre and post nonce strings
+
 		let mut header_buf = vec![];
 		{
 			let mut writer = ser::BinWriter::new(&mut header_buf);
@@ -351,8 +401,12 @@ impl Handler {
 		let job_template = JobTemplate {
 			height: bh.height,
 			job_id: (self.current_state.read().current_block_versions.len() - 1) as u64,
-			difficulty: self.current_state.read().minimum_share_difficulty,
+			difficulty: self
+				.current_state
+				.read()
+				.get_minimum_difficulty(self.get_parse_algorithm(algo.clone().as_str())),
 			pre_pow,
+			algorithm: algo,
 		};
 		return job_template;
 	}
@@ -436,20 +490,24 @@ impl Handler {
 			.pow
 			.to_difficulty(&b.header.pre_pow(), b.header.height, b.header.pow.nonce)
 			.to_num(b.header.pow.proof.clone().into());
+
+		let minimum_share_difficulty =
+			state.get_minimum_difficulty(b.header.pow.proof.clone().into());
 		// If the difficulty is too low its an error
-		if share_difficulty < state.minimum_share_difficulty {
+		if share_difficulty < minimum_share_difficulty {
 			// Return error status
 			error!(
 					"(Server ID: {}) Share at height {}, hash {}, nonce {}, job_id {} rejected due to low difficulty: {}/{}",
-					self.id, params.height, b.hash(), params.nonce, params.job_id, share_difficulty, state.minimum_share_difficulty,
+					self.id, params.height, b.hash(), params.nonce, params.job_id, share_difficulty, minimum_share_difficulty,
 				);
 			self.workers
 				.update_stats(worker_id, |worker_stats| worker_stats.num_rejected += 1);
 			return Err(RpcError::too_low_difficulty());
 		}
 
+		let current_difficulty = state.get_current_difficulty(b.header.pow.proof.clone().into());
 		// If the difficulty is high enough, submit it (which also validates it)
-		if share_difficulty >= state.current_difficulty {
+		if share_difficulty >= current_difficulty {
 			// This is a full solution, submit it to the network
 			let res = self.chain.process_block(b.clone(), chain::Options::MINE);
 			if let Err(e) = res {
@@ -515,7 +573,7 @@ impl Handler {
 				b.header.pow.nonce,
 				params.job_id,
 				share_difficulty,
-				state.current_difficulty,
+				current_difficulty,
 				submitted_by,
 			);
 		self.workers
@@ -532,10 +590,10 @@ impl Handler {
 		));
 	} // handle submit a solution
 
-	fn broadcast_job(&self) {
+	fn broadcast_job(&self, algorithm: String) {
 		debug!("broadcast job");
 		// Package new block into RpcRequest
-		let job_template = self.build_block_template();
+		let job_template = self.build_block_template(algorithm);
 		let job_template_json = serde_json::to_string(&job_template).unwrap();
 		// Issue #1159 - use a serde_json Value type to avoid extra quoting
 		let job_template_value: Value = serde_json::from_str(&job_template_json).unwrap();
@@ -594,25 +652,62 @@ impl Handler {
 						wallet_listener_url,
 					);
 
-					state.current_difficulty = (new_block
-						.header
-						.total_difficulty()
-						.to_num(PoWType::Cuckatoo)
-						- head.total_difficulty.to_num(PoWType::Cuckatoo));
+					state.current_difficulty = (new_block.header.total_difficulty()
+						- head.total_difficulty)
+						.num
+						.clone();
 
 					state.current_key_id = block_fees.key_id();
 
+					let cuckato_m_difficulty =
+						*state.current_difficulty.get(&PoWType::Cuckatoo).unwrap();
 					current_hash = latest_hash;
 					// set the minimum acceptable share difficulty for this block
-					state.minimum_share_difficulty =
-						cmp::min(config.minimum_share_difficulty, state.current_difficulty);
+					state.minimum_share_difficulty.insert(
+						PoWType::Cuckatoo,
+						cmp::min(
+							config.cuckatoo_minimum_share_difficulty,
+							cuckato_m_difficulty,
+						),
+					);
+
+					// set the minimum acceptable share difficulty for this block
+					state.minimum_share_difficulty.insert(
+						PoWType::Cuckaroo,
+						cmp::min(
+							config.cuckatoo_minimum_share_difficulty,
+							cuckato_m_difficulty,
+						),
+					);
+
+					let randomx_m_difficulty =
+						*state.current_difficulty.get(&PoWType::RandomX).unwrap();
+					// set the minimum acceptable share difficulty for this block
+					state.minimum_share_difficulty.insert(
+						PoWType::RandomX,
+						cmp::min(
+							config.randomx_minimum_share_difficulty,
+							randomx_m_difficulty,
+						),
+					);
+
+					let progpow_m_difficulty =
+						*state.current_difficulty.get(&PoWType::ProgPow).unwrap();
+					// set the minimum acceptable share difficulty for this block
+					state.minimum_share_difficulty.insert(
+						PoWType::ProgPow,
+						cmp::min(
+							config.progpow_minimum_share_difficulty,
+							progpow_m_difficulty,
+						),
+					);
 
 					// set a new deadline for rebuilding with fresh transactions
 					deadline = Utc::now().timestamp() + config.attempt_time_per_block as i64;
 
 					self.workers.update_block_height(new_block.header.height);
 					self.workers
-						.update_network_difficulty(state.current_difficulty);
+						.update_network_difficulty(state.current_difficulty.clone());
 
 					if clear_blocks {
 						state.current_block_versions.clear();
@@ -620,7 +715,9 @@ impl Handler {
 					state.current_block_versions.push(new_block);
 					// Send this job to all connected workers
 				}
-				self.broadcast_job();
+				self.broadcast_job("cuckoo".to_string());
+				self.broadcast_job("randomx".to_string());
+				self.broadcast_job("progpow".to_string());
 			}
 
 			// sleep before restarting loop
@@ -809,7 +906,7 @@ impl WorkersList {
 		stratum_stats.block_height = height;
 	}
 
-	pub fn update_network_difficulty(&self, difficulty: u64) {
+	pub fn update_network_difficulty(&self, difficulty: DifficultyNumber) {
 		let mut stratum_stats = self.stratum_stats.write();
 		stratum_stats.network_difficulty = difficulty;
 	}

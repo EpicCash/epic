@@ -379,8 +379,6 @@ where
 		next_hash_difficulty(height, prev_diff.to_num(PoWType::ProgPow), &diff_data),
 	);
 
-	println!("diff: {:?}", diff);
-
 	HeaderInfo::from_diff_scaling(Difficulty::from_dic_number(diff), sec_pow_scaling)
 }
 
