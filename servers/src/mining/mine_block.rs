@@ -152,7 +152,7 @@ fn build_block(
 	// Note: do not keep the difficulty_iter in scope (it has an active batch).
 	let difficulty = consensus::next_difficulty(
 		head.height + 1,
-		head.pow.total_difficulty.clone(),
+		head.pow.proof.clone().into(),
 		chain.difficulty_iter()?,
 	);
 

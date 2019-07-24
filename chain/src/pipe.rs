@@ -445,7 +445,7 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		let child_batch = ctx.batch.child()?;
 		let diff_iter = store::DifficultyIter::from_batch(prev.hash(), child_batch);
 		let next_header_info =
-			consensus::next_difficulty(header.height, prev.pow.total_difficulty.clone(), diff_iter);
+			consensus::next_difficulty(header.height, prev.pow.proof.into(), diff_iter);
 
 		if target_difficulty != next_header_info.difficulty {
 			info!(
