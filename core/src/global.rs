@@ -217,7 +217,6 @@ where
 	T: EdgeType + 'static,
 {
 	let chain_type = CHAIN_TYPE.read().clone();
-	println!("edge_bits: {}", edge_bits);
 	match chain_type {
 		// Mainnet has Cuckaroo29 for AR and Cuckatoo30+ for AF
 		ChainTypes::Mainnet => new_cuckatoo_ctx(edge_bits, proof_size, max_sols),
