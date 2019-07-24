@@ -17,8 +17,8 @@ use std::sync::Arc;
 use crate::chain;
 use crate::core::core::hash::Hashed;
 use crate::core::core::merkle_proof::MerkleProof;
-use crate::core::{core, ser};
 use crate::core::pow::PoWType;
+use crate::core::{core, ser};
 use crate::p2p;
 use crate::util;
 use crate::util::secp::pedersen;
@@ -27,8 +27,8 @@ use epic_core::pow::Proof;
 use serde;
 use serde::de::MapAccess;
 use serde::ser::SerializeStruct;
-use std::fmt::{self, Display};
 use std::collections::HashMap;
+use std::fmt::{self, Display};
 
 macro_rules! no_dup {
 	($field:ident) => {
@@ -518,7 +518,7 @@ pub enum Solution {
 	Cuckoo(Vec<u64>),
 	MD5(String),
 	RandomX(String),
-	ProgPow([u8; 32])
+	ProgPow([u8; 32]),
 }
 
 impl Display for Solution {
@@ -595,9 +595,7 @@ impl BlockHeaderPrintable {
 					let h: U256 = hash.into();
 					Solution::RandomX(format!("{}", h))
 				}
-				Proof::ProgPowProof { ref mix } => {
-					Solution::ProgPow(mix.clone())
-				}
+				Proof::ProgPowProof { ref mix } => Solution::ProgPow(mix.clone()),
 			},
 			total_difficulty: header.pow.total_difficulty.clone().num,
 			secondary_scaling: header.pow.secondary_scaling,

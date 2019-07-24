@@ -26,7 +26,7 @@ use crate::chain;
 use crate::core::core;
 use crate::core::core::hash::{Hash, Hashed};
 use crate::core::global;
-use crate::core::pow::{PoWType, Difficulty};
+use crate::core::pow::{Difficulty, PoWType};
 use crate::peer::Peer;
 use crate::store::{PeerData, PeerStore, State};
 use crate::types::{
@@ -167,7 +167,10 @@ impl Peers {
 
 		let mut max_peers = peers
 			.into_iter()
-			.filter(|x| x.info.total_difficulty().to_num(PoWType::Cuckatoo) > total_difficulty.to_num(PoWType::Cuckatoo))
+			.filter(|x| {
+				x.info.total_difficulty().to_num(PoWType::Cuckatoo)
+					> total_difficulty.to_num(PoWType::Cuckatoo)
+			})
 			.collect::<Vec<_>>();
 
 		max_peers.shuffle(&mut thread_rng());
@@ -186,7 +189,10 @@ impl Peers {
 
 		Ok(peers
 			.iter()
-			.filter(|x| x.info.total_difficulty().to_num(PoWType::Cuckatoo) >= total_difficulty.to_num(PoWType::Cuckatoo))
+			.filter(|x| {
+				x.info.total_difficulty().to_num(PoWType::Cuckatoo)
+					>= total_difficulty.to_num(PoWType::Cuckatoo)
+			})
 			.count())
 	}
 
@@ -216,7 +222,10 @@ impl Peers {
 
 		let mut max_peers = peers
 			.into_iter()
-			.filter(|x| x.info.total_difficulty().to_num(PoWType::Cuckatoo) == max_total_difficulty.to_num(PoWType::Cuckatoo))
+			.filter(|x| {
+				x.info.total_difficulty().to_num(PoWType::Cuckatoo)
+					== max_total_difficulty.to_num(PoWType::Cuckatoo)
+			})
 			.collect::<Vec<_>>();
 
 		max_peers.shuffle(&mut thread_rng());
@@ -465,7 +474,10 @@ impl Peers {
 					let (stuck, diff) = peer.is_stuck();
 					match self.adapter.total_difficulty() {
 						Ok(total_difficulty) => {
-							if stuck && diff.to_num(PoWType::Cuckatoo) < total_difficulty.to_num(PoWType::Cuckatoo) {
+							if stuck
+								&& diff.to_num(PoWType::Cuckatoo)
+									< total_difficulty.to_num(PoWType::Cuckatoo)
+							{
 								debug!("clean_peers {:?}, stuck peer", peer.info.addr);
 								let _ = self.update_state(peer.info.addr, State::Defunct);
 								rm.push(peer.info.addr.clone());

@@ -97,7 +97,9 @@ impl Handshake {
 			user_agent: shake.user_agent,
 			addr: peer_addr,
 			version: shake.version,
-			live_info: Arc::new(RwLock::new(PeerLiveInfo::new(shake.total_difficulty.clone()))),
+			live_info: Arc::new(RwLock::new(PeerLiveInfo::new(
+				shake.total_difficulty.clone(),
+			))),
 			direction: Direction::Outbound,
 		};
 

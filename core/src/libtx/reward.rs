@@ -22,7 +22,11 @@ use crate::libtx::error::Error;
 use crate::libtx::{aggsig, proof};
 use crate::util::{secp, static_secp_instance};
 
-pub fn output_foundation<K>(keychain: &K, key_id: &Identifier, test_mode: bool) -> Result<(Output, TxKernel), Error>
+pub fn output_foundation<K>(
+	keychain: &K,
+	key_id: &Identifier,
+	test_mode: bool,
+) -> Result<(Output, TxKernel), Error>
 where
 	K: Keychain,
 {
