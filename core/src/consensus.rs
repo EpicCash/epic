@@ -150,10 +150,10 @@ fn ar_scale_damp_factor(_height: u64) -> u64 {
 pub const PROOFSIZE: usize = 42;
 
 /// Default Cuckatoo Cycle edge_bits, used for mining and validating.
-pub const DEFAULT_MIN_EDGE_BITS: u8 = 31;
+pub const DEFAULT_MIN_EDGE_BITS: u8 = 19;
 
 /// Cuckaroo proof-of-work edge_bits, meant to be ASIC resistant.
-pub const SECOND_POW_EDGE_BITS: u8 = 29;
+pub const SECOND_POW_EDGE_BITS: u8 = 31;
 
 /// Original reference edge_bits to compute difficulty factors for higher
 /// Cuckoo graph sizes, changing this would hard fork
@@ -248,7 +248,7 @@ pub fn graph_weight(height: u64, edge_bits: u8) -> u64 {
 		xpr_edge_bits = xpr_edge_bits.saturating_sub(1 + (height - expiry_height) / WEEK_HEIGHT);
 	}
 
-	(2 << (edge_bits - global::base_edge_bits()) as u64) * xpr_edge_bits
+	(2 << (if edge_bits > global::base_edge_bits() { edge_bits - global::base_edge_bits()} else { global::base_edge_bits() - edge_bits}) as u64) * xpr_edge_bits
 }
 
 /// Minimum difficulty, enforced in diff retargetting

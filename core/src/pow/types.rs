@@ -75,7 +75,7 @@ impl From<Proof> for PoWType {
 	fn from(v: Proof) -> PoWType {
 		match v {
 			Proof::CuckooProof { ref edge_bits, .. } => {
-				if *edge_bits > 29 {
+				if *edge_bits == 19 || *edge_bits == 31 {
 					PoWType::Cuckatoo
 				} else {
 					PoWType::Cuckaroo
@@ -210,7 +210,11 @@ impl Difficulty {
 
 impl fmt::Display for Difficulty {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{:?}", self.num)
+		let mut diff_vec: Vec<(PoWType, u64)> =
+			self.num.iter().map(|(&x, &num)| (x, num)).collect();
+		diff_vec.sort();
+
+		write!(f, "{:?}", diff_vec)
 	}
 }
 
