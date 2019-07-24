@@ -248,7 +248,12 @@ pub fn graph_weight(height: u64, edge_bits: u8) -> u64 {
 		xpr_edge_bits = xpr_edge_bits.saturating_sub(1 + (height - expiry_height) / WEEK_HEIGHT);
 	}
 
-	(2 << (if edge_bits > global::base_edge_bits() { edge_bits - global::base_edge_bits()} else { global::base_edge_bits() - edge_bits}) as u64) * xpr_edge_bits
+	(2 << (if edge_bits > global::base_edge_bits() {
+		edge_bits - global::base_edge_bits()
+	} else {
+		global::base_edge_bits() - edge_bits
+	}) as u64)
+		* xpr_edge_bits
 }
 
 /// Minimum difficulty, enforced in diff retargetting
