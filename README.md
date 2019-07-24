@@ -19,6 +19,8 @@ Epic is live with testnet.
 
 To build and try out Epic, see the [build docs](doc/build.md).
 
+To run the Testnet, see the tutorial of [how to run the test net](doc/running.org).
+
 ## Credits
 
 Tom Elvis Jedusor for the first formulation of MimbleWimble.

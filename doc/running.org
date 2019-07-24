@@ -1,223 +1,579 @@
-* Epic
+#+TITLE: Epic Testnet
+#+OPTIONS: ^:nil
 
-This document describes how to run/test the Epic blockchain (server/node, wallet and miner).
+* Introduction
 
-~ Summary
+This document describes how to run each of the elements of the testnet
+for the Epic blockchain.
 
-To run the blockchain we need:
+There are three cases that you can do with testnet. 
+- [[#server][Running only the server]].
+- [[#wallet_server][Running the server and the wallet.]]
+- [[#miner_wallet_server][Running the server, the wallet and the miner]].
 
-- Start at least two Epic nodes running.
-- Start a wallet listening for requests.
-- Start a miner.
+If you want to just have a copy of the chain or help the propagation
+of the blocks in the network, all you need is to run the server.
 
-~ Server
+If you want to make transactions such as payments or receiving
+payments, you need to run the epic server and the epic wallet.
 
-The first step to get the blockchain running is to configure the Epic server/node. The following steps explain how to do this:
+If you want to produce new blocks and with that gain rewards (both new
+coins and transactions fees), you will need to run the epic server
+with an epic wallet listening to it and an epic miner.
 
-1. Clone the [[https://git.brickabode.com/edna/edna][Edna]] repository.
-2. [OPTIONAL] If you are running scarce of computational resources (for example, running the miner in a laptop), open the file [[https://git.brickabode.com/edna/edna/blob/master/core/src/genesis.rs][~genesis.rs~]] in the folder ~core/src/~ under you Epic server's directory with your text editor and find the function:
+* Supported Platforms
 
-   #+begin_src rust
-     pub fn genesis_main() -> core::Block {
-   #+end_src
+For now, these are the supported platforms:
 
-    Then find the [[https://git.brickabode.com/edna/edna/blob/master/core/src/genesis.rs*L205][line *205]]
+- Linux x86_64 [epic + mining + wallet + development].
+  - We have a dpkg for Ubuntu
+- MacOS (no package yet)
 
-    #+begin_src rust
-      total_difficulty: Difficulty::from_num(2_u64.pow(34)),
+We plan to add support for Windows soon.
+
+* Requirements
+   
+    #+begin_src shell
+      sudo apt install libncurses5 libncursesw5 zlib1g openssl
     #+end_src
 
-    And change it to:
+** LibRandomX
 
-    #+begin_src rust
-      total_difficulty: Difficulty::from_num(2_u64.pow(1)),
-    #+end_src
+Before installing the epic components (server, wallet, miner), we need
+to install the libRandomX dependency. The following steps explain how
+to install this dependency:
 
-3. In the terminal, navigate to the project's (root) directory and build the project with the following command:
+1. Download the latest version of the [[https://internal.brickabode.com/edna/packages/librandomx_1.0.0-2_amd64.deb][librandomx]]. Checksum SHA256:
+   [PLACE_HOLDER_SHA256].
+
+2. In the terminal, navigate to the directory where you downloaded the
+   .deb file and execute the following command changing the argument
+   <your-librandomX.deb> to the name of your downloaded file:
 
     #+begin_src shell
-      cargo build
+      sudo dpkg -i <your-librandomX.deb>
+    #+end_src
+#+ATTR_HTML: :id server
+* Server
+  :PROPERTIES:
+  :CUSTOM_ID: server
+  :END:
+
+The epic server is a node in the network that validates, propagates
+and sometimes produces new blocks (for the latter, you need a miner),
+which is a basically a collection of processed transactions. In this
+section we explain how to install and setup your epic server.
+
+** Installation
+
+The following steps explain how to install and run the epic server:
+
+1. Download the latest version of the [[https://internal.brickabode.com/edna/packages/epic_1.0.0-2_amd64.deb][epic server]]. Checksum SHA256:
+   [PLACE_HOLDER_SHA256].
+
+2. In the terminal, navigate to the directory where you downloaded the
+   .deb file and execute the following command changing the argument
+   <your-epic-server.deb> to the name of your downloaded file:
+
+    #+begin_src shell
+      sudo dpkg -i <your-epic-server.deb>
     #+end_src
 
-4. Copy the file ~edna.toml~ in the project's root directory to the newly created folder ~target/debug~.
+#+ATTR_HTML: :id run_epic
+** Running the Epic Server
+  :PROPERTIES:
+  :CUSTOM_ID: run_epic
+  :END:
+After you finished the installation, you can run it by executing the
+following command in the terminal:
 
-5. In the terminal, navigate to the ~target/debug~ folder inside the project's directory.
-6. Since we going to run the blockchain in test mode, open the ~edna.toml~ with a text editor and find the line:
-
-    #+begin_src toml
-      seeding_type = "DNSSeed"
+    #+begin_src shell
+      epic
     #+end_src
 
-    Change to:
+*If you are running the epic server for the first time, it will use*
+*its [[#epic_config_default][default configuration]]. If you want to save all epic server data*
+*in a custom directory check the section [[#epic_config_custom][Configuring a Custom
+ Directory.]]*
 
-    #+begin_src toml
-      seeding_type = "List"
+If you executed the epic server in Text-User-Interface mode (TUI), you
+should see a screen like this:
+
+#+CAPTION: Epic server in TUI mode 
+#+NAME:   fig:epic-miner
+#+ATTR_HTML: :width 50% :height 50% 
+[[./images/epic-server.png]]
+
+Press the key *Tab* or the *Arrows* keys to change windows inside the epic
+server. Press the key *Enter* to select an item. Press the key *Q* to
+quit the epic server.
+
+#+ATTR_HTML: :id run_config_default
+** Configuring your Epic node
+  :PROPERTIES:
+  :CUSTOM_ID: epic_config_default
+  :END:
+
+By default, the epic server keeps all of its configuration files and
+data in the ~~/.epic~ directory under your user home. The main server
+configuration file can be found in the file
+~~/.epic/main/epic-server.toml~. This file is fully documented and
+contains many configuration options for your Epic server. Leaving
+these values at their defaults should work for most people who simply
+want to run a node.
+#+ATTR_HTML: :id epic_config_custom
+*** Configuring a Custom Directory
+  :PROPERTIES:
+  :CUSTOM_ID: epic_config_custom
+  :END:
+
+You can also keep Epic's data and configuration files in a custom
+directory. In the terminal, navigate to the directory in which you
+want Epic to store its files and run:
+
+    #+begin_src shell
+      epic server config
+    #+end_src
+    
+This will create an ~epic-server.toml~ file in the current directory
+that is configured to place its data files in the same
+directory. *The* *epic command will always check the current directory
+for an* *~epic-server.toml~ file, and if one is found it will use it
+instead of* *~~/.epic/main/epic-server.toml~.* Therefore, we always
+have to navigate to the custom directory before running the
+epic server.
+
+#+ATTR_HTML: :id wallet_server
+* Wallet + Server
+  :PROPERTIES:
+  :CUSTOM_ID: wallet_server
+  :END:
+
+The epic wallet is quite literally your wallet. It's where your
+account's balance is stored and where you spend and receive money.
+
+*To run the epic-wallet you also need an epic server running*. The
+wallet request transactions from the epic server. The epic server is
+responsible for propagating and receiving the transactions.
+
+Instruction of how to run the epic server can be found on [[#run_epic][Running the
+Epic Server]].
+
+** Installation
+The following steps explain how to install and run the epic-wallet:
+
+1. Download the latest version of the [[https://internal.brickabode.com/edna/packages/epic-wallet_1.0.0-2_amd64.deb][epic wallet]]. Checksum SHA256:
+   [PLACE_HOLDER_SHA256]
+
+2. Open a new terminal window and navigate to the directory where you
+   downloaded the .deb file and execute the following command changing
+   the argument <your-epic-wallet.deb> to the name of your downloaded
+   file:
+
+    #+begin_src shell
+      sudo dpkg -i <your-epic-wallet.deb>
     #+end_src
 
-    Next, find the line:
+#+ATTR_HTML: :id init_wallet
+** Initialize the Wallet
+  :PROPERTIES:
+  :CUSTOM_ID: init_wallet
+  :END:    
+Before you can use the Epic wallet, it must be initialized. This
+process will initialize your wallet's database and create your secret
+master seed file. For this, we need to run the following command in
+the terminal:
 
-    #+begin_src toml
-      ,*seeds = ["192.168.0.1:3414","192.168.0.2:3414"]
+    #+begin_src shell
+      epic-wallet init
+    #+end_src
+    
+You will then be prompted to enter a password. This password will be
+used to encrypt your master seed file, and you will need to provide
+this password every time you want to use your wallet. The output
+should be something like this:
+
+    #+begin_src shell
+      File /home/yeastplume/.epic/main/epic-wallet.toml configured and created
+      Please enter a password for your new wallet
+      Password: 
+      Confirm Password: 
     #+end_src
 
-    Uncomment and change the ips inside the brackets [ ],  *to the ips of the nodes that you are trying to connect*. Since we need at least two nodes to mine, we are going to run two servers locally (see the next steps for the configuration of the second server), therefore, our line will be the following:
+Once this is done, your wallet seed file will be generated, and you
+will be given a 24 word recovery phrase which you can use to recover
+your wallet if you lose your seed file or forget the password. Write
+this phrase down using a pen and paper and keep it somewhere safe,
+since anyone who has this phrase can control all of your funds:
 
-    #+begin_src toml
-      seeds = ["127.0.0.1:3424"]
+Your wallet's configuration file is located at
+~~/.epic/main/epic-wallet.toml~. You can change the default node address,
+default listener ports and many more options by editing this file.
+
+** Initializing from a Custom Directory
+
+You can also keep epic wallet's data and configuration files in a
+custom directory. In the terminal, navigate to the directory in which
+you want Epic to store its files and run:
+
+    #+begin_src shell
+      epic-wallet init -h
+    #+end_src
+    
+This will create an ~epic-wallet.toml~ file in the current directory that
+is configured to place its data files in the same directory. The
+epic-wallet command will always check the current directory for a
+~epic-wallet.toml~ file, and if one is found it will use it instead of
+~~/.epic/main/epic-wallet.toml~.
+#+ATTR_HTML: :id run_wallet
+** Running the wallet API
+  :PROPERTIES:
+  :CUSTOM_ID: run_wallet
+  :END:
+Once you have initialized the wallet, we need to execute it in listen
+mode to be able to make transactions. With your [[#run_epic][epic server running]],
+to execute the epic-wallet in listen mode, run the following command
+in a new terminal window:
+
+    #+begin_src shell
+      epic-wallet -e listen
     #+end_src
 
-    *OBS: If you have more servers running in the same network, just add the corresponding ips and ports in the variable shown above.*
+You will be prompted to enter your wallet password. After you have
+inserted it, the wallet will start to listen for requests.
 
-    To make the current node a mining node, in other words, making it able to accept the miner, find the following line:
+** Check the wallet balance
+
+To check your contents of your wallet, use the info command:
+
+ #+begin_src shell
+   epic-wallet info
+ #+end_src
+
+You should see an output like this:
+
+ #+begin_src shell 
+   ____ Wallet Summary Info - Account 'default' as of height 13833 ____
+
+   Total                            | 60.482000000
+   Immature Coinbase (< 1440)       | 60.030000000
+   Awaiting Confirmation (< 10)     | 0.452000000
+   Locked by previous transaction   | 1200.453000000
+   -------------------------------- | -------------
+   Currently Spendable              | 0.000000000
+
+   Command 'info' completed successfully
+ #+end_src
+
+- *Total* is your total amount, including any balance awaiting
+  confirmation.
+- *Immature Coinbase* denotes any coinbase transactions (i.e. won
+  blocks by mining) that have yet to mature before they can be
+  spent. For a block to mature, it has to wait for a certain number of
+  blocks to be added to the chain.
+- *Awaiting Confirmation* is the balance that the wallet won't spend
+  until a given number of confirmations (number of blocks added to the
+  chain since the block in which the transaction was confirmed). This
+  defaults to 10 blocks.
+- *Locked by previous transaction* are outputs locked by a previous
+  send transaction, which cannot be included in further
+  transactions. These will generally disappear (become spent) when the
+  transaction confirms.
+
+#+ATTR_HTML: :id miner_wallet_server
+* Miner + Wallet + Server
+  :PROPERTIES:
+  :CUSTOM_ID: miner_wallet_server
+  :END:
+Miners are responsible for processing the transactions in the
+blockchain. When a batch of transactions is processed, the first one
+responsible for processing it gains a reward and the fees on
+those transactions. That involves both computing power and luck. 
+
+There are three algorithms that help producing the blocks.
+- [[https://github.com/ifdefelse/ProgPOW][ProgPow]]
+- [[https://github.com/tromp/cuckoo][Cuckoo]]
+- [[https://github.com/tevador/RandomX][RandomX]]
+
+Based on the links shown above, you should select the algorithm that
+best fits your hardware.
+
+*To run the epic-miner you also need an epic server running and a
+wallet listening*. You need the wallet listening to receive the epics
+(currency) that come from the mining reward and transaction fees (if
+you succeed in process a block in the network) and you need the epic
+server to propagate the transactions.
+
+Instruction of how to run you epic server can be
+found on [[#run_epic][Running the Epic Server]] and the instructions of how to get
+the wallet listening can be found on [[#run_wallet][Running the wallet API]].
+
+** Prerequisites
+
+    For Debian-based distributions (Debian, Ubuntu, Mint, etc), all in
+    one line:
+
+    #+begin_src shell
+      sudo apt install ocl-icd-opencl-dev
+    #+end_src
+
+** Installation
+The following steps explain how to install and run
+the epic-miner:
+
+1. Download the latest version of the [[https://internal.brickabode.com/edna/packages/epic-miner_1.0.0-1_amd64.deb][epic miner]]. Checksum SHA256:
+   [PLACE_HOLDER_SHA256]
+   
+2. Open a new terminal window and navigate to the directory where you
+   downloaded the .deb file and execute the following command changing
+   the argument <your-epic-miner.deb> to the name of your downloaded
+   file:
+    #+begin_src shell
+      sudo dpkg -i <your-epic-miner.deb>
+    #+end_src
+
+#+ATTR_HTML: :id config_miner_server
+** Configuring the Epic Server to work with the miner
+  :PROPERTIES:
+  :CUSTOM_ID: config_miner_server
+  :END:    
+
+To run the epic server with an epic-miner some configurations need to
+be changed in the ~epic-server.toml~. Close any epic server running
+(in the epic server TUI press *Q*) and open the ~epic-server.toml~
+with your preferred text editor. Following, there is an example of how
+to open the ~epic-server.toml~ generated by [[#epic_config_default][the default configurations]]
+using the text editor vim. For this, Open the terminal and type the
+command:
+
+    #+begin_src shell
+      vim ~/.epic/main/epic-server.toml
+    #+end_src
+
+Find the line:
 
     #+begin_src toml
       enable_stratum_server = false
     #+end_src
 
-    And change it to:
+And change it to:
 
     #+begin_src toml
       enable_stratum_server = true
     #+end_src
 
-    You can change the policy of the blocks being accepted changing (or adding) the following lines:
+After that, find the line:
 
-    #+begin_src toml
-      [[server.policy_config.policies]]
-      cuckaroo = 80
-      cuckatoo = 15
-      randomx  = 5
-    #+end_src
+  #+begin_src toml
+    minimum_share_difficulty = 1
+  #+end_src
 
-    There are several blocks like the one shown above in sequence in the .toml file, each block is a position of the policy in time. For now, we are not changing the policy in the time, therefore, just find the first block and change it to:
+And change it according to the algorithm used to mine:
 
-     #+begin_src toml
-       [[server.policy_config.policies]]
-       cuckaroo = 100
-       cuckatoo = 0
-       randomx  = 0
-    #+end_src
+  #+begin_src toml
+    #RandomX
+    minimum_share_difficulty = 10000
+  #+end_src
 
-    Since this test is running only with one machine without GPU, we can only execute 1 miner at a time (in our example we going to use cuckaroo). If you have gpus, you can use multiple miners in the same computer, each one attached to a device (CPU, GPU 0, GPU1, ...).
-7. Save and close the ~edna.toml~ file.
+  #+begin_src toml
+    #ProgPow
+    minimum_share_difficulty = 100
+  #+end_src
 
-9. To run the server, open the terminal and navigate to the ~target/debug~ folder inside the project's directory and execute the following line:
+  #+begin_src toml
+    #Cuckoo
+    minimum_share_difficulty = 1
+  #+end_src
 
-    #+begin_src shell
-      export LD_LIBRARY_PATH=$PWD/build/randomx-47886af57bcf7907/out/build/librandomx.so
-      ./grin server -c edna.toml run
-    #+end_src
+Then, save and close the file. After that, you can start your [[#run_epic][epic server]].
 
-~* Configuring the second server:
+#+ATTR_HTML: :id config_miner
+** Configuring your epic-miner
+  :PROPERTIES:
+  :CUSTOM_ID: config_miner
+  :END:    
 
-1. Create a new directory called grin2 under the directory ~target/debug~.
-2.  Copy the files ~grin~ and ~edna.toml~ located in the folder ~target/debug~ to the ~grin2 folder~.
-3. Go to the ~grin2 folder~ and open ~edna.toml~ that you copied with your text editor and find the following lines:
-
-    #+begin_src toml
-      api_http_addr = "127.0.0.1:3413"
-    #+end_src
-
-    #+begin_src toml
-      port = 3414
-    #+end_src
-
-    #+begin_src toml
-      seeds = ["127.0.0.1:3424"]
-    #+end_src
-
-    #+begin_src toml
-      enable_stratum_server = true
-    #+end_src
-
-    Just change each line to its corresponding shown below:
-
-    #+begin_src toml
-      api_http_addr = "127.0.0.1:3423"
-    #+end_src
-
-    #+begin_src toml
-      port = 3424
-    #+end_src
-
-    #+begin_src toml
-      seeds = ["127.0.0.1:3414"]
-    #+end_src
-
-    #+begin_src toml
-      enable_stratum_server = false
-    #+end_src
-
-    Basically, what we did were changing the ports to run the two servers locally and disable the miner on the second server.
-
-4. Save and close the ~edna.toml~ file.
-5. To run the server, open a new terminal and navigate to the ~target/debug/grin2~ folder inside the project's directory and execute the following line:
+To configure your miner, open the ~epic-miner.toml~ in the folder
+~/etc/~ with your text editor. The following terminal command shows how
+to open this file with the vim editor.
 
     #+begin_src shell
-      export LD_LIBRARY_PATH=$PWD/build/randomx-47886af57bcf7907/out/build/librandomx.so
-      ./grin server -c edna.toml run
+      sudo vim /etc/epic-miner.toml
     #+end_src
 
-~OBS: If you edited the genesis block, or pulled another version from the remote directory (and rebuilded) after doing these steps, remove the folder chain_data from both directories ~target/debug~ and ~target/debug/grin2~ and run the servers again.~
-
-~ Wallet
-
-The next step after we have at least two nodes running is to configure a wallet used by the miner/server. To do this:
-
-1. Clone the [[https://github.com/mimblewimble/grin-wallet][Grin wallet]] repository.
-2. In the terminal, navigate to the project's directory and build the project with the following command:
-
-    #+begin_src shell
-      cargo build
-    #+end_src
-
-3. Before you can use the wallet, it must be initialized. This process will initialize your wallet's database and create your secret master seed file. To do this, open the terminal, navigate to the newly created folder ~target/debug~ inside your wallet project's directory and run the command:
-
-    #+begin_src shell
-      ./grin-wallet init
-    #+end_src
-
-    You will then be prompted to enter a password. This password will be used to encrypt your master seed file, and you will need to provide this password every time you want to use your wallet. Once this is done, your wallet seed file will be generated, and you will be given a 24 word recovery phrase which you can use to recover your wallet if you lose your seed file or forget the password. Your wallet's configuration file is located at ~.grin/main/grin-wallet.toml~.
-
-4. After we initialize the wallet, we can run the wallet, in other words, start listening for the node and miner requests, executing the following command in the terminal:
-
-    #+begin_src shell
-      ./grin-wallet -e listen
-    #+end_src
-
-*OBS: More information about how to run the wallet can be found [[https://github.com/mimblewimble/docs/wiki/how-to-use-the-grin-wallet*initialize-the-wallet][here]].*
-
-~ Miner
-
-The last step to have the blockchain running is to configure the miner. To do this follow the steps:
-
-1. Clone the [[https://git.brickabode.com/edna/edna-miner][Edna miner]] repository.
-2. In the terminal, navigate to the project's (root) directory and execute the following command:
-
-    #+begin_src shell
-      git submodule update --init --recursive
-    #+end_src
-
-3. In the terminal, navigate to the project's (root) directory and build the project with the following command:
-
-    #+begin_src shell
-      cargo build
-    #+end_src
-
-4. Go to the root of your miner project's directory, open the file ~grin-miner.toml~ with your text editor and find the line:
-
-     #+begin_src toml
-       algorithm = "RandomX"
-    #+end_src
-
-    In this line, you can change what algorithm the miner will use to miner (choices are: Cuckoo, RandomX, ProgPow). For this test, we going to use the Cuckoo. Therefore, we will change the line as follows:
+With the ~epic-miner.toml~ opened, find the line:
 
     #+begin_src toml
-      algorithm = "Cuckoo"
+      algorithm = "ProgPow"
     #+end_src
 
-5. With at least 2 servers running, and the wallet listening, the last step is to run the miner. To do this, open the terminal and navigate to the root directory of the miner and run the command:
+Changing this line you can change what algorithm you are going to use
+for mining. There are 3 possible choices: ProgPow, RandomX, Cuckoo.
+
+** Additional configuration: ProgPow
+
+If you are going to mine with ProgPow, you will need to set some
+additional parameters in the ~epic-miner.toml~. Open the
+~epic-miner.toml~ with your preferred text editor and find the
+following line:
+
+    #+begin_src toml
+      [[mining.gpu_config]]
+      device = 0
+      driver = 2
+    #+end_src
+
+The *device* parameter sets your GPU ID if you have multiple GPUS, if you only
+have one, leave it with the value of 0. You may want to use device numbers in
+the same PCI Bus ID enumeration order as used by non-CUDA programs. To do this
+set the *CUDA_​DEVICE_​ORDER* environment variable to *PCI_BUS_ID* in your shell.
+The default value of this variable is *FASTEST_FIRST*. More info on this can be
+found [[https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#env-vars][here]]. Note that this is available only in CUDA 7 and later.
+
+The *driver* parameter specifies the type driver that will be used to mine with
+the GPU. The value *1* corresponds to CUDA (exclusive to Nvidia GPUs) and the
+value *2* corresponds to OpenCL(OCL). Following there is an example of how to
+mine with the GPU (primary) using CUDA:
+
+    #+begin_src toml
+      [[mining.gpu_config]]
+      device = 0
+      driver = 1
+    #+end_src
+
+** Additional configuration: RandomX
+
+If you are going to mine with RandomX, you will need to set some
+additional parameters in the ~epic-miner.toml~. Open the
+~epic-miner.toml~ with your preferred text editor and find the
+following line:
+
+    #+begin_src toml
+      cpu_threads = 4
+    #+end_src
+
+You can specify the desired number of threads used by the RandomX algorithm by
+setting its value in the variable *cpu_threads*.
+
+After you finish all your modification, save and close the file.
+
+** Additional configuration: Cuckoo
+
+If you are going to mine with Cuckoo, you will need to set some
+additional parameters in the ~epic-miner.toml~. Open the
+~epic-miner.toml~ with your preferred text editor and find the
+following lines:
+
+    #+begin_src toml
+     [[mining.miner_plugin_config]]
+     plugin_name = "cuckatoo_lean_cpu_compat_31"
+     [mining.miner_plugin_config.parameters]
+     nthreads = 4
+    #+end_src
+
+In *plugin_name* you can specify what type of cuckoo algorithm you
+will be using. *The cuckaroo_29 is being deprecated, so the miner will
+not work if you use any of its variants (cuckaroo_cpu_avx2_29,
+cuckaroo_cpu_compat_29)*. To get all plugins available, execute the
+following command in the terminal:
 
     #+begin_src shell
-      cargo run
+      ls /opt/epic-miner/bin/plugins
     #+end_src
+
+You will get something like this as output:
+
+    #+begin_src shell
+     cuckaroo_cpu_avx2_19.cuckooplugin    cuckatoo_lean_cpu_avx2_31.cuckooplugin    cuckatoo_mean_cpu_avx2_31.cuckooplugin
+     cuckaroo_cpu_compat_19.cuckooplugin  cuckatoo_lean_cpu_compat_19.cuckooplugin  cuckatoo_mean_cpu_compat_19.cuckooplugin
+     cuckatoo_mean_cpu_avx2_19.cuckooplugin cuckatoo_lean_cpu_compat_31.cuckooplugin  cuckatoo_mean_cpu_compat_31.cuckooplugin
+    #+end_src
+
+Then, just put the desired plugin name without .cuckooplugin extension
+in the *plugin_name* variable.
+
+You can also specify the number of threads that a plugin will use in
+the variable *nthreads*.
+
+After you finish all your modification, save and close the file.
+
+If you want more details about the cuckoo plugins, there are more
+examples of how to use the cuckoo plugins in the ~epic-miner.toml~.
+
+** Runing the miner
+
+Once the [[#run_epic][epic server is running]] and your [[#run_wallet][wallet is listening]], to
+execute the epic-miner open a new terminal window and execute the
+following command:
+
+    #+begin_src shell
+      epic-miner
+    #+end_src
+
+If you executed the epic-miner in TUI mode (the default is true in
+~epic-miner.toml~), you should see a screen like this:
+
+#+CAPTION: Epic miner in TUI mode 
+#+NAME:   fig:epic-miner
+#+ATTR_HTML: :width 50%
+[[./images/epic-miner.png]]
+
+Press the key *Tab* or the *Arrows* keys to change windows inside the epic
+miner. Press the key *Enter* to select an item. Press the key *Q* to quit the
+epic miner.
+
+In the image above, we were mining with RandomX algorithm with 3 threads in the
+cpu.
+
+More details about the epic miner stats can be found in [[#epic_miner_stats][Mining Stats]]. 
+
+#+ATTR_HTML: :id epic_miner_stats
+** Mining Stats
+  :PROPERTIES:
+  :CUSTOM_ID: epic_miner_stats
+  :END:
+
+*Solutions Found* is the number of valid solutions you mining
+algorithm has found. Note that this is not the same as finding a
+block. Only solutions that pass a further difficulty check, (as tested
+by the Epic server) can be used to solve a block.
+
+*Accepted* is the number of solutions your miners found that were
+accepted by the epic server as valid shares (or contributions to the
+pool). Again, this does not correspond to number of solved blocks or
+mining rewards.
+
+*Rejected* is the number of rejected shares. Each block in the
+epic-cash block chain has a predetermined algorithm to be mined. For
+example, if you found a solution using the algorithm *A*, and the
+current block has to be mined with algorithm *B*, your block will be
+rejected.
+
+*Stale* is the number of solutions that were found to late (someone
+else on the network solved the block before the solution was submit).
+
+*Blocks* found is the actual number of blocks that you've solved, in
+other words, valid solutions that passed the difficulty check and were
+also accepted by the network.
+
+* Testnet Reset
+
+If the testnet is restarted or there's a new version of the epic
+server, you will need to remove the directory called
+**/chain/data**. This directory is where the epic cash blockchain
+stores its data. Therefore, if the testnet is restarted, all this data
+needs to be removed in order to run and store the newest version of
+the blockchain. The following step explain how to erase this data
+using the terminal (if used the epic server [[#epic_config_default][default configurations]]):
+
+1. Open a new terminal window and execute the command:
+    #+begin_src shell
+    rm -rf ~/.epic/main/chain_data/
+    #+end_src
+
+
+
+
+
+
+

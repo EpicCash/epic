@@ -1,20 +1,8 @@
-# Epic - Build, Configuration, and Running
-
-
-## Supported Platforms
-
-Longer term, most platforms will likely be supported to some extent.
-Epic's programming language `rust` has build targets for most platforms.
-
-What's working so far?
-
-* Linux x86\_64 and macOS [epic + mining + development]
-* Not Windows 10 yet [epic kind-of builds. No mining yet. Help wanted!]
+# Epic Server - Build, Configuration, and Running
 
 ## Requirements
 
-* rust 1.31+ (use [rustup]((https://www.rustup.rs/))- i.e. `curl https://sh.rustup.rs -sSf | sh; source $HOME/.cargo/env`)
-  * if rust is already installed, you can simply update version with `rustup update`
+* rust 1.35
 * clang
 * ncurses and libs (ncurses, ncursesw5)
 * zlib libs (zlib1g-dev or zlib-devel)
@@ -26,10 +14,10 @@ What's working so far?
 For Debian-based distributions (Debian, Ubuntu, Mint, etc), all in one line (except Rust):
 
 ```sh
-apt install build-essential cmake git libgit2-dev clang libncurses5-dev libncursesw5-dev zlib1g-dev pkg-config libssl-dev llvm
+sudo apt install build-essential cmake git libgit2-dev clang libncurses5-dev libncursesw5-dev zlib1g-dev pkg-config libssl-dev llvm
 ```
 
-For Mac:
+For Mac using [brew](https://brew.sh/):
 
 ```sh
 xcode-select --install
@@ -38,96 +26,137 @@ brew install pkg-config
 brew install openssl
 ```
 
+### Rust
+Instructions of how to install rust can be found [here](https://www.rust-lang.org/tools/install).
+
+During installation __rustup__ will attempt to configure the [__PATH__](https://en.wikipedia.org/wiki/PATH_(variable)). Because of differences between platforms, command shells, and bugs in __rustup__, the modifications to __PATH__ may not take effect until the console is restarted, or the user is logged out, or it may not succeed at all. **So, restart your console before proceeding to the next steps.**
+
+After you have rust installed, execute the following command in the terminal:
+
+```sh
+rustup default 1.35.0
+```
+
+And then, check if you are using the correct version by typing the following command in the terminal:
+
+```sh
+rustc --version
+```
+
+The output should be something like this:
+
+```sh
+rustc 1.35.0 (3c235d560 2019-05-20)
+```
+
 ## Build steps
 
 ```sh
-git clone https://github.com/mimblewimble/epic.git
+git clone https://gitlab.com/epiccash/epic
 cd epic
+git submodule update --init --recursive
 cargo build --release
 ```
 
 Epic can also be built in debug mode (without the `--release` flag, but using the `--debug` or the `--verbose` flag) but this will render fast sync prohibitively slow due to the large overhead of cryptographic operations.
 
-## Build errors
-
-See [Troubleshooting](https://github.com/mimblewimble/docs/wiki/Troubleshooting)
-
-## What was built?
+## What was built
 
 A successful build gets you:
 
 * `target/release/epic` - the main epic binary
 
-All data, configuration and log files created and used by epic are located in the hidden
-`~/.epic` directory (under your user home directory) by default. You can modify all configuration
-values by editing the file `~/.epic/main/epic-server.toml`.
+## Running the Epic Server
 
-It is also possible to have epic create its data files in the current directory. To do this, run
+If you want to execute the epic server, in the root directory of your Epic installation open a new terminal session and execute the following steps:
 
-```sh
-epic server config
-```
+ 1. Navigate to where your epic binary was generated using the followed command:
 
-Which will generate a `epic-server.toml` file in the current directory, pre-configured to use
-the current directory for all of its data. Running epic from a directory that contains a
-`epic-server.toml` file will use the values in that file instead of the default
-`~/.epic/main/epic-server.toml`.
+    ```sh
+    cd target/release
+    ```
+ 2. Configuring the __$PATH__ environment variable
+ 
+     ```sh
+    export LD_LIBRARY_PATH=$(find . -iname librandomx.so | head -n 1 | xargs dirname | xargs realpath)
+    ```
+ 
+ 3. Execute the epic server using the following command:
+  
+    ```sh
+    ./epic
+    ```
 
-While testing, put the epic binary on your path like this:
+**If the directory that you are starting the epic server doesn't have __epic-server.toml__ file, the epic server will be executed with the default file __~/.epic/main/epic-server.toml__.** More information can be found [here](./running.org#epic_config_default).
 
-```sh
-export PATH=`pwd`/target/release:$PATH
-```
+### (Optional) Adding Epic server to the path
 
-assuming you are running from the root directory of your Epic installation.
+The following steps describe how to execute epic from any location in **the current terminal session**:
 
-You can then run `epic` directly (try `epic help` for more options).
+ 1. Open the terminal in the root directory of your Epic installation, and execute the following command to put the epic binary on your path:
 
-## Configuration
+    ```sh
+    export PATH=`pwd`/target/release:$PATH
+    ```
 
-Epic attempts to run with sensible defaults, and can be further configured via
-the `epic-server.toml` file. This file is generated by epic on its first run, and
-contains documentation on each available option.
+ 2. After you set the path, you can run `epic` directly by typing in the terminal:
 
-While it's recommended that you perform all epic server configuration via
-`epic-server.toml`, it's also possible to supply command line switches to epic that
-override any settings in the file.
+    ```sh
+    epic
+    ```
 
-For help on epic commands and their switches, try:
-
-```sh
-epic help
-epic wallet help
-epic client help
-```
-
-## Docker
-
-```sh
-docker build -t epic -f etc/Dockerfile .
-```
-For floonet, use `etc/Dockerfile.floonet` instead
-
-You can bind-mount your epic cache to run inside the container.
-
-```sh
-docker run -it -d -v $HOME/.epic:/root/.epic epic
-```
-If you prefer to use a docker named volume, you can pass `-v dotepic:/root/.epic` instead.
-Using a named volume copies default configurations upon volume creation
-
-## Cross-platform builds
-
-Rust (cargo) can build epic for many platforms, so in theory running `epic`
-as a validating node on your low powered device might be possible.
-To cross-compile `epic` on a x86 Linux platform and produce ARM binaries,
-say, for a Raspberry Pi.
+**If the directory that you are starting the epic server doesn't have __epic-server.toml__ file, the epic server will be executed with the default file __~/.epic/main/epic-server.toml__.** More information can be found [here](./running.org#epic_config_default).
 
 ## Mining in Epic
 
-Please note that all mining functions for Epic have moved into a separate, standalone package called
-[epic-miner]. Once your Epic code node is up and running,
-you can start mining by building and running epic-miner against your running Epic node.
+All mining functions for Epic are in a separate project called
+[epic-miner](https://gitlab.com/epiccash/epic-miner).
 
-For epic-miner to be able to communicate with your epic node, make sure that you have `enable_stratum_server = true`
-in your `epic-server.toml` configuration file and you have a wallet listener running (`epic wallet listen`). 
+<a id="testnet_reset"></a>
+## Testnet Reset
+
+If the testnet is restarted or there's a new version of the epic
+server, you will need to remove the directory called
+**/chain/data**. This directory is where the epic cash blockchain
+stores its data. Therefore, if the testnet is restarted, all this data
+needs to be removed in order to run and store the newest version of
+the blockchain. The following steps explain how to erase this data
+using the terminal:
+
+1. Open a new terminal window in the directory where you saved the
+   epic server data. If you used the [default configuration](./running.org#epic_config_default), this
+   folder should be under __~/.epic/main__ in you home directory.
+2. Then execute the following command:
+   
+   ```sh
+    rm -rf chain_data/
+   ```
+
+## Building the debian packages
+
+Deb package is binary-based package manager. We have build scripts .deb packages in the following repos:
+
+- RandomX
+- Epic
+- Epic Wallet
+- Epic Miner
+  
+In order to build one, just install all the package listed under the build depends section on debian/control and run from the respective project root the follwing command:
+
+```sh
+fakeroot make -f debian/rules binary
+```
+
+## Adjusting algorithm difficulties
+
+In the next few days we will need to adjust the difficulties in order to reach an ideal point. In order to change that manually access the file **core/src/genesis.rs** from epic root directory. Look for the functions **genesis_floo** and **genesis_main** and search for the lines that look like the following:
+
+```rust
+diff.insert(PoWType::Cuckaroo, 2_u64.pow(1));
+diff.insert(PoWType::Cuckatoo, 2_u64.pow(1));
+diff.insert(PoWType::RandomX, 2_u64.pow(16));
+diff.insert(PoWType::ProgPow, 2_u64.pow(8));
+```
+And change the values under **.pow()**. 
+
+After you did those things you will need to rebuild the package, the testnet and everybody participating in the network will need to install the new package and restart all the services. More instruction of how to that can be found in the topic [Testnet reset](#testnet_reset).
