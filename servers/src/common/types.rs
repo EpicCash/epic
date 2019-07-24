@@ -247,8 +247,14 @@ pub struct StratumServerConfig {
 	/// and starting again
 	pub attempt_time_per_block: u32,
 
-	/// Minimum difficulty for worker shares
-	pub minimum_share_difficulty: u64,
+	/// Cuckatoo Minimum difficulty for worker shares
+	pub cuckatoo_minimum_share_difficulty: u64,
+
+	/// Randomx Minimum difficulty for worker shares
+	pub randomx_minimum_share_difficulty: u64,
+
+	/// Progpow Minimum difficulty for worker shares
+	pub progpow_minimum_share_difficulty: u64,
 
 	/// Base address to the HTTP wallet receiver
 	pub wallet_listener_url: String,
@@ -264,7 +270,9 @@ impl Default for StratumServerConfig {
 			wallet_listener_url: "http://127.0.0.1:3415".to_string(),
 			burn_reward: false,
 			attempt_time_per_block: 15,
-			minimum_share_difficulty: 1,
+			cuckatoo_minimum_share_difficulty: 1,
+			randomx_minimum_share_difficulty: 1,
+			progpow_minimum_share_difficulty: 1,
 			enable_stratum_server: Some(false),
 			stratum_server_addr: Some("127.0.0.1:3416".to_string()),
 		}

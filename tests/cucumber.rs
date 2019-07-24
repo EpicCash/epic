@@ -306,7 +306,7 @@ mod mine_chain {
 
 			let mut diff = HashMap::new();
 			diff.insert(FType::Cuckaroo, 3);
-			diff.insert(FType::Cuckatoo, 3);
+			diff.insert(FType::Cuckatoo, 1);
 			diff.insert(FType::RandomX, 1);
 			diff.insert(FType::ProgPow, 1);
 
@@ -331,19 +331,19 @@ mod mine_chain {
 			let proof = match proof_name {
 				"progpow" => pow::Proof::ProgPowProof{
 					mix: [
-						172, 95, 8, 146, 144, 78, 254, 223, 103, 95, 54, 53,
-						109, 43, 77, 105, 178, 249, 177, 43, 144, 254, 124,
-						19, 132, 139, 88, 181, 223, 224, 214, 209],
+						204, 253, 208, 53, 233, 98, 187, 32, 229, 142, 50, 69,
+						170, 226, 63, 69, 127, 38, 212, 17, 238, 233, 94, 168,
+						78, 147, 193, 55, 67, 18, 17, 85],
 				},
 				"randomx" => pow::Proof::RandomXProof {
 					hash: [
-						100, 134, 40, 88, 134, 86, 148, 201, 135, 13, 185,
-						201, 154, 68, 23, 174, 79, 167, 22, 173, 41, 212, 233,
-						186, 116, 21, 186, 248, 5, 154, 120, 93],
+						194, 140, 183, 217, 242, 141, 158, 252, 145, 102, 137, 0,
+						207, 230, 90, 238, 198, 138, 199, 156, 102, 117, 127, 252,
+						183, 28, 62, 140, 184, 21, 198, 152],
 				},
 				"md5" => pow::Proof::MD5Proof {
 					edge_bits: 10,
-					proof: "2829a258c87bf3984799f498d726621e".to_string()
+					proof: "cf216727c5ed84a9f8baccfba715da2b".to_string()
 				},
 				"cuckoo" => pow::Proof::CuckooProof {
 					edge_bits: 9,
@@ -354,7 +354,7 @@ mod mine_chain {
 
 			let mut diff = HashMap::new();
 			diff.insert(FType::Cuckaroo, 3);
-			diff.insert(FType::Cuckatoo, 3);
+			diff.insert(FType::Cuckatoo, 1);
 			diff.insert(FType::RandomX, 1);
 			diff.insert(FType::ProgPow, 1);
 
@@ -522,7 +522,10 @@ mod mine_chain {
 
 			for n in 1..15 {
 				let prev = chain.head_header().unwrap();
-				let next_header_info = consensus::next_difficulty(1, prev.pow.total_difficulty.clone(), chain.difficulty_iter().unwrap());
+				let next_header_info = consensus::next_difficulty(
+					1,
+					prev.pow.proof.clone().into(),
+					chain.difficulty_iter().unwrap());
 				let pk = epic_keychain::ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
 				let reward = libtx::reward::output(kc, &pk, 0, false, n).unwrap();
 				let foundation = load_foundation_output(prev.height + 1);
@@ -899,7 +902,7 @@ mod mine_chain {
 			let prev = chain.head_header().unwrap();
 			let next_header_info = consensus::next_difficulty(
 				1,
-				prev.pow.total_difficulty.clone(),
+				prev.pow.proof.clone().into(),
 				chain.difficulty_iter().unwrap(),
 			);
 			let pk = epic_keychain::ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();

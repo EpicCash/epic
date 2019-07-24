@@ -402,7 +402,9 @@ impl Server {
 			enable_stratum_server: None,
 			stratum_server_addr: None,
 			wallet_listener_url: config_wallet_url,
-			minimum_share_difficulty: 1,
+			cuckatoo_minimum_share_difficulty: 1,
+			randomx_minimum_share_difficulty: 1,
+			progpow_minimum_share_difficulty: 1,
 		};
 
 		let mut miner = Miner::new(

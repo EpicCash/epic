@@ -345,7 +345,7 @@ impl TUIStatusListener for TUIMiningView {
 		let stratum_num_workers = format!("Number of workers:     {}", stratum_stats.num_workers);
 		let stratum_block_height = format!("Solving Block Height:  {}", stratum_stats.block_height);
 		let stratum_network_difficulty = format!(
-			"Network Difficulty:    {}",
+			"Network Difficulty:    {:?}",
 			stratum_stats.network_difficulty
 		);
 		let stratum_edge_bits = format!("Cuckoo Size:           {}", stratum_stats.edge_bits);

@@ -352,34 +352,43 @@ pub fn clamp(actual: u64, goal: u64, clamp_factor: u64) -> u64 {
 ///
 /// The secondary proof-of-work factor is calculated along the same lines, as
 /// an adjustment on the deviation against the ideal value.
-pub fn next_difficulty<T>(height: u64, prev_diff: Difficulty, cursor: T) -> HeaderInfo
+pub fn next_difficulty<T>(height: u64, prev_algo: PoWType, cursor: T) -> HeaderInfo
 where
 	T: IntoIterator<Item = HeaderInfo>,
 {
 	let diff_data = global::difficulty_data_to_vector(cursor);
 	// First, get the ratio of secondary PoW vs primary, skipping initial header
 	let sec_pow_scaling = secondary_pow_scaling(height, &diff_data[1..]);
+	let prev_difficulty = diff_data[0].difficulty.to_num(prev_algo);
 
-	let mut diff = HashMap::new();
+	let mut diff = diff_data[0].difficulty.num.clone();
 
-	diff.insert(
-		PoWType::Cuckatoo,
-		next_cuckoo_difficulty(height, PoWType::Cuckatoo, &diff_data),
-	);
-	diff.insert(
-		PoWType::Cuckaroo,
-		next_cuckoo_difficulty(height, PoWType::Cuckaroo, &diff_data),
-	);
-	diff.insert(
-		PoWType::RandomX,
-		next_hash_difficulty(height, prev_diff.to_num(PoWType::RandomX), &diff_data),
-	);
-	diff.insert(
-		PoWType::ProgPow,
-		next_hash_difficulty(height, prev_diff.to_num(PoWType::ProgPow), &diff_data),
-	);
-
-	println!("diff: {:?}", diff);
+	match prev_algo {
+		PoWType::Cuckatoo => {
+			diff.insert(
+				PoWType::Cuckatoo,
+				next_cuckoo_difficulty(height, PoWType::Cuckatoo, &diff_data),
+			);
+		}
+		PoWType::Cuckaroo => {
+			diff.insert(
+				PoWType::Cuckaroo,
+				next_cuckoo_difficulty(height, PoWType::Cuckaroo, &diff_data),
+			);
+		}
+		PoWType::RandomX => {
+			diff.insert(
+				PoWType::RandomX,
+				next_hash_difficulty(height, prev_difficulty, &diff_data),
+			);
+		}
+		PoWType::ProgPow => {
+			diff.insert(
+				PoWType::ProgPow,
+				next_hash_difficulty(height, prev_difficulty, &diff_data),
+			);
+		}
+	};
 
 	HeaderInfo::from_diff_scaling(Difficulty::from_dic_number(diff), sec_pow_scaling)
 }
@@ -408,19 +417,19 @@ fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>
 }
 
 pub fn next_hash_difficulty(height: u64, prev_diff: u64, diff_data: &Vec<HeaderInfo>) -> u64 {
+	let block_diff_factor = 4;
+	let min_diff = 1000;
+	let diff_adjustment_cutoff = 60;
+	let expdiff_period = 2;
+	let expdiff_free_periods = 2;
+
 	let prev_timestamp = diff_data[0].timestamp;
 
 	// Get the timestamp delta across the window
 	let ts_delta: u64 = diff_data[DIFFICULTY_ADJUST_WINDOW as usize].timestamp - prev_timestamp;
-
-	let block_diff_factor = 2048;
-	let min_diff = 10000;
-	let diff_adjustment_cutoff = 10;
-	let expdiff_period = 10000;
-	let expdiff_free_periods = 2;
-
 	let offset: i64 = (prev_diff / block_diff_factor) as i64;
 	let sign: i64 = max(1 - 2 * (ts_delta as i64 / diff_adjustment_cutoff), -99);
+
 	let mut o: i64 = max(
 		(prev_diff as i64 + offset * sign),
 		min(prev_diff as i64, min_diff),

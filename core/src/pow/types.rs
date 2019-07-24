@@ -260,6 +260,17 @@ impl Sub<Difficulty> for Difficulty {
 	}
 }
 
+impl Sub<DifficultyNumber> for Difficulty {
+	type Output = Difficulty;
+	fn sub(self, other: DifficultyNumber) -> Difficulty {
+		let mut d = DifficultyNumber::number(0);
+		for (algo, v) in &self.num {
+			d.insert(*algo, v - *other.get(algo).unwrap_or(&0));
+		}
+		Difficulty { num: d }
+	}
+}
+
 impl Mul<Difficulty> for Difficulty {
 	type Output = Difficulty;
 	fn mul(self, other: Difficulty) -> Difficulty {
