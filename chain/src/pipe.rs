@@ -28,6 +28,7 @@ use crate::store;
 use crate::txhashset;
 use crate::types::{Options, Tip};
 use crate::util::RwLock;
+use bigint::uint::U256;
 use chrono::prelude::Utc;
 use chrono::Duration;
 use epic_store;
@@ -424,13 +425,17 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 	// check the pow hash shows a difficulty at least as large
 	// as the target difficulty
 	if !ctx.opts.contains(Options::SKIP_POW) {
-		if header.total_difficulty() <= prev.total_difficulty() {
-			return Err(ErrorKind::DifficultyTooLow.into());
-		}
+		let header_difficulty = header
+			.total_difficulty()
+			.to_num(header.pow.proof.clone().into());
 
-		let target_difficulty = header.total_difficulty() - prev.total_difficulty();
+		let target_difficulty = prev.total_difficulty(); //header.total_difficulty() - prev.total_difficulty();
 
-		if header.pow.to_difficulty(header.height) < target_difficulty {
+		let diff = header
+			.pow
+			.to_difficulty(&header.pre_pow(), header.height, header.pow.nonce);
+
+		if diff < target_difficulty {
 			return Err(ErrorKind::DifficultyTooLow.into());
 		}
 
@@ -439,12 +444,13 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		// (during testnet1 we use _block_ difficulty here)
 		let child_batch = ctx.batch.child()?;
 		let diff_iter = store::DifficultyIter::from_batch(prev.hash(), child_batch);
-		let next_header_info = consensus::next_difficulty(header.height, diff_iter);
+		let next_header_info =
+			consensus::next_difficulty(header.height, prev.pow.total_difficulty.clone(), diff_iter);
+
 		if target_difficulty != next_header_info.difficulty {
 			info!(
-				"validate_header: header target difficulty {} != {}",
-				target_difficulty.to_num(),
-				next_header_info.difficulty.to_num()
+				"validate_header: header target difficulty {:?} != {:?}",
+				target_difficulty.num, next_header_info.difficulty.num
 			);
 			return Err(ErrorKind::WrongTotalDifficulty.into());
 		}
@@ -578,7 +584,12 @@ fn update_head(b: &Block, ctx: &BlockContext<'_>) -> Result<Option<Tip>, Error> 
 
 // Whether the provided block totals more work than the chain tip
 fn has_more_work(header: &BlockHeader, head: &Tip) -> bool {
-	header.total_difficulty() > head.total_difficulty
+	header
+		.total_difficulty()
+		.to_num(header.pow.proof.clone().into())
+		> head
+			.total_difficulty
+			.to_num(header.pow.proof.clone().into())
 }
 
 /// Update the sync head so we can keep syncing from where we left off.

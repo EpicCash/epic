@@ -27,6 +27,7 @@ extern crate bitflags;
 extern crate serde_derive;
 #[macro_use]
 extern crate log;
+extern crate bigint;
 
 use epic_core as core;
 use epic_keychain as keychain;

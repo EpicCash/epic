@@ -24,6 +24,7 @@ serde_derive = "1"
 serde_json = "1"
 chrono = "0.4.4"
 tokio =  "0.1.11"
+bigint = "4.4.1"
 
 epic_api = { path = "../api", version = "1.0.0" }
 epic_chain = { path = "../chain", version = "1.0.0" }

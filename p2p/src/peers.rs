@@ -26,7 +26,7 @@ use crate::chain;
 use crate::core::core;
 use crate::core::core::hash::{Hash, Hashed};
 use crate::core::global;
-use crate::core::pow::Difficulty;
+use crate::core::pow::{PoWType, Difficulty};
 use crate::peer::Peer;
 use crate::store::{PeerData, PeerStore, State};
 use crate::types::{
@@ -167,7 +167,7 @@ impl Peers {
 
 		let mut max_peers = peers
 			.into_iter()
-			.filter(|x| x.info.total_difficulty() > total_difficulty)
+			.filter(|x| x.info.total_difficulty().to_num(PoWType::Cuckatoo) > total_difficulty.to_num(PoWType::Cuckatoo))
 			.collect::<Vec<_>>();
 
 		max_peers.shuffle(&mut thread_rng());
@@ -186,7 +186,7 @@ impl Peers {
 
 		Ok(peers
 			.iter()
-			.filter(|x| x.info.total_difficulty() >= total_difficulty)
+			.filter(|x| x.info.total_difficulty().to_num(PoWType::Cuckatoo) >= total_difficulty.to_num(PoWType::Cuckatoo))
 			.count())
 	}
 
@@ -216,7 +216,7 @@ impl Peers {
 
 		let mut max_peers = peers
 			.into_iter()
-			.filter(|x| x.info.total_difficulty() == max_total_difficulty)
+			.filter(|x| x.info.total_difficulty().to_num(PoWType::Cuckatoo) == max_total_difficulty.to_num(PoWType::Cuckatoo))
 			.collect::<Vec<_>>();
 
 		max_peers.shuffle(&mut thread_rng());
@@ -371,7 +371,7 @@ impl Peers {
 	/// or disconnects. This acts as a liveness test.
 	pub fn check_all(&self, total_difficulty: Difficulty, height: u64) {
 		for p in self.connected_peers().iter() {
-			if let Err(e) = p.send_ping(total_difficulty, height) {
+			if let Err(e) = p.send_ping(total_difficulty.clone(), height) {
 				debug!("Error pinging peer {:?}: {:?}", &p.info.addr, e);
 				let mut peers = match self.peers.try_write_for(LOCK_TIMEOUT) {
 					Some(peers) => peers,
@@ -465,7 +465,7 @@ impl Peers {
 					let (stuck, diff) = peer.is_stuck();
 					match self.adapter.total_difficulty() {
 						Ok(total_difficulty) => {
-							if stuck && diff < total_difficulty {
+							if stuck && diff.to_num(PoWType::Cuckatoo) < total_difficulty.to_num(PoWType::Cuckatoo) {
 								debug!("clean_peers {:?}, stuck peer", peer.info.addr);
 								let _ = self.update_state(peer.info.addr, State::Defunct);
 								rm.push(peer.info.addr.clone());

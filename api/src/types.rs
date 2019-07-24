@@ -18,6 +18,7 @@ use crate::chain;
 use crate::core::core::hash::Hashed;
 use crate::core::core::merkle_proof::MerkleProof;
 use crate::core::{core, ser};
+use crate::core::pow::PoWType;
 use crate::p2p;
 use crate::util;
 use crate::util::secp::pedersen;
@@ -27,6 +28,7 @@ use serde;
 use serde::de::MapAccess;
 use serde::ser::SerializeStruct;
 use std::fmt::{self, Display};
+use std::collections::HashMap;
 
 macro_rules! no_dup {
 	($field:ident) => {
@@ -46,7 +48,7 @@ pub struct Tip {
 	// Block previous to last
 	pub prev_block_to_last: String,
 	// Total difficulty accumulated on that fork
-	pub total_difficulty: u64,
+	pub total_difficulty: HashMap<PoWType, u64>,
 }
 
 impl Tip {
@@ -55,7 +57,7 @@ impl Tip {
 			height: tip.height,
 			last_block_pushed: util::to_hex(tip.last_block_h.to_vec()),
 			prev_block_to_last: util::to_hex(tip.prev_block_h.to_vec()),
-			total_difficulty: tip.total_difficulty.to_num(),
+			total_difficulty: tip.total_difficulty.num,
 		}
 	}
 }
@@ -559,7 +561,7 @@ pub struct BlockHeaderPrintable {
 	/// Nonces of the cuckoo solution
 	pub solution: Solution,
 	/// Total accumulated difficulty since genesis block
-	pub total_difficulty: u64,
+	pub total_difficulty: HashMap<PoWType, u64>,
 	/// Variable difficulty scaling factor for secondary proof of work
 	pub secondary_scaling: u32,
 	/// Total kernel offset since genesis block
@@ -597,7 +599,7 @@ impl BlockHeaderPrintable {
 					Solution::ProgPow(mix.clone())
 				}
 			},
-			total_difficulty: header.pow.total_difficulty.to_num(),
+			total_difficulty: header.pow.total_difficulty.clone().num,
 			secondary_scaling: header.pow.secondary_scaling,
 			total_kernel_offset: header.total_kernel_offset.to_hex(),
 		}

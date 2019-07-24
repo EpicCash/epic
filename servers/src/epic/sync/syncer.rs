@@ -242,10 +242,8 @@ impl SyncRunner {
 			if peer_info.total_difficulty() <= local_diff {
 				let ch = self.chain.head()?;
 				info!(
-					"synchronized at {} @ {} [{}]",
-					local_diff.to_num(),
-					ch.height,
-					ch.last_block_h
+					"synchronized at {:?} @ {} [{}]",
+					local_diff, ch.height, ch.last_block_h
 				);
 				is_syncing = false;
 			}

@@ -19,17 +19,18 @@ pub mod feijoada;
 use crate::util::RwLock;
 use chrono::naive::{MAX_DATE, MIN_DATE};
 use chrono::prelude::{DateTime, NaiveDateTime, Utc};
+use keccak_hash::keccak_256;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
 use std::iter::FromIterator;
 use std::sync::Arc;
-use keccak_hash::keccak_256;
 
 use crate::consensus::{
-	self, reward, reward_at_height, total_overage_at_height, FOUNDATION_REWARD, REWARD,
+	self, reward, reward_at_height, reward_foundation, total_overage_at_height, FOUNDATION_REWARD,
+	REWARD,
 };
-use crate::core::block::feijoada::{get_bottles_default, PoWType, Policy};
+use crate::core::block::feijoada::{get_bottles_default, Policy};
 use crate::core::committed::{self, Committed};
 use crate::core::compact_block::{CompactBlock, CompactBlockBody};
 use crate::core::hash::{DefaultHashable, Hash, Hashed, ZERO_HASH};
@@ -39,7 +40,7 @@ use crate::core::{
 };
 use crate::global;
 use crate::keychain::{self, BlindingFactor};
-use crate::pow::{Difficulty, Proof, ProofOfWork};
+use crate::pow::{Difficulty, PoWType, Proof, ProofOfWork};
 use crate::ser::{self, FixedLength, PMMRable, Readable, Reader, Writeable, Writer};
 use crate::util::{secp, static_secp_instance};
 
@@ -396,7 +397,7 @@ impl BlockHeader {
 
 	/// Total difficulty accumulated by the proof of work on this header
 	pub fn total_difficulty(&self) -> Difficulty {
-		self.pow.total_difficulty
+		self.pow.total_difficulty.clone()
 	}
 	/*
 	/// The "overage" to use when verifying the kernel sums.
@@ -418,7 +419,12 @@ impl BlockHeader {
 	*/
 	//written by sundar
 	pub fn overage(&self) -> i64 {
-		((reward_at_height(self.height) + consensus::FOUNDATION_REWARD) as i64)
+		((reward_at_height(self.height)
+			+ if self.height > 0 {
+				consensus::FOUNDATION_REWARD
+			} else {
+				0
+			}) as i64)
 			.checked_neg()
 			.unwrap_or(0)
 	}
@@ -643,7 +649,7 @@ impl Block {
 				prev_hash: prev.hash(),
 				total_kernel_offset,
 				pow: ProofOfWork {
-					total_difficulty: difficulty + prev.pow.total_difficulty,
+					total_difficulty: difficulty + prev.pow.total_difficulty.clone(),
 					..Default::default()
 				},
 				..Default::default()
@@ -688,7 +694,7 @@ impl Block {
 				prev_hash: prev.hash(),
 				total_kernel_offset,
 				pow: ProofOfWork {
-					total_difficulty: difficulty + prev.pow.total_difficulty,
+					total_difficulty: difficulty + prev.pow.total_difficulty.clone(),
 					..Default::default()
 				},
 				..Default::default()
@@ -847,15 +853,22 @@ impl Block {
 			.collect::<Vec<&TxKernel>>();
 
 		{
-			let cb_data = load_foundation_output(self.header.height);
+			if self.header.height > 0 {
+				let cb_data = load_foundation_output(self.header.height);
 
-			if cb_outs.iter().filter(|x| x.commitment() == cb_data.output.commitment()).count() == 0 {
-				return Err(Error::InvalidFoundationOutput);
+				if cb_outs
+					.iter()
+					.filter(|x| x.commitment() == cb_data.output.commitment())
+					.count() == 0
+				{
+					return Err(Error::InvalidFoundationOutput);
+				}
 			}
 
 			let secp = static_secp_instance();
 			let secp = secp.lock();
-			let over_commit = secp.commit_value(reward(self.total_fees(), self.header.height) + consensus::FOUNDATION_REWARD)?;
+			let over_commit =
+				secp.commit_value(reward_foundation(self.total_fees(), self.header.height))?;
 
 			let out_adjust_sum =
 				secp.commit_sum(map_vec!(cb_outs, |x| x.commitment()), vec![over_commit])?;

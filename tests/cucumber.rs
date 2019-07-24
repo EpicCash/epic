@@ -139,7 +139,7 @@ mod mine_chain {
 			let key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
 			let reward = reward::output(world.keychain.as_ref().unwrap(), &key_id, 0, false, 0).unwrap();
 			let foundation = load_foundation_output(0);
-			world.genesis = Some(genesis.with_coinbase((reward.0, reward.1), (foundation.output, foundation.kernel)));
+			world.genesis = Some(genesis.with_reward(reward.0, reward.1));
 			let genesis_ref = world.genesis.as_mut().unwrap();
 
 			let tmp_chain_dir = ".epic.tmp";
@@ -265,6 +265,7 @@ mod mine_chain {
 			assert_eq!(forked_block.height, h);
 
 			let mut prev = forked_block;
+
 			for i in 1..(n+1) {
 				let block = prepare_fork_block(kc, &prev, &chain, 2 * i + height);
 				prev = block.header.clone();
@@ -323,19 +324,19 @@ mod mine_chain {
 			let proof = match proof_name {
 				"progpow" => pow::Proof::ProgPowProof{
 					mix: [
-						232, 223, 150, 179, 189, 49, 124, 130, 30, 27, 170,
-						97, 184, 21, 73, 195, 203, 182, 153, 11, 135, 37, 86,
-						126, 167, 53, 48, 214, 238, 2, 190, 230],
+						78, 17, 202, 156, 159, 86, 23, 40, 126, 222, 114, 151,
+						125, 70, 254, 191, 178, 188, 58, 23, 1, 77, 232, 86,
+						216, 195, 139, 175, 223, 127, 140, 25],
 				},
 				"randomx" => pow::Proof::RandomXProof {
 					hash: [
-						117, 78, 223, 58, 190, 143, 56, 78, 47, 90, 112,
-						165, 157, 156, 237, 22, 210, 151, 100, 47, 208,
-						52, 72, 196, 126, 148, 17, 244, 139, 71, 203, 242],
+						188, 76, 23, 153, 112, 120, 180, 23, 29, 35, 147, 172,
+						0, 101, 104, 251, 98, 189, 73, 252, 133, 99, 96, 104,
+						158, 57, 237, 214, 8, 33, 193, 174],
 				},
 				"md5" => pow::Proof::MD5Proof {
 					edge_bits: 10,
-					proof: "63da2f23f7fca7abf4c573216df095de".to_string()
+					proof: "97b8b7414e8986d6e78527ccbdc3636e".to_string()
 				},
 				"cuckoo" => pow::Proof::CuckooProof {
 					edge_bits: 9,
@@ -508,7 +509,7 @@ mod mine_chain {
 
 			for n in 1..15 {
 				let prev = chain.head_header().unwrap();
-				let next_header_info = consensus::next_difficulty(1, chain.difficulty_iter().unwrap());
+				let next_header_info = consensus::next_difficulty(1, prev.pow.total_difficulty.clone(), chain.difficulty_iter().unwrap());
 				let pk = epic_keychain::ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
 				let reward = libtx::reward::output(kc, &pk, 0, false, n).unwrap();
 				let foundation = load_foundation_output(prev.height + 1);
@@ -628,10 +629,11 @@ mod mine_chain {
 			// creating a placeholder for the genesis block
 			let mut genesis = genesis::genesis_dev();
 			// creating the block with the desired reward
-			genesis = genesis.with_coinbase(reward, (cb_data.output, cb_data.kernel));
+			genesis = genesis.with_reward(reward.0, reward.1);
 			genesis.header.bottles = next_block_bottles(algo, &world.bottles);
+
 			// mining "manually" the genesis
-			let genesis_difficulty = genesis.header.pow.total_difficulty;
+			let genesis_difficulty = genesis.header.pow.total_difficulty.clone();
 			let sz = global::min_edge_bits();
 			let proof_size = global::proofsize();
 
@@ -837,7 +839,7 @@ mod mine_chain {
 
 			if let Ok(proofs) = ctx.pow_solve() {
 				bh.pow.proof = proofs[0].clone();
-				if bh.pow.to_difficulty(bh.height) >= diff {
+				if bh.pow.to_difficulty(&bh.pre_pow(), bh.height, bh.pow.nonce) >= diff {
 					return Ok(());
 				}
 			}
@@ -882,7 +884,11 @@ mod mine_chain {
 
 		for n in 1..4 {
 			let prev = chain.head_header().unwrap();
-			let next_header_info = consensus::next_difficulty(1, chain.difficulty_iter().unwrap());
+			let next_header_info = consensus::next_difficulty(
+				1,
+				prev.pow.total_difficulty.clone(),
+				chain.difficulty_iter().unwrap(),
+			);
 			let pk = epic_keychain::ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
 			let reward = libtx::reward::output(keychain, &pk, 0, false, 0).unwrap();
 			let foundation = load_foundation_output(prev.height + 1);

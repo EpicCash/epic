@@ -22,7 +22,7 @@ use std::cmp::{max, min};
 
 use crate::core::block::HeaderVersion;
 use crate::global;
-use crate::pow::Difficulty;
+use crate::pow::{Difficulty, DifficultyNumber, PoWType};
 
 /// A epic is divisible to 10^9, following the SI prefixes
 pub const EPIC_BASE: u64 = 1_000_000_000;
@@ -100,18 +100,24 @@ pub fn reward_at_height(height: u64) -> u64 {
 		return REWARD;
 	}
 }
+
+pub fn reward_foundation(fees: u64, height: u64) -> u64 {
+	reward(fees, height) + if height > 0 { FOUNDATION_REWARD } else { 0 }
+}
 /// The total overage at a given height. Variable due to changing rewards
 /// TODOBG: Make this more efficient by hardcoding reward schedule times
 pub fn total_overage_at_height(height: u64, genesis_had_reward: bool) -> i64 {
 	let mut sum: i64 = 0;
-	let mut n = 1;
+
 	if genesis_had_reward {
-		n = 0;
+		sum += reward_at_height(0) as i64;
 	}
-	for i in n..=height {
+
+	for i in 1..=height {
 		let reward = reward_at_height(i as u64) as i64;
 		sum += (reward + (FOUNDATION_REWARD as i64));
 	}
+
 	return sum;
 }
 
@@ -144,10 +150,10 @@ fn ar_scale_damp_factor(_height: u64) -> u64 {
 pub const PROOFSIZE: usize = 42;
 
 /// Default Cuckatoo Cycle edge_bits, used for mining and validating.
-pub const DEFAULT_MIN_EDGE_BITS: u8 = 31;
+pub const DEFAULT_MIN_EDGE_BITS: u8 = 19;
 
 /// Cuckaroo proof-of-work edge_bits, meant to be ASIC resistant.
-pub const SECOND_POW_EDGE_BITS: u8 = 29;
+pub const SECOND_POW_EDGE_BITS: u8 = 31;
 
 /// Original reference edge_bits to compute difficulty factors for higher
 /// Cuckoo graph sizes, changing this would hard fork
@@ -242,7 +248,12 @@ pub fn graph_weight(height: u64, edge_bits: u8) -> u64 {
 		xpr_edge_bits = xpr_edge_bits.saturating_sub(1 + (height - expiry_height) / WEEK_HEIGHT);
 	}
 
-	(2 << (edge_bits - global::base_edge_bits()) as u64) * xpr_edge_bits
+	(2 << (if edge_bits > global::base_edge_bits() {
+		edge_bits - global::base_edge_bits()
+	} else {
+		global::base_edge_bits() - edge_bits
+	}) as u64)
+		* xpr_edge_bits
 }
 
 /// Minimum difficulty, enforced in diff retargetting
@@ -340,7 +351,7 @@ pub fn clamp(actual: u64, goal: u64, clamp_factor: u64) -> u64 {
 ///
 /// The secondary proof-of-work factor is calculated along the same lines, as
 /// an adjustment on the deviation against the ideal value.
-pub fn next_difficulty<T>(height: u64, cursor: T) -> HeaderInfo
+pub fn next_difficulty<T>(height: u64, diff: Difficulty, cursor: T) -> HeaderInfo
 where
 	T: IntoIterator<Item = HeaderInfo>,
 {
@@ -361,7 +372,7 @@ where
 	let diff_sum: u64 = diff_data
 		.iter()
 		.skip(1)
-		.map(|dd| dd.difficulty.to_num())
+		.map(|dd| dd.difficulty.to_num(PoWType::Cuckatoo))
 		.sum();
 
 	// adjust time delta toward goal subject to dampening and clamping
@@ -373,7 +384,7 @@ where
 	// minimum difficulty avoids getting stuck due to dampening
 	let difficulty = max(MIN_DIFFICULTY, diff_sum * BLOCK_TIME_SEC / adj_ts);
 
-	HeaderInfo::from_diff_scaling(Difficulty::from_num(difficulty), sec_pow_scaling)
+	HeaderInfo::from_diff_scaling(diff, sec_pow_scaling)
 }
 
 /// Count, in units of 1/100 (a percent), the number of "secondary" (AR) blocks in the provided window of blocks.

@@ -21,6 +21,7 @@ use std::time::SystemTime;
 
 use crate::core::consensus::graph_weight;
 use crate::core::core::hash::Hash;
+use crate::core::pow::PoWType;
 
 use chrono::prelude::*;
 
@@ -193,7 +194,7 @@ impl PeerStats {
 			addr: addr,
 			version: peer.info.version,
 			user_agent: peer.info.user_agent.clone(),
-			total_difficulty: peer.info.total_difficulty().to_num(),
+			total_difficulty: peer.info.total_difficulty().to_num(PoWType::Cuckatoo),
 			height: peer.info.height(),
 			direction: direction.to_string(),
 			last_seen: peer.info.last_seen(),

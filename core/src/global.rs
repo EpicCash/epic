@@ -217,14 +217,15 @@ where
 	T: EdgeType + 'static,
 {
 	let chain_type = CHAIN_TYPE.read().clone();
+	println!("edge_bits: {}", edge_bits);
 	match chain_type {
 		// Mainnet has Cuckaroo29 for AR and Cuckatoo30+ for AF
-		ChainTypes::Mainnet if edge_bits > 29 => new_cuckatoo_ctx(edge_bits, proof_size, max_sols),
-		ChainTypes::Mainnet => new_cuckaroo_ctx(edge_bits, proof_size),
+		ChainTypes::Mainnet => new_cuckatoo_ctx(edge_bits, proof_size, max_sols),
+		//ChainTypes::Mainnet => new_cuckaroo_ctx(edge_bits, proof_size),
 
 		// Same for Floonet
-		ChainTypes::Floonet if edge_bits > 29 => new_cuckatoo_ctx(edge_bits, proof_size, max_sols),
-		ChainTypes::Floonet => new_cuckaroo_ctx(edge_bits, proof_size),
+		ChainTypes::Floonet => new_cuckatoo_ctx(edge_bits, proof_size, max_sols),
+		//ChainTypes::Floonet => new_cuckaroo_ctx(edge_bits, proof_size),
 
 		// Everything else is Cuckatoo only
 		_ => new_cuckatoo_ctx(edge_bits, proof_size, max_sols),
@@ -405,7 +406,7 @@ where
 		} else {
 			BLOCK_TIME_SEC
 		};
-		let last_diff = last_n[0].difficulty;
+		let last_diff = last_n[0].difficulty.clone();
 
 		// fill in simulated blocks with values from the previous real block
 		let mut last_ts = last_n.last().unwrap().timestamp;

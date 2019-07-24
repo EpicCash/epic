@@ -25,6 +25,7 @@
 extern crate serde_derive;
 #[macro_use]
 extern crate log;
+extern crate bigint;
 
 use epic_api as api;
 use epic_chain as chain;

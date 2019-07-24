@@ -636,6 +636,7 @@ dependencies = [
 name = "epic_chain"
 version = "1.0.0"
 dependencies = [
+ "bigint 4.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitflags 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -769,6 +770,7 @@ dependencies = [
 name = "epic_servers"
 version = "1.0.0"
 dependencies = [
+ "bigint 4.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "epic_api 1.0.0",
  "epic_chain 1.0.0",

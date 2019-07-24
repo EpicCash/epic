@@ -20,10 +20,11 @@
 use chrono::prelude::{TimeZone, Utc};
 
 use crate::core;
-use crate::core::block::feijoada::{get_bottles_default, PoWType};
+use crate::core::block::feijoada::get_bottles_default;
 use crate::core::foundation::load_foundation_output;
 use crate::global;
-use crate::pow::{Difficulty, Proof, ProofOfWork};
+use crate::pow::PoWType;
+use crate::pow::{Difficulty, DifficultyNumber, Proof, ProofOfWork};
 use crate::util;
 use crate::util::secp::constants::SINGLE_BULLET_PROOF_SIZE;
 use crate::util::secp::pedersen::{Commitment, RangeProof};
@@ -53,25 +54,33 @@ pub fn genesis_dev() -> core::Block {
 pub fn genesis_floo() -> core::Block {
 	let mut bottles = get_bottles_default();
 	bottles.insert(PoWType::Cuckaroo, 1);
+
+	let mut diff = DifficultyNumber::new();
+
+	diff.insert(PoWType::Cuckaroo, 2_u64.pow(1));
+	diff.insert(PoWType::Cuckatoo, 2_u64.pow(1));
+	diff.insert(PoWType::RandomX, 2_u64.pow(16));
+	diff.insert(PoWType::ProgPow, 2_u64.pow(8));
+
 	let gen = core::Block::with_header(core::BlockHeader {
 		height: 0,
 		timestamp: Utc.ymd(2018, 12, 28).and_hms(20, 48, 4),
-		prev_root: Hash::from_vec(&[
-			133, 114, 198, 186, 202, 200, 76, 105, 108, 228, 159, 199, 141, 21, 61, 94, 232, 127,
-			147, 33, 53, 154, 126, 56, 181, 141, 124, 87, 85, 172, 178, 172,
-		]),
-		output_root: Hash::from_vec(&[
-			248, 102, 108, 149, 213, 192, 136, 181, 110, 19, 174, 159, 254, 187, 145, 146, 56, 87,
-			10, 215, 5, 177, 8, 189, 163, 87, 57, 101, 140, 232, 31, 199,
-		]),
-		range_proof_root: Hash::from_vec(&[
-			118, 231, 94, 136, 144, 61, 161, 217, 106, 239, 9, 116, 141, 44, 29, 185, 42, 120, 195,
-			101, 5, 241, 228, 48, 27, 60, 129, 96, 76, 28, 70, 252,
-		]),
-		kernel_root: Hash::from_vec(&[
-			203, 169, 232, 181, 133, 4, 205, 36, 7, 24, 128, 250, 103, 145, 30, 78, 248, 165, 94,
-			105, 152, 130, 151, 70, 3, 70, 38, 167, 165, 238, 102, 245,
-		]),
+		prev_root: Hash::from_hex(
+			"00000000000000000017ff4903ef366c8f62e3151ba74e41b8332a126542f538",
+		)
+		.unwrap(),
+		output_root: Hash::from_hex(
+			"73b5e0a05ea9e1e4e33b8f1c723bc5c10d17f07042c2af7644f4dbb61f4bc556",
+		)
+		.unwrap(),
+		range_proof_root: Hash::from_hex(
+			"667a3ba22f237a875f67c9933037c8564097fa57a3e75be507916de28fc0da26",
+		)
+		.unwrap(),
+		kernel_root: Hash::from_hex(
+			"cfdddfe2d938d0026f8b1304442655bbdddde175ff45ddf44cb03bcb0071a72d",
+		)
+		.unwrap(),
 		total_kernel_offset: BlindingFactor::from_hex(
 			"0000000000000000000000000000000000000000000000000000000000000000",
 		)
@@ -80,7 +89,7 @@ pub fn genesis_floo() -> core::Block {
 		kernel_mmr_size: 2,
 		bottles: bottles,
 		pow: ProofOfWork {
-			total_difficulty: Difficulty::from_num(10_u64.pow(6)),
+			total_difficulty: Difficulty::from_num(10_u64.pow(1)),
 			secondary_scaling: 1856,
 			nonce: 23,
 			proof: Proof::CuckooProof {
@@ -169,8 +178,7 @@ pub fn genesis_floo() -> core::Block {
 		},
 	};
 
-	let cb_data = load_foundation_output(0);
-	gen.with_coinbase((output, kernel), (cb_data.output, cb_data.kernel))
+	gen.with_reward(output, kernel)
 }
 
 /// Placeholder for mainnet genesis block, will definitely change before
@@ -178,25 +186,33 @@ pub fn genesis_floo() -> core::Block {
 pub fn genesis_main() -> core::Block {
 	let mut bottles = get_bottles_default();
 	bottles.insert(PoWType::Cuckaroo, 1);
+
+	let mut diff = DifficultyNumber::new();
+
+	diff.insert(PoWType::Cuckaroo, 2_u64.pow(1));
+	diff.insert(PoWType::Cuckatoo, 2_u64.pow(1));
+	diff.insert(PoWType::RandomX, 2_u64.pow(16));
+	diff.insert(PoWType::ProgPow, 2_u64.pow(8));
+
 	let gen = core::Block::with_header(core::BlockHeader {
 		height: 0,
 		timestamp: Utc.ymd(2019, 4, 10).and_hms(11, 9, 38),
-		prev_root: Hash::from_vec(&[
-			133, 114, 198, 186, 202, 200, 76, 105, 108, 228, 159, 199, 141, 21, 61, 94, 232, 127,
-			147, 33, 53, 154, 126, 56, 181, 141, 124, 87, 85, 172, 178, 172,
-		]),
-		output_root: Hash::from_vec(&[
-			75, 192, 124, 84, 42, 18, 227, 70, 149, 157, 94, 86, 175, 70, 73, 54, 82, 244, 50, 185,
-			211, 45, 99, 78, 132, 8, 74, 185, 0, 194, 254, 225,
-		]),
-		range_proof_root: Hash::from_vec(&[
-			67, 226, 5, 24, 21, 150, 237, 171, 21, 164, 78, 225, 34, 147, 181, 133, 98, 220, 164,
-			173, 36, 97, 206, 130, 144, 55, 63, 221, 122, 37, 142, 83,
-		]),
-		kernel_root: Hash::from_vec(&[
-			155, 46, 203, 167, 135, 54, 113, 12, 121, 20, 79, 141, 145, 203, 33, 234, 117, 190, 19,
-			137, 114, 104, 116, 37, 29, 195, 99, 253, 48, 240, 195, 92,
-		]),
+		prev_root: Hash::from_hex(
+			"00000000000000000004de683e7aa4d35c51f46ec76c6852b0f3161bd1e2e00e",
+		)
+		.unwrap(),
+		output_root: Hash::from_hex(
+			"b10fe806a4373d9b8d8edde98a4ec39d726b542036971c2f14c0738b0605c9cd",
+		)
+		.unwrap(),
+		range_proof_root: Hash::from_hex(
+			"e05333e51d9294f08cd6d2d7cea19de2843f92c285a61fd5d61d771c3ac74222",
+		)
+		.unwrap(),
+		kernel_root: Hash::from_hex(
+			"4d9ddf437dfbb86f8563ac4e96a0d86842eda609a5125244f43261d4188292e4",
+		)
+		.unwrap(),
 		total_kernel_offset: BlindingFactor::from_hex(
 			"0000000000000000000000000000000000000000000000000000000000000000",
 		)
@@ -205,7 +221,7 @@ pub fn genesis_main() -> core::Block {
 		kernel_mmr_size: 1,
 		bottles: bottles,
 		pow: ProofOfWork {
-			total_difficulty: Difficulty::from_num(2_u64.pow(20)),
+			total_difficulty: Difficulty::from_dic_number(diff),
 			secondary_scaling: 1856,
 			nonce: 41,
 			proof: Proof::CuckooProof {
@@ -293,9 +309,8 @@ pub fn genesis_main() -> core::Block {
 			],
 		},
 	};
-	// foundation
-	let cb_data = load_foundation_output(0);
-	gen.with_coinbase((output, kernel), (cb_data.output, cb_data.kernel))
+
+	gen.with_reward(output, kernel)
 }
 
 #[cfg(test)]

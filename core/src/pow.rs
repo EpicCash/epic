@@ -39,8 +39,8 @@ mod error;
 #[allow(dead_code)]
 pub mod lean;
 pub mod md5;
-pub mod randomx;
 pub mod progpow;
+pub mod randomx;
 mod siphash;
 mod types;
 
@@ -55,8 +55,8 @@ pub use crate::pow::cuckaroo::{new_cuckaroo_ctx, CuckarooContext};
 pub use crate::pow::cuckatoo::{new_cuckatoo_ctx, CuckatooContext};
 pub use crate::pow::error::Error;
 pub use crate::pow::md5::{new_md5_ctx, MD5Context};
-pub use crate::pow::randomx::{new_randomx_ctx, RXContext};
 pub use crate::pow::progpow::{new_progpow_ctx, ProgPowContext};
+pub use crate::pow::randomx::{new_randomx_ctx, RXContext};
 
 const MAX_SOLS: u32 = 10;
 
@@ -76,7 +76,7 @@ pub fn verify_size(bh: &BlockHeader) -> Result<(), Error> {
 	}
 	.unwrap();
 
-	if let Proof::CuckooProof { .. } = bh.pow.proof{
+	if let Proof::CuckooProof { .. } = bh.pow.proof {
 		ctx.set_header_nonce(bh.pre_pow(), None, Some(bh.height), false)?;
 	} else {
 		ctx.set_header_nonce(bh.pre_pow(), Some(bh.pow.nonce), Some(bh.height), false)?;
@@ -89,12 +89,12 @@ pub fn verify_size(bh: &BlockHeader) -> Result<(), Error> {
 pub fn mine_genesis_block() -> Result<Block, Error> {
 	let mut gen = genesis::genesis_dev();
 
-	if global::is_user_testing_mode(){
+	if global::is_user_testing_mode() {
 		gen.header.timestamp = Utc::now();
 	}
 
 	// total_difficulty on the genesis header *is* the difficulty of that block
-	let genesis_difficulty = gen.header.pow.total_difficulty;
+	let genesis_difficulty = gen.header.pow.total_difficulty.clone();
 
 	let sz = global::min_edge_bits();
 	let proof_size = global::proofsize();
@@ -127,7 +127,7 @@ pub fn pow_size(
 		ctx.set_header_nonce(bh.pre_pow(), None, None, true)?;
 		if let Ok(proofs) = ctx.pow_solve() {
 			bh.pow.proof = proofs[0].clone();
-			if bh.pow.to_difficulty(bh.height) >= diff {
+			if bh.pow.to_difficulty(&bh.pre_pow(), bh.height, bh.pow.nonce) >= diff {
 				return Ok(());
 			}
 		}
