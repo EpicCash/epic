@@ -191,7 +191,7 @@ pub fn genesis_main() -> core::Block {
 
 	diff.insert(PoWType::Cuckaroo, 2_u64.pow(1));
 	diff.insert(PoWType::Cuckatoo, 2_u64.pow(1));
-	diff.insert(PoWType::RandomX, 2_u64.pow(16));
+	diff.insert(PoWType::RandomX, 2_u64.pow(10));
 	diff.insert(PoWType::ProgPow, 2_u64.pow(8));
 
 	let gen = core::Block::with_header(core::BlockHeader {
