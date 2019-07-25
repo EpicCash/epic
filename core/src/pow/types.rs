@@ -16,6 +16,7 @@ use std::cmp::Ordering;
 /// Types for a Cuck(at)oo proof of work and its encapsulation as a fully usable
 /// proof of work within a block header.
 use std::cmp::{max, min};
+use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Sub};
 use std::{fmt, iter};
 
@@ -59,14 +60,16 @@ impl PoWType {
 	}
 }
 
-impl From<u8> for PoWType {
-	fn from(v: u8) -> PoWType {
+impl TryFrom<u8> for PoWType {
+	type Error = ser::Error;
+
+	fn try_from(v: u8) -> Result<Self, Self::Error> {
 		match v {
-			0 => PoWType::Cuckaroo,
-			1 => PoWType::Cuckatoo,
-			2 => PoWType::RandomX,
-			3 => PoWType::ProgPow,
-			_ => panic!("data corrupted"),
+			0 => Ok(PoWType::Cuckaroo),
+			1 => Ok(PoWType::Cuckatoo),
+			2 => Ok(PoWType::RandomX),
+			3 => Ok(PoWType::ProgPow),
+			_ => Err(ser::Error::CorruptedData),
 		}
 	}
 }
@@ -316,7 +319,9 @@ impl Readable for Difficulty {
 		for _ in 0..len {
 			let pow = reader.read_u8()?;
 			let count = reader.read_u64()?;
-			result.insert(pow.into(), count);
+			let pow_type = PoWType::try_from(pow)?;
+
+			result.insert(pow_type, count);
 		}
 		Ok(Difficulty { num: result })
 	}
