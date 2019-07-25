@@ -87,7 +87,7 @@ If you want to execute the epic server, in the root directory of your Epic insta
     ./epic
     ```
 
-**If the directory that you are starting the epic server doesn't have __epic-server.toml__ file, the epic server will be executed with the default file __~/.epic/main/epic-server.toml__.** More information can be found [here](./running.org#epic_config_default).
+**If the directory that you are starting the epic server doesn't have __epic-server.toml__ file, the epic server will be executed with the default file __~/.epic/main/epic-server.toml__.** More information can be found on the topic [Configuring your Epic node](./running.org#epic_config_default).
 
 ### (Optional) Adding Epic server to the path
 
@@ -105,7 +105,7 @@ The following steps describe how to execute epic from any location in **the curr
     epic
     ```
 
-**If the directory that you are starting the epic server doesn't have __epic-server.toml__ file, the epic server will be executed with the default file __~/.epic/main/epic-server.toml__.** More information can be found [here](./running.org#epic_config_default).
+**If the directory that you are starting the epic server doesn't have __epic-server.toml__ file, the epic server will be executed with the default file __~/.epic/main/epic-server.toml__.** More information can be found on the topic [Configuring your Epic node](./running.org#epic_config_default).
 
 ## Mining in Epic
 
@@ -159,4 +159,4 @@ diff.insert(PoWType::ProgPow, 2_u64.pow(8));
 ```
 And change the values under **.pow()**. 
 
-After you did those things you will need to rebuild the package, the testnet and everybody participating in the network will need to install the new package and restart all the services. More instruction of how to that can be found in the topic [Testnet reset](#testnet_reset).
+After you did those things you will need to rebuild the package, the testnet and everybody participating in the network will need to install the new package and restart all the services. More instruction of how to that can be found in the topic [Testnet Reset](#testnet_reset).

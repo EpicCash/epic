@@ -356,33 +356,21 @@ Find the line:
       enable_stratum_server = false
     #+end_src
 
-And change it to:
-
-    #+begin_src toml
-      enable_stratum_server = true
-    #+end_src
-
-After that, find the line:
+After that, find the lines:
 
   #+begin_src toml
-    minimum_share_difficulty = 1
+   cuckatoo_minimum_share_difficulty = 1
+   randomx_minimum_share_difficulty = 1
+   progpow_minimum_share_difficulty = 1
   #+end_src
 
-And change it according to the algorithm used to mine:
+And change the line accordingly with the algorithm used to mine. Some
+suggestions are: 
 
   #+begin_src toml
-    #RandomX
-    minimum_share_difficulty = 10000
-  #+end_src
-
-  #+begin_src toml
-    #ProgPow
-    minimum_share_difficulty = 100
-  #+end_src
-
-  #+begin_src toml
-    #Cuckoo
-    minimum_share_difficulty = 1
+   cuckatoo_minimum_share_difficulty = 1
+   randomx_minimum_share_difficulty = 800
+   progpow_minimum_share_difficulty = 100
   #+end_src
 
 Then, save and close the file. After that, you can start your [[#run_epic][epic server]].
