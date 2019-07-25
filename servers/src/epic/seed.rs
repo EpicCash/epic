@@ -33,14 +33,7 @@ use crate::p2p::ChainAdapter;
 use crate::util::StopState;
 
 // DNS Seeds with contact email associated
-const MAINNET_DNS_SEEDS: &'static [&'static str] = &[
-	"54.233.177.64.xip.io",
-	"116.203.152.48",
-	"116.203.152.54",
-	"116.203.152.57",
-	"116.203.152.53",
-	"116.203.152.58",
-];
+const MAINNET_DNS_SEEDS: &'static [&'static str] = &["54.233.177.64.xip.io", "3.218.126.145.xip.io"];
 const FLOONET_DNS_SEEDS: &'static [&'static str] = &[];
 
 pub fn connect_and_monitor(
