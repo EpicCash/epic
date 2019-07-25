@@ -427,13 +427,13 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 	if !ctx.opts.contains(Options::SKIP_POW) {
 		let target_difficulty = header.total_difficulty() - prev.total_difficulty();
 
-		let target_difficulty_proof = target_difficulty.to_num(header.pow.proof.clone().into());
+		let target_difficulty_proof = target_difficulty.to_num((&header.pow.proof).into());
 
 		let diff = header
 			.pow
 			.to_difficulty(&header.pre_pow(), header.height, header.pow.nonce);
 
-		let diff_proof = diff.to_num(header.pow.proof.clone().into());
+		let diff_proof = diff.to_num((&header.pow.proof).into());
 
 		if diff_proof < target_difficulty_proof {
 			return Err(ErrorKind::DifficultyTooLow.into());
@@ -445,7 +445,7 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		let child_batch = ctx.batch.child()?;
 		let diff_iter = store::DifficultyIter::from_batch(prev.hash(), child_batch);
 		let next_header_info =
-			consensus::next_difficulty(header.height, prev.pow.proof.into(), diff_iter);
+			consensus::next_difficulty(header.height, (&prev.pow.proof).into(), diff_iter);
 
 		if target_difficulty != next_header_info.difficulty {
 			info!(
@@ -584,12 +584,8 @@ fn update_head(b: &Block, ctx: &BlockContext<'_>) -> Result<Option<Tip>, Error> 
 
 // Whether the provided block totals more work than the chain tip
 fn has_more_work(header: &BlockHeader, head: &Tip) -> bool {
-	header
-		.total_difficulty()
-		.to_num(header.pow.proof.clone().into())
-		> head
-			.total_difficulty
-			.to_num(header.pow.proof.clone().into())
+	header.total_difficulty().to_num((&header.pow.proof).into())
+		> head.total_difficulty.to_num((&header.pow.proof).into())
 }
 
 /// Update the sync head so we can keep syncing from where we left off.

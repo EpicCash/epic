@@ -71,8 +71,8 @@ impl From<u8> for PoWType {
 	}
 }
 
-impl From<Proof> for PoWType {
-	fn from(v: Proof) -> PoWType {
+impl From<&Proof> for PoWType {
+	fn from(v: &Proof) -> PoWType {
 		match v {
 			Proof::CuckooProof { ref edge_bits, .. } => {
 				if *edge_bits == 19 || *edge_bits == 31 {

@@ -452,7 +452,7 @@ impl<'a> Iterator for DifficultyIter<'a> {
 		// If we have a header we can do this iteration.
 		// Otherwise we are done.
 		if let Some(header) = self.header.clone() {
-			let pow_type: PoWType = header.pow.proof.clone().into();
+			let pow_type: PoWType = (&header.pow.proof).into();
 
 			let (prev_header, timestamp) = {
 				let mut head = header.clone();
@@ -474,7 +474,7 @@ impl<'a> Iterator for DifficultyIter<'a> {
 						}
 
 						if let Some(prev) = prev_header.clone() {
-							let pow: PoWType = prev.pow.proof.clone().into();
+							let pow: PoWType = (&prev.pow.proof).into();
 
 							if pow_type == pow {
 								break prev_header;
