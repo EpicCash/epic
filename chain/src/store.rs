@@ -17,7 +17,7 @@
 use crate::core::consensus::HeaderInfo;
 use crate::core::core::hash::{Hash, Hashed};
 use crate::core::core::{Block, BlockHeader, BlockSums};
-use crate::core::pow::Difficulty;
+use crate::core::pow::{Difficulty, PoWType};
 use crate::types::Tip;
 use crate::util::secp::pedersen::Commitment;
 use croaring::Bitmap;
@@ -452,15 +452,49 @@ impl<'a> Iterator for DifficultyIter<'a> {
 		// If we have a header we can do this iteration.
 		// Otherwise we are done.
 		if let Some(header) = self.header.clone() {
-			if let Some(ref batch) = self.batch {
-				self.prev_header = batch.get_previous_header(&header).ok();
-			} else {
-				if let Some(ref store) = self.store {
-					self.prev_header = store.get_previous_header(&header).ok();
-				} else {
-					self.prev_header = None;
-				}
-			}
+			let pow_type: PoWType = header.pow.proof.clone().into();
+
+			let (prev_header, timestamp) = {
+				let mut head = header.clone();
+				let mut timestamp: i64 = 0;
+				let mut d = false;
+
+				(
+					loop {
+						let mut prev_header = None;
+
+						if let Some(ref batch) = self.batch {
+							prev_header = batch.get_previous_header(&head).ok();
+						} else {
+							if let Some(ref store) = self.store {
+								prev_header = store.get_previous_header(&head).ok();
+							} else {
+								prev_header = None;
+							}
+						}
+
+						if let Some(prev) = prev_header.clone() {
+							let pow: PoWType = prev.pow.proof.clone().into();
+
+							if pow_type == pow {
+								break prev_header;
+							} else {
+								if d {
+									timestamp += head.timestamp.timestamp() as i64
+										- prev.timestamp.timestamp() as i64;
+									head = prev;
+								}
+								d = true;
+							}
+						} else {
+							break None;
+						}
+					},
+					timestamp,
+				)
+			};
+
+			self.prev_header = prev_header;
 
 			let prev_difficulty = self
 				.prev_header
@@ -470,7 +504,7 @@ impl<'a> Iterator for DifficultyIter<'a> {
 			let scaling = header.pow.secondary_scaling;
 
 			Some(HeaderInfo::new(
-				header.timestamp.timestamp() as u64,
+				(header.timestamp.timestamp() as i64 - timestamp) as u64,
 				difficulty,
 				scaling,
 				header.pow.is_secondary(),

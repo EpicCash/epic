@@ -312,7 +312,6 @@ impl HeaderInfo {
 			timestamp,
 			difficulty,
 			secondary_scaling: global::initial_graph_weight(),
-
 			is_secondary: true,
 		}
 	}
@@ -426,7 +425,7 @@ pub fn next_hash_difficulty(height: u64, prev_diff: u64, diff_data: &Vec<HeaderI
 	let prev_timestamp = diff_data[0].timestamp;
 
 	// Get the timestamp delta across the window
-	let ts_delta: u64 = diff_data[DIFFICULTY_ADJUST_WINDOW as usize].timestamp - prev_timestamp;
+	let ts_delta: u64 = diff_data[1].timestamp - prev_timestamp;
 	let offset: i64 = (prev_diff / block_diff_factor) as i64;
 	let sign: i64 = max(1 - 2 * (ts_delta as i64 / diff_adjustment_cutoff), -99);
 
