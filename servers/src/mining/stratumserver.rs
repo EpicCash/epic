@@ -489,10 +489,9 @@ impl Handler {
 			.header
 			.pow
 			.to_difficulty(&b.header.pre_pow(), b.header.height, b.header.pow.nonce)
-			.to_num(b.header.pow.proof.clone().into());
+			.to_num((&b.header.pow.proof).into());
 
-		let minimum_share_difficulty =
-			state.get_minimum_difficulty(b.header.pow.proof.clone().into());
+		let minimum_share_difficulty = state.get_minimum_difficulty((&b.header.pow.proof).into());
 		// If the difficulty is too low its an error
 		if share_difficulty < minimum_share_difficulty {
 			// Return error status
@@ -505,7 +504,7 @@ impl Handler {
 			return Err(RpcError::too_low_difficulty());
 		}
 
-		let current_difficulty = state.get_current_difficulty(b.header.pow.proof.clone().into());
+		let current_difficulty = state.get_current_difficulty((&b.header.pow.proof).into());
 		// If the difficulty is high enough, submit it (which also validates it)
 		if share_difficulty >= current_difficulty {
 			// This is a full solution, submit it to the network
