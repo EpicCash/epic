@@ -419,30 +419,20 @@ pub fn next_hash_difficulty(height: u64, prev_diff: u64, diff_data: &Vec<HeaderI
 	let block_diff_factor = 4;
 	let min_diff = 1000;
 	let diff_adjustment_cutoff = 60;
-	let expdiff_period = 2;
-	let expdiff_free_periods = 2;
 
 	let prev_timestamp = diff_data[0].timestamp;
 
 	// Get the timestamp delta across the window
 	let ts_delta: u64 = diff_data[1].timestamp - prev_timestamp;
+	println!("Timestamp difference: {:?}", ts_delta);
 	let offset: i64 = (prev_diff / block_diff_factor) as i64;
 	let sign: i64 = max(1 - 2 * (ts_delta as i64 / diff_adjustment_cutoff), -99);
 
-	let mut o: i64 = max(
-		(prev_diff as i64 + offset * sign),
+	//
+	max(
+		prev_diff as i64 + offset * sign,
 		min(prev_diff as i64, min_diff),
-	);
-
-	let period_count: i64 = ((height + 1) / expdiff_period) as i64;
-	if period_count >= expdiff_free_periods {
-		o = max(
-			o + 2_i64.pow((period_count - expdiff_free_periods) as u32),
-			min_diff,
-		);
-	}
-
-	o as u64
+	) as u64
 }
 
 /// Count, in units of 1/100 (a percent), the number of "secondary" (AR) blocks in the provided window of blocks.
