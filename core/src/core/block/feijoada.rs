@@ -58,9 +58,9 @@ impl Default for PolicyConfig {
 		// default just in tests
 		let mut policies = get_bottles_default();
 		policies.insert(PoWType::Cuckaroo, 0);
-		policies.insert(PoWType::Cuckatoo, 33);
-		policies.insert(PoWType::RandomX, 33);
-		policies.insert(PoWType::ProgPow, 34);
+		policies.insert(PoWType::Cuckatoo, 50);
+		policies.insert(PoWType::RandomX, 50);
+		policies.insert(PoWType::ProgPow, 0);
 
 		PolicyConfig {
 			allowed_policies: 0,
