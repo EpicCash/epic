@@ -1,3 +1,4 @@
+use crate::consensus::foundation_height;
 use crate::core::{Output, TxKernel};
 use crate::global::get_foundation_path;
 use crate::keychain::Identifier;
@@ -55,6 +56,8 @@ pub fn save_in_disk(serialization: String, path: &Path) {
 
 /// Load the foundation coinbase relative to the height of the chain
 pub fn load_foundation_output(height: u64) -> CbData {
+	let height = (height / foundation_height());
+	let height = if height > 0 { height - 1 } else { 0 };
 	let path_str = get_foundation_path()
 		.unwrap_or_else(|| panic!("No path to the foundation.json was provided!"));
 	let path = Path::new(&path_str);

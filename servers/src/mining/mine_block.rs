@@ -25,6 +25,7 @@ use std::time::Duration;
 use crate::api;
 use crate::chain;
 use crate::common::types::Error;
+use crate::core::consensus::is_foundation_height;
 use crate::core::core::block::feijoada::{next_block_bottles, Deterministic, Feijoada};
 use crate::core::core::foundation::load_foundation_output;
 pub use crate::core::core::foundation::CbData;
@@ -181,16 +182,20 @@ fn build_block(
 		height,
 	};
 
-	let cb_data = load_foundation_output(height);
-
 	let (output, kernel, block_fees) = get_coinbase(wallet_listener_url, block_fees, height)?;
-	let mut b = core::Block::from_coinbases(
-		&head,
-		txs,
-		(output, kernel),
-		(cb_data.output, cb_data.kernel),
-		difficulty.difficulty.clone(),
-	)?;
+
+	let mut b = if is_foundation_height(height) {
+		let cb_data = load_foundation_output(height);
+		core::Block::from_coinbases(
+			&head,
+			txs,
+			(output, kernel),
+			(cb_data.output, cb_data.kernel),
+			difficulty.difficulty.clone(),
+		)?
+	} else {
+		core::Block::from_reward(&head, txs, output, kernel, difficulty.difficulty.clone())?
+	};
 
 	// making sure we're not spending time mining a useless block
 	b.validate(&head.total_kernel_offset, verifier_cache)?;
