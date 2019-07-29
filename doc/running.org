@@ -552,11 +552,20 @@ the blockchain. Therefore, sometimes we must perform a hard reset.
 A hard reset notification will be sent to the "Mining Troubleshooting"
 group in Telegram.
 
-When a hard reset happens, you need to remove the "chain_data":
-directory:
+When a hard reset happens, you need to remove the "chain_data"
+directory and the ~epic-server.toml~ file:
 
 Open a new terminal window and execute the command:
 
     #+begin_src shell
       rm -rf ~/.epic/main/chain_data/
     #+end_src
+
+You also need to remove the ~epic-server.toml~. To do that, type the following command
+in the terminal:
+
+    #+begin_src shell
+      rm -rf ~/.epic/main/epic-server.toml
+    #+end_src
+
+
