@@ -552,10 +552,10 @@ not everything is fully decided. Therefore, sometimes we ask for you
 to do a hard reset. This will be asked in the daily update message
 when needed.
 
-You will need to remove the directory called /chain/data. This
-directory is where the epic cash blockchain stores its
-data. The following step explain how to erase this data using
-the terminal (if used the epic server [[#epic_config_default][default configurations]]):
+You will need to remove the directory called ~chain_data~. This
+directory is where the epic cash blockchain stores its data. The
+following step explain how to erase this data using the terminal (if
+used the epic server [[#epic_config_default][default configurations]]):
 
 1. Open a new terminal window and execute the command:
     #+begin_src shell
