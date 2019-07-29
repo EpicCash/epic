@@ -546,18 +546,17 @@ also accepted by the network.
 
 * Testnet Reset
 
-During the Testnet phase, we constantly do modifications that break the
-integrity of the blockchain, because we are testing the policies and
-not everything is fully decided. Therefore, sometimes we ask for you
-to do a hard reset. This will be asked in the daily update message
-when needed.
+During the Testnet phase, we unavoidably make modifications that break
+the blockchain. Therefore, sometimes we must perform a hard reset.
 
-You will need to remove the directory called ~chain_data~. This
-directory is where the epic cash blockchain stores its data. The
-following step explain how to erase this data using the terminal (if
-used the epic server [[#epic_config_default][default configurations]]):
+A hard reset notification will be sent to the "Mining Troubleshooting"
+group in Telegram.
 
-1. Open a new terminal window and execute the command:
+When a hard reset happens, you need to remove the "chain_data":
+directory:
+
+Open a new terminal window and execute the command:
+
     #+begin_src shell
-    rm -rf ~/.epic/main/chain_data/
+      rm -rf ~/.epic/main/chain_data/
     #+end_src
