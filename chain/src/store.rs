@@ -475,7 +475,7 @@ impl<'a> Iterator for DifficultyIter<'a> {
 						if let Some(prev) = prev_header.clone() {
 							let pow: PoWType = (&prev.pow.proof).into();
 							if pow_type == pow {
-								diff_time = head.timestamp.timestamp() as i64
+								let diff_time = head.timestamp.timestamp() as i64
 									- prev.timestamp.timestamp() as i64;
 								// Giving an offset of time in the head timestamp
 								// Is the same as if the last block was mined with our algo
@@ -487,7 +487,7 @@ impl<'a> Iterator for DifficultyIter<'a> {
 						} else {
 							// If we don't find a block mined with our algo,
 							// we return the head timestamp - BLOCK_TIME_SEC (60 seconds)
-							timestamp -= BLOCK_TIME_SEC;
+							timestamp = timestamp - BLOCK_TIME_SEC as i64;
 							break None;
 						}
 					},
