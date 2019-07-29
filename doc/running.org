@@ -546,22 +546,18 @@ also accepted by the network.
 
 * Testnet Reset
 
-If the testnet is restarted or there's a new version of the epic
-server, you will need to remove the directory called
-**/chain/data**. This directory is where the epic cash blockchain
-stores its data. Therefore, if the testnet is restarted, all this data
-needs to be removed in order to run and store the newest version of
-the blockchain. The following step explain how to erase this data
-using the terminal (if used the epic server [[#epic_config_default][default configurations]]):
+During the Testnet phase, we constantly do modifications that break the
+integrity of the blockchain, because we are testing the policies and
+not everything is fully decided. Therefore, sometimes we ask for you
+to do a hard reset. This will be asked in the daily update message
+when needed.
+
+You will need to remove the directory called /chain/data. This
+directory is where the epic cash blockchain stores its
+data. The following step explain how to erase this data using
+the terminal (if used the epic server [[#epic_config_default][default configurations]]):
 
 1. Open a new terminal window and execute the command:
     #+begin_src shell
     rm -rf ~/.epic/main/chain_data/
     #+end_src
-
-
-
-
-
-
-
