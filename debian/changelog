@@ -1,3 +1,8 @@
+epic (1.0.2-1) unstable; urgency=high
+
+  * Fixing bugs with progpow
+
+ -- Yuri Albuquerque <yurialbuquerque@brickabode.com> Mon, 29 Jul 2019
 epic (1.0.0-2) unstable; urgency=medium
 
   * Fixing the dependencies
