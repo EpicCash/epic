@@ -287,10 +287,10 @@ pub fn graph_weight(height: u64, edge_bits: u8) -> u64 {
 /// avoids getting stuck when trying to increase difficulty subject to dampening
 pub const MIN_DIFFICULTY: u64 = DIFFICULTY_DAMP_FACTOR;
 
-/// RandomX Minimum difficulty (used for saturation) 
+/// RandomX Minimum difficulty (used for saturation)
 pub const MIN_DIFFICULTY_RANDOMX: u64 = 1000;
 
-/// Progpow Minimum difficulty (used for saturation) 
+/// Progpow Minimum difficulty (used for saturation)
 pub const MIN_DIFFICULTY_PROGPOW: u64 = 10;
 
 /// Minimum scaling factor for AR pow, enforced in diff retargetting
@@ -391,7 +391,7 @@ where
 	// First, get the ratio of secondary PoW vs primary, skipping initial header
 	let sec_pow_scaling = secondary_pow_scaling(height, &diff_data[1..]);
 	let prev_difficulty = diff_data[0].difficulty.to_num(prev_algo);
-	
+
 	let mut diff = diff_data[0].difficulty.num.clone();
 
 	match prev_algo {
@@ -428,7 +428,7 @@ fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>
 	// Get the timestamp delta across the window
 	let ts_delta: u64 =
 		diff_data[DIFFICULTY_ADJUST_WINDOW as usize].timestamp - diff_data[0].timestamp;
-	
+
 	// Get the difficulty sum of the last DIFFICULTY_ADJUST_WINDOW elements
 	let diff_sum: u64 = diff_data
 		.iter()
@@ -449,8 +449,8 @@ fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>
 
 pub fn next_hash_difficulty(pow: PoWType, prev_diff: u64, diff_data: &Vec<HeaderInfo>) -> u64 {
 	// Constant used to divide the previous difficulty.
-	let block_diff_factor = 20; 
-	
+	let block_diff_factor = 20;
+
 	// Desired time per block
 	let diff_adjustment_cutoff = 60;
 
@@ -470,7 +470,7 @@ pub fn next_hash_difficulty(pow: PoWType, prev_diff: u64, diff_data: &Vec<Header
 	// Minimum difficulty saturation
 	max(
 		// Making sure that we not get a negative difficulty
-		max(prev_diff as i64 + offset * sign , 1) as u64,
+		max(prev_diff as i64 + offset * sign, 1) as u64,
 		min(prev_diff, min_diff),
 	)
 }
