@@ -309,9 +309,9 @@ found on [[#run_epic][Running the Epic Server]] and the instructions of how to g
 the wallet listening can be found on [[#run_wallet][Running the wallet API]].
 
 ** Prerequisites
-
-    For Debian-based distributions (Debian, Ubuntu, Mint, etc), all in
-    one line:
+   
+    For Debian-based distributions (Debian, Ubuntu, Mint, etc), if you want use
+    *CPU/GPU* run the following command in the terminal:
 
     #+begin_src shell
       sudo apt install ocl-icd-opencl-dev
@@ -331,6 +331,9 @@ the epic-miner:
     #+begin_src shell
       sudo dpkg -i <your-epic-miner.deb>
     #+end_src
+
+3. You can build the miner using only *CPU*, using *CPU/GPU* and using *Nvidia*,
+   check the "Build steps" section in [[https://gitlab.com/epiccash/epic-miner/blob/master/README.md][README.md]] for more information.
 
 #+ATTR_HTML: :id config_miner_server
 ** Configuring the Epic Server to work with the miner
