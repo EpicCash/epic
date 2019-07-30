@@ -454,10 +454,13 @@ impl<'a> Iterator for DifficultyIter<'a> {
 		if let Some(header) = self.header.clone() {
 			let pow_type: PoWType = (&header.pow.proof).into();
 
-			let (prev_header, timestamp) = {
+			let ((prev_header, head), timestamp) = {
 				let mut head = header.clone();
-				// Current Head timestamp
-				let mut timestamp: i64 = head.timestamp.timestamp();
+				// Current Blockchain's head timestamp
+				let mut timestamp: i64 = header.timestamp.timestamp();
+				println!("Head's timestamp: {:?}", timestamp);
+				let mut first_iter: bool = true;
+				let mut prev_header_from_head: Option<BlockHeader> = None;
 				(
 					loop {
 						let mut prev_header = None;
@@ -473,14 +476,21 @@ impl<'a> Iterator for DifficultyIter<'a> {
 						}
 
 						if let Some(prev) = prev_header.clone() {
+							//Backup the previous header from the HEAD of the blockchain
+							if first_iter {
+								prev_header_from_head = Some(prev.clone());
+							};
+							first_iter = false;
 							let pow: PoWType = (&prev.pow.proof).into();
 							if pow_type == pow {
 								let diff_time = head.timestamp.timestamp() as i64
 									- prev.timestamp.timestamp() as i64;
-								// Giving an offset of time in the head timestamp
+								// Giving an offset of time in the blockchain's head timestamp
 								// Is the same as if the last block was mined with our algo
 								timestamp -= diff_time;
-								break prev_header;
+								// Changing the current head of the blockchain to be the block created after our block
+								// This is done so the difficulty difference can be computed right
+								break (prev_header, head);
 							} else {
 								head = prev;
 							}
@@ -488,25 +498,26 @@ impl<'a> Iterator for DifficultyIter<'a> {
 							// If we don't find a block mined with our algo,
 							// we return the head timestamp - BLOCK_TIME_SEC (60 seconds)
 							timestamp = timestamp - BLOCK_TIME_SEC as i64;
-							break None;
+							break (prev_header_from_head, header.clone());
 						}
 					},
-					// If we don't find a block we return the newest block timestamp - BLOCK_TIME_SEC (60 seconds)
 					timestamp,
 				)
 			};
 
 			self.prev_header = prev_header;
-
 			let prev_difficulty = self
 				.prev_header
 				.clone()
 				.map_or(Difficulty::zero(), |x| x.total_difficulty());
-			let difficulty = header.total_difficulty() - prev_difficulty;
+			println!("\n\nPrev difficulty {:?}", prev_difficulty);
+			let difficulty = head.total_difficulty() - prev_difficulty;
+			println!("Header difficulty {:?}", head.total_difficulty());
+			println!("Total difficulty  {:?}\n\n", difficulty);
+			println!("The timestamp: {:?}", timestamp);
 			let scaling = header.pow.secondary_scaling;
-
 			Some(HeaderInfo::new(
-				(header.timestamp.timestamp() as i64 - timestamp) as u64,
+				timestamp as u64,
 				difficulty,
 				scaling,
 				header.pow.is_secondary(),
