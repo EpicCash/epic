@@ -309,20 +309,25 @@ found on [[#run_epic][Running the Epic Server]] and the instructions of how to g
 the wallet listening can be found on [[#run_wallet][Running the wallet API]].
 
 ** Prerequisites
+
+    You can run the miner using only *CPU* or using *CPU and GPU*.
    
-    For Debian-based distributions (Debian, Ubuntu, Mint, etc), if you want use
-    *CPU/GPU* run the following command in the terminal:
+    To run using *CPU/GPU* in Debian-based distributions (Debian, Ubuntu, Mint,
+    etc.), you will need the *OpenCL*, to install it just run the following
+    command in the terminal:
 
     #+begin_src shell
       sudo apt install ocl-icd-opencl-dev
     #+end_src
 
 ** Installation
-The following steps explain how to install and run
-the epic-miner:
+The following steps explain how to install and run the epic-miner:
 
-1. Download the latest version of the [[https://internal.brickabode.com/edna/packages/epic-miner_1.0.0-1_amd64.deb][epic miner]]. Checksum SHA256:
-   [PLACE_HOLDER_SHA256]
+1. Download the latest version of the epic miner:
+   - To use *only CPU* download this:
+     - [[https://internal.brickabode.com/edna/packages/epic-miner_1.0.3-1_amd64.deb][epic miner]] Checksum SHA256: [PLACE_HOLDER_SHA256]
+   - To use *CPU/GPU* download this:
+     - [[https://internal.brickabode.com/edna/packages/epic-miner-opencl_1.0.3-1_amd64.deb][epic miner - opencl]] Checksum SHA256: [PLACE_HOLDER_SHA256]
    
 2. Open a new terminal window and navigate to the directory where you
    downloaded the .deb file and execute the following command changing
