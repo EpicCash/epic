@@ -439,17 +439,24 @@ mine with the GPU (primary) using CUDA:
 
 ** Additional configuration: RandomX
 
-If you are going to mine with RandomX, you will need to set some
-additional parameters in the ~epic-miner.toml~. Open the
-~epic-miner.toml~ with your preferred text editor and find the
-following line:
+If you are going to mine with RandomX, you will need to set some additional
+parameters in the ~epic-miner.toml~. Open the ~epic-miner.toml~ with your
+preferred text editor and find the following lines:
 
-    #+begin_src toml
-      cpu_threads = 4
-    #+end_src
+#+begin_src toml
+[mining.randomx_config]
+threads = 1
+jit = false
+large_pages = false
+hard_aes = false
+#+end_src
 
 You can specify the desired number of threads used by the RandomX algorithm by
-setting its value in the variable *cpu_threads*.
+setting its value in the variable *threads*.
+
+
+Check the [[https://github.com/tevador/RandomX/blob/master/doc/design.md][RandomX design]] in order to have a clear understanding about the value
+of the variables above.
 
 After you finish all your modification, save and close the file.
 
