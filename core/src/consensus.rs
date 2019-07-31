@@ -76,9 +76,17 @@ pub fn is_foundation_height(height: u64) -> bool {
 
 /// Get the current position of the foundation coinbase in the file `foundation.json` based on the block's height
 pub fn foundation_index(height: u64) -> u64 {
-	height / foundation_height()
+	// The genesis doesn't have a foundation reward. 
+	// The foundation.json file that stores all the foundation taxes has its index starting in 0. Therefore, we subtract 1.
+	if height > 0 {
+		(height / foundation_height()) - 1
+	} else {
+		panic!("Error to get the correct index in the foundation.json file! It was expected a height > 0, it got a height of {:?}", height);
+	}
 }
 
+/// Check if the current height is a foundation height, if it's, the function returns the Foundation Reward value.
+/// Otherwise, the function returns 0.
 pub fn add_reward_foundation(height: u64) -> u64 {
 	if is_foundation_height(height) {
 		FOUNDATION_REWARD

@@ -34,7 +34,7 @@ subcommands:
             long: path
             takes_value: true
         - height:
-            help: The height to start the generation of foundation coinbases. If no height is given, the height of 0 is used.
+            help: The height to start the generation of foundation coinbases. If no height is given, the FOUNDATION_HEIGHT is used.
             short: h
             long: height
             takes_value: true

@@ -21,7 +21,7 @@ extern crate clap;
 extern crate log;
 use crate::config::config::SERVER_CONFIG_FILE_NAME;
 use crate::core::core::foundation;
-use crate::core::global;
+use crate::core::{consensus, global};
 use crate::util::init_logger;
 use clap::App;
 use epic_api as api;
@@ -114,7 +114,7 @@ fn real_main() -> i32 {
 				panic!("The height value must be a positive integer: {}", e);
 			})
 		} else {
-			0
+			consensus::foundation_height()
 		};
 		// TODO-FOUNDATION: PUT THE FUNCTION TO CHECK IF THE FILE EXISTS HERE IF HEIGHT != 0
 		let foundation_coinbases = create_foundation(&wallet_url, generate, height);
