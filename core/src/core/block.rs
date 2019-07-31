@@ -27,8 +27,8 @@ use std::iter::FromIterator;
 use std::sync::Arc;
 
 use crate::consensus::{
-	self, reward, reward_at_height, reward_foundation, total_overage_at_height, FOUNDATION_REWARD,
-	REWARD,
+	self, add_reward_foundation, is_foundation_height, reward, reward_at_height, reward_foundation,
+	total_overage_at_height, FOUNDATION_REWARD, REWARD,
 };
 use crate::core::block::feijoada::{get_bottles_default, Policy};
 use crate::core::committed::{self, Committed};
@@ -419,12 +419,7 @@ impl BlockHeader {
 	*/
 	//written by sundar
 	pub fn overage(&self) -> i64 {
-		((reward_at_height(self.height)
-			+ if self.height > 0 {
-				consensus::FOUNDATION_REWARD
-			} else {
-				0
-			}) as i64)
+		((reward_at_height(self.height) + add_reward_foundation(self.height)) as i64)
 			.checked_neg()
 			.unwrap_or(0)
 	}
@@ -535,8 +530,19 @@ impl Block {
 		difficulty: Difficulty,
 		reward_output: (Output, TxKernel),
 	) -> Result<Block, Error> {
-		let mut block =
-			Block::from_reward(prev, txs, reward_output.0, reward_output.1, difficulty)?;
+		let next_height = prev.height + 1;
+		let mut block = if is_foundation_height(next_height) {
+			let foundation = load_foundation_output(next_height);
+			Block::from_coinbases(
+				prev,
+				txs,
+				(reward_output.0, reward_output.1),
+				(foundation.output, foundation.kernel),
+				difficulty,
+			)?
+		} else {
+			Block::from_reward(prev, txs, reward_output.0, reward_output.1, difficulty)?
+		};
 
 		// Now set the pow on the header so block hashing works as expected.
 		{
@@ -853,7 +859,7 @@ impl Block {
 			.collect::<Vec<&TxKernel>>();
 
 		{
-			if self.header.height > 0 {
+			if is_foundation_height(self.header.height) {
 				let cb_data = load_foundation_output(self.header.height);
 
 				if cb_outs

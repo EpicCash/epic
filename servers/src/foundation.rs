@@ -1,5 +1,6 @@
 use crate::mining::mine_block::create_foundation as c_foundation;
 use crate::mining::mine_block::{BlockFees, CbData};
+use crate::core::consensus;
 
 /// Call the wallet API to create a given number of foundations coinbases (output/kernel)
 pub fn create_foundation(
@@ -17,7 +18,7 @@ pub fn create_foundation(
 	};
 	let mut result: Vec<CbData> = vec![];
 	for _ in 0..num_to_generate {
-		block_fees.height += 1;
+		println!("Generating a foundation reward at height of: {:?}", block_fees.height);
 		match c_foundation(&wallet_listener_url, &block_fees) {
 			Err(_) => {
 				panic!(format!(
@@ -29,6 +30,7 @@ pub fn create_foundation(
 				result.push(foundation);
 			}
 		}
+		block_fees.height += consensus::foundation_height();
 	}
 	result
 }

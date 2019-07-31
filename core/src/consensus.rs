@@ -50,7 +50,17 @@ pub const FOUNDATION_REWARD: u64 = 7 * EPIC_BASE;
 /// This variable will sparse the blocks that receive the foundation coinbase
 /// Therefore, the FOUNDATION_REWARD will be multiplied by this variable to adjust the amount of grins
 /// sent to the Epic foundation.
-pub const FOUNDATION_HEIGHT: u64 = 1;
+pub const MAINNET_FOUNDATION_HEIGHT: u64 = 1440;
+pub const AUTOMATEDTEST_FOUNDATION_HEIGHT: u64 = 5;
+
+pub fn foundation_height() -> u64 {
+	let param_ref = global::CHAIN_TYPE.read();
+	match *param_ref {
+		global::ChainTypes::AutomatedTesting => AUTOMATEDTEST_FOUNDATION_HEIGHT,
+		global::ChainTypes::UserTesting => AUTOMATEDTEST_FOUNDATION_HEIGHT,
+		_ => MAINNET_FOUNDATION_HEIGHT,
+	}
+}
 
 /*
 /// Actual block reward for a given total fee amount
@@ -61,12 +71,28 @@ pub fn reward(fee: u64) -> u64 {
 
 /// Check if the parameter height is multiple of FOUNDATION_HEIGHT
 pub fn is_foundation_height(height: u64) -> bool {
-	height % FOUNDATION_HEIGHT == 0
+	height > 0 && height % foundation_height() == 0
 }
 
 /// Get the current position of the foundation coinbase in the file `foundation.json` based on the block's height
 pub fn foundation_index(height: u64) -> u64 {
-	height / FOUNDATION_HEIGHT
+	// The genesis doesn't have a foundation reward. 
+	// The foundation.json file that stores all the foundation taxes has its index starting in 0. Therefore, we subtract 1.
+	if height > 0 {
+		(height / foundation_height()) - 1
+	} else {
+		panic!("Error to get the correct index in the foundation.json file! It was expected a height > 0, it got a height of {:?}", height);
+	}
+}
+
+/// Check if the current height is a foundation height, if it's, the function returns the Foundation Reward value.
+/// Otherwise, the function returns 0.
+pub fn add_reward_foundation(height: u64) -> u64 {
+	if is_foundation_height(height) {
+		FOUNDATION_REWARD
+	} else {
+		0
+	}
 }
 
 ///sundaram Working area
@@ -103,7 +129,7 @@ pub fn reward_at_height(height: u64) -> u64 {
 }
 
 pub fn reward_foundation(fees: u64, height: u64) -> u64 {
-	reward(fees, height) + if height > 0 { FOUNDATION_REWARD } else { 0 }
+	reward(fees, height) + add_reward_foundation(height)
 }
 /// The total overage at a given height. Variable due to changing rewards
 /// TODOBG: Make this more efficient by hardcoding reward schedule times
@@ -116,7 +142,7 @@ pub fn total_overage_at_height(height: u64, genesis_had_reward: bool) -> i64 {
 
 	for i in 1..=height {
 		let reward = reward_at_height(i as u64) as i64;
-		sum += (reward + (FOUNDATION_REWARD as i64));
+		sum += (reward + add_reward_foundation(i as u64) as i64);
 	}
 
 	return sum;

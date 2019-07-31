@@ -139,7 +139,6 @@ mod mine_chain {
 			world.keychain = Some(epic_keychain::ExtKeychain::from_random_seed(false).unwrap());
 			let key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
 			let reward = reward::output(world.keychain.as_ref().unwrap(), &key_id, 0, false, 0).unwrap();
-			let foundation = load_foundation_output(0);
 			world.genesis = Some(genesis.with_reward(reward.0, reward.1));
 			let genesis_ref = world.genesis.as_mut().unwrap();
 
@@ -524,14 +523,13 @@ mod mine_chain {
 				let prev = chain.head_header().unwrap();
 				let next_header_info = consensus::next_difficulty(
 					1,
-					prev.pow.proof.clone().into(),
+					(&prev.pow.proof).into(),
 					chain.difficulty_iter().unwrap());
 				let pk = epic_keychain::ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
 				let reward = libtx::reward::output(kc, &pk, 0, false, n).unwrap();
-				let foundation = load_foundation_output(prev.height + 1);
 				reward_outputs.push(reward.0.clone());
 				let mut b =
-					core::core::Block::new_with_coinbase(&prev, vec![], next_header_info.clone().difficulty, reward, (foundation.output, foundation.kernel))
+					core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
 						.unwrap();
 				b.header.timestamp = prev.timestamp + Duration::seconds(60);
 				b.header.pow.secondary_scaling = next_header_info.secondary_scaling;
@@ -639,9 +637,6 @@ mod mine_chain {
 			let key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
 
 			let reward = reward::output(world.keychain.as_ref().unwrap(), &key_id, 0, false, 0).unwrap();
-			//let foundation = libtx::reward::output_foundation(world.keychain_foundation.as_ref().unwrap(), &key_id, true).unwrap();
-			let cb_data = load_foundation_output(0);
-
 			// creating a placeholder for the genesis block
 			let mut genesis = genesis::genesis_dev();
 			// creating the block with the desired reward
@@ -678,7 +673,7 @@ mod mine_chain {
 			world.keychain_foundation = Some(kc);
 		};
 
-		then regex "I add <([0-9]+)> blocks with foundation reward following the policy <([0-9]+)>" |world, matches, _step| {
+		then regex "I add block with foundation reward following the policy <([0-9]+)>" |world, matches, _step| {
 			let num: u64 = matches[1].parse().unwrap();
 			// The policy index is ignored for now, as we are only using a unique policy.
 			// index = matches[2].parse().unwrap();
@@ -687,25 +682,23 @@ mod mine_chain {
 			let kc = world.keychain.as_ref().unwrap();
 			// println!("Keychain: {:?}", kc);
 
-			for i in 0..num {
-				let prev = chain.head_header().unwrap();
-				let diff = prev.height + 1;
-				let transactions: Vec<&Transaction>  = vec![];
-				let key_id = epic_keychain::ExtKeychainPath::new(3, 0, 0, diff as u32, 0).to_identifier();
-				println!("Key_id: {:?}\n", key_id);
-				let fees = transactions.iter().map(|tx| tx.fee()).sum();
-				let mining_reward = libtx::reward::output(kc, &key_id, fees, false, 0).unwrap();
-				let foundation_reward = load_foundation_output(prev.height + 1);
-				println!("\nFoundation Reward:{:?}\n", foundation_reward);
-				// Creating the block
-				let mut block = prepare_block_with_coinbase(&prev, diff, transactions, mining_reward, (foundation_reward.output, foundation_reward.kernel));
-				chain.set_txhashset_roots(&mut block).unwrap();
-				// Mining
-				let algo = Deterministic::choose_algo(&get_policies(), &prev.bottles);
-				block.header.bottles = next_block_bottles(algo, &prev.bottles);
-				block.header.pow.proof = get_pow_type(&algo, prev.height);
-				chain.process_block(block, chain::Options::SKIP_POW).unwrap();
-			};
+			let prev = chain.head_header().unwrap();
+			let diff = prev.height + 1;
+			let transactions: Vec<&Transaction>  = vec![];
+			let key_id = epic_keychain::ExtKeychainPath::new(3, 0, 0, diff as u32, 0).to_identifier();
+			println!("Key_id: {:?}\n", key_id);
+			let fees = transactions.iter().map(|tx| tx.fee()).sum();
+			let mining_reward = libtx::reward::output(kc, &key_id, fees, false, 0).unwrap();
+			let foundation_reward = load_foundation_output(prev.height + 1);
+			println!("\nFoundation Reward:{:?}\n", foundation_reward);
+			// Creating the block
+			let mut block = prepare_block_with_coinbase(&prev, diff, transactions, mining_reward, (foundation_reward.output, foundation_reward.kernel));
+			chain.set_txhashset_roots(&mut block).unwrap();
+			// Mining
+			let algo = Deterministic::choose_algo(&get_policies(), &prev.bottles);
+			block.header.bottles = next_block_bottles(algo, &prev.bottles);
+			block.header.pow.proof = get_pow_type(&algo, prev.height);
+			chain.process_block(block, chain::Options::SKIP_POW).unwrap();
 		};
 
 		given "I have a hardcoded coinbase" |_world, _step|{
@@ -902,20 +895,14 @@ mod mine_chain {
 			let prev = chain.head_header().unwrap();
 			let next_header_info = consensus::next_difficulty(
 				1,
-				prev.pow.proof.clone().into(),
+				(&prev.pow.proof).into(),
 				chain.difficulty_iter().unwrap(),
 			);
 			let pk = epic_keychain::ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
 			let reward = libtx::reward::output(keychain, &pk, 0, false, 0).unwrap();
-			let foundation = load_foundation_output(prev.height + 1);
-			let mut b = core::core::Block::new_with_coinbase(
-				&prev,
-				vec![],
-				next_header_info.clone().difficulty,
-				reward,
-				(foundation.output, foundation.kernel),
-			)
-			.unwrap();
+			let mut b =
+				core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
+					.unwrap();
 			b.header.timestamp = prev.timestamp + Duration::seconds(60);
 			b.header.pow.secondary_scaling = next_header_info.secondary_scaling;
 			b.header.bottles = next_block_bottles(
@@ -983,7 +970,7 @@ mod mine_chain {
 			let block = chain.get_block(&header.hash()).unwrap();
 			assert_eq!(block.header.height, n);
 			assert_eq!(block.hash(), bhash);
-			assert_eq!(block.outputs().len(), 2);
+			assert_eq!(block.outputs().len(), 1);
 
 			// now check the block height index
 			let header_by_height = chain.get_header_by_height(n).unwrap();
@@ -1054,13 +1041,11 @@ mod mine_chain {
 		let key_id = epic_keychain::ExtKeychainPath::new(1, diff as u32, 0, 0, 0).to_identifier();
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
 		let reward = libtx::reward::output(kc, &key_id, fees, false, 0).unwrap();
-		let foundation = load_foundation_output(prev.height + 1);
-		let mut b = match core::core::Block::new_with_coinbase(
+		let mut b = match core::core::Block::new(
 			prev,
 			txs.into_iter().cloned().collect(),
 			Difficulty::from_num(diff),
 			reward,
-			(foundation.output, foundation.kernel),
 		) {
 			Err(e) => panic!("{:?}", e),
 			Ok(b) => b,
@@ -1112,13 +1097,11 @@ mod mine_chain {
 
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
 		let reward = libtx::reward::output(kc, &key_id, fees, true, 0).unwrap();
-		let foundation = load_foundation_output(prev.height + 1);
-		let mut b = match core::core::Block::new_with_coinbase(
+		let mut b = match core::core::Block::new(
 			prev,
 			txs.into_iter().cloned().collect(),
 			diff.clone(),
 			reward,
-			(foundation.output, foundation.kernel),
 		) {
 			Err(e) => panic!("{:?}", e),
 			Ok(b) => b,
