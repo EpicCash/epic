@@ -1,3 +1,29 @@
+epic (1.0.3-1) UNRELEASED; urgency=medium
+
+  [ Yuri Albuquerque ]
+  * Fixing the doc for testnet reset.
+  * It's chain_data, not /chain/data
+  * Todd's review of the testnet reset doc.
+
+  [ Leonardo Viana ]
+  * Update testnet reset instructions
+
+  [ Aron Castro ]
+  * Add specific height for foundation reward
+
+  [ renantkn ]
+  * Add mine using only cpu
+  * Add mine using only cpu
+  * Update links and checksum
+
+  [ Leonardo Viana ]
+  * Fix the height sent to the wallet API
+
+  [ Aron Castro ]
+  * Update progpow rust
+
+ -- Ubuntu <ubuntu@ip-172-31-16-240.ec2.internal>  Wed, 31 Jul 2019 19:03:14 +0000
+
 epic (1.0.2-1) unstable; urgency=high
 
   * Fixing bugs with progpow
