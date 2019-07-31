@@ -1,4 +1,4 @@
-epic (1.0.3-2) UNRELEASED; urgency=medium
+epic (1.0.3-3) bionic; urgency=medium
 
   [ Yuri Albuquerque ]
   * Fixing the doc for testnet reset.
@@ -27,8 +27,9 @@ epic (1.0.3-2) UNRELEASED; urgency=medium
 
   [ Yuri Albuquerque ]
   * Installing foundation.json with write permissions.
+  * Maintainance script for epic.
 
- -- Ubuntu <ubuntu@ip-172-31-16-240.ec2.internal>  Wed, 31 Jul 2019 22:38:57 +0000
+ -- Ubuntu <ubuntu@ip-172-31-16-240.ec2.internal>  Wed, 31 Jul 2019 22:46:25 +0000
 
 epic (1.0.2-1) unstable; urgency=high
 
