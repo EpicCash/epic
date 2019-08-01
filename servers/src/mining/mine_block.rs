@@ -33,6 +33,7 @@ use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::{Output, TxKernel};
 use crate::core::global::get_policies;
 use crate::core::libtx::secp_ser;
+use crate::core::pow::PoWType;
 use crate::core::{consensus, core, global};
 use crate::keychain::{ExtKeychain, Identifier, Keychain};
 use crate::pool;
@@ -77,7 +78,7 @@ pub fn get_block(
 	verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	key_id: Option<Identifier>,
 	wallet_listener_url: Option<String>,
-) -> (core::Block, BlockFees) {
+) -> (core::Block, BlockFees, PoWType) {
 	let wallet_retry_interval = 5;
 	// get the latest chain state and build a block on top of it
 	let mut result = build_block(
@@ -139,7 +140,7 @@ fn build_block(
 	verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	key_id: Option<Identifier>,
 	wallet_listener_url: Option<String>,
-) -> Result<(core::Block, BlockFees), Error> {
+) -> Result<(core::Block, BlockFees, PoWType), Error> {
 	let head = chain.head_header()?;
 
 	// prepare the block header timestamp
@@ -200,13 +201,12 @@ fn build_block(
 	// making sure we're not spending time mining a useless block
 	b.validate(&head.total_kernel_offset, verifier_cache)?;
 
+	let pow_type = Deterministic::choose_algo(&get_policies(), &head.bottles);
+
 	b.header.pow.nonce = thread_rng().gen();
 	b.header.pow.secondary_scaling = difficulty.secondary_scaling;
 	b.header.timestamp = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(now_sec, 0), Utc);
-	b.header.bottles = next_block_bottles(
-		Deterministic::choose_algo(&get_policies(), &head.bottles),
-		&head.bottles,
-	);
+	b.header.bottles = next_block_bottles(pow_type, &head.bottles);
 
 	debug!(
 		"Built new block with {} inputs and {} outputs, block difficulty: {:?}, cumulative difficulty {:?}",
@@ -218,7 +218,7 @@ fn build_block(
 
 	// Now set txhashset roots and sizes on the header of the block being built.
 	match chain.set_txhashset_roots(&mut b) {
-		Ok(_) => Ok((b, block_fees)),
+		Ok(_) => Ok((b, block_fees, pow_type)),
 		Err(e) => {
 			match e.kind() {
 				// If this is a duplicate commitment then likely trying to use

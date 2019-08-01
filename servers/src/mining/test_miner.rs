@@ -150,7 +150,7 @@ impl Miner {
 			let head = self.chain.head_header().unwrap();
 			let mut latest_hash = self.chain.head().unwrap().last_block_h;
 
-			let (mut b, block_fees) = mine_block::get_block(
+			let (mut b, block_fees, pow_type) = mine_block::get_block(
 				&self.chain,
 				&self.tx_pool,
 				self.verifier_cache.clone(),
