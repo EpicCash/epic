@@ -387,12 +387,16 @@ pub fn chain_shortname() -> String {
 /// vector and pads if needed (which will) only be needed for the first few
 /// blocks after genesis
 
-pub fn difficulty_data_to_vector<T>(cursor: T) -> Vec<HeaderInfo>
+pub fn difficulty_data_to_vector<T>(
+	cursor: T,
+	needed_block_count: u64,
+	reverse: bool,
+) -> Vec<HeaderInfo>
 where
 	T: IntoIterator<Item = HeaderInfo>,
 {
 	// Convert iterator to vector, so we can append to it if necessary
-	let needed_block_count = DIFFICULTY_ADJUST_WINDOW as usize + 1;
+	let needed_block_count = needed_block_count as usize + 1;
 	let mut last_n: Vec<HeaderInfo> = cursor.into_iter().take(needed_block_count).collect();
 
 	// Only needed just after blockchain launch... basically ensures there's
@@ -414,6 +418,10 @@ where
 			last_n.push(HeaderInfo::from_ts_diff(last_ts, last_diff.clone()));
 		}
 	}
-	last_n.reverse();
+
+	if reverse {
+		last_n.reverse();
+	}
+
 	last_n
 }

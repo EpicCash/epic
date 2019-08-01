@@ -457,10 +457,13 @@ impl Server {
 		// code clean. This may be handy for testing but not really needed
 		// for release
 		let diff_stats = {
-			let last_blocks: Vec<consensus::HeaderInfo> =
-				global::difficulty_data_to_vector(self.chain.difficulty_iter()?)
-					.into_iter()
-					.collect();
+			let last_blocks: Vec<consensus::HeaderInfo> = global::difficulty_data_to_vector(
+				self.chain.difficulty_iter()?,
+				consensus::DIFFICULTY_ADJUST_WINDOW,
+				true,
+			)
+			.into_iter()
+			.collect();
 
 			let tip_height = self.head()?.height as i64;
 			let mut height = tip_height as i64 - last_blocks.len() as i64 + 1;
