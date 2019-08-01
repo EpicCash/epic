@@ -45,16 +45,50 @@ impl<'de> Deserialize<'de> for PoWType {
 	}
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AllowPolicy {
+	pub height: u64,
+	pub value: u64,
+}
+
+pub type AllowedPolicy = Vec<AllowPolicy>;
+
+pub trait FuzzySearch {
+	fn search(&self, height: u64) -> Option<u64>;
+}
+
+impl FuzzySearch for AllowedPolicy {
+	fn search(&self, height: u64) -> Option<u64> {
+		let max_policy = self
+			.iter()
+			.filter(|allowed| allowed.height <= height)
+			.max_by(|&x, &y| x.height.cmp(&y.height));
+
+		match max_policy {
+			Some(p) => Some(p.value),
+			None => {
+				let last = self.last().expect("There's not policy listed!");
+				Some(last.value)
+			}
+		}
+	}
+}
+
 /// The configuration for the policy on accepted blocks
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PolicyConfig {
-	pub allowed_policies: u64,
+	pub allowed_policies: AllowedPolicy,
 	pub emitted_policy: u8,
 	pub policies: Vec<Policy>,
 }
 
 impl Default for PolicyConfig {
 	fn default() -> Self {
+		let allowed = vec![AllowPolicy {
+			height: 0,
+			value: 1,
+		}];
+
 		// default just in tests
 		let mut policies = get_bottles_default();
 		policies.insert(PoWType::Cuckaroo, 0);
@@ -63,7 +97,7 @@ impl Default for PolicyConfig {
 		policies.insert(PoWType::ProgPow, 34);
 
 		PolicyConfig {
-			allowed_policies: 0,
+			allowed_policies: allowed,
 			emitted_policy: 0,
 			policies: vec![policies],
 		}
@@ -95,6 +129,15 @@ pub fn next_block_bottles(pow: PoWType, bottle: &Policy) -> Policy {
 	let entry = new_bottle.entry(pow).or_insert(0);
 	*entry += 1;
 	new_bottle
+}
+
+pub fn is_allowed_policy(allowed_policy: AllowedPolicy, height: u64, policy: u8) -> bool {
+	let allowed = allowed_policy.search(height);
+	if let Some(allow) = allowed {
+		(allow & 1 << policy) != 0
+	} else {
+		false
+	}
 }
 
 impl Writeable for Policy {

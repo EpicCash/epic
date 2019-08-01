@@ -16,7 +16,7 @@
 
 use crate::chain::OrphanBlockPool;
 use crate::core::consensus;
-use crate::core::core::feijoada::{Deterministic, Feijoada, PoWType, Policy};
+use crate::core::core::feijoada::{is_allowed_policy, Deterministic, Feijoada, PoWType, Policy};
 use crate::core::core::hash::Hashed;
 use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::Committed;
@@ -368,6 +368,12 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 				pow::Proof::RandomXProof { ref hash } => {
 					error!("pipe: error validating header with randomx hash {:?}", hash);
 				}
+				pow::Proof::ProgPowProof { ref mix } => {
+					error!(
+						"pipe: error validating header with progpow mix hash {:?}",
+						mix
+					);
+				}
 				_ => {
 					error!(
 						"pipe: error validating header with cuckoo edge_bits {}",
@@ -382,33 +388,43 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 
 	// First I/O cost, delayed as late as possible.
 	let prev = prev_header_store(header, &mut ctx.batch)?;
-	let algo = Deterministic::choose_algo(&(global::get_policies()), &prev.bottles);
+	let policy = global::get_policies(header.policy);
 
-	let is_correct = match header.pow.proof {
-		pow::Proof::CuckooProof { edge_bits, .. } => {
-			if edge_bits == 29 {
-				algo == PoWType::Cuckaroo
-			} else {
-				algo == PoWType::Cuckatoo
+	if !is_allowed_policy(global::get_allowed_policies(), header.height, header.policy) {
+		return Err(ErrorKind::PolicyIsNotAllowed.into());
+	}
+
+	if let Some(p) = global::get_policies(header.policy) {
+		let algo = Deterministic::choose_algo(&p, &prev.bottles);
+
+		let is_correct = match header.pow.proof {
+			pow::Proof::CuckooProof { edge_bits, .. } => {
+				if edge_bits == 29 {
+					algo == PoWType::Cuckaroo
+				} else {
+					algo == PoWType::Cuckatoo
+				}
 			}
+			pow::Proof::RandomXProof { .. } => algo == PoWType::RandomX,
+			pow::Proof::ProgPowProof { .. } => algo == PoWType::ProgPow,
+			pow::Proof::MD5Proof { .. } => true,
+		};
+
+		if !is_correct {
+			debug!(
+				"Block rejected: Expected {:?} got {:?}",
+				algo, header.pow.proof
+			);
+			return Err(ErrorKind::InvalidSortAlgo.into());
 		}
-		pow::Proof::RandomXProof { .. } => algo == PoWType::RandomX,
-		pow::Proof::ProgPowProof { .. } => algo == PoWType::ProgPow,
-		pow::Proof::MD5Proof { .. } => true,
-	};
+	} else {
+		return Err(ErrorKind::ThereIsNotPolicy.into());
+	}
 
 	// make sure this header has a height exactly one higher than the previous
 	// header
 	if header.height != prev.height + 1 {
 		return Err(ErrorKind::InvalidBlockHeight.into());
-	}
-
-	if !is_correct {
-		debug!(
-			"Block rejected: Expected {:?} got {:?}",
-			algo, header.pow.proof
-		);
-		return Err(ErrorKind::InvalidSortAlgo.into());
 	}
 
 	// TODO - get rid of the automated testing mode check here somehow

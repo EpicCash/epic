@@ -147,6 +147,12 @@ pub enum ErrorKind {
 	/// comment here
 	#[fail(display = "Wrong sort algorithm")]
 	InvalidSortAlgo,
+	/// comment here
+	#[fail(display = "There's not policy")]
+	ThereIsNotPolicy,
+
+	#[fail(display = "Policy is not allowed")]
+	PolicyIsNotAllowed,
 }
 
 impl Display for Error {
