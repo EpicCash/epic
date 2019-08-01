@@ -43,8 +43,8 @@ Before installing the epic components (server, wallet, miner), we need
 to install the libRandomX dependency. The following steps explain how
 to install this dependency:
 
-1. Download the latest version of the [[https://internal.brickabode.com/edna/packages/librandomx_1.0.0-2_amd64.deb][librandomx]]. Checksum SHA256:
-   95294d5ebe3ac663490caa2f51fab6f14f00043f6f2c015fc1ab07a73e4407bf.
+1. Download the latest version of the [[https://epiccash.s3-sa-east-1.amazonaws.com/packages/librandomx_1.0.0-2_amd64.deb][librandomx]]. Checksum SHA256:
+   95294d5ebe3ac663490caa2f51fab6f14f00043f6f2c015fc1ab07a73e4407bf
 
 2. In the terminal, navigate to the directory where you downloaded the
    .deb file and execute the following command changing the argument
@@ -68,8 +68,8 @@ section we explain how to install and setup your epic server.
 
 The following steps explain how to install and run the epic server:
 
-1. Download the latest version of the [[https://internal.brickabode.com/edna/packages/epic_1.0.2-1_amd64.deb][epic server]]. Checksum SHA256:
-   e72406bfbd8decbc625b9b36068023451b0c4505cd3bf666ac7f5c7e7adb403b.
+1. Download the latest version of the [[https://epiccash.s3-sa-east-1.amazonaws.com/packages/epic_1.0.3-3_amd64.deb][epic server]]. Checksum SHA256:
+   2f32eeeb35c465c88c7e35e7ebf95db3448dfd8020cbb5e653674158f882d338
 
 2. In the terminal, navigate to the directory where you downloaded the
    .deb file and execute the following command changing the argument
@@ -162,7 +162,7 @@ Epic Server]].
 ** Installation
 The following steps explain how to install and run the epic-wallet:
 
-1. Download the latest version of the [[https://internal.brickabode.com/edna/packages/epic-wallet_1.0.2-1_amd64.deb][epic wallet]]. Checksum SHA256:
+1. Download the latest version of the [[https://epiccash.s3-sa-east-1.amazonaws.com/packages/epic-wallet_1.0.2-1_amd64.deb][epic wallet]]. Checksum SHA256:
    94e4ec665a0ba7b6374af46c9ae50388b8fc900ae104851b2f336e96f0a044c9
 
 2. Open a new terminal window and navigate to the directory where you
@@ -325,9 +325,9 @@ The following steps explain how to install and run the epic-miner:
 
 1. Download the latest version of the epic miner:
    - To use *only CPU* download this:
-     - [[https://internal.brickabode.com/edna/packages/epic-miner_1.0.3-1_amd64.deb][epic miner]] Checksum SHA256: bdcb5e9c2f90611546f21d465729ca7586ddc35dca0fbcb0586ddf95852acdef
+     - [[https://epiccash.s3-sa-east-1.amazonaws.com/packages/epic-miner_1.0.5-1_amd64.deb][epic miner]] Checksum SHA256:ee41dba5443a1a1830e7ba1fb70c3434f74173c2a1304b8d659183b77321810f
    - To use *CPU/GPU* download this:
-     - [[https://internal.brickabode.com/edna/packages/epic-miner-opencl_1.0.3-1_amd64.deb][epic miner - opencl]] Checksum SHA256: 3367df9093ef5d6d9e100d89c95e76834e71a0d4421e45e8d9b13cb85347bf15
+     - [[https://epiccash.s3-sa-east-1.amazonaws.com/packages/epic-miner-opencl_1.0.5-1_amd64.deb][epic miner - opencl]] Checksum SHA256: 5ba08a09aae3c1ccf8ff2bddefc74f8df4048bf58f92071ff1a87c7c11c2fc19
    
 2. Open a new terminal window and navigate to the directory where you
    downloaded the .deb file and execute the following command changing
