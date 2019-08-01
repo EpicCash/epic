@@ -458,9 +458,9 @@ impl<'a> Iterator for DifficultyIter<'a> {
 				let mut head = header.clone();
 				// Current Blockchain's head timestamp
 				let mut timestamp: i64 = header.timestamp.timestamp();
-				println!("Head's timestamp: {:?}", timestamp);
 				let mut first_iter: bool = true;
 				let mut prev_header_from_head: Option<BlockHeader> = None;
+
 				(
 					loop {
 						let mut prev_header = None;
@@ -483,15 +483,15 @@ impl<'a> Iterator for DifficultyIter<'a> {
 							first_iter = false;
 							let pow: PoWType = (&prev.pow.proof).into();
 							if pow_type == pow {
+								// Changing the current head of the blockchain to be the block created after our block
+								// This is done so the difficulty difference can be computed right
+								break (prev_header, head);
+							} else {
 								let diff_time = head.timestamp.timestamp() as i64
 									- prev.timestamp.timestamp() as i64;
 								// Giving an offset of time in the blockchain's head timestamp
 								// Is the same as if the last block was mined with our algo
 								timestamp -= diff_time;
-								// Changing the current head of the blockchain to be the block created after our block
-								// This is done so the difficulty difference can be computed right
-								break (prev_header, head);
-							} else {
 								head = prev;
 							}
 						} else {
@@ -510,11 +510,7 @@ impl<'a> Iterator for DifficultyIter<'a> {
 				.prev_header
 				.clone()
 				.map_or(Difficulty::zero(), |x| x.total_difficulty());
-			println!("\n\nPrev difficulty {:?}", prev_difficulty);
 			let difficulty = head.total_difficulty() - prev_difficulty;
-			println!("Header difficulty {:?}", head.total_difficulty());
-			println!("Total difficulty  {:?}\n\n", difficulty);
-			println!("The timestamp: {:?}", timestamp);
 			let scaling = header.pow.secondary_scaling;
 			Some(HeaderInfo::new(
 				timestamp as u64,
