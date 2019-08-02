@@ -1,3 +1,10 @@
+epic (1.0.5-1) bionic; urgency=medium
+
+  [ Aron Castro ]
+  * Fix ovefflow in difficultyiter
+
+ -- Ubuntu <ubuntu@ip-172-31-16-240.ec2.internal>  Fri, 02 Aug 2019 18:34:42 +0000
+
 epic (1.0.4-1) bionic; urgency=medium
 
   [ Aron Castro ]
