@@ -457,7 +457,7 @@ impl<'a> Iterator for DifficultyIter<'a> {
 			let ((prev_header_from_head, prev_header), timestamp) = {
 				let mut head = header.clone();
 				// Current Blockchain's head timestamp
-				let mut timestamp: u64 = header.timestamp.timestamp() as u64;
+				let mut timestamp: i64 = header.timestamp.timestamp();
 				let mut first_iter: bool = true;
 				let mut prev_header_from_head: Option<BlockHeader> = None;
 
@@ -488,20 +488,18 @@ impl<'a> Iterator for DifficultyIter<'a> {
 								// This is done so the difficulty difference can be computed right
 								break (prev_header_from_head, prev_header);
 							} else {
-								let diff_time = (head.timestamp.timestamp()
-									- prev.timestamp.timestamp())
-								.checked_neg()
-								.unwrap_or(0) as u64;
+								let diff_time =
+									(head.timestamp.timestamp() - prev.timestamp.timestamp());
+
 								// Giving an offset of time in the blockchain's head timestamp
 								// Is the same as if the last block was mined with our algo
-								timestamp =
-									(timestamp - diff_time).checked_neg().unwrap_or(timestamp);
+								timestamp -= diff_time;
 								head = prev;
 							}
 						} else {
 							// If we don't find a block mined with our algo,
 							// we return the head timestamp - BLOCK_TIME_SEC (60 seconds)
-							timestamp = (timestamp - BLOCK_TIME_SEC).checked_neg().unwrap_or(0);
+							timestamp -= BLOCK_TIME_SEC as i64;
 							break (prev_header_from_head, None);
 						}
 					},
@@ -516,7 +514,7 @@ impl<'a> Iterator for DifficultyIter<'a> {
 			let difficulty = header.total_difficulty() - prev_difficulty;
 			let scaling = header.pow.secondary_scaling;
 			Some(HeaderInfo::new(
-				timestamp,
+				timestamp as u64,
 				difficulty,
 				scaling,
 				header.pow.is_secondary(),
