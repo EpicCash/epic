@@ -14,7 +14,7 @@
 
 //! Implements storage primitives required by the chain
 
-use crate::core::consensus::HeaderInfo;
+use crate::core::consensus::{HeaderInfo, BLOCK_TIME_SEC};
 use crate::core::core::hash::{Hash, Hashed};
 use crate::core::core::{Block, BlockHeader, BlockSums};
 use crate::core::pow::{Difficulty, PoWType};
@@ -454,10 +454,12 @@ impl<'a> Iterator for DifficultyIter<'a> {
 		if let Some(header) = self.header.clone() {
 			let pow_type: PoWType = (&header.pow.proof).into();
 
-			let (prev_header, timestamp) = {
+			let ((prev_header_from_head, prev_header), timestamp) = {
 				let mut head = header.clone();
-				let mut timestamp: i64 = 0;
-				let mut d = false;
+				// Current Blockchain's head timestamp
+				let mut timestamp: u64 = header.timestamp.timestamp() as u64;
+				let mut first_iter: bool = true;
+				let mut prev_header_from_head: Option<BlockHeader> = None;
 
 				(
 					loop {
@@ -474,20 +476,33 @@ impl<'a> Iterator for DifficultyIter<'a> {
 						}
 
 						if let Some(prev) = prev_header.clone() {
-							let pow: PoWType = (&prev.pow.proof).into();
+							//Backup the previous header from the HEAD of the blockchain
+							if first_iter {
+								prev_header_from_head = Some(prev.clone());
+								first_iter = false;
+							};
 
+							let pow: PoWType = (&prev.pow.proof).into();
 							if pow_type == pow {
-								break prev_header;
+								// Changing the current head of the blockchain to be the block created after our block
+								// This is done so the difficulty difference can be computed right
+								break (prev_header_from_head, prev_header);
 							} else {
-								if d {
-									timestamp += head.timestamp.timestamp() as i64
-										- prev.timestamp.timestamp() as i64;
-									head = prev;
-								}
-								d = true;
+								let diff_time = (head.timestamp.timestamp()
+									- prev.timestamp.timestamp())
+								.checked_neg()
+								.unwrap_or(0) as u64;
+								// Giving an offset of time in the blockchain's head timestamp
+								// Is the same as if the last block was mined with our algo
+								timestamp =
+									(timestamp - diff_time).checked_neg().unwrap_or(timestamp);
+								head = prev;
 							}
 						} else {
-							break None;
+							// If we don't find a block mined with our algo,
+							// we return the head timestamp - BLOCK_TIME_SEC (60 seconds)
+							timestamp = (timestamp - BLOCK_TIME_SEC).checked_neg().unwrap_or(0);
+							break (prev_header_from_head, None);
 						}
 					},
 					timestamp,
@@ -495,16 +510,13 @@ impl<'a> Iterator for DifficultyIter<'a> {
 			};
 
 			self.prev_header = prev_header;
-
-			let prev_difficulty = self
-				.prev_header
+			let prev_difficulty = prev_header_from_head
 				.clone()
 				.map_or(Difficulty::zero(), |x| x.total_difficulty());
 			let difficulty = header.total_difficulty() - prev_difficulty;
 			let scaling = header.pow.secondary_scaling;
-
 			Some(HeaderInfo::new(
-				(header.timestamp.timestamp() as i64 - timestamp) as u64,
+				timestamp,
 				difficulty,
 				scaling,
 				header.pow.is_secondary(),

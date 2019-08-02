@@ -76,7 +76,7 @@ pub fn is_foundation_height(height: u64) -> bool {
 
 /// Get the current position of the foundation coinbase in the file `foundation.json` based on the block's height
 pub fn foundation_index(height: u64) -> u64 {
-	// The genesis doesn't have a foundation reward. 
+	// The genesis doesn't have a foundation reward.
 	// The foundation.json file that stores all the foundation taxes has its index starting in 0. Therefore, we subtract 1.
 	if height > 0 {
 		(height / foundation_height()) - 1
@@ -287,6 +287,12 @@ pub fn graph_weight(height: u64, edge_bits: u8) -> u64 {
 /// avoids getting stuck when trying to increase difficulty subject to dampening
 pub const MIN_DIFFICULTY: u64 = DIFFICULTY_DAMP_FACTOR;
 
+/// RandomX Minimum difficulty (used for saturation)
+pub const MIN_DIFFICULTY_RANDOMX: u64 = 1000;
+
+/// Progpow Minimum difficulty (used for saturation)
+pub const MIN_DIFFICULTY_PROGPOW: u64 = 10;
+
 /// Minimum scaling factor for AR pow, enforced in diff retargetting
 /// avoids getting stuck when trying to increase ar_scale subject to dampening
 pub const MIN_AR_SCALE: u64 = AR_SCALE_DAMP_FACTOR;
@@ -381,11 +387,19 @@ pub fn next_difficulty<T>(height: u64, prev_algo: PoWType, cursor: T) -> HeaderI
 where
 	T: IntoIterator<Item = HeaderInfo>,
 {
-	let diff_data = global::difficulty_data_to_vector(cursor);
+	let diff_data = match prev_algo.clone() {
+		PoWType::Cuckatoo => {
+			global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW, true)
+		}
+		PoWType::Cuckaroo => {
+			global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW, true)
+		}
+		PoWType::RandomX => global::difficulty_data_to_vector(cursor, 2, false),
+		PoWType::ProgPow => global::difficulty_data_to_vector(cursor, 2, false),
+	};
+
 	// First, get the ratio of secondary PoW vs primary, skipping initial header
 	let sec_pow_scaling = secondary_pow_scaling(height, &diff_data[1..]);
-	let prev_difficulty = diff_data[0].difficulty.to_num(prev_algo);
-
 	let mut diff = diff_data[0].difficulty.num.clone();
 
 	match prev_algo {
@@ -404,13 +418,13 @@ where
 		PoWType::RandomX => {
 			diff.insert(
 				PoWType::RandomX,
-				next_hash_difficulty(height, prev_difficulty, &diff_data),
+				next_hash_difficulty(PoWType::RandomX, &diff_data),
 			);
 		}
 		PoWType::ProgPow => {
 			diff.insert(
 				PoWType::ProgPow,
-				next_hash_difficulty(height, prev_difficulty, &diff_data),
+				next_hash_difficulty(PoWType::ProgPow, &diff_data),
 			);
 		}
 	};
@@ -420,6 +434,7 @@ where
 
 fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	// Get the timestamp delta across the window
+
 	let ts_delta: u64 =
 		diff_data[DIFFICULTY_ADJUST_WINDOW as usize].timestamp - diff_data[0].timestamp;
 
@@ -441,23 +456,33 @@ fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>
 	max(MIN_DIFFICULTY, diff_sum * BLOCK_TIME_SEC / adj_ts)
 }
 
-pub fn next_hash_difficulty(height: u64, prev_diff: u64, diff_data: &Vec<HeaderInfo>) -> u64 {
-	let block_diff_factor = 4;
-	let min_diff = 1000;
+pub fn next_hash_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
+	// Constant used to divide the previous difficulty.
+	let block_diff_factor = 20;
+
+	// Desired time per block
 	let diff_adjustment_cutoff = 60;
 
 	let prev_timestamp = diff_data[0].timestamp;
+	let prev_diff: u64 = diff_data[0].difficulty.to_num(pow);
+
+	let min_diff = match pow {
+		PoWType::RandomX => MIN_DIFFICULTY_RANDOMX,
+		PoWType::ProgPow => MIN_DIFFICULTY_PROGPOW,
+		_ => panic!("The function next_hash_difficulty is only used by Progpow and RandomX, but it got a {:?}", pow),
+	};
 
 	// Get the timestamp delta across the window
-	let ts_delta: u64 = diff_data[1].timestamp - prev_timestamp;
+	let ts_delta: u64 = prev_timestamp - diff_data[1].timestamp;
 	let offset: i64 = (prev_diff / block_diff_factor) as i64;
 	let sign: i64 = max(1 - 2 * (ts_delta as i64 / diff_adjustment_cutoff), -99);
 
-	//
+	// Minimum difficulty saturation
 	max(
-		prev_diff as i64 + offset * sign,
-		min(prev_diff as i64, min_diff),
-	) as u64
+		// Making sure that we not get a negative difficulty
+		max(prev_diff as i64 + offset * sign, 1) as u64,
+		min(prev_diff, min_diff),
+	)
 }
 
 /// Count, in units of 1/100 (a percent), the number of "secondary" (AR) blocks in the provided window of blocks.
