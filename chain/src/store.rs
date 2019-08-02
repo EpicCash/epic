@@ -499,7 +499,7 @@ impl<'a> Iterator for DifficultyIter<'a> {
 							// If we don't find a block mined with our algo,
 							// we return the head timestamp - BLOCK_TIME_SEC (60 seconds)
 							timestamp = timestamp - BLOCK_TIME_SEC as i64;
-							break (prev_header_from_head, prev_header);
+							break (None, None);
 						}
 					},
 					timestamp,
