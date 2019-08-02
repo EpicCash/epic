@@ -189,7 +189,7 @@ pub struct WorkerStatus {
 }
 
 struct State {
-	current_block_versions: Vec<Block>,
+	current_block_versions: Vec<(Block, PoWType)>,
 	// to prevent the wallet from generating a new HD key derivation for each
 	// iteration, we keep the returned derivation to provide it back when
 	// nothing has changed. We only want to create a key_id for each new block,
@@ -201,7 +201,7 @@ struct State {
 
 impl State {
 	pub fn new(minimum_share_difficulty: DifficultyNumber) -> Self {
-		let blocks = vec![Block::default()];
+		let blocks = vec![(Block::default(), PoWType::Cuckaroo)];
 
 		let mut current_difficulty = HashMap::new();
 
@@ -347,6 +347,7 @@ impl Handler {
 				.current_block_versions
 				.last()
 				.unwrap()
+				.0
 				.header
 				.height,
 			difficulty: stats.pow_difficulty,
@@ -387,6 +388,7 @@ impl Handler {
 			.current_block_versions
 			.last()
 			.unwrap()
+			.0
 			.header
 			.clone();
 		// Serialize the block header into pre and post nonce strings
@@ -425,8 +427,8 @@ impl Handler {
 
 		let state = self.current_state.read();
 		// Find the correct version of the block to match this header
-		let b: Option<&Block> = state.current_block_versions.get(params.job_id as usize);
-		if params.height != state.current_block_versions.last().unwrap().header.height
+		let b: Option<&(Block, PoWType)> = state.current_block_versions.get(params.job_id as usize);
+		if params.height != state.current_block_versions.last().unwrap().0.header.height
 			|| b.is_none()
 		{
 			// Return error status
@@ -441,8 +443,7 @@ impl Handler {
 		let share_difficulty: u64;
 		let mut share_is_block = false;
 
-		let mut b: Block = b.unwrap().clone();
-		let algo: PoWType;
+		let (mut b, pow_type) = b.unwrap().clone();
 		// Reconstruct the blocks header with this nonce and pow added
 
 		b.header.pow.nonce = params.nonce;
@@ -504,9 +505,11 @@ impl Handler {
 			return Err(RpcError::too_low_difficulty());
 		}
 
-		let current_difficulty = state.get_current_difficulty((&b.header.pow.proof).into());
+		let b_pow_type: PoWType = (&b.header.pow.proof).into();
+
+		let current_difficulty = state.get_current_difficulty(b_pow_type.clone());
 		// If the difficulty is high enough, submit it (which also validates it)
-		if share_difficulty >= current_difficulty {
+		if share_difficulty >= current_difficulty && pow_type == b_pow_type {
 			// This is a full solution, submit it to the network
 			let res = self.chain.process_block(b.clone(), chain::Options::MINE);
 			if let Err(e) = res {
@@ -643,7 +646,7 @@ impl Handler {
 					let clear_blocks = current_hash != latest_hash;
 
 					// Build the new block (version)
-					let (new_block, block_fees) = mine_block::get_block(
+					let (new_block, block_fees, pow_type) = mine_block::get_block(
 						&self.chain,
 						tx_pool,
 						verifier_cache.clone(),
@@ -711,7 +714,7 @@ impl Handler {
 					if clear_blocks {
 						state.current_block_versions.clear();
 					}
-					state.current_block_versions.push(new_block);
+					state.current_block_versions.push((new_block, pow_type));
 					// Send this job to all connected workers
 				}
 				self.broadcast_job("cuckoo".to_string());
