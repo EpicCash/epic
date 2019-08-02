@@ -1,3 +1,31 @@
+epic (1.0.4-1) bionic; urgency=medium
+
+  [ Aron Castro ]
+  * Update randomx rust
+  * Fix pow rejected
+
+  [ Leonardo Viana ]
+  * Fix Randomx control algo
+  * Fix selection of algo in blockchain
+  * Update the selection of timestamps from the blockchain
+  * Fix cargo build
+  * Correct difficulty difference
+
+  [ Aron Castro ]
+  * Fix calc for differents timestamp
+  * Fix get list of old difficulty
+
+  [ Leonardo Viana ]
+  * Update the link to the packages
+
+  [ Aron Castro ]
+  * Fix total difficulty calc
+  * Fix return of prev header when none
+  * Fix interator prev
+  * Fix i64 values in the DifficultyIter
+
+ -- Ubuntu <ubuntu@ip-172-31-16-240.ec2.internal>  Fri, 02 Aug 2019 16:21:54 +0000
+
 epic (1.0.3-3) bionic; urgency=medium
 
   [ Yuri Albuquerque ]
