@@ -1,0 +1,52 @@
+* Introduction
+
+  Welcome to the Epic Cash blockchain. We hope you're having an
+  overall nice experience. But, with every software, sometimes there
+  are problems. This guide will go through how to submit bugs for the
+  development team to track and solve.
+
+* Requisites
+  :PROPERTIES:
+  :CUSTOM_ID: requisites
+  :END:
+  If you provide us information about your machine, we'll have a
+  better context about your bug. So, after the description of your
+  bug, you should add the output for the following two commands:
+
+  #+begin_src sh
+    cat /proc/cpuinfo; lspci
+  #+end_src
+
+* Figuring out the correct repository
+
+  There are three major components on the Epic Cash blockchain: the
+  Epic server (also called just Epic or node for short), the Epic
+  miner, and the Epic wallet. [[https://gitlab.com/epiccash/epic/blob/master/doc/running.org][This document]] explains how and why you'd
+  use each component.
+
+  If you have a bug, try to submit the report to the proper component
+  channel. In case you cannot figure out what is the proper component,
+  just submit to Epic and the team will figure it out.
+
+  Access the following links to submit the report to the proper
+  component:
+
+  - [[https://gitlab.com/epiccash/epic/issues/new][Epic]]: problems in the node, in consensus, in APIs, or if you don't
+    know which category to report
+  - [[https://gitlab.com/epiccash/epic-miner/issues/new][Epic miner]]: problems in the miner, failures in a specific proof of
+    work algorithm
+  - [[https://gitlab.com/epiccash/epicwallet/issues/new][Epic wallet]]: problems in transactions in general
+
+* Submitting a bug report
+
+  When you access one of the links above, the interface to open a bug
+  will immediately open.
+
+  Provide a title that describes the general problem.
+
+  Then, in the description:
+
+  - Describe the problem as much as you can
+  - Describe the steps you executed to reproduce the problem
+  - When relevant, provide the system information as the [[#requisites][requisites]]
+    section suggests.
