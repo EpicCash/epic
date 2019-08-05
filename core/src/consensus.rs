@@ -458,7 +458,7 @@ fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>
 
 pub fn next_hash_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	// Constant used to divide the previous difficulty.
-	let block_diff_factor = 20;
+	let block_diff_factor = 2048;
 
 	// Desired time per block
 	let diff_adjustment_cutoff = 60;
