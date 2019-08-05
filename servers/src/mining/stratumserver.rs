@@ -460,20 +460,6 @@ impl Handler {
 			}
 		}
 
-		error!(
-			"Block: height - {}, bottles - {:?}",
-			b.header.height, b.header.bottles
-		);
-		/*if b.header.policy != policy {
-			error!(
-					"(Server ID: {}) Policy invalid to this block {}, hash {}, nonce {}, job_id {}: cuckoo size too small",
-					self.id, params.height, b.hash(), params.nonce, params.job_id,
-				);
-			self.workers
-				.update_stats(worker_id, |worker_stats| worker_stats.num_rejected += 1);
-			return Err(RpcError::cannot_validate());
-		}*/
-
 		if !b.header.pow.is_primary() && !b.header.pow.is_secondary() {
 			// Return error status
 			error!(
@@ -623,6 +609,9 @@ impl Handler {
 		let mut deadline: i64 = 0;
 		let mut head = self.chain.head().unwrap();
 		let mut current_hash = head.prev_block_h;
+		let mut timestamp = Utc::now().timestamp();
+		let mut height = 99999999999999u64;
+		//let mut d_block = (Block::default(), mine_block::BlockFees{fees: 0, height, key_id: None}, PoWType::Cuckaroo);
 		loop {
 			// get the latest chain state
 			head = self.chain.head().unwrap();
@@ -645,6 +634,13 @@ impl Handler {
 					// If this is a new block, clear the current_block version history
 					let clear_blocks = current_hash != latest_hash;
 
+					timestamp = if height != head.height {
+						height = head.height;
+						Utc::now().timestamp()
+					} else {
+						timestamp
+					};
+
 					// Build the new block (version)
 					let (new_block, block_fees, pow_type) = mine_block::get_block(
 						&self.chain,
@@ -652,6 +648,7 @@ impl Handler {
 						verifier_cache.clone(),
 						state.current_key_id.clone(),
 						wallet_listener_url,
+						timestamp,
 					);
 
 					state.current_difficulty = (new_block.header.total_difficulty()

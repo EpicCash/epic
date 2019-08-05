@@ -59,7 +59,7 @@ pub fn genesis_floo() -> core::Block {
 	diff.insert(PoWType::Cuckaroo, 2_u64.pow(1));
 	diff.insert(PoWType::Cuckatoo, 2_u64.pow(1));
 	diff.insert(PoWType::RandomX, 2_u64.pow(16));
-	diff.insert(PoWType::ProgPow, 2_u64.pow(8));
+	diff.insert(PoWType::ProgPow, 2_u64.pow(16));
 
 	let gen = core::Block::with_header(core::BlockHeader {
 		height: 0,
@@ -190,12 +190,12 @@ pub fn genesis_main() -> core::Block {
 
 	diff.insert(PoWType::Cuckaroo, 2_u64.pow(1));
 	diff.insert(PoWType::Cuckatoo, 2_u64.pow(1));
-	diff.insert(PoWType::RandomX, 2_u64.pow(10));
-	diff.insert(PoWType::ProgPow, 2_u64.pow(8));
+	diff.insert(PoWType::RandomX, 2_u64.pow(14));
+	diff.insert(PoWType::ProgPow, 2_u64.pow(10));
 
 	let gen = core::Block::with_header(core::BlockHeader {
 		height: 0,
-		timestamp: Utc.ymd(2019, 4, 10).and_hms(11, 9, 38),
+		timestamp: Utc.ymd(2019, 8, 5).and_hms(17, 19, 38),
 		prev_root: Hash::from_hex(
 			"00000000000000000004de683e7aa4d35c51f46ec76c6852b0f3161bd1e2e00e",
 		)
