@@ -288,10 +288,10 @@ pub fn graph_weight(height: u64, edge_bits: u8) -> u64 {
 pub const MIN_DIFFICULTY: u64 = DIFFICULTY_DAMP_FACTOR;
 
 /// RandomX Minimum difficulty (used for saturation)
-pub const MIN_DIFFICULTY_RANDOMX: u64 = 10000;
+pub const MIN_DIFFICULTY_RANDOMX: u64 = 8000;
 
 /// Progpow Minimum difficulty (used for saturation)
-pub const MIN_DIFFICULTY_PROGPOW: u64 = 10000;
+pub const MIN_DIFFICULTY_PROGPOW: u64 = 100000;
 
 /// Minimum scaling factor for AR pow, enforced in diff retargetting
 /// avoids getting stuck when trying to increase ar_scale subject to dampening
