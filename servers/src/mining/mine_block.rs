@@ -78,6 +78,7 @@ pub fn get_block(
 	verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	key_id: Option<Identifier>,
 	wallet_listener_url: Option<String>,
+	timestamp: i64,
 ) -> (core::Block, BlockFees, PoWType) {
 	let wallet_retry_interval = 5;
 	// get the latest chain state and build a block on top of it
@@ -87,6 +88,7 @@ pub fn get_block(
 		verifier_cache.clone(),
 		key_id.clone(),
 		wallet_listener_url.clone(),
+		timestamp,
 	);
 	while let Err(e) = result {
 		let mut new_key_id = key_id.to_owned();
@@ -127,6 +129,7 @@ pub fn get_block(
 			verifier_cache.clone(),
 			new_key_id,
 			wallet_listener_url.clone(),
+			timestamp,
 		);
 	}
 	return result.unwrap();
@@ -140,11 +143,12 @@ fn build_block(
 	verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	key_id: Option<Identifier>,
 	wallet_listener_url: Option<String>,
+	timestamp: i64,
 ) -> Result<(core::Block, BlockFees, PoWType), Error> {
 	let head = chain.head_header()?;
 
 	// prepare the block header timestamp
-	let mut now_sec = Utc::now().timestamp();
+	let mut now_sec = timestamp;
 	let head_sec = head.timestamp.timestamp();
 	if now_sec <= head_sec {
 		now_sec = head_sec + 1;

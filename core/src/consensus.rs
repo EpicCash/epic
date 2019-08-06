@@ -288,10 +288,10 @@ pub fn graph_weight(height: u64, edge_bits: u8) -> u64 {
 pub const MIN_DIFFICULTY: u64 = DIFFICULTY_DAMP_FACTOR;
 
 /// RandomX Minimum difficulty (used for saturation)
-pub const MIN_DIFFICULTY_RANDOMX: u64 = 1000;
+pub const MIN_DIFFICULTY_RANDOMX: u64 = 10000;
 
 /// Progpow Minimum difficulty (used for saturation)
-pub const MIN_DIFFICULTY_PROGPOW: u64 = 10;
+pub const MIN_DIFFICULTY_PROGPOW: u64 = 10000;
 
 /// Minimum scaling factor for AR pow, enforced in diff retargetting
 /// avoids getting stuck when trying to increase ar_scale subject to dampening
@@ -458,7 +458,7 @@ fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>
 
 pub fn next_hash_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	// Constant used to divide the previous difficulty.
-	let block_diff_factor = 20;
+	let block_diff_factor = 2048;
 
 	// Desired time per block
 	let diff_adjustment_cutoff = 60;
