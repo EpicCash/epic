@@ -1,3 +1,21 @@
+epic (1.1.0-1) bionic; urgency=medium
+
+  [ Yuri Albuquerque ]
+  * Documentation on how to submit bug reports.
+
+  [ Aron Castro ]
+  * Adjust build block with first block timestamp
+  * Increase progpow difficulty and diff factor
+
+  [ Yuri Albuquerque ]
+  * Run all tests script.
+
+  [ Aron Castro ]
+  * Increase progpow difficulty
+  * Adjust difficulty
+
+ -- Ubuntu <ubuntu@ip-172-31-16-240.ec2.internal>  Tue, 06 Aug 2019 19:27:04 +0000
+
 epic (1.0.5-1) bionic; urgency=medium
 
   [ Aron Castro ]
