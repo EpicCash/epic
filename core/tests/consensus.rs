@@ -17,7 +17,7 @@ use epic_core as core;
 use self::core::consensus::*;
 use self::core::core::block::HeaderVersion;
 use self::core::global;
-use self::core::pow::{Difficulty, DifficultyNumber};
+use self::core::pow::{Difficulty, PoWType};
 use chrono::prelude::Utc;
 use std::fmt::{self, Display};
 
@@ -116,7 +116,7 @@ fn create_chain_sim(diff: u64) -> Vec<(HeaderInfo, DiffStats)> {
 fn get_diff_stats(chain_sim: &Vec<HeaderInfo>) -> DiffStats {
 	// Fill out some difficulty stats for convenience
 	let diff_iter = chain_sim.clone();
-	let last_blocks: Vec<HeaderInfo> = global::difficulty_data_to_vector(diff_iter.iter().cloned());
+	let last_blocks: Vec<HeaderInfo> = global::difficulty_data_to_vector(diff_iter.iter().cloned(), DIFFICULTY_ADJUST_WINDOW, true);
 
 	let mut last_time = last_blocks[0].timestamp;
 	let tip_height = chain_sim.len();
@@ -127,7 +127,7 @@ fn get_diff_stats(chain_sim: &Vec<HeaderInfo>) -> DiffStats {
 
 	let mut i = 1;
 
-	let sum_blocks: Vec<HeaderInfo> = global::difficulty_data_to_vector(diff_iter.iter().cloned())
+	let sum_blocks: Vec<HeaderInfo> = global::difficulty_data_to_vector(diff_iter.iter().cloned(), DIFFICULTY_ADJUST_WINDOW, true)
 		.into_iter()
 		.take(DIFFICULTY_ADJUST_WINDOW as usize)
 		.collect();
@@ -142,7 +142,7 @@ fn get_diff_stats(chain_sim: &Vec<HeaderInfo>) -> DiffStats {
 			last_time = n.timestamp;
 			DiffBlock {
 				block_number: height,
-				difficulty: n.difficulty.to_num(),
+				difficulty: n.difficulty.to_num(PoWType::Cuckatoo),
 				time: n.timestamp,
 				duration: dur,
 			}
@@ -165,7 +165,7 @@ fn get_diff_stats(chain_sim: &Vec<HeaderInfo>) -> DiffStats {
 			last_time = n.timestamp;
 			DiffBlock {
 				block_number: height,
-				difficulty: n.difficulty.to_num(),
+				difficulty: n.difficulty.to_num(PoWType::Cuckatoo),
 				time: n.timestamp,
 				duration: dur,
 			}
@@ -195,10 +195,10 @@ fn add_block(
 	let mut ret_chain_sim = chain_sim.clone();
 	let mut return_chain: Vec<HeaderInfo> = chain_sim.clone().iter().map(|e| e.0.clone()).collect();
 	// get last interval
-	let diff = next_difficulty(1, return_chain.clone());
+	let diff = next_difficulty(1, PoWType::Cuckatoo ,return_chain.clone());
 	let last_elem = chain_sim.first().unwrap().clone().0;
 	let time = last_elem.timestamp + interval;
-	return_chain.insert(0, HeaderInfo::from_ts_diff(time, diff.difficulty));
+	return_chain.insert(0, HeaderInfo::from_ts_diff(time, diff.difficulty.clone()));
 	let diff_stats = get_diff_stats(&return_chain);
 	ret_chain_sim.insert(
 		0,
@@ -353,10 +353,11 @@ fn next_target_adjustment() {
 	let diff_min = Difficulty::min();
 
 	// Check we don't get stuck on difficulty <= MIN_DIFFICULTY (at 4x faster blocks at least)
-	let mut hi = HeaderInfo::from_diff_scaling(diff_min, AR_SCALE_DAMP_FACTOR as u32);
+	let mut hi = HeaderInfo::from_diff_scaling(diff_min.clone(), AR_SCALE_DAMP_FACTOR as u32);
 	hi.is_secondary = false;
 	let hinext = next_difficulty(
 		1,
+		PoWType::Cuckatoo,
 		repeat(
 			BLOCK_TIME_SEC / 4,
 			hi.clone(),
@@ -374,13 +375,13 @@ fn next_target_adjustment() {
 	let just_enough = DIFFICULTY_ADJUST_WINDOW + 1;
 	hi.difficulty = Difficulty::from_num(10000);
 	assert_eq!(
-		next_difficulty(1, repeat(BLOCK_TIME_SEC, hi.clone(), just_enough, None)).difficulty,
+		next_difficulty(1, PoWType::Cuckatoo, repeat(BLOCK_TIME_SEC, hi.clone(), just_enough, None)).difficulty,
 		Difficulty::from_num(10000)
 	);
 
 	// check pre difficulty_data_to_vector effect on retargetting
 	assert_eq!(
-		next_difficulty(1, vec![HeaderInfo::from_ts_diff(42, hi.difficulty)]).difficulty,
+		next_difficulty(1, PoWType::Cuckatoo, vec![HeaderInfo::from_ts_diff(42, hi.difficulty)]).difficulty,
 		Difficulty::from_num(14913)
 	);
 
@@ -396,55 +397,55 @@ fn next_target_adjustment() {
 	);
 	s2.append(&mut s1);
 	assert_eq!(
-		next_difficulty(1, s2).difficulty,
+		next_difficulty(1, PoWType::Cuckatoo, s2).difficulty,
 		Difficulty::from_num(1000)
 	);
 
 	// too slow, diff goes down
 	hi.difficulty = Difficulty::from_num(1000);
 	assert_eq!(
-		next_difficulty(1, repeat(90, hi.clone(), just_enough, None)).difficulty,
+		next_difficulty(1, PoWType::Cuckatoo, repeat(90, hi.clone(), just_enough, None)).difficulty,
 		Difficulty::from_num(857)
 	);
 	assert_eq!(
-		next_difficulty(1, repeat(120, hi.clone(), just_enough, None)).difficulty,
+		next_difficulty(1, PoWType::Cuckatoo, repeat(120, hi.clone(), just_enough, None)).difficulty,
 		Difficulty::from_num(750)
 	);
 
 	// too fast, diff goes up
 	assert_eq!(
-		next_difficulty(1, repeat(55, hi.clone(), just_enough, None)).difficulty,
+		next_difficulty(1, PoWType::Cuckatoo, repeat(55, hi.clone(), just_enough, None)).difficulty,
 		Difficulty::from_num(1028)
 	);
 	assert_eq!(
-		next_difficulty(1, repeat(45, hi.clone(), just_enough, None)).difficulty,
+		next_difficulty(1, PoWType::Cuckatoo, repeat(45, hi.clone(), just_enough, None)).difficulty,
 		Difficulty::from_num(1090)
 	);
 	assert_eq!(
-		next_difficulty(1, repeat(30, hi.clone(), just_enough, None)).difficulty,
+		next_difficulty(1, PoWType::Cuckatoo, repeat(30, hi.clone(), just_enough, None)).difficulty,
 		Difficulty::from_num(1200)
 	);
 
 	// hitting lower time bound, should always get the same result below
 	assert_eq!(
-		next_difficulty(1, repeat(0, hi.clone(), just_enough, None)).difficulty,
+		next_difficulty(1, PoWType::Cuckatoo, repeat(0, hi.clone(), just_enough, None)).difficulty,
 		Difficulty::from_num(1500)
 	);
 
 	// hitting higher time bound, should always get the same result above
 	assert_eq!(
-		next_difficulty(1, repeat(300, hi.clone(), just_enough, None)).difficulty,
+		next_difficulty(1, PoWType::Cuckatoo, repeat(300, hi.clone(), just_enough, None)).difficulty,
 		Difficulty::from_num(500)
 	);
 	assert_eq!(
-		next_difficulty(1, repeat(400, hi.clone(), just_enough, None)).difficulty,
+		next_difficulty(1, PoWType::Cuckatoo, repeat(400, hi.clone(), just_enough, None)).difficulty,
 		Difficulty::from_num(500)
 	);
 
 	// We should never drop below minimum
 	hi.difficulty = Difficulty::zero();
 	assert_eq!(
-		next_difficulty(1, repeat(90, hi.clone(), just_enough, None)).difficulty,
+		next_difficulty(1, PoWType::Cuckatoo, repeat(90, hi.clone(), just_enough, None)).difficulty,
 		Difficulty::min()
 	);
 }

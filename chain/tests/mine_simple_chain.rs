@@ -20,7 +20,7 @@ use self::core::core::{Block, BlockHeader, OutputIdentifier, Transaction};
 use self::core::genesis;
 use self::core::global::ChainTypes;
 use self::core::libtx::{self, build, reward};
-use self::core::pow::Difficulty;
+use self::core::pow::{Difficulty, PoWType};
 use self::core::{consensus, global, pow};
 use self::keychain::{ExtKeychain, ExtKeychainPath, Keychain};
 use self::util::{Mutex, RwLock, StopState};
@@ -52,6 +52,8 @@ fn setup(dir_name: &str, genesis: Block) -> Chain {
 }
 
 #[test]
+#[ignore]
+/// Covered in the cucumber test
 fn mine_empty_chain() {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
 	let keychain = keychain::ExtKeychain::from_random_seed(false).unwrap();
@@ -63,6 +65,8 @@ fn mine_empty_chain() {
 }
 
 #[test]
+#[ignore]
+/// Covered in the cucumber test
 fn mine_genesis_reward_chain() {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
 
@@ -107,7 +111,7 @@ where
 		let prev = chain.head_header().unwrap();
 		let next_header_info = consensus::next_difficulty(
 			1,
-			prev.pow.total_difficulty,
+			(&prev.pow.proof).into(),
 			chain.difficulty_iter().unwrap(),
 		);
 		let pk = ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
@@ -175,6 +179,8 @@ where
 }
 
 #[test]
+#[ignore]
+/// Covered in the cucumber test
 fn mine_forks() {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
 	{
@@ -222,6 +228,8 @@ fn mine_forks() {
 }
 
 #[test]
+#[ignore]
+/// Covered in the cucumber test
 fn mine_losing_fork() {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
 	let kc = ExtKeychain::from_random_seed(false).unwrap();
@@ -258,6 +266,8 @@ fn mine_losing_fork() {
 }
 
 #[test]
+#[ignore]
+/// Covered in the cucumber test
 fn longer_fork() {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
 	let kc = ExtKeychain::from_random_seed(false).unwrap();
@@ -302,6 +312,8 @@ fn longer_fork() {
 }
 
 #[test]
+#[ignore]
+/// Covered in the cucumber test
 fn spend_in_fork_and_compact() {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
 	util::init_test_logger();
@@ -434,6 +446,8 @@ fn spend_in_fork_and_compact() {
 
 /// Test ability to retrieve block headers for a given output
 #[test]
+#[ignore]
+/// Covered in the cucumber test
 fn output_header_mappings() {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
 	{
@@ -446,7 +460,7 @@ fn output_header_mappings() {
 
 		for n in 1..15 {
 			let prev = chain.head_header().unwrap();
-			let next_header_info = consensus::next_difficulty(1, chain.difficulty_iter().unwrap());
+			let next_header_info = consensus::next_difficulty(1, PoWType::Cuckatoo, chain.difficulty_iter().unwrap());
 			let pk = ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
 			let reward = libtx::reward::output(&keychain, &pk, 0, false, n).unwrap();
 			reward_outputs.push(reward.0.clone());
@@ -606,12 +620,12 @@ fn actual_diff_iter_output() {
 			last_time = elem.timestamp;
 			first = false;
 		}
-		println!(
-			"next_difficulty time: {}, diff: {}, duration: {} ",
-			elem.timestamp,
-			elem.difficulty.num,
-			last_time - elem.timestamp
-		);
+		// println!(
+		// 	"next_difficulty time: {}, diff: {}, duration: {} ",
+		// 	elem.timestamp,
+		// 	elem.difficulty.num,
+		// 	last_time - elem.timestamp
+		// );
 		last_time = elem.timestamp;
 	}
 }

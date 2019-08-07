@@ -16,7 +16,8 @@ use self::chain::types::NoopAdapter;
 use self::chain::Chain;
 use self::core::core::verifier_cache::LruVerifierCache;
 use self::core::core::{Block, BlockHeader, Transaction};
-use self::core::global::{self, ChainTypes};
+use self::core::core::block::feijoada;
+use self::core::global::{self, ChainTypes, set_policy_config};
 use self::core::libtx;
 use self::core::pow::{self, Difficulty};
 use self::core::{consensus, genesis};
@@ -69,6 +70,12 @@ fn data_files() {
 	let chain_dir = ".epic_df";
 	//new block so chain references should be freed
 	{
+		let mut policies: feijoada::Policy = feijoada::get_bottles_default();
+		policies.insert(feijoada::PoWType::Cuckatoo, 100);
+		set_policy_config(feijoada::PolicyConfig {
+				policies: vec![policies.clone()],
+				..Default::default()
+		});
 		let chain = setup(chain_dir);
 		let keychain = ExtKeychain::from_random_seed(false).unwrap();
 
@@ -76,7 +83,7 @@ fn data_files() {
 			let prev = chain.head_header().unwrap();
 			let next_header_info = consensus::next_difficulty(
 				prev.height + 1,
-				prev.pow.total_difficulty,
+				(&prev.pow.proof).into(),
 				chain.difficulty_iter().unwrap(),
 			);
 			let pk = ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
