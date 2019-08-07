@@ -13,8 +13,24 @@ lazy_static! {
 	pub static ref RX_STATE: RwLock<RxState> = RwLock::new(RxState::new());
 }
 
-const SEEDHASH_EPOCH_BLOCKS: u64 = 2048u64;
-const SEEDHASH_EPOCH_LAG: u64 = 64u64;
+const SEEDHASH_EPOCH_BLOCKS: u64 = 1024;
+const SEEDHASH_EPOCH_LAG: u64 = 20;
+
+pub fn rx_next_seed(height: u64, prev_seed: &[u8; 32], next_seed: [u8; 32]) -> [u8; 32] {
+	if height % SEEDHASH_EPOCH_BLOCKS == 0 {
+		next_seed
+	} else {
+		prev_seed.clone()
+	}
+}
+
+pub fn rx_is_valid_seed(height: u64, prev_seed: &[u8; 32], current_seed: &[u8; 32]) -> bool {
+	if prev_seed != current_seed {
+		height % SEEDHASH_EPOCH_BLOCKS == 0 || height % SEEDHASH_EPOCH_BLOCKS > SEEDHASH_EPOCH_LAG
+	} else {
+		true
+	}
+}
 
 pub struct RXContext<T>
 where

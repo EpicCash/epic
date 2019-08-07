@@ -29,10 +29,12 @@ use crate::core::consensus::is_foundation_height;
 use crate::core::core::block::feijoada::{next_block_bottles, Deterministic, Feijoada};
 use crate::core::core::foundation::load_foundation_output;
 pub use crate::core::core::foundation::CbData;
+use crate::core::core::hash::{Hash, Hashed};
 use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::{Output, TxKernel};
 use crate::core::global::{get_emitted_policy, get_policies};
 use crate::core::libtx::secp_ser;
+use crate::core::pow::randomx::rx_next_seed;
 use crate::core::pow::PoWType;
 use crate::core::{consensus, core, global};
 use crate::keychain::{ExtKeychain, Identifier, Keychain};
@@ -224,7 +226,14 @@ fn build_block(
 
 	// Now set txhashset roots and sizes on the header of the block being built.
 	match chain.set_txhashset_roots(&mut b) {
-		Ok(_) => Ok((b, block_fees, pow_type)),
+		Ok(_) => {
+			let h = b.header.hash();
+			let mut seed = [0u8; 32];
+			seed.copy_from_slice(&h.as_bytes()[0..32]);
+			b.header.pow.seed = rx_next_seed(b.header.height, &head.pow.seed, seed);
+
+			Ok((b, block_fees, pow_type))
+		}
 		Err(e) => {
 			match e.kind() {
 				// If this is a duplicate commitment then likely trying to use

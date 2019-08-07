@@ -363,6 +363,7 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		if !header.pow.is_primary() && !header.pow.is_secondary() {
 			return Err(ErrorKind::LowEdgebits.into());
 		}
+
 		let edge_bits = header.pow.edge_bits();
 		if !(ctx.pow_verifier)(header).is_ok() {
 			match header.pow.proof {
@@ -427,6 +428,18 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 	// header
 	if header.height != prev.height + 1 {
 		return Err(ErrorKind::InvalidBlockHeight.into());
+	}
+
+	if !pow::randomx::rx_is_valid_seed(header.height, &prev.pow.seed, &header.pow.seed) {
+		return Err(ErrorKind::InvalidSeed.into());
+	}
+
+	if !is_correct {
+		debug!(
+			"Block rejected: Expected {:?} got {:?}",
+			algo, header.pow.proof
+		);
+		return Err(ErrorKind::InvalidSortAlgo.into());
 	}
 
 	// TODO - get rid of the automated testing mode check here somehow
