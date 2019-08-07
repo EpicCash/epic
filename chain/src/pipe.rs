@@ -25,6 +25,7 @@ use crate::core::global;
 use crate::core::pow;
 use crate::error::{Error, ErrorKind};
 use crate::store;
+use crate::store::BottleIter;
 use crate::txhashset;
 use crate::types::{Options, Tip};
 use crate::util::RwLock;
@@ -395,7 +396,8 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 	}
 
 	if let Some(p) = global::get_policies(header.policy) {
-		let algo = Deterministic::choose_algo(&p, &prev.bottles);
+		let cursor = BottleIter::from_batch(prev.hash(), &ctx.batch, header.policy);
+		let (algo, _) = consensus::next_policy(header.policy, cursor);
 
 		let is_correct = match header.pow.proof {
 			pow::Proof::CuckooProof { edge_bits, .. } => {

@@ -43,6 +43,7 @@ mod mine_chain {
 	use epic_core as core;
 	use epic_util as util;
 
+	use epic_chain::store::BottleIter;
 	use epic_chain::types::NoopAdapter;
 	use epic_chain::Chain;
 	use epic_core::core::block::feijoada::PoWType as FType;
@@ -55,7 +56,7 @@ mod mine_chain {
 	use epic_core::core::verifier_cache::LruVerifierCache;
 	use epic_core::core::{Block, BlockHeader, Output, OutputIdentifier, Transaction, TxKernel};
 	use epic_core::global::{
-		get_emitted_policy, get_policies, set_allowed_policy, set_emitted_policy,
+		add_allowed_policy, get_emitted_policy, get_policies, set_emitted_policy,
 		set_policy_config, ChainTypes,
 	};
 	use epic_core::libtx::{self, build, reward};
@@ -682,6 +683,49 @@ mod mine_chain {
 			world.keychain_foundation = Some(kc);
 		};
 
+		given regex "I set the allowed policy on the height <([0-9]+)> with value <([0-9]+)>" |world, matches, _step| {
+			let height: u64 = matches[1].parse().unwrap();
+			let value: u64 = matches[2].parse().unwrap();
+			add_allowed_policy(height, value);
+		};
+
+		given "I set default policy config" |world, _step| {
+			let policies = [
+				(FType::Cuckaroo, 100),
+				(FType::Cuckatoo, 0),
+				(FType::RandomX, 0),
+				(FType::ProgPow, 0),
+			]
+			.into_iter()
+			.map(|&x| x)
+			.collect();
+
+			let policies2 = [
+				(FType::Cuckaroo, 0),
+				(FType::Cuckatoo, 0),
+				(FType::RandomX, 100),
+				(FType::ProgPow, 0),
+			]
+			.into_iter()
+			.map(|&x| x)
+			.collect();
+
+			let policies3 = [
+				(FType::Cuckaroo, 0),
+				(FType::Cuckatoo, 0),
+				(FType::RandomX, 0),
+				(FType::ProgPow, 100),
+			]
+			.into_iter()
+			.map(|&x| x)
+			.collect();
+
+			set_policy_config(PolicyConfig {
+				policies: vec![policies, policies2, policies3],
+				..Default::default()
+			});
+		};
+
 		then regex "I add block with foundation reward following the policy <([0-9]+)>" |world, matches, _step| {
 			let num: u64 = matches[1].parse().unwrap();
 			// The policy index is ignored for now, as we are only using a unique policy.
@@ -720,11 +764,9 @@ mod mine_chain {
 			coinbase.kernel.verify().unwrap();
 		};
 
-
 		then regex "I add <([0-9]+)> blocks following the policy <([0-9]+)>" |world, matches, _step| {
 			let num: u64 = matches[1].parse().unwrap();
-			// The policy index is ignored for now, as we are only using a unique policy.
-			// index = matches[2].parse().unwrap();
+			let emitted_policy: u8 = matches[2].parse().unwrap();
 			let chain = world.chain.as_ref().unwrap();
 			let height = chain.head_header().unwrap().height;
 
@@ -732,10 +774,10 @@ mod mine_chain {
 				let kc = epic_keychain::ExtKeychain::from_seed(&[i as u8], false).unwrap().clone();
 				let prev = chain.head_header().unwrap();
 				let mut block = prepare_block(&kc, &prev, &chain, height + i);
-				let emitted_policy = get_emitted_policy();
 				let policy = get_policies(emitted_policy).unwrap();
-				let algo = Deterministic::choose_algo(&policy, &prev.bottles);
-				block.header.bottles = next_block_bottles(algo, &prev.bottles);
+				let cursor = chain.bottles_iter(emitted_policy).unwrap();
+				let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
+				block.header.bottles = bottles;
 				block.header.pow.proof = get_pow_type(&algo, prev.height);
 				block.header.policy = emitted_policy;
 				chain.process_block(block, chain::Options::SKIP_POW).unwrap();
@@ -775,10 +817,6 @@ mod mine_chain {
 			let chain = world.chain.as_ref().unwrap();
 			let bottles = chain.head_header().unwrap().bottles;
 			assert_eq!(count_beans(&bottles), 1);
-		};
-
-		then regex "Accept block with policy <([0-9]+)>" |world, matches, _step| {
-
 		};
 	});
 
@@ -1168,8 +1206,28 @@ fn setup() {
 	.map(|&x| x)
 	.collect();
 
+	let policies2 = [
+		(FType::Cuckaroo, 0),
+		(FType::Cuckatoo, 0),
+		(FType::RandomX, 100),
+		(FType::ProgPow, 0),
+	]
+	.into_iter()
+	.map(|&x| x)
+	.collect();
+
+	let policies3 = [
+		(FType::Cuckaroo, 0),
+		(FType::Cuckatoo, 0),
+		(FType::RandomX, 0),
+		(FType::ProgPow, 100),
+	]
+	.into_iter()
+	.map(|&x| x)
+	.collect();
+
 	set_policy_config(PolicyConfig {
-		policies: vec![policies],
+		policies: vec![policies, policies2, policies3],
 		..Default::default()
 	});
 

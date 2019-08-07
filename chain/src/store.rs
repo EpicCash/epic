@@ -15,6 +15,7 @@
 //! Implements storage primitives required by the chain
 
 use crate::core::consensus::{HeaderInfo, BLOCK_TIME_SEC};
+use crate::core::core::feijoada::Policy;
 use crate::core::core::hash::{Hash, Hashed};
 use crate::core::core::{Block, BlockHeader, BlockSums};
 use crate::core::pow::{Difficulty, PoWType};
@@ -519,6 +520,129 @@ impl<'a> Iterator for DifficultyIter<'a> {
 				scaling,
 				header.pow.is_secondary(),
 			))
+		} else {
+			return None;
+		}
+	}
+}
+
+pub struct BottleIter<'a> {
+	start: Hash,
+	store: Option<Arc<ChainStore>>,
+	batch: Option<&'a Batch<'a>>,
+
+	// maintain state for both the "next" header in this iteration
+	// and its previous header in the chain ("next next" in the iteration)
+	// so we effectively read-ahead as we iterate through the chain back
+	// toward the genesis block (while maintaining current state)
+	header: Option<BlockHeader>,
+	prev_header: Option<BlockHeader>,
+	policy: u8,
+}
+
+impl<'a> BottleIter<'a> {
+	/// Build a new iterator using the provided chain store and starting from
+	/// the provided block hash.
+	pub fn from<'b>(start: Hash, store: Arc<ChainStore>, policy: u8) -> BottleIter<'b> {
+		BottleIter {
+			start,
+			store: Some(store),
+			batch: None,
+			header: None,
+			prev_header: None,
+			policy,
+		}
+	}
+
+	/// Build a new iterator using the provided chain store batch and starting from
+	/// the provided block hash.
+	pub fn from_batch<'b>(start: Hash, batch: &'b Batch<'b>, policy: u8) -> BottleIter<'b> {
+		BottleIter::<'b> {
+			start,
+			store: None,
+			batch: Some(batch),
+			header: None,
+			prev_header: None,
+			policy,
+		}
+	}
+}
+
+impl<'a> Iterator for BottleIter<'a> {
+	type Item = Policy;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		// Get both header and previous_header if this is the initial iteration.
+		// Otherwise move prev_header to header and get the next prev_header.
+		self.header = if self.header.is_none() {
+			if let Some(ref batch) = self.batch {
+				batch.get_block_header(&self.start).ok()
+			} else {
+				if let Some(ref store) = self.store {
+					store.get_block_header(&self.start).ok()
+				} else {
+					None
+				}
+			}
+		} else {
+			self.prev_header.clone()
+		};
+
+		// If we have a header we can do this iteration.
+		// Otherwise we are done.
+		if let Some(header) = self.header.clone() {
+			let prev_header = {
+				let mut head = header.clone();
+				// Current Blockchain's head timestamp
+				let limit_search = 200;
+				let mut i = 0;
+				loop {
+					i += 1;
+
+					if i > limit_search {
+						return None;
+					}
+
+					let mut prev_header = None;
+
+					if let Some(ref batch) = self.batch {
+						prev_header = batch.get_previous_header(&head).ok();
+					} else {
+						if let Some(ref store) = self.store {
+							prev_header = store.get_previous_header(&head).ok();
+						} else {
+							prev_header = None;
+						}
+					}
+
+					if let Some(prev) = prev_header.clone() {
+						//Backup the previous header from the HEAD of the blockchain
+						if self.policy == prev.policy {
+							// Changing the current head of the blockchain to be the block created after our block
+							// This is done so the difficulty difference can be computed right
+							break prev_header;
+						} else {
+							head = prev;
+						}
+					} else {
+						// If we don't find a block mined with our algo,
+						// we return the head timestamp - BLOCK_TIME_SEC (60 seconds)
+						break None;
+					}
+				}
+			};
+
+			self.prev_header = prev_header;
+
+			if header.policy == self.policy {
+				return Some(header.bottles.clone());
+			}
+
+			if let Some(ref prev) = self.prev_header {
+				return Some(prev.bottles.clone());
+			}
+
+			return None;
 		} else {
 			return None;
 		}

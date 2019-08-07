@@ -183,20 +183,6 @@ burn_reward = false
 nthreads = 4
 timeout = 10
 
-[server.policy_config]
-allowed_policies = 1
-emitted_policy = 0
-
-[[server.policy_config.policies]]
-cuckaroo = 80
-cuckatoo = 15
-randomx  = 5
-
-[[server.policy_config.policies]]
-cuckaroo = 75
-cuckatoo = 15
-randomx  = 10
-
 
 #########################################
 ### LOGGING CONFIGURATION             ###

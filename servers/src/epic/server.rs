@@ -85,7 +85,7 @@ impl Server {
 	where
 		F: FnMut(Server),
 	{
-		let policy_config = config.policy_config.clone();
+		/*let policy_config = config.policy_config.clone();
 		for i in 0..policy_config.policies.len() {
 			if policy_config.policies[i]
 				.values()
@@ -96,7 +96,7 @@ impl Server {
 			};
 		}
 		// set the policies configs from the .toml file
-		global::set_policy_config(policy_config);
+		global::set_policy_config(policy_config);*/
 		global::set_foundation_path(config.foundation_path.clone().to_owned());
 		info!(
 			"The policy configuration is: {:?}",

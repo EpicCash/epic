@@ -193,9 +193,11 @@ pub fn set_emitted_policy(emitted: u8) {
 	policy_config.emitted_policy = emitted;
 }
 
-pub fn set_allowed_policy(allowed: u8) {
+pub fn add_allowed_policy(height: u64, value: u64) {
 	let mut policy_config = POLICY_CONFIG.write();
-	policy_config.allowed_policy = allowed;
+	policy_config
+		.allowed_policies
+		.push(AllowPolicy { height, value });
 }
 
 pub fn get_allowed_policies() -> Vec<AllowPolicy> {

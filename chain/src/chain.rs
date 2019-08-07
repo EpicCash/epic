@@ -1276,6 +1276,15 @@ impl Chain {
 		Ok(store::DifficultyIter::from(head.last_block_h, store))
 	}
 
+	/// Builds an iterator on blocks starting from the current chain head and
+	/// running backward. Specialized to return information pertaining to block
+	/// difficulty calculation (timestamp and previous difficulties).
+	pub fn bottles_iter(&self, policy: u8) -> Result<store::BottleIter<'_>, Error> {
+		let head = self.head()?;
+		let store = self.store.clone();
+		Ok(store::BottleIter::from(head.last_block_h, store, policy))
+	}
+
 	/// Check whether we have a block without reading it
 	pub fn block_exists(&self, h: Hash) -> Result<bool, Error> {
 		self.store

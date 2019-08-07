@@ -205,19 +205,14 @@ fn build_block(
 	// making sure we're not spending time mining a useless block
 	b.validate(&head.total_kernel_offset, verifier_cache)?;
 
-	let pow_type = Deterministic::choose_algo(&get_policies(), &head.bottles);
-
 	b.header.pow.nonce = thread_rng().gen();
 	b.header.pow.secondary_scaling = difficulty.secondary_scaling;
 	b.header.timestamp = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(now_sec, 0), Utc);
 	b.header.policy = get_emitted_policy();
 
-	let policy = get_policies(b.header.policy).unwrap();
-
-	b.header.bottles = next_block_bottles(
-		pow_type,
-		&head.bottles,
-	);
+	let bottle_cursor = chain.bottles_iter(get_emitted_policy())?;
+	let (pow_type, bottles) = consensus::next_policy(b.header.policy, bottle_cursor);
+	b.header.bottles = bottles;
 
 	debug!(
 		"Built new block with {} inputs and {} outputs, block difficulty: {:?}, cumulative difficulty {:?}",
