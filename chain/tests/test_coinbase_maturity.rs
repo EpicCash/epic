@@ -14,12 +14,12 @@
 
 use self::chain::types::NoopAdapter;
 use self::chain::ErrorKind;
+use self::core::core::block::feijoada;
 use self::core::core::verifier_cache::LruVerifierCache;
-use self::core::global::{self, ChainTypes, set_policy_config, set_foundation_path};
+use self::core::global::{self, set_foundation_path, set_policy_config, ChainTypes};
 use self::core::libtx::{self, build};
 use self::core::pow::{Difficulty, PoWType};
 use self::core::{consensus, pow};
-use self::core::core::block::feijoada;
 use self::keychain::{ExtKeychain, ExtKeychainPath, Keychain};
 use self::util::{RwLock, StopState};
 use chrono::Duration;
@@ -39,10 +39,10 @@ fn clean_output_dir(dir_name: &str) {
 fn test_coinbase_maturity() {
 	global::set_foundation_path("../tests/assets/foundation.json".to_string());
 	let mut policies: feijoada::Policy = feijoada::get_bottles_default();
-		policies.insert(feijoada::PoWType::Cuckatoo, 100);
-		set_policy_config(feijoada::PolicyConfig {
-				policies: vec![policies.clone()],
-				..Default::default()
+	policies.insert(feijoada::PoWType::Cuckatoo, 100);
+	set_policy_config(feijoada::PolicyConfig {
+		policies: vec![policies.clone()],
+		..Default::default()
 	});
 	let _ = env_logger::init();
 	let chain_dir = ".epic_coinbase";
@@ -78,7 +78,9 @@ fn test_coinbase_maturity() {
 			chain.difficulty_iter().unwrap(),
 		);
 		let reward = libtx::reward::output(&keychain, &key_id1, 0, false, height).unwrap(); //modification
-		let mut block = core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward).unwrap();
+		let mut block =
+			core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
+				.unwrap();
 		block.header.timestamp = prev.timestamp + Duration::seconds(60);
 		block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
 
@@ -92,7 +94,7 @@ fn test_coinbase_maturity() {
 		)
 		.unwrap();
 
-		if consensus::is_foundation_height(prev.height+1){
+		if consensus::is_foundation_height(prev.height + 1) {
 			assert_eq!(block.outputs().len(), 2);
 		} else {
 			assert_eq!(block.outputs().len(), 1);
@@ -132,7 +134,9 @@ fn test_coinbase_maturity() {
 			chain.difficulty_iter().unwrap(),
 		);
 		let reward = libtx::reward::output(&keychain, &key_id3, fees, false, height).unwrap();
-		let mut block = core::core::Block::new(&prev, txs, next_header_info.clone().difficulty, reward).unwrap();
+		let mut block =
+			core::core::Block::new(&prev, txs, next_header_info.clone().difficulty, reward)
+				.unwrap();
 		block.header.timestamp = prev.timestamp + Duration::seconds(60);
 		block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
 
@@ -168,10 +172,11 @@ fn test_coinbase_maturity() {
 				height,
 				(&prev.pow.proof).into(),
 				chain.difficulty_iter().unwrap(),
-		    );
+			);
 			let reward = libtx::reward::output(&keychain, &key_id1, 0, false, height).unwrap();
 			let mut block =
-				core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward).unwrap();
+				core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
+					.unwrap();
 
 			block.header.timestamp = prev.timestamp + Duration::seconds(60);
 			block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
@@ -186,7 +191,7 @@ fn test_coinbase_maturity() {
 			)
 			.unwrap();
 
-			if consensus::is_foundation_height(prev.height+1){
+			if consensus::is_foundation_height(prev.height + 1) {
 				assert_eq!(block.outputs().len(), 2);
 			} else {
 				assert_eq!(block.outputs().len(), 1);
@@ -224,10 +229,12 @@ fn test_coinbase_maturity() {
 				prev.height,
 				(&prev.pow.proof).into(),
 				chain.difficulty_iter().unwrap(),
-		    );
+			);
 			let reward = libtx::reward::output(&keychain, &key_id3, fees, false, height).unwrap();
-			let mut block = core::core::Block::new(&prev, txs, next_header_info.clone().difficulty, reward).unwrap();
-			
+			let mut block =
+				core::core::Block::new(&prev, txs, next_header_info.clone().difficulty, reward)
+					.unwrap();
+
 			block.header.timestamp = prev.timestamp + Duration::seconds(60);
 			block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
 
@@ -263,10 +270,15 @@ fn test_coinbase_maturity() {
 					height,
 					(&prev.pow.proof).into(),
 					chain.difficulty_iter().unwrap(),
-		        );
+				);
 				let reward = libtx::reward::output(&keychain, &pk, 0, false, height).unwrap();
-				let mut block =
-					core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward).unwrap();
+				let mut block = core::core::Block::new(
+					&prev,
+					vec![],
+					next_header_info.clone().difficulty,
+					reward,
+				)
+				.unwrap();
 				block.header.timestamp = prev.timestamp + Duration::seconds(60);
 				block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
 
@@ -295,10 +307,12 @@ fn test_coinbase_maturity() {
 				height,
 				(&prev.pow.proof).into(),
 				chain.difficulty_iter().unwrap(),
-		    );
+			);
 			let height = prev.height + 1; //modification
 			let reward = libtx::reward::output(&keychain, &key_id4, fees, false, height).unwrap();
-			let mut block = core::core::Block::new(&prev, txs, next_header_info.clone().difficulty, reward).unwrap();
+			let mut block =
+				core::core::Block::new(&prev, txs, next_header_info.clone().difficulty, reward)
+					.unwrap();
 
 			block.header.timestamp = prev.timestamp + Duration::seconds(60);
 			block.header.pow.secondary_scaling = next_header_info.secondary_scaling;

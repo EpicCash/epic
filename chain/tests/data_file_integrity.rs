@@ -14,10 +14,10 @@
 
 use self::chain::types::NoopAdapter;
 use self::chain::Chain;
+use self::core::core::block::feijoada;
 use self::core::core::verifier_cache::LruVerifierCache;
 use self::core::core::{Block, BlockHeader, Transaction};
-use self::core::core::block::feijoada;
-use self::core::global::{self, ChainTypes, set_policy_config};
+use self::core::global::{self, set_policy_config, ChainTypes};
 use self::core::libtx;
 use self::core::pow::{self, Difficulty};
 use self::core::{consensus, genesis};
@@ -73,8 +73,8 @@ fn data_files() {
 		let mut policies: feijoada::Policy = feijoada::get_bottles_default();
 		policies.insert(feijoada::PoWType::Cuckatoo, 100);
 		set_policy_config(feijoada::PolicyConfig {
-				policies: vec![policies.clone()],
-				..Default::default()
+			policies: vec![policies.clone()],
+			..Default::default()
 		});
 		let chain = setup(chain_dir);
 		let keychain = ExtKeychain::from_random_seed(false).unwrap();
