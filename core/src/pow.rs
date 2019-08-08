@@ -174,7 +174,12 @@ mod test {
 		.unwrap();
 		println!("nonce {}", b.header.pow.nonce);
 		assert_ne!(b.header.pow.nonce, 310);
-		assert!(b.header.pow.to_difficulty(0) >= Difficulty::min());
+		assert!(
+			b.header
+				.pow
+				.to_difficulty(&b.header.pre_pow(), b.header.height, b.header.pow.nonce)
+				>= Difficulty::min()
+		);
 		assert!(verify_size(&b.header).is_ok());
 	}
 }
