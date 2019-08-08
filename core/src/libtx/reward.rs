@@ -14,7 +14,7 @@
 
 //! Builds the blinded output and related signature proof for the block
 //! reward.
-use crate::consensus::{reward, FOUNDATION_REWARD};
+use crate::consensus::{cumulative_reward_foundation, reward};
 use crate::core::transaction::kernel_sig_msg;
 use crate::core::{KernelFeatures, Output, OutputFeatures, TxKernel};
 use crate::keychain::{Identifier, Keychain};
@@ -26,12 +26,12 @@ pub fn output_foundation<K>(
 	keychain: &K,
 	key_id: &Identifier,
 	test_mode: bool,
+	height: u64,
 ) -> Result<(Output, TxKernel), Error>
 where
 	K: Keychain,
 {
-	// TODO put it in an actual constant with a proper value
-	let value: u64 = FOUNDATION_REWARD;
+	let value: u64 = cumulative_reward_foundation(height);
 	let commit = keychain.commit(value, key_id)?;
 	trace!("Block Foundation reward - Pedersen Commit is: {:?}", commit,);
 

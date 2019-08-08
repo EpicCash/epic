@@ -1,5 +1,9 @@
 Feature: Mine a simple chain
 
+Scenario: Match the mining and foundation rewards in epic eras with the whitepaper
+  Given I test if all rewards match the whitepaper
+  Then I test if the cumulative foundation levy is being computed correctly
+
 Scenario: add hardcoded coinbase
   Given I have a hardcoded coinbase
 
