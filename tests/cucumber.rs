@@ -760,7 +760,7 @@ mod mine_chain {
 			coinbase.kernel.verify().unwrap();
 		};
 
-		given "I test if all rewards match the whitepaper" |_world, _step|{
+		given "All rewards match the whitepaper" |_world, _step|{
 			let epic_base_f = 100_000_000.0;
 			assert_eq!(epic_base_f as u64, consensus::EPIC_BASE);
 			// iterating 130 years of blocks
