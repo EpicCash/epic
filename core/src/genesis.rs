@@ -347,7 +347,7 @@ mod test {
 		);
 		assert_eq!(
 			gen_bin.hash().to_hex(),
-			"52e4fb3830aaf7a1f97d78bb4b7dbbf5a4316ecdfdc308922b67c6336423bc91"
+			"89ff35c4adddf9dfd8493525e6e981eb60b67f70f55982f945abc6f4d44425e1"
 		);
 	}
 }

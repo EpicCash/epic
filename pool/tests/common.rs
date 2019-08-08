@@ -19,7 +19,7 @@ use self::chain::types::Tip;
 use self::core::core::hash::{Hash, Hashed};
 use self::core::core::verifier_cache::VerifierCache;
 use self::core::core::{Block, BlockHeader, BlockSums, Committed, Transaction};
-use self::core::libtx;
+use self::core::{consensus, libtx};
 use self::keychain::{ExtKeychain, Keychain};
 use self::pool::types::*;
 use self::pool::TransactionPool;
@@ -175,7 +175,7 @@ where
 {
 	let output_sum = output_values.iter().sum::<u64>() as i64;
 
-	let coinbase_reward: u64 = 200_000_000_000;
+	let coinbase_reward: u64 = consensus::reward_at_height(1);
 
 	let fees: i64 = coinbase_reward as i64 - output_sum;
 	assert!(fees >= 0);
