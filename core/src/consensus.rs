@@ -88,12 +88,17 @@ pub const MAINNET_FOUNDATION_HEIGHT: u64 = DAY_HEIGHT;
 /// Used in automated tests.
 pub const AUTOMATEDTEST_FOUNDATION_HEIGHT: u64 = 5;
 
+/// Set the height (and its multiples) where the foundation coinbase will be added to the block.
+/// Used in the Floonet.
+pub const FLOONET_FOUNDATION_HEIGHT: u64 = 30;
+
 /// Get the height where the foundation coinbase will be added to the block.
 pub fn foundation_height() -> u64 {
 	let param_ref = global::CHAIN_TYPE.read();
 	match *param_ref {
 		global::ChainTypes::AutomatedTesting => AUTOMATEDTEST_FOUNDATION_HEIGHT,
 		global::ChainTypes::UserTesting => AUTOMATEDTEST_FOUNDATION_HEIGHT,
+		global::ChainTypes::Floonet => FLOONET_FOUNDATION_HEIGHT,
 		_ => MAINNET_FOUNDATION_HEIGHT,
 	}
 }
