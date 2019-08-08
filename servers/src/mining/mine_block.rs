@@ -31,7 +31,7 @@ use crate::core::core::foundation::load_foundation_output;
 pub use crate::core::core::foundation::CbData;
 use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::{Output, TxKernel};
-use crate::core::global::get_policies;
+use crate::core::global::{get_emitted_policy, get_policies};
 use crate::core::libtx::secp_ser;
 use crate::core::pow::PoWType;
 use crate::core::{consensus, core, global};
@@ -205,12 +205,14 @@ fn build_block(
 	// making sure we're not spending time mining a useless block
 	b.validate(&head.total_kernel_offset, verifier_cache)?;
 
-	let pow_type = Deterministic::choose_algo(&get_policies(), &head.bottles);
-
 	b.header.pow.nonce = thread_rng().gen();
 	b.header.pow.secondary_scaling = difficulty.secondary_scaling;
 	b.header.timestamp = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(now_sec, 0), Utc);
-	b.header.bottles = next_block_bottles(pow_type, &head.bottles);
+	b.header.policy = get_emitted_policy();
+
+	let bottle_cursor = chain.bottles_iter(get_emitted_policy())?;
+	let (pow_type, bottles) = consensus::next_policy(b.header.policy, bottle_cursor);
+	b.header.bottles = bottles;
 
 	debug!(
 		"Built new block with {} inputs and {} outputs, block difficulty: {:?}, cumulative difficulty {:?}",

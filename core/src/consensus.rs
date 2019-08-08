@@ -21,6 +21,9 @@
 use std::cmp::{max, min};
 use std::collections::HashMap;
 
+use crate::core::block::feijoada::{
+	get_bottles_default, next_block_bottles, Deterministic, Feijoada, Policy,
+};
 use crate::core::block::HeaderVersion;
 use crate::global;
 use crate::pow::{Difficulty, DifficultyNumber, PoWType};
@@ -372,6 +375,24 @@ pub fn damp(actual: u64, goal: u64, damp_factor: u64) -> u64 {
 /// limit value to be within some factor from a goal
 pub fn clamp(actual: u64, goal: u64, clamp_factor: u64) -> u64 {
 	max(goal / clamp_factor, min(actual, goal * clamp_factor))
+}
+
+pub fn next_policy<T>(policy: u8, cursor: T) -> (PoWType, Policy)
+where
+	T: IntoIterator<Item = Policy>,
+{
+	let prev_bottles: Vec<Policy> = cursor.into_iter().take(1).collect();
+
+	let bottles = if let Some(p_bottles) = prev_bottles.first() {
+		p_bottles.clone()
+	} else {
+		get_bottles_default()
+	};
+
+	let pow_type = Deterministic::choose_algo(&global::get_policies(policy).unwrap(), &bottles);
+	let b = next_block_bottles(pow_type, &bottles);
+
+	(pow_type, b)
 }
 
 /// Computes the proof-of-work difficulty that the next block should comply

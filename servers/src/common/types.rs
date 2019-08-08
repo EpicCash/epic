@@ -201,10 +201,9 @@ pub struct ServerConfig {
 	/// Configuration for the webhooks that trigger on certain events
 	#[serde(default)]
 	pub webhook_config: WebHooksConfig,
-
-	#[serde(default)]
-	/// Configuration for the proportions policy on EPIC
-	pub policy_config: PolicyConfig,
+	//#[serde(default)]
+	// Configuration for the proportions policy on EPIC
+	//pub policy_config: PolicyConfig,
 }
 
 impl Default for ServerConfig {
@@ -228,7 +227,7 @@ impl Default for ServerConfig {
 			run_test_miner: Some(false),
 			test_miner_wallet_url: None,
 			webhook_config: WebHooksConfig::default(),
-			policy_config: PolicyConfig::default(),
+			//policy_config: PolicyConfig::default(),
 		}
 	}
 }

@@ -43,6 +43,7 @@ mod mine_chain {
 	use epic_core as core;
 	use epic_util as util;
 
+	use epic_chain::store::BottleIter;
 	use epic_chain::types::NoopAdapter;
 	use epic_chain::Chain;
 	use epic_core::core::block::feijoada::PoWType as FType;
@@ -54,7 +55,10 @@ mod mine_chain {
 	use epic_core::core::hash::Hashed;
 	use epic_core::core::verifier_cache::LruVerifierCache;
 	use epic_core::core::{Block, BlockHeader, Output, OutputIdentifier, Transaction, TxKernel};
-	use epic_core::global::{get_policies, set_policy_config, ChainTypes};
+	use epic_core::global::{
+		add_allowed_policy, get_emitted_policy, get_policies, set_emitted_policy,
+		set_policy_config, ChainTypes,
+	};
 	use epic_core::libtx::{self, build, reward};
 	use epic_core::pow::{
 		new_cuckaroo_ctx, new_cuckatoo_ctx, new_md5_ctx, new_progpow_ctx, new_randomx_ctx,
@@ -162,11 +166,13 @@ mod mine_chain {
 
 			let mut block = prepare_block_with_coinbase(&prev, 2, vec![], reward, foundation);
 			chain.set_txhashset_roots(&mut block).unwrap();
-
+			let emitted_policy = get_emitted_policy();
+			let policy = get_policies(emitted_policy).unwrap();
 			// Mining
-			let algo = Deterministic::choose_algo(&get_policies(), &prev.bottles);
+			let algo = Deterministic::choose_algo(&policy, &prev.bottles);
 			block.header.bottles = next_block_bottles(algo, &prev.bottles);
 			block.header.pow.proof = get_pow_type(&algo, prev.height);
+			block.header.policy = emitted_policy;
 
 			if let Ok(_) = chain.process_block(block, chain::Options::SKIP_POW) {
 				panic!("Block need to be refused with foundation invalid!");
@@ -610,12 +616,16 @@ mod mine_chain {
 			let chain = world.chain.as_ref().unwrap();
 			let prev = chain.head_header().unwrap();
 			let algo = get_fw_type(matches[1].as_str());
-			assert_eq!(Deterministic::choose_algo(&get_policies(), &prev.bottles), algo);
+			let emitted_policy = get_emitted_policy();
+			let policy = get_policies(emitted_policy).unwrap();
+			assert_eq!(Deterministic::choose_algo(&policy, &prev.bottles), algo);
 		};
 
 		then regex "Check the next algorithm <([a-zA-Z0-9]+)>" |world, matches, _step| {
 			let algo = get_fw_type(matches[1].as_str());
-			assert_eq!(Deterministic::choose_algo(&get_policies(), &world.bottles), algo);
+			let emitted_policy = get_emitted_policy();
+			let policy = get_policies(emitted_policy).unwrap();
+			assert_eq!(Deterministic::choose_algo(&policy, &world.bottles), algo);
 		};
 
 		then regex "Increase bottles <([A-Za-z0-9]+)>" |world, matches, _step| {
@@ -673,6 +683,49 @@ mod mine_chain {
 			world.keychain_foundation = Some(kc);
 		};
 
+		given regex "I set the allowed policy on the height <([0-9]+)> with value <([0-9]+)>" |world, matches, _step| {
+			let height: u64 = matches[1].parse().unwrap();
+			let value: u64 = matches[2].parse().unwrap();
+			add_allowed_policy(height, value);
+		};
+
+		given "I set default policy config" |world, _step| {
+			let policies = [
+				(FType::Cuckaroo, 100),
+				(FType::Cuckatoo, 0),
+				(FType::RandomX, 0),
+				(FType::ProgPow, 0),
+			]
+			.into_iter()
+			.map(|&x| x)
+			.collect();
+
+			let policies2 = [
+				(FType::Cuckaroo, 0),
+				(FType::Cuckatoo, 0),
+				(FType::RandomX, 100),
+				(FType::ProgPow, 0),
+			]
+			.into_iter()
+			.map(|&x| x)
+			.collect();
+
+			let policies3 = [
+				(FType::Cuckaroo, 0),
+				(FType::Cuckatoo, 0),
+				(FType::RandomX, 0),
+				(FType::ProgPow, 100),
+			]
+			.into_iter()
+			.map(|&x| x)
+			.collect();
+
+			set_policy_config(PolicyConfig {
+				policies: vec![policies, policies2, policies3],
+				..Default::default()
+			});
+		};
+
 		then regex "I add block with foundation reward following the policy <([0-9]+)>" |world, matches, _step| {
 			let num: u64 = matches[1].parse().unwrap();
 			// The policy index is ignored for now, as we are only using a unique policy.
@@ -695,9 +748,12 @@ mod mine_chain {
 			let mut block = prepare_block_with_coinbase(&prev, diff, transactions, mining_reward, (foundation_reward.output, foundation_reward.kernel));
 			chain.set_txhashset_roots(&mut block).unwrap();
 			// Mining
-			let algo = Deterministic::choose_algo(&get_policies(), &prev.bottles);
+			let emitted_policy = get_emitted_policy();
+			let policy = get_policies(emitted_policy).unwrap();
+			let algo = Deterministic::choose_algo(&policy, &prev.bottles);
 			block.header.bottles = next_block_bottles(algo, &prev.bottles);
 			block.header.pow.proof = get_pow_type(&algo, prev.height);
+			block.header.policy = emitted_policy;
 			chain.process_block(block, chain::Options::SKIP_POW).unwrap();
 		};
 
@@ -708,11 +764,9 @@ mod mine_chain {
 			coinbase.kernel.verify().unwrap();
 		};
 
-
 		then regex "I add <([0-9]+)> blocks following the policy <([0-9]+)>" |world, matches, _step| {
 			let num: u64 = matches[1].parse().unwrap();
-			// The policy index is ignored for now, as we are only using a unique policy.
-			// index = matches[2].parse().unwrap();
+			let emitted_policy: u8 = matches[2].parse().unwrap();
 			let chain = world.chain.as_ref().unwrap();
 			let height = chain.head_header().unwrap().height;
 
@@ -720,12 +774,14 @@ mod mine_chain {
 				let kc = epic_keychain::ExtKeychain::from_seed(&[i as u8], false).unwrap().clone();
 				let prev = chain.head_header().unwrap();
 				let mut block = prepare_block(&kc, &prev, &chain, height + i);
-				let algo = Deterministic::choose_algo(&get_policies(), &prev.bottles);
-				block.header.bottles = next_block_bottles(algo, &prev.bottles);
+				let policy = get_policies(emitted_policy).unwrap();
+				let cursor = chain.bottles_iter(emitted_policy).unwrap();
+				let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
+				block.header.bottles = bottles;
 				block.header.pow.proof = get_pow_type(&algo, prev.height);
+				block.header.policy = emitted_policy;
 				chain.process_block(block, chain::Options::SKIP_POW).unwrap();
 			};
-
 		};
 
 		then regex "I add <([0-9]+)> blocks mined with <([a-zA-Z0-9]+)> and accept <([0-9]+)>" |world, matches, _step| {
@@ -747,13 +803,14 @@ mod mine_chain {
 				};
 			};
 			assert_eq!(count, num_accepted);
-
 		};
 
 		then "I check if the bottle matches the policy" |world, _step| {
 			let chain = world.chain.as_ref().unwrap();
 			let bottles = chain.head_header().unwrap().bottles;
-			assert_eq!(bottles, get_policies());
+			let emitted_policy = get_emitted_policy();
+			let policy = get_policies(emitted_policy).unwrap();
+			assert_eq!(bottles, policy);
 		};
 
 		then "I check if the bottle is being emptied" |world, _step| {
@@ -761,8 +818,6 @@ mod mine_chain {
 			let bottles = chain.head_header().unwrap().bottles;
 			assert_eq!(count_beans(&bottles), 1);
 		};
-
-
 	});
 
 	fn get_pow_type(ftype: &FType, seed: u64) -> pow::Proof {
@@ -1151,8 +1206,28 @@ fn setup() {
 	.map(|&x| x)
 	.collect();
 
+	let policies2 = [
+		(FType::Cuckaroo, 0),
+		(FType::Cuckatoo, 0),
+		(FType::RandomX, 100),
+		(FType::ProgPow, 0),
+	]
+	.into_iter()
+	.map(|&x| x)
+	.collect();
+
+	let policies3 = [
+		(FType::Cuckaroo, 0),
+		(FType::Cuckatoo, 0),
+		(FType::RandomX, 0),
+		(FType::ProgPow, 100),
+	]
+	.into_iter()
+	.map(|&x| x)
+	.collect();
+
 	set_policy_config(PolicyConfig {
-		policies: vec![policies],
+		policies: vec![policies, policies2, policies3],
 		..Default::default()
 	});
 

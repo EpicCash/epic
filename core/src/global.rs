@@ -22,16 +22,16 @@ use crate::consensus::{
 	DAY_HEIGHT, DEFAULT_MIN_EDGE_BITS, DIFFICULTY_ADJUST_WINDOW, INITIAL_DIFFICULTY,
 	MAX_BLOCK_WEIGHT, PROOFSIZE, SECOND_POW_EDGE_BITS, STATE_SYNC_THRESHOLD,
 };
-use crate::core::block::feijoada::{Policy, PolicyConfig};
+use crate::core::block::feijoada::{AllowPolicy, Policy, PolicyConfig};
 use crate::pow::{self, new_cuckaroo_ctx, new_cuckatoo_ctx, EdgeType, PoWContext};
 /// An enum collecting sets of parameters used throughout the
 /// code wherever mining is needed. This should allow for
 /// different sets of parameters for different purposes,
 /// e.g. CI, User testing, production values
 use crate::util::RwLock;
+use std::collections::HashMap;
 use std::env;
 use std::path::Path;
-
 /// Define these here, as they should be developer-set, not really tweakable
 /// by users
 
@@ -188,9 +188,36 @@ pub fn set_policy_config(policy: PolicyConfig) {
 	*policy_config = policy;
 }
 
-pub fn get_policies() -> Policy {
+pub fn set_emitted_policy(emitted: u8) {
+	let mut policy_config = POLICY_CONFIG.write();
+	policy_config.emitted_policy = emitted;
+}
+
+pub fn add_allowed_policy(height: u64, value: u64) {
+	let mut policy_config = POLICY_CONFIG.write();
+	policy_config
+		.allowed_policies
+		.push(AllowPolicy { height, value });
+}
+
+pub fn get_allowed_policies() -> Vec<AllowPolicy> {
 	let policy_config = POLICY_CONFIG.read();
-	policy_config.policies[0].clone()
+	policy_config.allowed_policies.clone()
+}
+
+pub fn get_emitted_policy() -> u8 {
+	let policy_config = POLICY_CONFIG.read();
+	policy_config.emitted_policy
+}
+
+pub fn get_policies(index: u8) -> Option<Policy> {
+	let policy_config = POLICY_CONFIG.read();
+
+	if (index as usize) < (*policy_config).policies.len() {
+		Some(policy_config.policies[index as usize].clone())
+	} else {
+		None
+	}
 }
 
 /// Get the policy configuration that is being used by the blockchain

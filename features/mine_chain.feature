@@ -68,6 +68,17 @@ Scenario: checks if blocks added in a blockchain match the policy
   Then I add <99> blocks following the policy <0>
   Then I check if the bottle matches the policy
 
+Scenario: check if accept multi policies
+  Given I set default policy config
+  Given I have a <testing> chain
+  Given I set the allowed policy on the height <5> with value <3>
+  And I setup a chain with genesis block mined with <randomx>
+  And I define my output dir as <.epicpolicy>
+  Then I add <5> blocks following the policy <0>
+  Then I add <3> blocks following the policy <1>
+  Then I add <2> blocks following the policy <0>
+  Then I add <3> blocks following the policy <1>
+
 Scenario: refuse blocks that were not mined with a desired algorithm
   Given I have the policy <0> with <cuckaroo> equals <33>
   And I have the policy <0> with <randomx> equals <33>
