@@ -36,6 +36,16 @@ fn get_number_in_range(stdin: &io::Stdin, stdout: &mut io::Stdout, min: u32, max
 }
 
 fn get_cpuinfo() -> io::Result<String> {
+	if cfg!(target_os = "windows") {
+		return Command::new("wmic")
+			.arg("cpu")
+			.arg("get")
+			.arg("caption, deviceid, name, numberofcores, maxclockspeed, status")
+			.output()
+			.and_then(|o| {
+				String::from_utf8(o.stdout).map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+			});
+	}
 	Command::new("cat")
 		.arg("/proc/cpuinfo")
 		.output()
@@ -45,6 +55,18 @@ fn get_cpuinfo() -> io::Result<String> {
 }
 
 fn get_lspci() -> io::Result<String> {
+	if cfg!(target_os = "windows") {
+		return Command::new("gwmi")
+			.arg("Win32_Bus")
+			.arg("-Filter")
+			.arg("'DeviceID")
+			.arg("like")
+			.arg("\"PCI%\"'")
+			.output()
+			.and_then(|o| {
+				String::from_utf8(o.stdout).map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+			});
+	}
 	Command::new("lspci").output().and_then(|o| {
 		String::from_utf8(o.stdout).map_err(|e| io::Error::new(io::ErrorKind::Other, e))
 	})
