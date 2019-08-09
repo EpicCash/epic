@@ -407,13 +407,11 @@ impl Handler {
 
 		let mut epochs = vec![(
 			pow::randomx::rx_epoch_start(current_seed_height),
-			pow::randomx::rx_epoch_lifetime(current_seed_height),
+			pow::randomx::rx_epoch_end(current_seed_height),
 			current_hash,
 		)];
 
 		if let Some(h) = next_seed_height {
-			println!("next seed: {:?}", next_seed_height);
-
 			let next_seed_hash = self
 				.chain
 				.txhashset()
@@ -426,7 +424,7 @@ impl Handler {
 
 			epochs.push((
 				pow::randomx::rx_epoch_start(h),
-				pow::randomx::rx_epoch_lifetime(h),
+				pow::randomx::rx_epoch_end(h),
 				next_hash,
 			));
 		}
