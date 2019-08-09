@@ -17,24 +17,30 @@ pub const SEEDHASH_EPOCH_BLOCKS: u64 = 1000;
 pub const SEEDHASH_EPOCH_LAG: u64 = 60;
 
 pub fn rx_epoch_start(epoch_height: u64) -> u64 {
-	if epoch_height > SEEDHASH_EPOCH_LAG {
-		epoch_height + SEEDHASH_EPOCH_LAG
-	} else {
+	if epoch_height == 0 {
 		0
+	} else {
+		epoch_height + SEEDHASH_EPOCH_LAG
 	}
 }
 
-pub fn rx_epoch_lifetime(epoch_height: u64) -> u64 {
-	epoch_height + SEEDHASH_EPOCH_BLOCKS + SEEDHASH_EPOCH_LAG
+pub fn rx_epoch_end(epoch_height: u64) -> u64 {
+	if epoch_height == 0 {
+		SEEDHASH_EPOCH_BLOCKS + SEEDHASH_EPOCH_LAG
+	} else {
+		epoch_height + SEEDHASH_EPOCH_LAG + SEEDHASH_EPOCH_BLOCKS
+	}
 }
 
 pub fn rx_next_seed_height(height: u64) -> Option<u64> {
+	let next_height = height - (height % SEEDHASH_EPOCH_BLOCKS);
+
 	if height <= SEEDHASH_EPOCH_BLOCKS {
 		return None;
 	}
 
 	if (height - 1) % SEEDHASH_EPOCH_BLOCKS <= SEEDHASH_EPOCH_LAG {
-		Some(height - height % SEEDHASH_EPOCH_BLOCKS)
+		Some(next_height)
 	} else {
 		None
 	}
@@ -45,7 +51,7 @@ pub fn rx_current_seed_height(height: u64) -> u64 {
 		return 0;
 	}
 
-	if (height % SEEDHASH_EPOCH_BLOCKS) <= SEEDHASH_EPOCH_LAG {
+	if height % SEEDHASH_EPOCH_BLOCKS <= SEEDHASH_EPOCH_LAG {
 		height - (height % SEEDHASH_EPOCH_BLOCKS) - SEEDHASH_EPOCH_BLOCKS
 	} else {
 		height - (height % SEEDHASH_EPOCH_BLOCKS)
