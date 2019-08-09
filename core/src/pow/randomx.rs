@@ -13,8 +13,44 @@ lazy_static! {
 	pub static ref RX_STATE: RwLock<RxState> = RwLock::new(RxState::new());
 }
 
-const SEEDHASH_EPOCH_BLOCKS: u64 = 2048u64;
-const SEEDHASH_EPOCH_LAG: u64 = 64u64;
+pub const SEEDHASH_EPOCH_BLOCKS: u64 = 16;
+pub const SEEDHASH_EPOCH_LAG: u64 = 5;
+
+pub fn rx_epoch_start(epoch_height: u64) -> u64 {
+	if epoch_height > SEEDHASH_EPOCH_LAG {
+		epoch_height + SEEDHASH_EPOCH_LAG
+	} else {
+		0
+	}
+}
+
+pub fn rx_epoch_lifetime(epoch_height: u64) -> u64 {
+	epoch_height + SEEDHASH_EPOCH_BLOCKS + SEEDHASH_EPOCH_LAG
+}
+
+pub fn rx_next_seed_height(height: u64) -> Option<u64> {
+	if height <= SEEDHASH_EPOCH_BLOCKS {
+		return None;
+	}
+
+	if (height - 1) % SEEDHASH_EPOCH_BLOCKS <= SEEDHASH_EPOCH_LAG {
+		Some(height - height % SEEDHASH_EPOCH_BLOCKS)
+	} else {
+		None
+	}
+}
+
+pub fn rx_current_seed_height(height: u64) -> u64 {
+	if height <= SEEDHASH_EPOCH_LAG + SEEDHASH_EPOCH_BLOCKS {
+		return 0;
+	}
+
+	if (height % SEEDHASH_EPOCH_BLOCKS) <= SEEDHASH_EPOCH_LAG {
+		height - (height % SEEDHASH_EPOCH_BLOCKS) - SEEDHASH_EPOCH_BLOCKS
+	} else {
+		height - (height % SEEDHASH_EPOCH_BLOCKS)
+	}
+}
 
 pub struct RXContext<T>
 where

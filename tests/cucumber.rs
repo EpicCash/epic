@@ -52,7 +52,7 @@ mod mine_chain {
 		PolicyConfig,
 	};
 	use epic_core::core::foundation::load_foundation_output;
-	use epic_core::core::hash::Hashed;
+	use epic_core::core::hash::{Hash, Hashed};
 	use epic_core::core::verifier_cache::LruVerifierCache;
 	use epic_core::core::{Block, BlockHeader, Output, OutputIdentifier, Transaction, TxKernel};
 	use epic_core::global::{
@@ -164,7 +164,8 @@ mod mine_chain {
 			let reward = reward::output(kc, &key_id, 0, false, 0).unwrap();
 			let foundation = libtx::reward::output_foundation(kc, &key_id, true).unwrap();
 
-			let mut block = prepare_block_with_coinbase(&prev, 2, vec![], reward, foundation);
+			let hash = chain.txhashset().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1)).unwrap();
+			let mut block = prepare_block_with_coinbase(&prev, 2, vec![], reward, foundation, hash);
 			chain.set_txhashset_roots(&mut block).unwrap();
 			let emitted_policy = get_emitted_policy();
 			let policy = get_policies(emitted_policy).unwrap();
@@ -315,7 +316,8 @@ mod mine_chain {
 			diff.insert(FType::RandomX, 1);
 			diff.insert(FType::ProgPow, 1);
 
-			let mut block = prepare_block_pow(&kc, &head, Difficulty::from_dic_number(diff), vec![], proof);
+			let hash = chain.txhashset().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(head.height + 1)).unwrap();
+			let mut block = prepare_block_pow(&kc, &head, Difficulty::from_dic_number(diff), vec![], proof, hash);
 			chain.set_txhashset_roots(&mut block).unwrap();
 
 			if let Ok(_) = chain.process_block(block, chain::Options::MINE) {
@@ -363,7 +365,8 @@ mod mine_chain {
 			diff.insert(FType::RandomX, 1);
 			diff.insert(FType::ProgPow, 1);
 
-			let mut block = prepare_block_pow(&kc, &head, Difficulty::from_dic_number(diff), vec![], proof);
+			let hash = chain.txhashset().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(head.height + 1)).unwrap();
+			let mut block = prepare_block_pow(&kc, &head, Difficulty::from_dic_number(diff), vec![], proof, hash);
 			chain.set_txhashset_roots(&mut block);
 
 			if let Err(e) = chain.process_block(block, chain::Options::MINE) {
@@ -540,6 +543,12 @@ mod mine_chain {
 				b.header.timestamp = prev.timestamp + Duration::seconds(60);
 				b.header.pow.secondary_scaling = next_header_info.secondary_scaling;
 				b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles);
+
+				let hash = chain.txhashset().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1)).unwrap();
+				let mut seed = [0u8; 32];
+				seed.copy_from_slice(&hash.as_bytes()[0..32]);
+
+				b.header.pow.seed = seed;
 
 				chain.set_txhashset_roots(&mut b).unwrap();
 
@@ -745,7 +754,8 @@ mod mine_chain {
 			let foundation_reward = load_foundation_output(prev.height + 1);
 			println!("\nFoundation Reward:{:?}\n", foundation_reward);
 			// Creating the block
-			let mut block = prepare_block_with_coinbase(&prev, diff, transactions, mining_reward, (foundation_reward.output, foundation_reward.kernel));
+			let hash = chain.txhashset().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1)).unwrap();
+			let mut block = prepare_block_with_coinbase(&prev, diff, transactions, mining_reward, (foundation_reward.output, foundation_reward.kernel), hash);
 			chain.set_txhashset_roots(&mut block).unwrap();
 			// Mining
 			let emitted_policy = get_emitted_policy();
@@ -892,8 +902,14 @@ mod mine_chain {
 		loop {
 			// if we found a cycle (not guaranteed) and the proof hash is higher that the
 			// diff, we're all good
-			let mut ctx =
-				create_pow_context_custom::<u32>(bh.height, sz, proof_size, MAX_SOLS, pow_type)?;
+			let mut ctx = create_pow_context_custom::<u32>(
+				bh.height,
+				sz,
+				proof_size,
+				MAX_SOLS,
+				pow_type,
+				bh.pow.seed,
+			)?;
 
 			if let pow::Proof::CuckooProof { .. } = bh.pow.proof {
 				ctx.set_header_nonce(bh.pre_pow(), None, Some(bh.height), true)?;
@@ -926,6 +942,7 @@ mod mine_chain {
 		proof_size: usize,
 		max_sols: u32,
 		pow_type: &PoWType,
+		seed: [u8; 32],
 	) -> Result<Box<dyn PoWContext<T>>, pow::Error>
 	where
 		T: EdgeType + 'static,
@@ -935,7 +952,7 @@ mod mine_chain {
 			PoWType::Cuckaroo => new_cuckaroo_ctx(edge_bits, proof_size),
 			PoWType::Cuckatoo => new_cuckatoo_ctx(edge_bits, proof_size, max_sols),
 			PoWType::MD5 => new_md5_ctx(edge_bits, proof_size, max_sols),
-			PoWType::RandomX => new_randomx_ctx([0; 32]),
+			PoWType::RandomX => new_randomx_ctx(seed),
 			PoWType::ProgPow => new_progpow_ctx(),
 		}
 	}
@@ -960,6 +977,7 @@ mod mine_chain {
 					.unwrap();
 			b.header.timestamp = prev.timestamp + Duration::seconds(60);
 			b.header.pow.secondary_scaling = next_header_info.secondary_scaling;
+
 			b.header.bottles = next_block_bottles(
 				match pow_type {
 					PoWType::RandomX => FType::RandomX,
@@ -970,6 +988,16 @@ mod mine_chain {
 				},
 				&prev.bottles,
 			);
+
+			let hash = chain
+				.txhashset()
+				.read()
+				.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
+				.unwrap();
+			let mut seed = [0u8; 32];
+			seed.copy_from_slice(&hash.as_bytes()[0..32]);
+
+			b.header.pow.seed = seed;
 			chain.set_txhashset_roots(&mut b).unwrap();
 
 			let edge_bits = if n == 2 {
@@ -1039,7 +1067,12 @@ mod mine_chain {
 	where
 		K: Keychain,
 	{
-		let mut b = prepare_block_nosum(kc, prev, diff, vec![]);
+		let hash = chain
+			.txhashset()
+			.read()
+			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
+			.unwrap();
+		let mut b = prepare_block_nosum(kc, prev, diff, vec![], hash);
 		chain.set_txhashset_roots(&mut b).unwrap();
 		b
 	}
@@ -1048,7 +1081,12 @@ mod mine_chain {
 	where
 		K: Keychain,
 	{
-		let mut b = prepare_block_nosum(kc, prev, diff, vec![]);
+		let hash = chain
+			.txhashset()
+			.read()
+			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
+			.unwrap();
+		let mut b = prepare_block_nosum(kc, prev, diff, vec![], hash);
 		chain.set_txhashset_roots_forked(&mut b, prev).unwrap();
 		b
 	}
@@ -1063,7 +1101,12 @@ mod mine_chain {
 	where
 		K: Keychain,
 	{
-		let mut b = prepare_block_nosum(kc, prev, diff, txs);
+		let hash = chain
+			.txhashset()
+			.read()
+			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
+			.unwrap();
+		let mut b = prepare_block_nosum(kc, prev, diff, txs, hash);
 		chain.set_txhashset_roots(&mut b).unwrap();
 		b
 	}
@@ -1078,7 +1121,12 @@ mod mine_chain {
 	where
 		K: Keychain,
 	{
-		let mut b = prepare_block_nosum(kc, prev, diff, txs);
+		let hash = chain
+			.txhashset()
+			.read()
+			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
+			.unwrap();
+		let mut b = prepare_block_nosum(kc, prev, diff, txs, hash);
 		chain.set_txhashset_roots_forked(&mut b, prev).unwrap();
 		b
 	}
@@ -1088,10 +1136,14 @@ mod mine_chain {
 		prev: &BlockHeader,
 		diff: u64,
 		txs: Vec<&Transaction>,
+		hash: Hash,
 	) -> Block
 	where
 		K: Keychain,
 	{
+		let mut seed = [0u8; 32];
+		seed.copy_from_slice(&hash.as_bytes()[0..32]);
+
 		let proof_size = global::proofsize();
 		let key_id = epic_keychain::ExtKeychainPath::new(1, diff as u32, 0, 0, 0).to_identifier();
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
@@ -1108,6 +1160,7 @@ mod mine_chain {
 		b.header.timestamp = prev.timestamp + Duration::seconds(60);
 		b.header.pow.total_difficulty = prev.total_difficulty() + Difficulty::from_num(diff);
 		b.header.pow.proof = pow::Proof::random(proof_size);
+		b.header.pow.seed = seed;
 		b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles);
 		b
 	}
@@ -1118,6 +1171,7 @@ mod mine_chain {
 		txs: Vec<&Transaction>,
 		reward: (Output, TxKernel),
 		foundation: (Output, TxKernel),
+		hash: Hash,
 	) -> Block {
 		let proof_size = global::proofsize();
 		let mut b = match core::core::Block::new_with_coinbase(
@@ -1134,6 +1188,11 @@ mod mine_chain {
 		b.header.pow.total_difficulty = prev.total_difficulty() + Difficulty::from_num(diff);
 		b.header.pow.proof = pow::Proof::random(proof_size);
 		b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles);
+
+		let mut seed = [0u8; 32];
+		seed.copy_from_slice(&hash.as_bytes()[0..32]);
+		b.header.pow.seed = seed;
+
 		b
 	}
 
@@ -1143,6 +1202,7 @@ mod mine_chain {
 		diff: Difficulty,
 		txs: Vec<&Transaction>,
 		proof: pow::Proof,
+		hash: Hash,
 	) -> Block
 	where
 		K: Keychain,
@@ -1179,6 +1239,11 @@ mod mine_chain {
 			pow::Proof::MD5Proof { .. } => FType::Cuckatoo,
 		};
 		b.header.bottles = next_block_bottles(fw_type, &prev.bottles);
+
+		let mut seed = [0u8; 32];
+		seed.copy_from_slice(&hash.as_bytes()[0..32]);
+		b.header.pow.seed = seed;
+
 		b
 	}
 }

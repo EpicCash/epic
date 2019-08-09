@@ -153,6 +153,9 @@ pub enum ErrorKind {
 
 	#[fail(display = "Policy is not allowed")]
 	PolicyIsNotAllowed,
+
+	#[fail(display = "Invalid seed")]
+	InvalidSeed,
 }
 
 impl Display for Error {

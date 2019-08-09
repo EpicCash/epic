@@ -172,10 +172,9 @@ struct SubmitParams {
 pub struct JobTemplate {
 	height: u64,
 	job_id: u64,
-	difficulty: u64,
+	difficulty: Vec<(String, u64)>,
 	pre_pow: String,
-	algorithm: String,
-	//seed: [u8; 32],
+	epochs: Vec<(u64, u64, [u8; 32])>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -358,11 +357,12 @@ impl Handler {
 		let response = serde_json::to_value(&status).unwrap();
 		return Ok(response);
 	}
+
 	// Handle GETJOBTEMPLATE message
 	fn handle_getjobtemplate(&self, params: Option<Value>) -> Result<Value, RpcError> {
 		let params: JobParams = parse_params(params)?;
 		// Build a JobTemplate from a BlockHeader and return JSON
-		let job_template = self.build_block_template(params.algorithm);
+		let job_template = self.build_block_template();
 		let response = serde_json::to_value(&job_template).unwrap();
 		debug!(
 			"(Server ID: {}) sending block {} with id {} to single worker",
@@ -381,7 +381,7 @@ impl Handler {
 	}
 
 	// Build and return a JobTemplate for mining the current block
-	fn build_block_template(&self, algo: String) -> JobTemplate {
+	fn build_block_template(&self) -> JobTemplate {
 		let bh = self
 			.current_state
 			.read()
@@ -391,7 +391,56 @@ impl Handler {
 			.0
 			.header
 			.clone();
+
+		let current_seed_height = pow::randomx::rx_current_seed_height(bh.height);
+		let next_seed_height = pow::randomx::rx_next_seed_height(bh.height);
+
+		let current_seed_hash = self
+			.chain
+			.txhashset()
+			.read()
+			.get_header_hash_by_height(current_seed_height)
+			.unwrap();
+
+		let mut current_hash = [0u8; 32];
+		current_hash.copy_from_slice(&current_seed_hash.as_bytes()[0..32]);
+
+		let mut epochs = vec![(
+			pow::randomx::rx_epoch_start(current_seed_height),
+			pow::randomx::rx_epoch_lifetime(current_seed_height),
+			current_hash,
+		)];
+
+		if let Some(h) = next_seed_height {
+			println!("next seed: {:?}", next_seed_height);
+
+			let next_seed_hash = self
+				.chain
+				.txhashset()
+				.read()
+				.get_header_hash_by_height(h)
+				.unwrap();
+
+			let mut next_hash = [0u8; 32];
+			next_hash.copy_from_slice(&next_seed_hash.as_bytes()[0..32]);
+
+			epochs.push((
+				pow::randomx::rx_epoch_start(h),
+				pow::randomx::rx_epoch_lifetime(h),
+				next_hash,
+			));
+		}
+
 		// Serialize the block header into pre and post nonce strings
+		let algorithms = vec![PoWType::Cuckatoo, PoWType::RandomX, PoWType::ProgPow];
+
+		let difficulty = {
+			let state = self.current_state.read();
+			algorithms
+				.iter()
+				.map(|x| (x.to_str(), state.get_minimum_difficulty(*x)))
+				.collect::<Vec<(String, u64)>>()
+		};
 
 		let mut header_buf = vec![];
 		{
@@ -403,12 +452,9 @@ impl Handler {
 		let job_template = JobTemplate {
 			height: bh.height,
 			job_id: (self.current_state.read().current_block_versions.len() - 1) as u64,
-			difficulty: self
-				.current_state
-				.read()
-				.get_minimum_difficulty(self.get_parse_algorithm(algo.clone().as_str())),
+			difficulty,
 			pre_pow,
-			algorithm: algo,
+			epochs,
 		};
 		return job_template;
 	}
@@ -578,10 +624,10 @@ impl Handler {
 		));
 	} // handle submit a solution
 
-	fn broadcast_job(&self, algorithm: String) {
+	fn broadcast_job(&self) {
 		debug!("broadcast job");
 		// Package new block into RpcRequest
-		let job_template = self.build_block_template(algorithm);
+		let job_template = self.build_block_template();
 		let job_template_json = serde_json::to_string(&job_template).unwrap();
 		// Issue #1159 - use a serde_json Value type to avoid extra quoting
 		let job_template_value: Value = serde_json::from_str(&job_template_json).unwrap();
@@ -714,9 +760,7 @@ impl Handler {
 					state.current_block_versions.push((new_block, pow_type));
 					// Send this job to all connected workers
 				}
-				self.broadcast_job("cuckoo".to_string());
-				self.broadcast_job("randomx".to_string());
-				self.broadcast_job("progpow".to_string());
+				self.broadcast_job();
 			}
 
 			// sleep before restarting loop

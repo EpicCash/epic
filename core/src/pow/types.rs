@@ -58,6 +58,15 @@ impl PoWType {
 			PoWType::ProgPow => 3,
 		}
 	}
+
+	pub fn to_str(&self) -> String {
+		match self {
+			PoWType::Cuckaroo => "cuckoo".to_string(),
+			PoWType::Cuckatoo => "cuckoo".to_string(),
+			PoWType::RandomX => "randomx".to_string(),
+			PoWType::ProgPow => "progpow".to_string(),
+		}
+	}
 }
 
 impl TryFrom<u8> for PoWType {

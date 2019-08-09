@@ -17,7 +17,7 @@
 use crate::chain::OrphanBlockPool;
 use crate::core::consensus;
 use crate::core::core::feijoada::{is_allowed_policy, Deterministic, Feijoada, PoWType, Policy};
-use crate::core::core::hash::Hashed;
+use crate::core::core::hash::{Hash, Hashed};
 use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::Committed;
 use crate::core::core::{Block, BlockHeader, BlockSums};
@@ -337,6 +337,11 @@ fn prev_header_store(
 	Ok(prev)
 }
 
+fn seed_header_store(height: u64, txhashset: &mut txhashset::TxHashSet) -> Result<Hash, Error> {
+	let prev = txhashset.get_header_hash_by_height(pow::randomx::rx_current_seed_height(height))?;
+	Ok(prev)
+}
+
 /// First level of block validation that only needs to act on the block header
 /// to make it as cheap as possible. The different validations are also
 /// arranged by order of cost to have as little DoS surface as possible.
@@ -363,6 +368,7 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		if !header.pow.is_primary() && !header.pow.is_secondary() {
 			return Err(ErrorKind::LowEdgebits.into());
 		}
+
 		let edge_bits = header.pow.edge_bits();
 		if !(ctx.pow_verifier)(header).is_ok() {
 			match header.pow.proof {
@@ -389,7 +395,7 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 
 	// First I/O cost, delayed as late as possible.
 	let prev = prev_header_store(header, &mut ctx.batch)?;
-	let policy = global::get_policies(header.policy);
+	let seed = seed_header_store(header.height, &mut ctx.txhashset)?;
 
 	if !is_allowed_policy(global::get_allowed_policies(), header.height, header.policy) {
 		return Err(ErrorKind::PolicyIsNotAllowed.into());
@@ -427,6 +433,10 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 	// header
 	if header.height != prev.height + 1 {
 		return Err(ErrorKind::InvalidBlockHeight.into());
+	}
+
+	if Hash::from_vec(&header.pow.seed) != seed {
+		return Err(ErrorKind::InvalidSeed.into());
 	}
 
 	// TODO - get rid of the automated testing mode check here somehow
