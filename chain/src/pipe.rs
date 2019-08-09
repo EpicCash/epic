@@ -16,13 +16,8 @@
 
 use crate::chain::OrphanBlockPool;
 use crate::core::consensus;
-<<<<<<< HEAD
 use crate::core::core::feijoada::{is_allowed_policy, Deterministic, Feijoada, PoWType, Policy};
-use crate::core::core::hash::Hashed;
-=======
-use crate::core::core::feijoada::{Deterministic, Feijoada, PoWType, Policy};
 use crate::core::core::hash::{Hash, Hashed};
->>>>>>> Fix validation and load multiples epochs
 use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::Committed;
 use crate::core::core::{Block, BlockHeader, BlockSums};
