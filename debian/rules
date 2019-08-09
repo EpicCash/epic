@@ -20,6 +20,7 @@ build build-arch build-indep: build/stamp
 
 .PHONY: binary binary-arch binary-indep
 binary binary-arch binary-indep: build/stamp debian/control
+	@set -e
 	dh_testroot
 	dh_prep
 	mkdir -p $(ROOTDIR)/var/db/epic/
