@@ -357,10 +357,16 @@ pub fn graph_weight(height: u64, edge_bits: u8) -> u64 {
 pub const MIN_DIFFICULTY: u64 = DIFFICULTY_DAMP_FACTOR;
 
 /// RandomX Minimum difficulty (used for saturation)
-pub const MIN_DIFFICULTY_RANDOMX: u64 = 8000;
+pub const MIN_DIFFICULTY_RANDOMX: u64 = 5000;
 
 /// Progpow Minimum difficulty (used for saturation)
 pub const MIN_DIFFICULTY_PROGPOW: u64 = 100000;
+
+/// RandomX Minimum difficulty (used for saturation)
+pub const BLOCK_DIFF_FACTOR_RANDOMX: u64 = 64;
+
+/// Progpow Minimum difficulty (used for saturation)
+pub const BLOCK_DIFF_FACTOR_PROGPOW: u64 = 2048;
 
 /// Minimum scaling factor for AR pow, enforced in diff retargetting
 /// avoids getting stuck when trying to increase ar_scale subject to dampening
@@ -544,11 +550,15 @@ fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>
 }
 
 pub fn next_hash_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
-	// Constant used to divide the previous difficulty.
-	let block_diff_factor = 2048;
-
 	// Desired time per block
 	let diff_adjustment_cutoff = 60;
+
+	// Constant used to divide the previous difficulty.
+	let block_diff_factor = match pow {
+		PoWType::RandomX => BLOCK_DIFF_FACTOR_RANDOMX,
+		PoWType::ProgPow => BLOCK_DIFF_FACTOR_PROGPOW,
+		_ => panic!("The function next_hash_difficulty is only used by Progpow and RandomX, but it got a {:?}", pow),
+	};
 
 	let prev_timestamp = diff_data[0].timestamp;
 	let prev_diff: u64 = diff_data[0].difficulty.to_num(pow);

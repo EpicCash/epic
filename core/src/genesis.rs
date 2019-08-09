@@ -59,7 +59,7 @@ pub fn genesis_floo() -> core::Block {
 	diff.insert(PoWType::Cuckaroo, 2_u64.pow(2));
 	diff.insert(PoWType::Cuckatoo, 2_u64.pow(2));
 	diff.insert(PoWType::RandomX, 2_u64.pow(13));
-	diff.insert(PoWType::ProgPow, 2_u64.pow(27));
+	diff.insert(PoWType::ProgPow, 2_u64.pow(26));
 
 	core::Block::with_header(core::BlockHeader {
 		height: 0,
@@ -186,7 +186,7 @@ mod test {
 		);
 		assert_eq!(
 			gen_bin.hash().to_hex(),
-			"53830a83f8fd8dfb2d16211d764b8ec46632fd95c27229e38ccd50e2eb01ebc7"
+			"f14a5587f7c40f3d265c01fc590dc87cd73123a20e555810c2161a0cd2c5b293"
 		);
 	}
 
