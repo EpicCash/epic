@@ -1,3 +1,62 @@
+epic (1.2.0-1) bionic; urgency=medium
+
+  [ Leonardo Viana ]
+  * Fix almost all grin tests
+  * Fix indentation
+  * Add cargo lock for p2p fuzz tests
+  * Fix all no-cucumber tests
+
+  [ Aron Castro ]
+  * Add support for multi policy
+  * Add cursor for search block with same policy and update config
+
+  [ Yuri Albuquerque ]
+  * A bug report tool for Epic.
+  * Adding (untested) Windows commands to get cpuinfo and lspci.
+
+  [ Leonardo Viana ]
+  * Reduce the height for coinbase maturity in the floonet
+
+  [ Aron Castro ]
+  * Add randomx seed changing in each epochs
+  * Fix validation and load multiples epochs
+  * Remove conflict tag
+  * Remove condition repeated
+
+  [ Leonardo Viana ]
+  * Change the rewards to match the whitepaper
+  * Fix non-cucumber tests
+  * Improve cucumber tests names
+  * Add foundation height for floonet
+  * Increase floonet foundation height
+  * Remove genesis reward
+  * Fix genesis hash test
+
+  [ Aron Castro ]
+  * Update randomx rust
+  * Fix invalid seed in tests
+
+  [ Yuri Albuquerque ]
+  * Adding epic-bugreport to the package.
+
+  [ Leonardo Viana ]
+  * Add policies matching the white paper
+
+  [ Aron Castro ]
+  * Fix calc for seed height
+  * change randomx epochs
+
+  [ Yuri Albuquerque ]
+  * Aborting the package build in case of an error.
+
+  [ Leonardo Viana ]
+  * Change the default min share difficulty
+
+  [ Aron Castro ]
+  * Fix diff factor for randomx and decrease progpow difficulty
+
+ -- Ubuntu <ubuntu@ip-172-31-16-240.ec2.internal>  Fri, 09 Aug 2019 21:23:12 +0000
+
 epic (1.1.0-1) bionic; urgency=medium
 
   [ Yuri Albuquerque ]

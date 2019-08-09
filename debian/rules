@@ -26,7 +26,7 @@ binary binary-arch binary-indep: build/stamp debian/control
 	mkdir -p $(ROOTDIR)/var/db/epic/
 	install -m 666 debian/foundation.json $(ROOTDIR)/var/db/epic/foundation.json
 	cargo install --path . --root $(ROOTDIR)/usr/
-	cargo install -p epic-bugreport --path . --root $(ROOTDIR)/usr/
+	cargo install --path bugreport --root $(ROOTDIR)/usr/
 	strip $(ROOTDIR)/usr/bin/epic
 	rm $(ROOTDIR)/usr/.crates.toml
 	dh_installdocs
