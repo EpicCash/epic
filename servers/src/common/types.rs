@@ -23,7 +23,7 @@ use crate::api;
 use crate::chain;
 use crate::core::core::block::feijoada::PolicyConfig;
 use crate::core::global::ChainTypes;
-use crate::core::{core, libtx, pow};
+use crate::core::{consensus, core, libtx, pow};
 use crate::keychain;
 use crate::p2p;
 use crate::pool;
@@ -269,9 +269,9 @@ impl Default for StratumServerConfig {
 			wallet_listener_url: "http://127.0.0.1:3415".to_string(),
 			burn_reward: false,
 			attempt_time_per_block: 15,
-			cuckatoo_minimum_share_difficulty: 1,
-			randomx_minimum_share_difficulty: 1,
-			progpow_minimum_share_difficulty: 1,
+			cuckatoo_minimum_share_difficulty: consensus::MIN_DIFFICULTY,
+			randomx_minimum_share_difficulty: consensus::MIN_DIFFICULTY_RANDOMX,
+			progpow_minimum_share_difficulty: consensus::MIN_DIFFICULTY_PROGPOW,
 			enable_stratum_server: Some(false),
 			stratum_server_addr: Some("127.0.0.1:3416".to_string()),
 		}
