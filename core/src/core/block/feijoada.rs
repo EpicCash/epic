@@ -1,3 +1,4 @@
+use super::consensus;
 use crate::ser::{self, Readable, Reader, Writeable, Writer};
 use serde::de;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -84,22 +85,84 @@ pub struct PolicyConfig {
 
 impl Default for PolicyConfig {
 	fn default() -> Self {
-		let allowed = vec![AllowPolicy {
+		let mut policy_era1 = get_bottles_default();
+		policy_era1.insert(PoWType::RandomX, 60);
+		policy_era1.insert(PoWType::ProgPow, 38);
+		policy_era1.insert(PoWType::Cuckatoo, 2);
+		policy_era1.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era1 = AllowPolicy {
 			height: 0,
-			value: 1,
-		}];
+			value: 1 << 0,
+		};
 
-		// default just in tests
-		let mut policies = get_bottles_default();
-		policies.insert(PoWType::Cuckaroo, 0);
-		policies.insert(PoWType::Cuckatoo, 2);
-		policies.insert(PoWType::RandomX, 60);
-		policies.insert(PoWType::ProgPow, 38);
+		let mut policy_era2 = get_bottles_default();
+		policy_era2.insert(PoWType::RandomX, 30);
+		policy_era2.insert(PoWType::ProgPow, 65);
+		policy_era2.insert(PoWType::Cuckatoo, 5);
+		policy_era2.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era2 = AllowPolicy {
+			height: consensus::BLOCK_ERA_1 + 1,
+			value: 1 << 1,
+		};
+
+		let mut policy_era3 = get_bottles_default();
+		policy_era3.insert(PoWType::RandomX, 10);
+		policy_era3.insert(PoWType::ProgPow, 62);
+		policy_era3.insert(PoWType::Cuckatoo, 28);
+		policy_era3.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era3 = AllowPolicy {
+			height: consensus::BLOCK_ERA_2 + 1,
+			value: 1 << 2,
+		};
+
+		let mut policy_era4 = get_bottles_default();
+		policy_era4.insert(PoWType::RandomX, 5);
+		policy_era4.insert(PoWType::ProgPow, 40);
+		policy_era4.insert(PoWType::Cuckatoo, 55);
+		policy_era4.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era4 = AllowPolicy {
+			height: consensus::BLOCK_ERA_3 + 1,
+			value: 1 << 3,
+		};
+
+		let mut policy_era5 = get_bottles_default();
+		policy_era5.insert(PoWType::RandomX, 5);
+		policy_era5.insert(PoWType::ProgPow, 20);
+		policy_era5.insert(PoWType::Cuckatoo, 75);
+		policy_era5.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era5 = AllowPolicy {
+			height: consensus::BLOCK_ERA_4 + 1,
+			value: 1 << 4,
+		};
+
+		let mut policy_era6 = get_bottles_default();
+		policy_era6.insert(PoWType::RandomX, 5);
+		policy_era6.insert(PoWType::ProgPow, 10);
+		policy_era6.insert(PoWType::Cuckatoo, 85);
+		policy_era6.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era6 = AllowPolicy {
+			height: consensus::BLOCK_ERA_5 + 1,
+			value: 1 << 5,
+		};
 
 		PolicyConfig {
-			allowed_policies: allowed,
+			allowed_policies: vec![
+				allowed_policy_era1,
+				allowed_policy_era2,
+				allowed_policy_era3,
+				allowed_policy_era4,
+				allowed_policy_era5,
+				allowed_policy_era6,
+			],
 			emitted_policy: 0,
-			policies: vec![policies],
+			policies: vec![
+				policy_era1,
+				policy_era2,
+				policy_era3,
+				policy_era4,
+				policy_era5,
+				policy_era6,
+			],
 		}
 	}
 }
