@@ -84,6 +84,16 @@ fn test_coinbase_maturity() {
 		block.header.timestamp = prev.timestamp + Duration::seconds(60);
 		block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
 
+		let hash = chain
+			.txhashset()
+			.read()
+			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
+			.unwrap();
+		let mut seed = [0u8; 32];
+		seed.copy_from_slice(&hash.as_bytes()[0..32]);
+
+		block.header.pow.seed = seed.clone();
+
 		chain.set_txhashset_roots(&mut block).unwrap();
 
 		pow::pow_size(
@@ -139,7 +149,7 @@ fn test_coinbase_maturity() {
 				.unwrap();
 		block.header.timestamp = prev.timestamp + Duration::seconds(60);
 		block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-
+		block.header.pow.seed = seed.clone();
 		chain.set_txhashset_roots(&mut block).unwrap();
 
 		// Confirm the tx attempting to spend the coinbase output
@@ -180,6 +190,7 @@ fn test_coinbase_maturity() {
 
 			block.header.timestamp = prev.timestamp + Duration::seconds(60);
 			block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
+			block.header.pow.seed = seed.clone();
 
 			chain.set_txhashset_roots(&mut block).unwrap();
 
@@ -237,7 +248,7 @@ fn test_coinbase_maturity() {
 
 			block.header.timestamp = prev.timestamp + Duration::seconds(60);
 			block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-
+			block.header.pow.seed = seed.clone();
 			chain.set_txhashset_roots(&mut block).unwrap();
 
 			// Confirm the tx attempting to spend the coinbase output
@@ -281,7 +292,7 @@ fn test_coinbase_maturity() {
 				.unwrap();
 				block.header.timestamp = prev.timestamp + Duration::seconds(60);
 				block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-
+				block.header.pow.seed = seed.clone();
 				chain.set_txhashset_roots(&mut block).unwrap();
 
 				pow::pow_size(
@@ -316,6 +327,7 @@ fn test_coinbase_maturity() {
 
 			block.header.timestamp = prev.timestamp + Duration::seconds(60);
 			block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
+			block.header.pow.seed = seed.clone();
 
 			chain.set_txhashset_roots(&mut block).unwrap();
 

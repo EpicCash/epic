@@ -94,6 +94,16 @@ fn data_files() {
 			b.header.timestamp = prev.timestamp + Duration::seconds(60);
 			b.header.pow.secondary_scaling = next_header_info.secondary_scaling;
 
+			let hash = chain
+				.txhashset()
+				.read()
+				.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
+				.unwrap();
+			let mut seed = [0u8; 32];
+			seed.copy_from_slice(&hash.as_bytes()[0..32]);
+
+			b.header.pow.seed = seed;
+
 			chain.set_txhashset_roots(&mut b).unwrap();
 
 			pow::pow_size(
