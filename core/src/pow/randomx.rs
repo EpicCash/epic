@@ -13,22 +13,42 @@ lazy_static! {
 	pub static ref RX_STATE: RwLock<RxState> = RwLock::new(RxState::new());
 }
 
-const SEEDHASH_EPOCH_BLOCKS: u64 = 1024;
-const SEEDHASH_EPOCH_LAG: u64 = 20;
+pub const SEEDHASH_EPOCH_BLOCKS: u64 = 16;
+pub const SEEDHASH_EPOCH_LAG: u64 = 5;
 
-pub fn rx_next_seed(height: u64, prev_seed: &[u8; 32], next_seed: [u8; 32]) -> [u8; 32] {
-	if height % SEEDHASH_EPOCH_BLOCKS == 0 {
-		next_seed
+pub fn rx_epoch_start(epoch_height: u64) -> u64 {
+	if epoch_height > SEEDHASH_EPOCH_LAG {
+		epoch_height + SEEDHASH_EPOCH_LAG
 	} else {
-		prev_seed.clone()
+		0
 	}
 }
 
-pub fn rx_is_valid_seed(height: u64, prev_seed: &[u8; 32], current_seed: &[u8; 32]) -> bool {
-	if prev_seed != current_seed {
-		height % SEEDHASH_EPOCH_BLOCKS == 0 || height % SEEDHASH_EPOCH_BLOCKS > SEEDHASH_EPOCH_LAG
+pub fn rx_epoch_lifetime(epoch_height: u64) -> u64 {
+	epoch_height + SEEDHASH_EPOCH_BLOCKS + SEEDHASH_EPOCH_LAG
+}
+
+pub fn rx_next_seed_height(height: u64) -> Option<u64> {
+	if height <= SEEDHASH_EPOCH_BLOCKS {
+		return None;
+	}
+
+	if (height - 1) % SEEDHASH_EPOCH_BLOCKS <= SEEDHASH_EPOCH_LAG {
+		Some(height - height % SEEDHASH_EPOCH_BLOCKS)
 	} else {
-		true
+		None
+	}
+}
+
+pub fn rx_current_seed_height(height: u64) -> u64 {
+	if height <= SEEDHASH_EPOCH_LAG + SEEDHASH_EPOCH_BLOCKS {
+		return 0;
+	}
+
+	if (height % SEEDHASH_EPOCH_BLOCKS) <= SEEDHASH_EPOCH_LAG {
+		height - (height % SEEDHASH_EPOCH_BLOCKS) - SEEDHASH_EPOCH_BLOCKS
+	} else {
+		height - (height % SEEDHASH_EPOCH_BLOCKS)
 	}
 }
 

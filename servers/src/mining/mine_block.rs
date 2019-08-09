@@ -34,7 +34,7 @@ use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::{Output, TxKernel};
 use crate::core::global::{get_emitted_policy, get_policies};
 use crate::core::libtx::secp_ser;
-use crate::core::pow::randomx::rx_next_seed;
+use crate::core::pow::randomx::rx_current_seed_height;
 use crate::core::pow::PoWType;
 use crate::core::{consensus, core, global};
 use crate::keychain::{ExtKeychain, Identifier, Keychain};
@@ -148,6 +148,10 @@ fn build_block(
 	timestamp: i64,
 ) -> Result<(core::Block, BlockFees, PoWType), Error> {
 	let head = chain.head_header()?;
+	let seed = chain
+		.txhashset()
+		.read()
+		.get_header_hash_by_height(rx_current_seed_height(head.height + 1))?;
 
 	// prepare the block header timestamp
 	let mut now_sec = timestamp;
@@ -207,6 +211,10 @@ fn build_block(
 	// making sure we're not spending time mining a useless block
 	b.validate(&head.total_kernel_offset, verifier_cache)?;
 
+	let mut seed_u8 = [0u8; 32];
+	seed_u8.copy_from_slice(&seed.as_bytes()[0..32]);
+
+	b.header.pow.seed = seed_u8;
 	b.header.pow.nonce = thread_rng().gen();
 	b.header.pow.secondary_scaling = difficulty.secondary_scaling;
 	b.header.timestamp = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(now_sec, 0), Utc);
@@ -226,14 +234,7 @@ fn build_block(
 
 	// Now set txhashset roots and sizes on the header of the block being built.
 	match chain.set_txhashset_roots(&mut b) {
-		Ok(_) => {
-			let h = b.header.hash();
-			let mut seed = [0u8; 32];
-			seed.copy_from_slice(&h.as_bytes()[0..32]);
-			b.header.pow.seed = rx_next_seed(b.header.height, &head.pow.seed, seed);
-
-			Ok((b, block_fees, pow_type))
-		}
+		Ok(_) => Ok((b, block_fees, pow_type)),
 		Err(e) => {
 			match e.kind() {
 				// If this is a duplicate commitment then likely trying to use

@@ -174,7 +174,7 @@ pub struct JobTemplate {
 	job_id: u64,
 	difficulty: Vec<(String, u64)>,
 	pre_pow: String,
-	seed: [u8; 32],
+	epochs: Vec<(u64, u64, [u8; 32])>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -357,6 +357,7 @@ impl Handler {
 		let response = serde_json::to_value(&status).unwrap();
 		return Ok(response);
 	}
+
 	// Handle GETJOBTEMPLATE message
 	fn handle_getjobtemplate(&self, params: Option<Value>) -> Result<Value, RpcError> {
 		let params: JobParams = parse_params(params)?;
@@ -390,8 +391,47 @@ impl Handler {
 			.0
 			.header
 			.clone();
-		// Serialize the block header into pre and post nonce strings
 
+		let current_seed_height = pow::randomx::rx_current_seed_height(bh.height);
+		let next_seed_height = pow::randomx::rx_next_seed_height(bh.height);
+
+		let current_seed_hash = self
+			.chain
+			.txhashset()
+			.read()
+			.get_header_hash_by_height(current_seed_height)
+			.unwrap();
+
+		let mut current_hash = [0u8; 32];
+		current_hash.copy_from_slice(&current_seed_hash.as_bytes()[0..32]);
+
+		let mut epochs = vec![(
+			pow::randomx::rx_epoch_start(current_seed_height),
+			pow::randomx::rx_epoch_lifetime(current_seed_height),
+			current_hash,
+		)];
+
+		if let Some(h) = next_seed_height {
+			println!("next seed: {:?}", next_seed_height);
+
+			let next_seed_hash = self
+				.chain
+				.txhashset()
+				.read()
+				.get_header_hash_by_height(h)
+				.unwrap();
+
+			let mut next_hash = [0u8; 32];
+			next_hash.copy_from_slice(&next_seed_hash.as_bytes()[0..32]);
+
+			epochs.push((
+				pow::randomx::rx_epoch_start(h),
+				pow::randomx::rx_epoch_lifetime(h),
+				next_hash,
+			));
+		}
+
+		// Serialize the block header into pre and post nonce strings
 		let algorithms = vec![PoWType::Cuckatoo, PoWType::RandomX, PoWType::ProgPow];
 
 		let difficulty = {
@@ -414,7 +454,7 @@ impl Handler {
 			job_id: (self.current_state.read().current_block_versions.len() - 1) as u64,
 			difficulty,
 			pre_pow,
-			seed: bh.pow.seed.clone(),
+			epochs,
 		};
 		return job_template;
 	}
