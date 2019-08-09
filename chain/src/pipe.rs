@@ -439,14 +439,6 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		return Err(ErrorKind::InvalidSeed.into());
 	}
 
-	if !is_correct {
-		debug!(
-			"Block rejected: Expected {:?} got {:?}",
-			algo, header.pow.proof
-		);
-		return Err(ErrorKind::InvalidSortAlgo.into());
-	}
-
 	// TODO - get rid of the automated testing mode check here somehow
 	if header.timestamp <= prev.timestamp && !global::is_automated_testing_mode() {
 		// prevent time warp attacks and some timestamp manipulations by forcing strict
