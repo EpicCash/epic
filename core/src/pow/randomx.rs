@@ -13,8 +13,8 @@ lazy_static! {
 	pub static ref RX_STATE: RwLock<RxState> = RwLock::new(RxState::new());
 }
 
-pub const SEEDHASH_EPOCH_BLOCKS: u64 = 16;
-pub const SEEDHASH_EPOCH_LAG: u64 = 5;
+pub const SEEDHASH_EPOCH_BLOCKS: u64 = 1000;
+pub const SEEDHASH_EPOCH_LAG: u64 = 60;
 
 pub fn rx_epoch_start(epoch_height: u64) -> u64 {
 	if epoch_height == 0 {
