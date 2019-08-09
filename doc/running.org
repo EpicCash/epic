@@ -419,23 +419,44 @@ following line:
       driver = 2
     #+end_src
 
-The *device* parameter sets your GPU ID if you have multiple GPUS, if you only
-have one, leave it with the value of 0. You may want to use device numbers in
-the same PCI Bus ID enumeration order as used by non-CUDA programs. To do this
-set the *CUDA_​DEVICE_​ORDER* environment variable to *PCI_BUS_ID* in your shell.
-The default value of this variable is *FASTEST_FIRST*. More info on this can be
-found [[https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#env-vars][here]]. Note that this is available only in CUDA 7 and later.
+The *device* parameter sets your GPU ID if you have multiple GPUS, if
+you only have one, leave it with the value of 0. You may want to use
+device numbers in the same PCI Bus ID enumeration order as used by
+non-CUDA programs. To do this set the *CUDA_​DEVICE_​ORDER* environment
+variable to *PCI_BUS_ID* in your shell.  The default value of this
+variable is *FASTEST_FIRST*. More info on this can be found [[https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#env-vars][here]]. Note
+that this is available only in CUDA 7 and later.
 
-The *driver* parameter specifies the type driver that will be used to mine with
-the GPU. The value *1* corresponds to CUDA (exclusive to Nvidia GPUs) and the
-value *2* corresponds to OpenCL(OCL). Following there is an example of how to
-mine with the GPU (primary) using CUDA:
+The *driver* parameter specifies the type of the driver that will be
+used to mine with the GPU. The value *1* corresponds to CUDA
+(exclusive to Nvidia GPUs) and the value *2* corresponds to
+OpenCL(OCL). Following there is an example of how to mine with the GPU
+(primary) using CUDA:
 
     #+begin_src toml
       [[mining.gpu_config]]
       device = 0
       driver = 1
     #+end_src
+
+*** Multi-GPU Mining
+
+If you want to mine using multiple GPUs just copy and paste the lines
+shown in the section Additional configuration: ProgPow, changing the
+*device* parameter to match your GPUs ID and the type of driver that
+will be used in each one with the parameter *driver*. Following there
+is an example of how to mine with the 2 GPUs (NVIDIA) using CUDA:
+
+    #+begin_src toml
+      [[mining.gpu_config]]
+      device = 0
+      driver = 1
+
+      [[mining.gpu_config]]
+      device = 1
+      driver = 1
+    #+end_src
+
 
 ** Additional configuration: RandomX
 
