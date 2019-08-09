@@ -28,7 +28,7 @@ use std::sync::Arc;
 
 use crate::consensus::{
 	self, add_reward_foundation, is_foundation_height, reward, reward_at_height, reward_foundation,
-	total_overage_at_height, FOUNDATION_REWARD, REWARD,
+	total_overage_at_height,
 };
 use crate::core::block::feijoada::{get_bottles_default, Policy};
 use crate::core::committed::{self, Committed};

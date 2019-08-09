@@ -108,7 +108,7 @@ fn test_coinbase_maturity() {
 
 		let prev = chain.head_header().unwrap();
 
-		let amount = consensus::REWARD;
+		let amount = consensus::reward_at_height(1);
 
 		let lock_height = 1 + global::coinbase_maturity();
 		assert_eq!(lock_height, 4);
@@ -205,7 +205,7 @@ fn test_coinbase_maturity() {
 
 			let prev = chain.head_header().unwrap();
 
-			let amount = consensus::REWARD;
+			let amount = consensus::reward_at_height(1);
 
 			let lock_height = 1 + global::coinbase_maturity();
 			assert_eq!(lock_height, 4);

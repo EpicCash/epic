@@ -74,7 +74,7 @@ fn parse_epics(amount: &str) -> Result<u64, Error> {
 }
 
 lazy_static! {
-	static ref WIDTH: usize = (EPIC_BASE as f64).log(10.0) as usize + 1;
+	static ref WIDTH: usize = (EPIC_BASE as f64).log(10.0) as usize;
 }
 
 fn parse_nepics(amount: &str) -> Result<u64, Error> {
@@ -110,32 +110,32 @@ mod test {
 
 	#[test]
 	pub fn test_amount_from_hr() {
-		assert!(50123456789 == amount_from_hr_string("50.123456789").unwrap());
-		assert!(50123456789 == amount_from_hr_string("50.1234567899").unwrap());
-		assert!(50 == amount_from_hr_string(".000000050").unwrap());
-		assert!(1 == amount_from_hr_string(".000000001").unwrap());
-		assert!(0 == amount_from_hr_string(".0000000009").unwrap());
-		assert!(500_000_000_000 == amount_from_hr_string("500").unwrap());
+		assert!(5012345678 == amount_from_hr_string("50.123456789").unwrap());
+		assert!(5012345678 == amount_from_hr_string("50.1234567899").unwrap());
+		assert!(50 == amount_from_hr_string(".00000050").unwrap());
+		assert!(1 == amount_from_hr_string(".00000001").unwrap());
+		assert!(0 == amount_from_hr_string(".000000009").unwrap());
+		assert!(50_000_000_000 == amount_from_hr_string("500").unwrap());
 		assert!(
-			5_000_000_000_000_000_000 == amount_from_hr_string("5000000000.00000000000").unwrap()
+			500_000_000_000_000_000 == amount_from_hr_string("5000000000.00000000000").unwrap()
 		);
-		assert!(66_600_000_000 == amount_from_hr_string("66.6").unwrap());
-		assert!(66_000_000_000 == amount_from_hr_string("66.").unwrap());
+		assert!(6_660_000_000 == amount_from_hr_string("66.6").unwrap());
+		assert!(6_600_000_000 == amount_from_hr_string("66.").unwrap());
 	}
 
 	#[test]
 	pub fn test_amount_to_hr() {
-		assert!("50.123456789" == amount_to_hr_string(50123456789, false));
-		assert!("50.123456789" == amount_to_hr_string(50123456789, true));
-		assert!("0.000000050" == amount_to_hr_string(50, false));
-		assert!("0.00000005" == amount_to_hr_string(50, true));
-		assert!("0.000000001" == amount_to_hr_string(1, false));
-		assert!("0.000000001" == amount_to_hr_string(1, true));
-		assert!("500.000000000" == amount_to_hr_string(500_000_000_000, false));
-		assert!("500.0" == amount_to_hr_string(500_000_000_000, true));
-		assert!("5000000000.000000000" == amount_to_hr_string(5_000_000_000_000_000_000, false));
-		assert!("5000000000.0" == amount_to_hr_string(5_000_000_000_000_000_000, true));
-		assert!("66.6" == amount_to_hr_string(66600000000, true));
+		assert!("50.12345678" == amount_to_hr_string(5012345678, false));
+		assert!("50.12345678" == amount_to_hr_string(5012345678, true));
+		assert!("0.00000050" == amount_to_hr_string(50, false));
+		assert!("0.0000005" == amount_to_hr_string(50, true));
+		assert!("0.00000001" == amount_to_hr_string(1, false));
+		assert!("0.00000001" == amount_to_hr_string(1, true));
+		assert!("500.00000000" == amount_to_hr_string(50_000_000_000, false));
+		assert!("500.0" == amount_to_hr_string(50_000_000_000, true));
+		assert!("5000000000.00000000" == amount_to_hr_string(500_000_000_000_000_000, false));
+		assert!("5000000000.0" == amount_to_hr_string(500_000_000_000_000_000, true));
+		assert!("66.6" == amount_to_hr_string(6660000000, true));
 	}
 
 }

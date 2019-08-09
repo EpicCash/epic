@@ -1,5 +1,9 @@
 Feature: Mine a simple chain
 
+Scenario: match the mining and foundation rewards with the whitepaper
+  Given All rewards match the whitepaper
+  Then I test if the cumulative foundation levy is being computed correctly
+
 Scenario: add hardcoded coinbase
   Given I have a hardcoded coinbase
 
@@ -29,7 +33,7 @@ Scenario: refuse a foundation output invalid
   Then I add <4> blocks following the policy <0>
   Then Refuse a foundation commit invalid
 
-Scenario: checks a policy sequence of cuckatoo using feijoada deterministic
+Scenario: check a policy sequence of cuckatoo using feijoada deterministic
   Given I have the policy <0> with <cuckaroo> equals <0>
   And I have the policy <0> with <randomx> equals <0>
   And I have the policy <0> with <cuckatoo> equals <100>
@@ -40,7 +44,7 @@ Scenario: checks a policy sequence of cuckatoo using feijoada deterministic
   Then Increase bottles <cuckatoo>
   Then Check the next algorithm <cuckatoo>
 
-Scenario: checks a policy sequence of cuckatoo and randomx using feijoada deterministic
+Scenario: check a policy sequence of cuckatoo and randomx using feijoada deterministic
   Given I have the policy <0> with <cuckaroo> equals <0>
   And I have the policy <0> with <randomx> equals <50>
   And I have the policy <0> with <cuckatoo> equals <50>
@@ -53,7 +57,7 @@ Scenario: checks a policy sequence of cuckatoo and randomx using feijoada determ
   Then Increase bottles <randomx>
   Then Check the next algorithm <cuckatoo>
 
-Scenario: checks if blocks added in a blockchain match the policy
+Scenario: check if blocks added in a blockchain match the policy
   Given I have the policy <0> with <cuckaroo> equals <33>
   And I have the policy <0> with <randomx> equals <33>
   And I have the policy <0> with <cuckatoo> equals <34>
@@ -94,7 +98,7 @@ Scenario: refuse blocks that were not mined with a desired algorithm
   Then I add <5> blocks mined with <cuckatoo> and accept <1>
   Then I add <5> blocks mined with <randomx> and accept <1>
 
-Scenario: Mine empty chain
+Scenario: mine empty chain
   Given I have the policy <0> with <cuckaroo> equals <0>
   And I have the policy <0> with <randomx> equals <0>
   And I have the policy <0> with <cuckatoo> equals <100>

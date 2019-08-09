@@ -161,8 +161,8 @@ mod mine_chain {
 			let prev = chain.head_header().unwrap();
 
 			let key_id = epic_keychain::ExtKeychain::derive_key_id(1, 3, 0, 0, 0);
-			let reward = reward::output(kc, &key_id, 0, false, 0).unwrap();
-			let foundation = libtx::reward::output_foundation(kc, &key_id, true).unwrap();
+			let reward = reward::output(kc, &key_id, 0, false, prev.height+1).unwrap();
+			let foundation = libtx::reward::output_foundation(kc, &key_id, true, prev.height+1).unwrap();
 
 			let hash = chain.txhashset().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1)).unwrap();
 			let mut block = prepare_block_with_coinbase(&prev, 2, vec![], reward, foundation, hash);
@@ -437,8 +437,8 @@ mod mine_chain {
 
 			let tx1 = build::transaction(
 				vec![
-					build::coinbase_input(consensus::REWARD, key_id2.clone()),
-					build::output(consensus::REWARD - 20000, key_id30.clone()),
+					build::coinbase_input(consensus::reward_at_height(1), key_id2.clone()),
+					build::output(consensus::reward_at_height(1) - 20000, key_id30.clone()),
 					build::with_fee(20000),
 				],
 				kc,
@@ -454,8 +454,8 @@ mod mine_chain {
 
 			let tx2 = build::transaction(
 				vec![
-					build::input(consensus::REWARD - 20000, key_id30.clone()),
-					build::output(consensus::REWARD - 40000, key_id31.clone()),
+					build::input(consensus::reward_at_height(1) - 20000, key_id30.clone()),
+					build::output(consensus::reward_at_height(1) - 40000, key_id31.clone()),
 					build::with_fee(20000),
 				],
 				kc,
@@ -742,17 +742,14 @@ mod mine_chain {
 			let chain = world.chain.as_ref().unwrap();
 			let kc_foundation = world.keychain_foundation.as_ref().unwrap();
 			let kc = world.keychain.as_ref().unwrap();
-			// println!("Keychain: {:?}", kc);
 
 			let prev = chain.head_header().unwrap();
 			let diff = prev.height + 1;
 			let transactions: Vec<&Transaction>  = vec![];
 			let key_id = epic_keychain::ExtKeychainPath::new(3, 0, 0, diff as u32, 0).to_identifier();
-			println!("Key_id: {:?}\n", key_id);
 			let fees = transactions.iter().map(|tx| tx.fee()).sum();
-			let mining_reward = libtx::reward::output(kc, &key_id, fees, false, 0).unwrap();
+			let mining_reward = libtx::reward::output(kc, &key_id, fees, false, prev.height+1).unwrap();
 			let foundation_reward = load_foundation_output(prev.height + 1);
-			println!("\nFoundation Reward:{:?}\n", foundation_reward);
 			// Creating the block
 			let hash = chain.txhashset().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1)).unwrap();
 			let mut block = prepare_block_with_coinbase(&prev, diff, transactions, mining_reward, (foundation_reward.output, foundation_reward.kernel), hash);
@@ -770,8 +767,121 @@ mod mine_chain {
 		given "I have a hardcoded coinbase" |_world, _step|{
 			let data = "{\"output\":{\"features\":\"Coinbase\",\"commit\":\"093a6ce3a05a7fdf810508eb5cf8611db8c60453df595f76016c6969bfcd5a60f7\",\"proof\":\"5a036cda20f01721621e0b8ba38b62791a3450c6d5155f76eb43622d14213f3ec25069e03a47d68cf8ffe69150cf3d13bd98a7bc83a09b647c99f740291f24f30b6797c5a1d8f4beb4c99c8a45092fbbf1624b027323e5bdd1169c0bbf3b2e393a9812cf2b61b7ff30e53ea8cfa16f18377b05c87ec77359f796c3531465cc069b6295d504640c5bea894062d99c47dfa66dfce518cb527e9d706e333f3e4ae3bb0a242131ffe95e9e6e7e087f8b05cbde4e3c7ecb1a4b9f6c19eabd01323acba029103d0c291f028b9cd8bbf79259e49dec1d291278bf934a0229c8909f1b743184e76b31fd72e3e808448fa5874b070628e8f0184c49e7ddf43ed07d74fddc945f7a1a518dd2ccce85403c5348a19292550eb3ffd0ba65ef9bb2a5d73646dd02d253c1bc7c84d4b1498fc87f022be7a15c472e728ec6429a50e5ec1722b34881c0b0829d8712a77044210871e38509dcb4aa4534f923cb06db471d902676e308730066dbad7ed503613407d3510982e9d1ec9ce0264ab45ed2e1fb80a3222be2ddc0b19a0445f7228300c0013e7a336bb846bc232c2d18b08db9bbf743dc18cdcb415a8253b2ef10ba13ab20567483e5bbd31a116f68447701b51e0ce7f59b8052de09a959e0b80164ea0a6cc9f696380d7dd3b341856f42969086e467c17c6152555b722ade0dbfc20b3b786330afc8f61ea1804a357b1f15b7d339d653a2dfaf363e5fba23b296259eb93c0cdc4963e852f2bc596717a1add6dafbb26bae1b5c367c6200252166cfe5fc5c0f903b80e31eb2cc3f361e2f8a45f48a5adccd56f6e867f5cc6b46bddca515936011eb5bfc1ad1c451ec373b88cb81a5af63179515c3723394a09e75b0a738ead9ad15b1e0702548c1a9b5b4b33128c9167f382a802f971ccd9c2e9922f2c38f68a45782e916fc32d808fe9e7eea1a54992dfe371950\"},\"kernel\":{\"features\":\"Coinbase\",\"fee\":\"0\",\"lock_height\":\"0\",\"excess\":\"085987148fb0808195e9cf593164068f2783128d33c30d3dbc3115244771f9aab2\",\"excess_sig\":\"072570eca6b8744d06bae9937e6fd8911c27f6dcf1aabf595277359b309a0ef094c300d376026131dd21ac1f9a4c68872188cca850950ef16b8b85df94b551fb\"},\"key_id\":\"0300000000000000000000000500000000\"}";
 			let coinbase: CbData = serde_json::from_str(&data).unwrap();
-			println!("Coinbase: {:?}\n", coinbase);
 			coinbase.kernel.verify().unwrap();
+		};
+
+		given "All rewards match the whitepaper" |_world, _step|{
+			let epic_base_f = 100_000_000.0;
+			assert_eq!(epic_base_f as u64, consensus::EPIC_BASE);
+			// iterating 130 years of blocks
+			for height in 1..1440*365*130{
+				let (total_block_reward, foundation_levy, mining_reward) = match height {
+					// Launch date to Jan 1, 2020
+					1..=221760 => {
+						(16.0, 1.4208, 14.5792)
+					},
+					// Jan 1, 2020 to Jun 29, 2020
+					221761..=480960 => {
+						(16.0, 1.2432, 14.7568)
+					}
+					// Jun 29, 2020 to Jan 1, 2021
+					480961..=747360 => {
+						(8.0, 0.6216, 7.3784)
+					}
+					// Jan 1, 2021 to Oct 11, 2021
+					747361..=1157760 => {
+						(8.0, 0.5328, 7.4672)
+					}
+					// Oct 11, 2021 to Jan 1, 2022
+					1157761..=1272960 => {
+						(4.0, 0.2664, 3.7336)
+					}
+					// Jan 1, 2022 to Jan 1, 2023
+					1272961..=1798560 => {
+						(4.0, 0.2220, 3.7780)
+					}
+					// Jan 1, 2023 to Jun 3, 2023
+					1798561..=2023200 => {
+						(4.0, 0.1776, 3.8224)
+					}
+					// Jun 3, 2023 to Jan 1, 2024
+					2023201..=2324160=> {
+						(2.0, 0.0888, 1.9112)
+					}
+					// Jan 1, 2024 to Jan 1, 2025
+					2324161..=2849760=> {
+						(2.0, 0.0666, 1.9334)
+					}
+					// Jan 1, 2025 to Aug 10, 2025
+					2849761..=3175200=> {
+						(2.0, 0.0444, 1.9556)
+					}
+					// Aug 10, 2025 to Jan 1, 2026
+					3175201..=3375360=> {
+						(1.0, 0.0222, 0.9778)
+					}
+					// Jan 1, 2026 to Jan 1, 2028
+					3375361..=4426560=> {
+						(1.0, 0.0111, 0.9889)
+					}
+					// Jan 1, 2028 to May 24, 2028
+					4426561..=4642560=> {
+						(1.0, 0.0, 1.0)
+					}
+					// ======Test Bitcoin eras=====
+					// May 24, 2028 to May 22, 2032
+					4426561..=6744960=> {
+						(0.15625, 0.0, 0.15625)
+					}
+					// May 22, 2032 to May 20, 2036
+					6744961..=8847360=> {
+						(0.078125, 0.0, 0.078125)
+					}
+					_ => break,
+
+				};
+				let foundation_levy = (epic_base_f * foundation_levy) as u64;
+				let mining_reward = (epic_base_f * mining_reward) as u64;
+				let total_block_reward = (epic_base_f * total_block_reward) as u64;
+
+				assert_eq!(consensus::block_total_reward_at_height(height), total_block_reward, "Block total: Incorrect values at the height {:?}" , height);
+				assert_eq!(consensus::reward_foundation_at_height(height), foundation_levy, "Foundation reward: Incorrect values at the height {:?}" , height);
+				assert_eq!(consensus::reward_at_height(height), mining_reward, "Mining reward: Incorrect values at the height {:?}" , height);
+				assert_eq!(consensus::block_total_reward_at_height(height), mining_reward+foundation_levy, "Incorrect values at the height {:?}" , height);
+			}
+
+		};
+
+		then "I test if the cumulative foundation levy is being computed correctly" |_world, _step|{
+			let deadline_levy = 4426560;
+			// iterating 20 years of blocks
+			for height in 1..1440*365*20 {
+			    // We have some value of foundation levy until we reach the deadline_levy height
+				let foundation_levy = if height <= deadline_levy {
+					1
+				} else {
+					0
+				};
+				// Checking the method is_foundation_height is working properly
+				assert_eq!(consensus::is_foundation_height(height), height % 1440 == 0 && foundation_levy > 0);
+				// Check if the foundation levy are being collected in a foundation height
+				// and that they match the correct amount
+				if consensus::is_foundation_height(height)
+				{
+					let f_reward = consensus::cumulative_reward_foundation(height);
+					let (sum_b, sum_r) = cumulative_reward_block_mining(height);
+					assert_eq!(f_reward, consensus::reward_foundation_at_height(height)*1440);
+					assert_eq!(f_reward+sum_r, sum_b);
+					assert_eq!(f_reward+sum_r, consensus::block_total_reward_at_height(height)*1440);
+				} else {
+					// After 154 days + 8 years at the beginning of 2028, there is no more foundation levy
+					// Therefore after this height, even if a height is multiple of the FOUNDATION_HEIGHT
+					// it should not be considered a foundation height.
+					if height % 1440 == 0 {
+						assert!(height >= (154 + 365*8)*1440)
+					}
+				}
+			}
 		};
 
 		then regex "I add <([0-9]+)> blocks following the policy <([0-9]+)>" |world, matches, _step| {
@@ -829,6 +939,18 @@ mod mine_chain {
 			assert_eq!(count_beans(&bottles), 1);
 		};
 	});
+
+	fn cumulative_reward_block_mining(height: u64) -> (u64, u64) {
+		let mut sum_r: u64 = 0;
+		let mut sum_b: u64 = 0;
+		let f_height: u64 = consensus::foundation_height();
+		let n: u64 = (height - f_height) + 1;
+		for iter_height in n..=height {
+			sum_r += consensus::reward_at_height(iter_height);
+			sum_b += consensus::block_total_reward_at_height(iter_height);
+		}
+		(sum_b, sum_r)
+	}
 
 	fn get_pow_type(ftype: &FType, seed: u64) -> pow::Proof {
 		match ftype {
@@ -971,7 +1093,7 @@ mod mine_chain {
 				chain.difficulty_iter().unwrap(),
 			);
 			let pk = epic_keychain::ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
-			let reward = libtx::reward::output(keychain, &pk, 0, false, 0).unwrap();
+			let reward = libtx::reward::output(keychain, &pk, 0, false, n).unwrap();
 			let mut b =
 				core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
 					.unwrap();
@@ -1147,7 +1269,7 @@ mod mine_chain {
 		let proof_size = global::proofsize();
 		let key_id = epic_keychain::ExtKeychainPath::new(1, diff as u32, 0, 0, 0).to_identifier();
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
-		let reward = libtx::reward::output(kc, &key_id, fees, false, 0).unwrap();
+		let reward = libtx::reward::output(kc, &key_id, fees, false, prev.height + 1).unwrap();
 		let mut b = match core::core::Block::new(
 			prev,
 			txs.into_iter().cloned().collect(),
@@ -1211,7 +1333,7 @@ mod mine_chain {
 		let key_id = epic_keychain::ExtKeychainPath::new(1, 3, 0, 0, 0).to_identifier();
 
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
-		let reward = libtx::reward::output(kc, &key_id, fees, true, 0).unwrap();
+		let reward = libtx::reward::output(kc, &key_id, fees, true, prev.height + 1).unwrap();
 		let mut b = match core::core::Block::new(
 			prev,
 			txs.into_iter().cloned().collect(),
