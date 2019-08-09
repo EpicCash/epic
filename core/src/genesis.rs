@@ -56,14 +56,14 @@ pub fn genesis_floo() -> core::Block {
 
 	let mut diff = DifficultyNumber::new();
 
-	diff.insert(PoWType::Cuckaroo, 2_u64.pow(1));
-	diff.insert(PoWType::Cuckatoo, 2_u64.pow(1));
-	diff.insert(PoWType::RandomX, 2_u64.pow(16));
-	diff.insert(PoWType::ProgPow, 2_u64.pow(16));
+	diff.insert(PoWType::Cuckaroo, 2_u64.pow(2));
+	diff.insert(PoWType::Cuckatoo, 2_u64.pow(2));
+	diff.insert(PoWType::RandomX, 2_u64.pow(13));
+	diff.insert(PoWType::ProgPow, 2_u64.pow(27));
 
 	core::Block::with_header(core::BlockHeader {
 		height: 0,
-		timestamp: Utc.ymd(2018, 12, 28).and_hms(20, 48, 4),
+		timestamp: Utc.ymd(2019, 8, 9).and_hms(17, 04, 38),
 		prev_root: Hash::from_hex(
 			"00000000000000000017ff4903ef366c8f62e3151ba74e41b8332a126542f538",
 		)
@@ -88,7 +88,7 @@ pub fn genesis_floo() -> core::Block {
 		kernel_mmr_size: 0,
 		bottles: bottles,
 		pow: ProofOfWork {
-			total_difficulty: Difficulty::from_num(10_u64.pow(1)),
+			total_difficulty: Difficulty::from_dic_number(diff),
 			secondary_scaling: 1856,
 			nonce: 23,
 			proof: Proof::CuckooProof {
@@ -116,14 +116,14 @@ pub fn genesis_main() -> core::Block {
 
 	let mut diff = DifficultyNumber::new();
 
-	diff.insert(PoWType::Cuckaroo, 2_u64.pow(1));
-	diff.insert(PoWType::Cuckatoo, 2_u64.pow(1));
+	diff.insert(PoWType::Cuckaroo, 2_u64.pow(2));
+	diff.insert(PoWType::Cuckatoo, 2_u64.pow(2));
 	diff.insert(PoWType::RandomX, 2_u64.pow(13));
 	diff.insert(PoWType::ProgPow, 2_u64.pow(27));
 
 	core::Block::with_header(core::BlockHeader {
 		height: 0,
-		timestamp: Utc.ymd(2019, 8, 5).and_hms(17, 19, 38),
+		timestamp: Utc.ymd(2019, 8, 9).and_hms(17, 04, 38),
 		prev_root: Hash::from_hex(
 			"00000000000000000004de683e7aa4d35c51f46ec76c6852b0f3161bd1e2e00e",
 		)
@@ -186,7 +186,7 @@ mod test {
 		);
 		assert_eq!(
 			gen_bin.hash().to_hex(),
-			"f8fbdffeb32a49ae78256a7e5046f94536cc81153cc61d0f65337ae5c8375143"
+			"53830a83f8fd8dfb2d16211d764b8ec46632fd95c27229e38ccd50e2eb01ebc7"
 		);
 	}
 
@@ -203,7 +203,7 @@ mod test {
 		);
 		assert_eq!(
 			gen_bin.hash().to_hex(),
-			"d800ee8c7a65e21e1b0d46764cb31c48679b07be07c84c90a72ce922c03d8b98"
+			"5b5952eda858d81024175c71f9ec7b4804af7c3ebc23b2dc8418111ab9355117"
 		);
 	}
 }
