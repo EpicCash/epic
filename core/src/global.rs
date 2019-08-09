@@ -53,6 +53,9 @@ pub const AUTOMATED_TESTING_COINBASE_MATURITY: u64 = 3;
 /// User testing coinbase maturity
 pub const USER_TESTING_COINBASE_MATURITY: u64 = 3;
 
+/// Foonet coinbase maturity
+pub const FLOONET_COINBASE_MATURITY: u64 = 30;
+
 /// Testing cut through horizon in blocks
 pub const TESTING_CUT_THROUGH_HORIZON: u32 = 70;
 
@@ -296,6 +299,7 @@ pub fn coinbase_maturity() -> u64 {
 	match *param_ref {
 		ChainTypes::AutomatedTesting => AUTOMATED_TESTING_COINBASE_MATURITY,
 		ChainTypes::UserTesting => USER_TESTING_COINBASE_MATURITY,
+		ChainTypes::Floonet => FLOONET_COINBASE_MATURITY,
 		_ => COINBASE_MATURITY,
 	}
 }
