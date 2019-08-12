@@ -460,7 +460,6 @@ impl Server {
 			let last_blocks: Vec<consensus::HeaderInfo> = global::difficulty_data_to_vector(
 				self.chain.difficulty_iter()?,
 				consensus::DIFFICULTY_ADJUST_WINDOW,
-				true,
 			)
 			.into_iter()
 			.collect();
