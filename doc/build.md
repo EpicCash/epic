@@ -141,7 +141,24 @@ Deb package is binary-based package manager. We have build scripts .deb packages
 - Epic Wallet
 - Epic Miner
   
-In order to build one, just install all the package listed under the build depends section on debian/control and run from the respective project root the follwing command:
+In order to build one, you need to first clone the repos:
+
+```sh
+git clone --recursive git@gitlab.com:epiccash/Epic.git
+git clone --recursive git@gitlab.com:epiccash/EpicWallet.git
+git clone --recursive git@gitlab.com:epiccash/epic-miner.git
+git clone --recursive git@gitlab.com:epiccash/randomx.git
+```
+
+Then install all the package listed under the `Build-Depends` section in the `debian/control` file of the respective repository. To be safe, these are all the needed packages in all the repositories:
+
+```sh
+sudo apt-get install build-essential debhelper cmake libclang-dev libncurses5-dev clang libncursesw5-dev cargo rustc opencl-headers libssl-dev pkg-config ocl-icd-opencl-dev
+```
+
+There's some special commands needed in order to install CUDA (which is necessary for epic-miner-cuda). Follow the instructions in [this link](https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&target_distro=Ubuntu&target_version=1810&target_type=deblocal).
+
+Finally, run from the respective project root the following command:
 
 ```sh
 fakeroot make -f debian/rules binary
