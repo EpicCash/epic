@@ -1,3 +1,20 @@
+epic (1.3.0-1) bionic; urgency=medium
+
+  [ Leonardo Viana ]
+  * Add multi-gpu mining instructions
+
+  [ Aron Castro ]
+  * Fix seed validation when it is synchronizing
+  * Fix cuckatoo reversing difficulty of progpow and randomx
+
+  [ Yuri Albuquerque ]
+  * Improving dpkg documentation.
+
+  [ Leonardo Viana ]
+  * Add floonet dns seed
+
+ -- Ubuntu <ubuntu@ip-172-31-16-240.ec2.internal>  Mon, 12 Aug 2019 20:15:14 +0000
+
 epic (1.2.0-1) bionic; urgency=medium
 
   [ Leonardo Viana ]
