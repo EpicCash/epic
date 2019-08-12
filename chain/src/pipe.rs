@@ -337,8 +337,8 @@ fn prev_header_store(
 	Ok(prev)
 }
 
-fn seed_header_store(height: u64, txhashset: &mut txhashset::TxHashSet) -> Result<Hash, Error> {
-	let prev = txhashset.get_header_hash_by_height(pow::randomx::rx_current_seed_height(height))?;
+fn seed_header_store(seed: &[u8; 32], batch: &mut store::Batch<'_>) -> Result<BlockHeader, Error> {
+	let prev = batch.get_block_header(&Hash::from_vec(seed))?;
 	Ok(prev)
 }
 
@@ -395,7 +395,12 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 
 	// First I/O cost, delayed as late as possible.
 	let prev = prev_header_store(header, &mut ctx.batch)?;
-	let seed = seed_header_store(header.height, &mut ctx.txhashset)?;
+	let header_seed =
+		seed_header_store(&header.pow.seed, &mut ctx.batch).map_err(|_| ErrorKind::InvalidSeed)?;
+
+	if header_seed.height != pow::randomx::rx_current_seed_height(header.height) {
+		return Err(ErrorKind::InvalidSeed.into());
+	}
 
 	if !is_allowed_policy(global::get_allowed_policies(), header.height, header.policy) {
 		return Err(ErrorKind::PolicyIsNotAllowed.into());
@@ -433,10 +438,6 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 	// header
 	if header.height != prev.height + 1 {
 		return Err(ErrorKind::InvalidBlockHeight.into());
-	}
-
-	if Hash::from_vec(&header.pow.seed) != seed {
-		return Err(ErrorKind::InvalidSeed.into());
 	}
 
 	// TODO - get rid of the automated testing mode check here somehow
