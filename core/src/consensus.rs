@@ -481,19 +481,15 @@ where
 	T: IntoIterator<Item = HeaderInfo>,
 {
 	let diff_data = match prev_algo.clone() {
-		PoWType::Cuckatoo => {
-			global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW, true)
-		}
-		PoWType::Cuckaroo => {
-			global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW, true)
-		}
-		PoWType::RandomX => global::difficulty_data_to_vector(cursor, 2, false),
-		PoWType::ProgPow => global::difficulty_data_to_vector(cursor, 2, false),
+		PoWType::Cuckatoo => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
+		PoWType::Cuckaroo => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
+		PoWType::RandomX => global::difficulty_data_to_vector(cursor, 1),
+		PoWType::ProgPow => global::difficulty_data_to_vector(cursor, 1),
 	};
 
 	// First, get the ratio of secondary PoW vs primary, skipping initial header
 	let sec_pow_scaling = secondary_pow_scaling(height, &diff_data[1..]);
-	let mut diff = diff_data[0].difficulty.num.clone();
+	let mut diff = diff_data.last().unwrap().difficulty.num.clone();
 
 	match prev_algo {
 		PoWType::Cuckatoo => {
@@ -560,8 +556,9 @@ pub fn next_hash_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 		_ => panic!("The function next_hash_difficulty is only used by Progpow and RandomX, but it got a {:?}", pow),
 	};
 
-	let prev_timestamp = diff_data[0].timestamp;
-	let prev_diff: u64 = diff_data[0].difficulty.to_num(pow);
+	let current_diff: u64 = diff_data[1].difficulty.to_num(pow);
+	let current_timestamp = diff_data[1].timestamp;
+	let prev_timestamp: u64 = diff_data[0].timestamp;
 
 	let min_diff = match pow {
 		PoWType::RandomX => MIN_DIFFICULTY_RANDOMX,
@@ -570,15 +567,15 @@ pub fn next_hash_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	};
 
 	// Get the timestamp delta across the window
-	let ts_delta: u64 = prev_timestamp - diff_data[1].timestamp;
-	let offset: i64 = (prev_diff / block_diff_factor) as i64;
+	let ts_delta: u64 = current_timestamp - prev_timestamp;
+	let offset: i64 = (current_diff / block_diff_factor) as i64;
 	let sign: i64 = max(1 - 2 * (ts_delta as i64 / diff_adjustment_cutoff), -99);
 
 	// Minimum difficulty saturation
 	max(
 		// Making sure that we not get a negative difficulty
-		max(prev_diff as i64 + offset * sign, 1) as u64,
-		min(prev_diff, min_diff),
+		max(current_diff as i64 + offset * sign, 1) as u64,
+		min(current_diff, min_diff),
 	)
 }
 

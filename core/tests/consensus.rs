@@ -116,11 +116,8 @@ fn create_chain_sim(diff: u64) -> Vec<(HeaderInfo, DiffStats)> {
 fn get_diff_stats(chain_sim: &Vec<HeaderInfo>) -> DiffStats {
 	// Fill out some difficulty stats for convenience
 	let diff_iter = chain_sim.clone();
-	let last_blocks: Vec<HeaderInfo> = global::difficulty_data_to_vector(
-		diff_iter.iter().cloned(),
-		DIFFICULTY_ADJUST_WINDOW,
-		true,
-	);
+	let last_blocks: Vec<HeaderInfo> =
+		global::difficulty_data_to_vector(diff_iter.iter().cloned(), DIFFICULTY_ADJUST_WINDOW);
 
 	let mut last_time = last_blocks[0].timestamp;
 	let tip_height = chain_sim.len();
@@ -131,14 +128,11 @@ fn get_diff_stats(chain_sim: &Vec<HeaderInfo>) -> DiffStats {
 
 	let mut i = 1;
 
-	let sum_blocks: Vec<HeaderInfo> = global::difficulty_data_to_vector(
-		diff_iter.iter().cloned(),
-		DIFFICULTY_ADJUST_WINDOW,
-		true,
-	)
-	.into_iter()
-	.take(DIFFICULTY_ADJUST_WINDOW as usize)
-	.collect();
+	let sum_blocks: Vec<HeaderInfo> =
+		global::difficulty_data_to_vector(diff_iter.iter().cloned(), DIFFICULTY_ADJUST_WINDOW)
+			.into_iter()
+			.take(DIFFICULTY_ADJUST_WINDOW as usize)
+			.collect();
 
 	let sum_entries: Vec<DiffBlock> = sum_blocks
 		.iter()

@@ -418,11 +418,7 @@ pub fn chain_shortname() -> String {
 /// vector and pads if needed (which will) only be needed for the first few
 /// blocks after genesis
 
-pub fn difficulty_data_to_vector<T>(
-	cursor: T,
-	needed_block_count: u64,
-	reverse: bool,
-) -> Vec<HeaderInfo>
+pub fn difficulty_data_to_vector<T>(cursor: T, needed_block_count: u64) -> Vec<HeaderInfo>
 where
 	T: IntoIterator<Item = HeaderInfo>,
 {
@@ -450,9 +446,6 @@ where
 		}
 	}
 
-	if reverse {
-		last_n.reverse();
-	}
-
+	last_n.reverse();
 	last_n
 }
