@@ -454,6 +454,7 @@ impl<'a> Iterator for DifficultyIter<'a> {
 		// Otherwise we are done.
 		if let Some(header) = self.header.clone() {
 			let pow_type: PoWType = (&header.pow.proof).into();
+			let mut extra_time = 0;
 
 			let ((prev_header_from_head, prev_header), timestamp) = {
 				let mut head = header.clone();
@@ -495,6 +496,7 @@ impl<'a> Iterator for DifficultyIter<'a> {
 								// Giving an offset of time in the blockchain's head timestamp
 								// Is the same as if the last block was mined with our algo
 								timestamp -= diff_time;
+								extra_time += diff_time;
 								head = prev;
 							}
 						} else {
@@ -519,6 +521,7 @@ impl<'a> Iterator for DifficultyIter<'a> {
 				difficulty,
 				scaling,
 				header.pow.is_secondary(),
+				extra_time as u64,
 			))
 		} else {
 			return None;

@@ -90,6 +90,7 @@ fn repeat(interval: u64, diff: HeaderInfo, len: u64, cur_time: Option<u64>) -> V
 				d.clone(),
 				diff.secondary_scaling,
 				diff.is_secondary,
+				0,
 			)
 		})
 		.collect::<Vec<_>>()
@@ -689,15 +690,24 @@ fn test_secondary_pow_scale() {
 
 #[test]
 fn hard_forks() {
-	assert!(valid_header_version(0, HeaderVersion::new(1)));
-	assert!(valid_header_version(10, HeaderVersion::new(1)));
-	assert!(!valid_header_version(10, HeaderVersion::new(2)));
+	assert!(valid_header_version(
+		0,
+		HeaderVersion::new(global::CURRENT_HEADER_VERSION)
+	));
+	assert!(valid_header_version(
+		10,
+		HeaderVersion::new(global::CURRENT_HEADER_VERSION)
+	));
+	assert!(!valid_header_version(
+		10,
+		HeaderVersion::new(global::CURRENT_HEADER_VERSION + 1)
+	));
 	assert!(valid_header_version(
 		YEAR_HEIGHT / 2 - 1,
-		HeaderVersion::new(1)
+		HeaderVersion::new(global::CURRENT_HEADER_VERSION)
 	));
 	// v2 not active yet
-	assert!(!valid_header_version(
+	/*assert!(!valid_header_version(
 		YEAR_HEIGHT / 2,
 		HeaderVersion::new(2)
 	));
@@ -709,7 +719,7 @@ fn hard_forks() {
 	assert!(!valid_header_version(
 		YEAR_HEIGHT / 2 + 1,
 		HeaderVersion::new(2)
-	));
+	));*/
 }
 
 // #[test]

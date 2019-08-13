@@ -89,7 +89,9 @@ impl fmt::Display for Error {
 			Error::DuplicateError => f.write_str("duplicate"),
 			Error::TooLargeReadErr => f.write_str("too large read"),
 			Error::HexError(ref e) => write!(f, "hex error {:?}", e),
-			Error::InvalidBlockVersion => f.write_str("invalid block version"),
+			Error::InvalidBlockVersion => {
+				f.write_str("invalid block version(YOU NEED UPDATE YOUR NODE)!")
+			}
 		}
 	}
 }
@@ -112,7 +114,7 @@ impl error::Error for Error {
 			Error::DuplicateError => "duplicate error",
 			Error::TooLargeReadErr => "too large read",
 			Error::HexError(_) => "hex error",
-			Error::InvalidBlockVersion => "invalid block version",
+			Error::InvalidBlockVersion => "invalid block version(YOU NEED UPDATE YOUR NODE)",
 		}
 	}
 }

@@ -297,19 +297,7 @@ pub const HARD_FORK_INTERVAL: u64 = YEAR_HEIGHT / 2;
 /// 6 months interval scheduled hard forks for the first 2 years.
 pub fn valid_header_version(height: u64, version: HeaderVersion) -> bool {
 	// uncomment below as we go from hard fork to hard fork
-	if height < HARD_FORK_INTERVAL {
-		version == HeaderVersion::default()
-	/* } else if height < 2 * HARD_FORK_INTERVAL {
-		version == 2
-	} else if height < 3 * HARD_FORK_INTERVAL {
-		version == 3
-	} else if height < 4 * HARD_FORK_INTERVAL {
-		version == 4
-	} else if height >= 5 * HARD_FORK_INTERVAL {
-		version > 4 */
-	} else {
-		false
-	}
+	version == HeaderVersion::default()
 }
 
 /// Number of blocks used to calculate difficulty adjustments
@@ -394,6 +382,8 @@ pub struct HeaderInfo {
 	pub secondary_scaling: u32,
 	/// Whether the header is a secondary proof of work
 	pub is_secondary: bool,
+
+	pub extra_time: u64,
 }
 
 impl HeaderInfo {
@@ -403,12 +393,14 @@ impl HeaderInfo {
 		difficulty: Difficulty,
 		secondary_scaling: u32,
 		is_secondary: bool,
+		extra_time: u64,
 	) -> HeaderInfo {
 		HeaderInfo {
 			timestamp,
 			difficulty,
 			secondary_scaling,
 			is_secondary,
+			extra_time,
 		}
 	}
 
@@ -420,6 +412,7 @@ impl HeaderInfo {
 			difficulty,
 			secondary_scaling: global::initial_graph_weight(),
 			is_secondary: true,
+			extra_time: 0,
 		}
 	}
 
@@ -431,6 +424,7 @@ impl HeaderInfo {
 			difficulty,
 			secondary_scaling,
 			is_secondary: true,
+			extra_time: 0,
 		}
 	}
 }
@@ -556,9 +550,13 @@ pub fn next_hash_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 		_ => panic!("The function next_hash_difficulty is only used by Progpow and RandomX, but it got a {:?}", pow),
 	};
 
-	let current_diff: u64 = diff_data[1].difficulty.to_num(pow);
-	let current_timestamp = diff_data[1].timestamp;
-	let prev_timestamp: u64 = diff_data[0].timestamp;
+	let current_diff = diff_data[1].difficulty.to_num(pow);
+	let current_timestamp = if diff_data[1].extra_time == 0 {
+		diff_data[1].timestamp - diff_data[0].extra_time
+	} else {
+		diff_data[1].timestamp
+	};
+	let prev_timestamp = diff_data[0].timestamp;
 
 	let min_diff = match pow {
 		PoWType::RandomX => MIN_DIFFICULTY_RANDOMX,

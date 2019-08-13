@@ -48,6 +48,7 @@ use crate::util;
 
 use bigint::uint::U256;
 use epic_core::pow::Proof;
+use epic_core::ser::Writeable;
 
 use futures::sync::mpsc;
 
@@ -443,6 +444,7 @@ impl Handler {
 		let mut header_buf = vec![];
 		{
 			let mut writer = ser::BinWriter::new(&mut header_buf);
+			bh.version.write(&mut writer).unwrap();
 			bh.write_pre_pow(&mut writer).unwrap();
 			bh.pow.write_pre_pow(&mut writer).unwrap();
 		}
