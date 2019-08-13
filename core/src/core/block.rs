@@ -289,6 +289,7 @@ impl PMMRable for BlockHeader {
 /// Serialization of a block header
 impl Writeable for BlockHeader {
 	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
+		self.version.write(writer)?;
 		if writer.serialization_mode() != ser::SerializationMode::Hash {
 			self.write_pre_pow(writer)?;
 		}
@@ -351,7 +352,6 @@ impl Readable for BlockHeader {
 impl BlockHeader {
 	/// Write the pre-hash portion of the header
 	pub fn write_pre_pow<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
-		self.version.write(writer)?;
 		ser_multiwrite!(
 			writer,
 			[write_u64, self.height],
@@ -376,6 +376,7 @@ impl BlockHeader {
 		let mut header_buf = vec![];
 		{
 			let mut writer = ser::BinWriter::new(&mut header_buf);
+			self.version.write(&mut writer).unwrap();
 			self.write_pre_pow(&mut writer).unwrap();
 			self.pow.write_pre_pow(&mut writer).unwrap();
 			writer.write_u64(self.pow.nonce).unwrap();
@@ -387,6 +388,7 @@ impl BlockHeader {
 		let mut header_buf = vec![];
 		{
 			let mut writer = ser::BinWriter::new(&mut header_buf);
+			self.version.write(&mut writer).unwrap();
 			self.write_pre_pow(&mut writer).unwrap();
 			self.pow.write_pre_pow(&mut writer).unwrap();
 		}
