@@ -185,7 +185,7 @@ pub struct HeaderVersion(pub u16);
 
 impl Default for HeaderVersion {
 	fn default() -> HeaderVersion {
-		HeaderVersion(1)
+		HeaderVersion(global::CURRENT_HEADER_VERSION)
 	}
 }
 

@@ -203,7 +203,7 @@ fn remove_coinbase_kernel_flag() {
 #[test]
 fn serialize_deserialize_header_version() {
 	let mut vec1 = Vec::new();
-	ser::serialize(&mut vec1, &1_u16).expect("serialization failed");
+	ser::serialize(&mut vec1, &2_u16).expect("serialization failed");
 
 	let mut vec2 = Vec::new();
 	ser::serialize(&mut vec2, &HeaderVersion::default()).expect("serialization failed");
@@ -214,7 +214,7 @@ fn serialize_deserialize_header_version() {
 
 	// Check we can successfully deserialize a header_version.
 	let version: HeaderVersion = ser::deserialize(&mut &vec2[..]).unwrap();
-	assert_eq!(version.0, 1)
+	assert_eq!(version.0, 2)
 }
 
 #[test]
