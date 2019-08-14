@@ -147,6 +147,22 @@ lazy_static! {
 	/// The path to the file that contains the foundation
 	pub static ref FOUNDATION_FILE : RwLock<Option<String>> =
 			RwLock::new(None);
+
+	/// Store the current epic version being executed
+	pub static ref EPIC_VERSION : RwLock<Option<u64>> =
+			RwLock::new(None);
+}
+
+/// Set the version of the current epic executable
+pub fn set_epic_version(version: String) {
+	let mut epic_version = EPIC_VERSION.write();
+	*epic_version = Some(version.parse().expect("The current version of the epic server in the Cargo.toml is not valid! The major and minor release values should be integers"));
+}
+
+/// Get the version of the current epic executable
+pub fn get_epic_version() -> Option<u64> {
+	let epic_version = EPIC_VERSION.read();
+	epic_version.clone()
 }
 
 /// Set the path to the foundation.json file (file with the foundation wallet outputs/kernels)
