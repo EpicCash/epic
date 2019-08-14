@@ -1,3 +1,10 @@
+epic (1.4.0-2) bionic; urgency=medium
+
+  [ Yuri Albuquerque ]
+  * Fixing postinst script
+
+ -- Ubuntu <ubuntu@ip-172-31-16-240.ec2.internal>  Wed, 14 Aug 2019 21:35:08 +0000
+
 epic (1.4.0-1) bionic; urgency=medium
 
   [ Aron Castro ]
