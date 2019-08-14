@@ -208,7 +208,9 @@ fn real_main() -> i32 {
 	}
 
 	log_build_info();
-
+	let epic_version_major = env!("CARGO_PKG_VERSION_MAJOR").to_string();
+	let epic_version_minor = env!("CARGO_PKG_VERSION_MINOR").to_string();
+	global::set_epic_version(epic_version_major, epic_version_minor);
 	// Execute subcommand
 	match args.subcommand() {
 		// server commands and options

@@ -149,6 +149,24 @@ lazy_static! {
 	/// The path to the file that contains the foundation
 	pub static ref FOUNDATION_FILE : RwLock<Option<String>> =
 			RwLock::new(None);
+
+	/// Store the current epic version being executed
+	pub static ref EPIC_VERSION : RwLock<Option<Version>> =
+			RwLock::new(None);
+}
+
+/// Set the version of the current epic executable
+pub fn set_epic_version(version_major: String, version_minor: String) {
+	let mut epic_version = EPIC_VERSION.write();
+	let major_int: u32 = version_major.parse().expect("The current version of the epic node in the Cargo.toml is not valid! The major release value should be an integer");
+	let minor_int: u32 = version_minor.parse().expect("The current version of the epic node in the Cargo.toml is not valid! The minor release value should be an integer");
+	*epic_version = Some(Version::new(major_int, minor_int));
+}
+
+/// Get the version of the current epic executable
+pub fn get_epic_version() -> Option<Version> {
+	let epic_version = EPIC_VERSION.read();
+	epic_version.clone()
 }
 
 /// Set the path to the foundation.json file (file with the foundation wallet outputs/kernels)
@@ -450,4 +468,23 @@ where
 
 	last_n.reverse();
 	last_n
+}
+
+/// Strcut that store the major and minor release versions
+#[derive(Debug, Clone)]
+pub struct Version {
+	/// Store the major release number of an application
+	pub version_major: u32,
+	/// Store the minor release number of an application
+	pub version_minor: u32,
+}
+
+impl Version {
+	/// Create a new Version Struct
+	pub fn new(version_major: u32, version_minor: u32) -> Version {
+		Version {
+			version_major,
+			version_minor,
+		}
+	}
 }

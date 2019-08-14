@@ -23,10 +23,12 @@ use std::path::Path;
 use std::sync::Arc;
 use std::{
 	thread::{self, JoinHandle},
-	time,
+	time::{self, Duration},
 };
 
 use fs2::FileExt;
+
+use clokwerk::{ScheduleHandle, Scheduler, TimeUnits};
 
 use crate::api;
 use crate::api::TLSConfig;
@@ -41,7 +43,7 @@ use crate::core::core::hash::{Hashed, ZERO_HASH};
 use crate::core::core::verifier_cache::{LruVerifierCache, VerifierCache};
 use crate::core::pow::PoWType;
 use crate::core::{consensus, genesis, global, pow};
-use crate::epic::{dandelion_monitor, seed, sync};
+use crate::epic::{dandelion_monitor, seed, sync, version};
 use crate::mining::stratumserver;
 use crate::mining::test_miner::Miner;
 use crate::p2p;
@@ -75,6 +77,7 @@ pub struct Server {
 	sync_thread: JoinHandle<()>,
 	dandelion_thread: JoinHandle<()>,
 	p2p_thread: JoinHandle<()>,
+	version_checker_thread: ScheduleHandle,
 }
 
 impl Server {
@@ -282,7 +285,7 @@ impl Server {
 			.name("p2p-server".to_string())
 			.spawn(move || {
 				if let Err(e) = p2p_inner.listen() {
-					error!("P2P server failed with erorr: {:?}", e);
+					error!("P2P server failed with error: {:?}", e);
 				}
 			})?;
 
@@ -322,6 +325,24 @@ impl Server {
 			stop_state.clone(),
 		)?;
 
+		info!("Starting the version checker monitor!");
+		let mut scheduler = Scheduler::new();
+		scheduler.every(15.minutes()).run(|| {
+			if let Ok(dns_version) = version::get_dns_version() {
+				if let Some(our_version) = global::get_epic_version() {
+					if !version::is_version_valid(our_version, dns_version) {
+						error!("Your current epic node version is outdated! Closing the application! Please consider updating your code for the newest version!");
+						std::process::exit(1);
+					}
+				} else {
+					error!("Failed to retrieve information about the this application's version!");
+				}
+			} else {
+				error!("Unable to get the allowed versions from the dns server!");
+			}
+		});
+		let version_checker_thread = scheduler.watch_thread(Duration::from_millis(100));
+
 		warn!("Epic server started.");
 		Ok(Server {
 			config,
@@ -339,6 +360,7 @@ impl Server {
 			sync_thread,
 			p2p_thread,
 			dandelion_thread,
+			version_checker_thread,
 		})
 	}
 
@@ -561,6 +583,8 @@ impl Server {
 			Err(e) => error!("failed to join to p2p thread: {:?}", e),
 			Ok(_) => info!("p2p thread stopped"),
 		}
+
+		self.version_checker_thread.stop();
 		let _ = self.lock_file.unlock();
 	}
 
