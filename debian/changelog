@@ -1,3 +1,21 @@
+epic (1.4.0-1) bionic; urgency=medium
+
+  [ Aron Castro ]
+  * Fix extra time for difficulty
+  * Add const global for change block version
+  * Change version serialize
+
+  [ Yuri Albuquerque ]
+  * Changing the directory of foundation.json
+
+  [ Leonardo Viana ]
+  * Add dns version checker
+  * Add version struct
+  * Add version.rs file
+  * Improve the error message
+
+ -- Ubuntu <ubuntu@ip-172-31-16-240.ec2.internal>  Wed, 14 Aug 2019 20:50:49 +0000
+
 epic (1.3.1-1) bionic; urgency=medium
 
   [ Leonardo Viana ]
