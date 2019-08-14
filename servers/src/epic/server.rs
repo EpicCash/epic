@@ -330,8 +330,15 @@ impl Server {
 		scheduler.every(15.minutes()).run(|| {
 			if let Ok(dns_version) = version::get_dns_version() {
 				if let Some(our_version) = global::get_epic_version() {
-					if !version::is_version_valid(our_version, dns_version) {
-						error!("Your current epic node version is outdated! Closing the application! Please consider updating your code for the newest version!");
+					if !version::is_version_valid(our_version.clone(), dns_version.clone()) {
+						error!(
+							"Your current epic node version {}.{}.X.X is outdated! Please consider updating your code to the newest version {}.{}.X.X!",
+							our_version.version_major,
+							our_version.version_minor,
+							dns_version.version_major,
+							dns_version.version_minor,
+						);
+						error!("Closing the application!");
 						std::process::exit(1);
 					}
 				} else {
