@@ -328,13 +328,17 @@ impl Server {
 		info!("Starting the version checker monitor!");
 		let mut scheduler = Scheduler::new();
 		scheduler.every(15.minutes()).run(|| {
-			if let Ok(version) = version::check_version() {
-				if global::get_epic_version().unwrap() < version {
-					error!("Your current epic node version is outdated! Closing the application! Please consider updating your code for the newest version!");
-					std::process::exit(1);
+			if let Ok(dns_version) = version::get_dns_version() {
+				if let Some(our_version) = global::get_epic_version() {
+					if !version::is_version_valid(our_version, dns_version) {
+						error!("Your current epic node version is outdated! Closing the application! Please consider updating your code for the newest version!");
+						std::process::exit(1);
+					}
+				} else {
+					error!("Failed to retrieve information about the this application's version!");
 				}
 			} else {
-				error!("Failed to retrieve information about the application's version in the dns server!");
+				error!("Unable to get the allowed versions from the dns server!");
 			}
 		});
 		let version_checker_thread = scheduler.watch_thread(Duration::from_millis(100));
