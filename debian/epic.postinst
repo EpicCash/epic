@@ -1,3 +1,3 @@
 #!/bin/sh
 
-chmod ugo+rw /var/db/epic/foundation.json
+chmod ugo+r /usr/share/epic/foundation.json
