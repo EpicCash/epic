@@ -190,41 +190,41 @@ Scenario: output header mappings
   Then I check outputs in the header
 
 # md5 tests
-Scenario: mine md5 genesis reward chain
-  Given I have the policy <0> with <cuckaroo> equals <100>
-  And I have the policy <0> with <randomx> equals <0>
-  And I have the policy <0> with <cuckatoo> equals <0>
-  And I setup all the policies
-  Given I have a <testing> chain
-  Given I setup a chain
-  Given I define my output dir as <.epic.genesis>
-  Given I add coinbase data from the dev genesis block
-  Then I get a valid <md5> PoW
-  Then I mine <md5>
-  Then clean tmp chain dir
-  Then clean output dir
+# Scenario: mine md5 genesis reward chain
+#  Given I have the policy <0> with <cuckaroo> equals <100>
+#  And I have the policy <0> with <randomx> equals <0>
+#  And I have the policy <0> with <cuckatoo> equals <0>
+#  And I setup all the policies
+#  Given I have a <testing> chain
+#  Given I setup a chain
+#  Given I define my output dir as <.epic.genesis>
+#  Given I add coinbase data from the dev genesis block
+#  Then I get a valid <md5> PoW
+#  Then I mine <md5>
+#  Then clean tmp chain dir
+#  Then clean output dir
 
-Scenario: accept valid md5
-  Given I have the policy <0> with <cuckaroo> equals <100>
-  And I have the policy <0> with <randomx> equals <0>
-  And I have the policy <0> with <cuckatoo> equals <0>
-  And I setup all the policies
-  Given I have a <testing> chain
-  And I define my output dir as <.epic11>
-  And I setup a chain
-  Then I accept a block with a pow <md5> valid
-  Then clean tmp chain dir
-  Then clean output dir
+#Scenario: accept valid md5
+#  Given I have the policy <0> with <cuckaroo> equals <100>
+#  And I have the policy <0> with <randomx> equals <0>
+#  And I have the policy <0> with <cuckatoo> equals <0>
+#  And I setup all the policies
+#  Given I have a <testing> chain
+#  And I define my output dir as <.epic11>
+#  And I setup a chain
+#  Then I accept a block with a pow <md5> valid
+#  Then clean tmp chain dir
+#  Then clean output dir
 
-Scenario: refuse invalid md5 pow
-  Given I have the policy <0> with <cuckaroo> equals <100>
-  And I have the policy <0> with <randomx> equals <0>
-  And I have the policy <0> with <cuckatoo> equals <0>
-  And I setup all the policies
-  Given I have a <testing> chain
-  And I define my output dir as <.epic6>
-  And I setup a chain
-  Then I refuse a block with <md5> invalid
+#Scenario: refuse invalid md5 pow
+#  Given I have the policy <0> with <cuckaroo> equals <100>
+#  And I have the policy <0> with <randomx> equals <0>
+#  And I have the policy <0> with <cuckatoo> equals <0>
+#  And I setup all the policies
+#  Given I have a <testing> chain
+#  And I define my output dir as <.epic6>
+#  And I setup a chain
+#  Then I refuse a block with <md5> invalid
 
 # randomx tests
 Scenario: mine randomx genesis reward chain

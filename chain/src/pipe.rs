@@ -420,7 +420,7 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 			}
 			pow::Proof::RandomXProof { .. } => algo == PoWType::RandomX,
 			pow::Proof::ProgPowProof { .. } => algo == PoWType::ProgPow,
-			pow::Proof::MD5Proof { .. } => true,
+			pow::Proof::MD5Proof { .. } => false,
 		};
 
 		if !is_correct {
