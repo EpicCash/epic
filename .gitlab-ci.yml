@@ -2,6 +2,12 @@ variables:
   GIT_SUBMODULE_STRATEGY: recursive
   CARGO_HOME: $CI_PROJECT_DIR/.cargo
 
+cache:
+  key: one-key-to-rule-them-all
+  paths:
+  - .cargo/
+  - target/
+
 test:cargo:
   script:
   - rustc --version && cargo --version
@@ -16,8 +22,3 @@ test:cargo:
   - cargo test -p epic_store
   - cargo test -p progpow
   - cargo test -p randomx
-  cache:
-    key: one-key-to-rule-them-all
-    paths:
-      - .cargo
-      - target
