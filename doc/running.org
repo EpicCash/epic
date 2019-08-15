@@ -43,8 +43,7 @@ Before installing the epic components (server, wallet, miner), we need
 to install the libRandomX dependency. The following steps explain how
 to install this dependency:
 
-1. Download the latest version of the [[https://epiccash.s3-sa-east-1.amazonaws.com/packages/librandomx_1.0.0-2_amd64.deb][librandomx]]. Checksum SHA256:
-   95294d5ebe3ac663490caa2f51fab6f14f00043f6f2c015fc1ab07a73e4407bf
+1. Download the latest version of the *librandomx* package [[https://internal.brickabode.com/edna/epic-packages.html][here]].
 
 2. In the terminal, navigate to the directory where you downloaded the
    .deb file and execute the following command changing the argument
@@ -68,8 +67,7 @@ section we explain how to install and setup your epic server.
 
 The following steps explain how to install and run the epic server:
 
-1. Download the latest version of the [[https://epiccash.s3-sa-east-1.amazonaws.com/packages/epic_1.0.3-3_amd64.deb][epic server]]. Checksum SHA256:
-   2f32eeeb35c465c88c7e35e7ebf95db3448dfd8020cbb5e653674158f882d338
+1. Download the latest version of the *epic* package [[https://internal.brickabode.com/edna/epic-packages.html][here]].
 
 2. In the terminal, navigate to the directory where you downloaded the
    .deb file and execute the following command changing the argument
@@ -162,8 +160,7 @@ Epic Server]].
 ** Installation
 The following steps explain how to install and run the epic-wallet:
 
-1. Download the latest version of the [[https://epiccash.s3-sa-east-1.amazonaws.com/packages/epic-wallet_1.0.2-1_amd64.deb][epic wallet]]. Checksum SHA256:
-   94e4ec665a0ba7b6374af46c9ae50388b8fc900ae104851b2f336e96f0a044c9
+1. Download the latest version of the *epic-wallet* package [[https://internal.brickabode.com/edna/epic-packages.html][here]].
 
 2. Open a new terminal window and navigate to the directory where you
    downloaded the .deb file and execute the following command changing
@@ -285,60 +282,125 @@ You should see an output like this:
   :PROPERTIES:
   :CUSTOM_ID: miner_wallet_server
   :END:
-Miners are responsible for processing the transactions in the
-blockchain. When a batch of transactions is processed, the first one
-responsible for processing it gains a reward and the fees on
-those transactions. That involves both computing power and luck. 
+  Miners are responsible for processing the transactions in the
+  blockchain. When a batch of transactions is processed, the first one
+  responsible for processing it gains a reward and the fees on
+  those transactions. That involves both computing power and luck. 
 
-There are three algorithms that help producing the blocks.
-- [[https://github.com/ifdefelse/ProgPOW][ProgPow]]
-- [[https://github.com/tromp/cuckoo][Cuckoo]]
-- [[https://github.com/tevador/RandomX][RandomX]]
+  There are three algorithms that help producing the blocks.
+  - [[https://github.com/tevador/RandomX][RandomX]]
+  - [[https://github.com/ifdefelse/ProgPOW][ProgPow]]
+  - [[https://github.com/tromp/cuckoo][Cuckoo]] (CuckAToo31+)
 
-Based on the links shown above, you should select the algorithm that
-best fits your hardware.
+** RandomX
+ 
+  *RandomX* is a Proof-of-Work (PoW) algorithm optimized for general
+  purpose *CPUs*. It uses randomized program executions with several
+  memory-hard techniques to achieve the following goals:
 
-*To run the epic-miner you also need an epic server running and a
-wallet listening*. You need the wallet listening to receive the epics
-(currency) that come from the mining reward and transaction fees (if
-you succeed in process a block in the network) and you need the epic
-server to propagate the transactions.
+  - Prevention of the development of single-chip ASICs;  
+  - Minimize the efficiency advantage of specialized hardware over
+    general purpose CPUs.
 
-Instruction of how to run you epic server can be
-found on [[#run_epic][Running the Epic Server]] and the instructions of how to get
-the wallet listening can be found on [[#run_wallet][Running the wallet API]].
+  Mining Epic with CPUs requires a contiguous allocation of 2
+  GB of physical RAM, 16 KB of L1 cache, 256 KB of L2 cache, and 2 MB
+  of L3 cache per mining thread. Windows 10 devices require 8 GB or
+  more RAM.
+
+** ProgPow
+
+  *Programmatic Proof-of-Work (ProgPow)* is an algorithm that depends on
+  memory bandwidth and core computation of randomized math sequences,
+  which take advantage of many of a *GPU’s* computing features and
+  thereby efficiently capture the total energy cost of the
+  hardware. As ProgPow is specifically designed to take full advantage
+  of commodity GPUs, it is both difficult and expensive to achieve
+  significantly higher efficiencies through specialized hardware.
+
+** Cuckoo (CuckAToo31+)
+
+  *CuckAToo31+* is an ASIC friendly permutation of the *Cuckoo Cycle*
+  algorithm developed by Dutch computer scientist, John Tromp. A
+  relative of the ASIC resistant CuckARoo29, CuckAToo31+ generates
+  random bipartite graphs and presents miners with the task of finding a
+  loop of given length ‘N’ passing through the vertices of that graph.
+
+  This is a memory bound task, meaning the solution time is bound by
+  memory bandwidth rather than raw processor or GPU speed. As a
+  result, the Cuckoo Cycle algorithms produce less heat and consume
+  significantly less energy than traditional PoW algorithms. The ASIC
+  friendly CuckAToo31+ allows efficiency improvements over GPUs by
+  using hundreds of MB of SRAM while remaining bottlenecked by memory
+  I/O. *Although, CuckAToo is intended to be mined by ASICs in the
+  future, it can also be mined well using 11GB+ GPUs.*
+
 
 ** Prerequisites
 
-    You can run the miner using only *CPU* or using *CPU and GPU*.
-   
-    To run using *CPU/GPU* in Debian-based distributions (Debian, Ubuntu, Mint,
-    etc.), you will need the *OpenCL*, to install it just run the following
-    command in the terminal:
+   *To run the epic-miner you also need an epic server running and a
+   wallet listening*. You need the wallet listening to receive the epics
+   (currency) that come from the mining reward and transaction fees (if
+   you succeed in process a block in the network) and you need the epic
+   server to propagate the transactions.
+
+   Instruction of how to run you epic server can be
+   found on [[#run_epic][Running the Epic Server]] and the instructions of how to get
+   the wallet listening can be found on [[#run_wallet][Running the wallet API]].
+
+
+**  Prerequisites - GPU mining
+
+    If you are planning to mine using GPU (ProgPow and CuckAToo31+),
+    there are two possible ways, mine with [[https://en.wikipedia.org/wiki/OpenCL][OPENCL]] or [[https://en.wikipedia.org/wiki/CUDA][CUDA]]. The main
+    difference between CUDA and OpenCL is that CUDA is a proprietary
+    framework created by Nvidia (working only with NVIDIA GPUs) and
+    OpenCL is open source (working with AMD GPUs, NVIDIA GPUs and a
+    series of other hardware). The general consensus is that if you
+    have NVIDIA GPUs (that supports both CUDA and OpenCL), go with
+    CUDA as it will generate better performance results. More
+    information regarding this can be found [[https://create.pro/blog/opencl-vs-cuda/][here]]
+ 
+***  Prerequisites - OPENCL
+
+    If you want to mine using *OPENCL*, you have to install it
+    first. In Debian-based distributions (Debian, Ubuntu, Mint, etc.),
+    to install the it just run the following command in the terminal:
 
     #+begin_src shell
       sudo apt install ocl-icd-opencl-dev
     #+end_src
 
+***  Prerequisites - CUDA
+    
+    If you want to mine using CUDA (which requires an NVIDIA GPU),
+    make sure that you have the latest NVIDIA drivers
+    installed. Besides that, you will need to have the Cuda toolkit 9+
+    installed (you can check if you have it installed by executing the
+    command in the terminal: nvcc --version).
+     
 ** Installation
-The following steps explain how to install and run the epic-miner:
 
-1. Download the latest version of the epic miner:
-   - To use *only CPU* download this:
-     - [[https://epiccash.s3-sa-east-1.amazonaws.com/packages/epic-miner_1.0.5-1_amd64.deb][epic miner]] Checksum SHA256:ee41dba5443a1a1830e7ba1fb70c3434f74173c2a1304b8d659183b77321810f
-   - To use *CPU/GPU* download this:
-     - [[https://epiccash.s3-sa-east-1.amazonaws.com/packages/epic-miner-opencl_1.0.5-1_amd64.deb][epic miner - opencl]] Checksum SHA256: 5ba08a09aae3c1ccf8ff2bddefc74f8df4048bf58f92071ff1a87c7c11c2fc19
-   
-2. Open a new terminal window and navigate to the directory where you
-   downloaded the .deb file and execute the following command changing
-   the argument <your-epic-miner.deb> to the name of your downloaded
-   file:
-    #+begin_src shell
-      sudo dpkg -i <your-epic-miner.deb>
-    #+end_src
+   There are three different versions of the epic-miner package:
 
-3. You can build the miner using only *CPU*, using *CPU/GPU* and using *Nvidia*,
-   check the "Build steps" section in [[https://gitlab.com/epiccash/epic-miner/blob/master/README.md][README.md]] for more information.
+     - If you want to mine using *only CPU* (basically RandomX) there
+       is the package called *epic-miner*
+     - If you want to mine using *GPU with OPENCL* there is the
+       package called *epic-miner-opencl*
+     - If you want to mine using *GPU with CUDA* there is the
+       package called *epic-miner-cuda*
+
+   The following steps explain how to install and run the epic-miner.
+
+   1. Download the latest version of the desired *epic-miner* package
+      [[https://internal.brickabode.com/edna/epic-packages.html][here]]:
+
+   2. Open a new terminal window and navigate to the directory where you
+      downloaded the .deb file and execute the following command changing
+      the argument <your-epic-miner.deb> to the name of your downloaded
+      file:
+      #+begin_src shell
+	 sudo dpkg -i <your-epic-miner.deb>
+      #+end_src
 
 #+ATTR_HTML: :id config_miner_server
 ** Configuring the Epic Server to work with the miner
@@ -456,7 +518,6 @@ is an example of how to mine with the 2 GPUs (NVIDIA) using CUDA:
       device = 1
       driver = 1
     #+end_src
-
 
 ** Additional configuration: RandomX
 

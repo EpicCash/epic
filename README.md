@@ -6,7 +6,7 @@ Epic Cash is an in-progress implementation of the MimbleWimble protocol. Epic Ca
   * Support diversity of mining hash powers using a combination of algorithms
   * Clean and minimal implementation, and aiming to stay as such.
   * Follows the MimbleWimble protocol, which provides great anonymity and scaling characteristics.
-  * Cuckoo Cycle proof of work in two variants named Cuckaroo (ASIC-resistant) and Cuckatoo (ASIC-targeted).
+  * Cuckoo Cycle proof of work with the CuckAToo31+ (ASIC-targeted).
   * Relatively fast block time: one minute.
   * Transaction fees are based on the number of Outputs created/destroyed and total transaction size.
   * Smooth curve for difficulty adjustments.
