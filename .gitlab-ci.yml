@@ -1,5 +1,6 @@
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo
 
 test:cargo:
   script:
@@ -15,3 +16,7 @@ test:cargo:
   - cargo test -p epic_store
   - cargo test -p progpow
   - cargo test -p randomx
+  cache:
+    paths:
+      - .cargo
+      - target
