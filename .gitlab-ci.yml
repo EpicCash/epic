@@ -1,0 +1,17 @@
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+test:cargo:
+  script:
+  - rustc --version && cargo --version
+  - cargo test
+  - cargo test -p epic_api
+  - cargo test -p epic_chain
+  - cargo test -p epic_config
+  - cargo test -p epic_core
+  - cargo test -p epic_p2p
+  - cargo test -p epic_util
+  - cargo test -p epic_servers
+  - cargo test -p epic_store
+  - cargo test -p progpow
+  - cargo test -p randomx
