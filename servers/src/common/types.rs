@@ -272,7 +272,7 @@ impl Default for StratumServerConfig {
 			cuckatoo_minimum_share_difficulty: consensus::MIN_DIFFICULTY,
 			randomx_minimum_share_difficulty: consensus::MIN_DIFFICULTY_RANDOMX,
 			progpow_minimum_share_difficulty: consensus::MIN_DIFFICULTY_PROGPOW,
-			enable_stratum_server: Some(false),
+			enable_stratum_server: Some(true),
 			stratum_server_addr: Some("127.0.0.1:3416".to_string()),
 		}
 	}
