@@ -17,6 +17,7 @@ test:cargo:
   - cargo test -p progpow
   - cargo test -p randomx
   cache:
+    key: one-key-to-rule-them-all
     paths:
       - .cargo
       - target
