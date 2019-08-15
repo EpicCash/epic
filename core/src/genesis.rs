@@ -182,11 +182,11 @@ mod test {
 		println!("floonet genesis full hash: {}\n", gen_bin.hash().to_hex());
 		assert_eq!(
 			gen_hash.to_hex(),
-			"09632d856d4927e91fb358cbc813db0a51a1b6c145c7d9c1d2baf7696b24f836"
+			"d21e8b4f76c5f6ccf28690e8071389b14f6ffb234409b268b9d913e0dfc31e66"
 		);
 		assert_eq!(
 			gen_bin.hash().to_hex(),
-			"f14a5587f7c40f3d265c01fc590dc87cd73123a20e555810c2161a0cd2c5b293"
+			"dc7165f6b9b0ca0dd0485ad02ac158776cb6a652a9c0667958f76232c465fea9"
 		);
 	}
 
@@ -199,11 +199,11 @@ mod test {
 		println!("mainnet genesis full hash: {}\n", gen_bin.hash().to_hex());
 		assert_eq!(
 			gen_hash.to_hex(),
-			"5f742531d24ea874a6367a81077fe270f7375625ac4951c1aec10e30aaa56cf2"
+			"d6c1bcf01d085ca95357568eeb733bf4717d3977deccac9047f36fa760cb8e56"
 		);
 		assert_eq!(
 			gen_bin.hash().to_hex(),
-			"5b5952eda858d81024175c71f9ec7b4804af7c3ebc23b2dc8418111ab9355117"
+			"0ba5651c3d6bc8f71da936e0352a185e8a912cecf14adc51fe55977b80a2f3f2"
 		);
 	}
 }
