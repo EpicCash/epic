@@ -182,7 +182,7 @@ mod test {
 		println!("floonet genesis full hash: {}\n", gen_bin.hash().to_hex());
 		assert_eq!(
 			gen_hash.to_hex(),
-			"09632d856d4927e91fb358cbc813db0a51a1b6c145c7d9c1d2baf7696b24f836"
+			"d21e8b4f76c5f6ccf28690e8071389b14f6ffb234409b268b9d913e0dfc31e66"
 		);
 		assert_eq!(
 			gen_bin.hash().to_hex(),
@@ -199,7 +199,7 @@ mod test {
 		println!("mainnet genesis full hash: {}\n", gen_bin.hash().to_hex());
 		assert_eq!(
 			gen_hash.to_hex(),
-			"5f742531d24ea874a6367a81077fe270f7375625ac4951c1aec10e30aaa56cf2"
+			"d6c1bcf01d085ca95357568eeb733bf4717d3977deccac9047f36fa760cb8e56"
 		);
 		assert_eq!(
 			gen_bin.hash().to_hex(),
