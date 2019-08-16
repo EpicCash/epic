@@ -176,6 +176,7 @@ pub struct JobTemplate {
 	difficulty: Vec<(String, u64)>,
 	pre_pow: String,
 	epochs: Vec<(u64, u64, [u8; 32])>,
+	algorithm: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -383,15 +384,16 @@ impl Handler {
 
 	// Build and return a JobTemplate for mining the current block
 	fn build_block_template(&self) -> JobTemplate {
-		let bh = self
+		let job = self
 			.current_state
 			.read()
 			.current_block_versions
 			.last()
 			.unwrap()
-			.0
-			.header
 			.clone();
+
+		let bh = job.0.header.clone();
+		let pow = job.1.clone();
 
 		let current_seed_height = pow::randomx::rx_current_seed_height(bh.height);
 		let next_seed_height = pow::randomx::rx_next_seed_height(bh.height);
@@ -455,9 +457,12 @@ impl Handler {
 			difficulty,
 			pre_pow,
 			epochs,
+			algorithm: pow.to_str(),
 		};
-		return job_template;
+
+		job_template
 	}
+
 	// Handle SUBMIT message
 	// params contains a solved block header
 	// We accept and log valid shares of all difficulty above configured minimum
