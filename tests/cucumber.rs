@@ -43,7 +43,7 @@ mod mine_chain {
 	use epic_core as core;
 	use epic_util as util;
 
-	use epic_chain::store::BottleIter;
+	use epic_chain::store::{self, BottleIter};
 	use epic_chain::types::NoopAdapter;
 	use epic_chain::Chain;
 	use epic_core::core::block::feijoada::PoWType as FType;
@@ -863,7 +863,7 @@ mod mine_chain {
 					0
 				};
 				// Checking the method is_foundation_height is working properly
-				assert_eq!(consensus::is_foundation_height(height), height % 1440 == 0 && foundation_levy > 0);
+				assert_eq!(consensus::is_foundation_height(height), height % 1440 == 0 && foundation_levy > 0, "The height {} should be a foundation height", height);
 				// Check if the foundation levy are being collected in a foundation height
 				// and that they match the correct amount
 				if consensus::is_foundation_height(height)
@@ -904,6 +904,71 @@ mod mine_chain {
 			};
 		};
 
+		given regex "I create the genesis block with initial timestamp of <([0-9]+)> and mined with <([a-zA-Z0-9]+)>" |world, matches, _step| {
+			let algo = get_fw_type(matches[2].as_str());
+			let initial_timestamp: i64 = matches[1].parse().unwrap();
+			let key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
+			// creating a placeholder for the genesis block
+			let mut genesis = genesis::genesis_dev();
+			genesis.header.timestamp = timestamp_from_num(initial_timestamp);
+			// creating the block with the desired reward
+			genesis.header.bottles = next_block_bottles(algo, &world.bottles);
+			// mining "manually" the genesis
+			let genesis_difficulty = genesis.header.pow.total_difficulty.clone();
+			let sz = global::min_edge_bits();
+			let proof_size = global::proofsize();
+
+			pow::pow_size(&mut genesis.header, genesis_difficulty, proof_size, sz).unwrap();
+
+			world.genesis = Some(genesis);
+		};
+
+		given "I create a chain and add the genesis block" |world, _step| {
+			world.chain = Some(setup(&world.output_dir, world.genesis.as_ref().unwrap().clone()));
+			world.keychain = Some(epic_keychain::ExtKeychain::from_seed(&[2,0,0], false).unwrap());
+		};
+		then regex "I add <([0-9]+)> blocks with increasing timestamp following the policy <([0-9]+)>" |world, matches, _step| {
+			let num: u64 = matches[1].parse().unwrap();
+			let emitted_policy: u8 = matches[2].parse().unwrap();
+			let chain = world.chain.as_ref().unwrap();
+			let height = chain.head_header().unwrap().height;
+			for i in 1..=num {
+				let kc = epic_keychain::ExtKeychain::from_seed(&[i as u8], false).unwrap().clone();
+				let prev = chain.head_header().unwrap();
+				println!("Step: 0");
+				let hash = chain
+					.txhashset()
+					.read()
+					.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
+					.unwrap();
+				let timespan: i64 = 10 as i64;
+				// Add block with custom timestamp
+				let mut block = prepare_block_with_timestamp(&kc, &prev, Difficulty::from_num(i), vec![], hash, timespan);
+				chain.set_txhashset_roots(&mut block).unwrap();
+				let policy = get_policies(emitted_policy).unwrap();
+				let cursor = chain.bottles_iter(emitted_policy).unwrap();
+				let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
+				block.header.bottles = bottles;
+				block.header.pow.proof = get_pow_type(&algo, prev.height);
+				block.header.policy = emitted_policy;
+				println!("==================Block height {}===================", i);
+				println!("\nTimestamp {:?}", block.header.timestamp.timestamp());
+				println!("\nDifficulty {:?}", Difficulty::from_num(i));
+				println!("\nBlock type {:?}\n", block.header.pow.proof);
+				chain.process_block(block, chain::Options::SKIP_POW).unwrap();
+			};
+		};
+
+		then "I check all timestamps" |world, _step| {
+			let chain = world.chain.as_ref().unwrap();
+		    let diff_iter = chain.difficulty_iter().unwrap();
+			let data_vector = global::difficulty_data_to_vector(diff_iter, 5);
+			for i in 0..data_vector.len(){
+				println!("======Index {}======", i);
+				println!("{:?}", data_vector[i]);
+			}
+		};
+
 		then regex "I add <([0-9]+)> blocks mined with <([a-zA-Z0-9]+)> and accept <([0-9]+)>" |world, matches, _step| {
 			let num: u64 = matches[1].parse().unwrap();
 			let algo = get_fw_type(matches[2].as_str());
@@ -940,6 +1005,15 @@ mod mine_chain {
 		};
 	});
 
+	fn timestamp_from_num(num: i64) -> DateTime<Utc> {
+		assert!(
+			num >= 0,
+			"The num value {} has to be greater than zero",
+			num
+		);
+		DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(num, 0), Utc)
+	}
+
 	fn cumulative_reward_block_mining(height: u64) -> (u64, u64) {
 		let mut sum_r: u64 = 0;
 		let mut sum_b: u64 = 0;
@@ -965,6 +1039,7 @@ mod mine_chain {
 				edge_bits: 31,
 				nonces: vec![seed; 3],
 			},
+			FType::ProgPow => pow::Proof::ProgPowProof { mix: [0; 32] },
 			_ => panic!("algorithm not supported"),
 		}
 	}
@@ -975,7 +1050,7 @@ mod mine_chain {
 			"randomx" => FType::RandomX,
 			"cuckaroo" => FType::Cuckaroo,
 			"cuckatoo" => FType::Cuckatoo,
-			_ => panic!("algorithm not supported"),
+			_ => panic!("The algorithm {:?} is not an algorithm supported", s),
 		}
 	}
 
@@ -1284,6 +1359,42 @@ mod mine_chain {
 		b.header.pow.proof = pow::Proof::random(proof_size);
 		b.header.pow.seed = seed;
 		b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles);
+		b
+	}
+
+	fn prepare_block_with_timestamp<K>(
+		kc: &K,
+		prev: &BlockHeader,
+		difficulty: Difficulty,
+		txs: Vec<&Transaction>,
+		hash: Hash,
+		timespan: i64,
+	) -> Block
+	where
+		K: Keychain,
+	{
+		let mut seed = [0u8; 32];
+		seed.copy_from_slice(&hash.as_bytes()[0..32]);
+
+		let proof_size = global::proofsize();
+		let key_id =
+			epic_keychain::ExtKeychainPath::new(1, prev.height as u32 + 1, 0, 0, 0).to_identifier();
+		let fees = txs.iter().map(|tx| tx.fee()).sum();
+		let reward = libtx::reward::output(kc, &key_id, fees, false, prev.height + 1).unwrap();
+		let mut b = match core::core::Block::new(
+			prev,
+			txs.into_iter().cloned().collect(),
+			difficulty.clone(),
+			reward,
+		) {
+			Err(e) => panic!("{:?}", e),
+			Ok(b) => b,
+		};
+		b.header.timestamp = prev.timestamp + Duration::seconds(timespan);
+		b.header.pow.total_difficulty = prev.total_difficulty() + difficulty;
+		b.header.pow.proof = pow::Proof::random(proof_size);
+		b.header.pow.seed = seed;
+
 		b
 	}
 

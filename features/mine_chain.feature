@@ -1,7 +1,20 @@
 Feature: Mine a simple chain
 
+Scenario: test multi difficulty adjustment
+  Given I have the policy <0> with <progpow> equals <100>
+  And I have the policy <0> with <randomx> equals <0>
+  And I have the policy <0> with <cuckatoo> equals <0>
+  And I setup all the policies
+  Given I have a <testing> chain
+  And I create the genesis block with initial timestamp of <90> and mined with <randomx>
+  And I create a chain and add the genesis block
+  And I define my output dir as <.epicdifficulty>
+  Then I add <20> blocks with increasing timestamp following the policy <0> 
+  Then I check all timestamps
+
 Scenario: match the mining and foundation rewards with the whitepaper
-  Given All rewards match the whitepaper
+  Given I have a <mainnet> chain
+  And All rewards match the whitepaper
   Then I test if the cumulative foundation levy is being computed correctly
 
 Scenario: add hardcoded coinbase
