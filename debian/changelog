@@ -1,3 +1,43 @@
+epic (1.5.0-1) bionic; urgency=medium
+
+  [ Yuri Albuquerque ]
+  * Reenable Continuous Integration.
+  * Adding a cache for faster builds.
+
+  [ Aron Castro ]
+  * Remove md5 test and fix some proofs
+
+  [ Yuri Albuquerque ]
+  * Share the cache between all branches.
+  * Fixing genesis hash in tests.
+  * New cache configuration.
+  * More genesis hash fixes.
+
+  [ Leonardo Viana ]
+  * Update documentation and change some defaults
+
+  [ Yuri Albuquerque ]
+  * Update submodules.
+
+  [ Aron Castro ]
+  * Add next algorithm in the job template
+
+  [ Leonardo Viana ]
+  * Add cucumber difficulty adjustment tests
+  * Add more tests for multi algo difficulty adjustment
+  * Change cuckoo initial difficulty
+
+  [ Aron Castro ]
+  * update randomx rust
+
+  [ Leonardo Viana ]
+  * Fix all tests
+
+  [ Aron Castro ]
+  * Change block version
+
+ -- Ubuntu <ubuntu@ip-172-31-16-240.ec2.internal>  Tue, 20 Aug 2019 23:01:34 +0000
+
 epic (1.4.0-2) bionic; urgency=medium
 
   [ Yuri Albuquerque ]
