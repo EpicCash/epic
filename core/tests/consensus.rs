@@ -385,7 +385,7 @@ fn next_target_adjustment() {
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(10000).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(15000).to_num(PoWType::Cuckatoo)
 	);
 
 	// check pre difficulty_data_to_vector effect on retargetting
@@ -415,7 +415,7 @@ fn next_target_adjustment() {
 		next_difficulty(1, PoWType::Cuckatoo, s2)
 			.difficulty
 			.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1000).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
 	);
 
 	// too slow, diff goes down
@@ -428,7 +428,7 @@ fn next_target_adjustment() {
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(857).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
 	);
 	assert_eq!(
 		next_difficulty(
@@ -438,7 +438,7 @@ fn next_target_adjustment() {
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(750).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
 	);
 
 	// too fast, diff goes up
@@ -450,7 +450,7 @@ fn next_target_adjustment() {
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1028).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
 	);
 	assert_eq!(
 		next_difficulty(
@@ -460,7 +460,7 @@ fn next_target_adjustment() {
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1090).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
 	);
 	assert_eq!(
 		next_difficulty(
@@ -470,7 +470,7 @@ fn next_target_adjustment() {
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1200).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
 	);
 
 	// hitting lower time bound, should always get the same result below
@@ -494,7 +494,7 @@ fn next_target_adjustment() {
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(500).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
 	);
 	assert_eq!(
 		next_difficulty(
@@ -504,7 +504,7 @@ fn next_target_adjustment() {
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(500).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
 	);
 
 	// We should never drop below minimum
