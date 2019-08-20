@@ -88,7 +88,7 @@ pub const PEER_EXPIRATION_REMOVE_TIME: i64 = PEER_EXPIRATION_DAYS * 24 * 3600;
 /// For a node configured as "archival_mode = true" only the txhashset will be compacted.
 pub const COMPACTION_CHECK: u64 = DAY_HEIGHT;
 
-pub const CURRENT_HEADER_VERSION: u16 = 2;
+pub const CURRENT_HEADER_VERSION: u16 = 3;
 
 /// Types of chain a server can run with, dictates the genesis block and
 /// and mining parameters used.
