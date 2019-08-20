@@ -445,7 +445,11 @@ where
 	// Convert iterator to vector, so we can append to it if necessary
 	let needed_block_count = needed_block_count as usize + 1;
 	let mut last_n: Vec<HeaderInfo> = cursor.into_iter().take(needed_block_count).collect();
-
+	for i in 1..last_n.len() {
+		last_n[i].timestamp = last_n[i - 1]
+			.timestamp
+			.saturating_sub(last_n[i - 1].prev_timespan);
+	}
 	// Only needed just after blockchain launch... basically ensures there's
 	// always enough data by simulating perfectly timed pre-genesis
 	// blocks at the genesis difficulty as needed.

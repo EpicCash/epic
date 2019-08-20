@@ -382,8 +382,8 @@ pub struct HeaderInfo {
 	pub secondary_scaling: u32,
 	/// Whether the header is a secondary proof of work
 	pub is_secondary: bool,
-
-	pub extra_time: u64,
+	/// timespan of the previous block of the same algorithm type
+	pub prev_timespan: u64,
 }
 
 impl HeaderInfo {
@@ -393,14 +393,14 @@ impl HeaderInfo {
 		difficulty: Difficulty,
 		secondary_scaling: u32,
 		is_secondary: bool,
-		extra_time: u64,
+		prev_timespan: u64,
 	) -> HeaderInfo {
 		HeaderInfo {
 			timestamp,
 			difficulty,
 			secondary_scaling,
 			is_secondary,
-			extra_time,
+			prev_timespan,
 		}
 	}
 
@@ -412,7 +412,7 @@ impl HeaderInfo {
 			difficulty,
 			secondary_scaling: global::initial_graph_weight(),
 			is_secondary: true,
-			extra_time: 0,
+			prev_timespan: 0,
 		}
 	}
 
@@ -424,7 +424,7 @@ impl HeaderInfo {
 			difficulty,
 			secondary_scaling,
 			is_secondary: true,
-			extra_time: 0,
+			prev_timespan: 0,
 		}
 	}
 }
@@ -551,11 +551,7 @@ pub fn next_hash_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	};
 
 	let current_diff = diff_data[1].difficulty.to_num(pow);
-	let current_timestamp = if diff_data[1].extra_time == 0 {
-		diff_data[1].timestamp - diff_data[0].extra_time
-	} else {
-		diff_data[1].timestamp
-	};
+	let current_timestamp = diff_data[1].timestamp;
 	let prev_timestamp = diff_data[0].timestamp;
 
 	let min_diff = match pow {

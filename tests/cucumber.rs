@@ -9,6 +9,7 @@ use epic_core::core::block::feijoada::{
 use epic_core::core::Block;
 use epic_core::global;
 use epic_core::global::set_policy_config;
+use epic_core::pow::Difficulty;
 use epic_keychain::keychain::ExtKeychain;
 use epic_util as util;
 
@@ -20,6 +21,7 @@ pub struct EdnaWorld {
 	pub chain: Option<Chain>,
 	pub policy: Policy,
 	pub bottles: Policy,
+	pub difficulty: Difficulty,
 }
 
 impl cucumber_rust::World for EdnaWorld {}
@@ -33,6 +35,7 @@ impl std::default::Default for EdnaWorld {
 			chain: None,
 			policy: get_bottles_default(),
 			bottles: get_bottles_default(),
+			difficulty: Difficulty::from_num(1),
 		}
 	}
 }
@@ -62,7 +65,7 @@ mod mine_chain {
 	use epic_core::libtx::{self, build, reward};
 	use epic_core::pow::{
 		new_cuckaroo_ctx, new_cuckatoo_ctx, new_md5_ctx, new_progpow_ctx, new_randomx_ctx,
-		Difficulty, EdgeType, Error, PoWContext,
+		Difficulty, DifficultyNumber, EdgeType, Error, PoWContext,
 	};
 	use epic_core::{consensus, pow};
 	use epic_core::{genesis, global};
@@ -913,11 +916,18 @@ mod mine_chain {
 			genesis.header.timestamp = timestamp_from_num(initial_timestamp);
 			// creating the block with the desired reward
 			genesis.header.bottles = next_block_bottles(algo, &world.bottles);
+			let mut diff = DifficultyNumber::new();
+			diff.insert(FType::Cuckaroo, 2_u64.pow(2));
+			diff.insert(FType::Cuckatoo, 2_u64.pow(2));
+			diff.insert(FType::RandomX, 2_u64.pow(13));
+			diff.insert(FType::ProgPow, 2_u64.pow(27));
+			genesis.header.pow.total_difficulty = Difficulty::from_dic_number(diff.clone());
+			world.difficulty = Difficulty::from_dic_number(diff);
 			// mining "manually" the genesis
 			let genesis_difficulty = genesis.header.pow.total_difficulty.clone();
 			let sz = global::min_edge_bits();
 			let proof_size = global::proofsize();
-
+			println!("Genesis difficulty:{:?}", genesis_difficulty);
 			pow::pow_size(&mut genesis.header, genesis_difficulty, proof_size, sz).unwrap();
 
 			world.genesis = Some(genesis);
@@ -931,41 +941,196 @@ mod mine_chain {
 			let num: u64 = matches[1].parse().unwrap();
 			let emitted_policy: u8 = matches[2].parse().unwrap();
 			let chain = world.chain.as_ref().unwrap();
-			let height = chain.head_header().unwrap().height;
+
 			for i in 1..=num {
-				let kc = epic_keychain::ExtKeychain::from_seed(&[i as u8], false).unwrap().clone();
 				let prev = chain.head_header().unwrap();
-				println!("Step: 0");
+				let kc = epic_keychain::ExtKeychain::from_seed(&[(prev.height + 1) as u8], false).unwrap().clone();
 				let hash = chain
 					.txhashset()
 					.read()
 					.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 					.unwrap();
-				let timespan: i64 = 10 as i64;
-				// Add block with custom timestamp
-				let mut block = prepare_block_with_timestamp(&kc, &prev, Difficulty::from_num(i), vec![], hash, timespan);
-				chain.set_txhashset_roots(&mut block).unwrap();
-				let policy = get_policies(emitted_policy).unwrap();
 				let cursor = chain.bottles_iter(emitted_policy).unwrap();
 				let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
+				println!("\n==================Block height {}===================", i);
+				let (timespan, block_diff) = match prev.pow.proof{
+					pow::Proof::CuckooProof{..} => {
+						println!("Prev Block type: Cuckoo");
+						println!("Increasing the previous timestamp by: 2");
+						let mut diff = world.difficulty.clone();
+						let cuckoo_prev = world.difficulty.clone().to_num(FType::Cuckatoo);
+						diff.num.insert(FType::Cuckatoo, cuckoo_prev + 2);
+						(2, diff)
+					},
+					pow::Proof::RandomXProof{..} => {
+						println!("Prev Block type: RandomX");
+						println!("Increasing the previous timestamp by: 5");
+						let mut diff = world.difficulty.clone();
+						let randomx_prev = world.difficulty.clone().to_num(FType::RandomX);
+						diff.num.insert(FType::RandomX, randomx_prev + 5);
+						(5, diff)
+					},
+					pow::Proof::ProgPowProof{..} => {
+						println!("Prev Block type: ProgPow");
+						println!("Increasing the previous timestamp by: 11");
+						let mut diff = world.difficulty.clone();
+						let progpow_prev = world.difficulty.clone().to_num(FType::ProgPow);
+						diff.num.insert(FType::ProgPow, progpow_prev + 11);
+						(11, diff)
+					},
+					_ => panic!("Error getting timespan of the algorithm {:?}! Algorithm not supported!", algo),
+				};
+				println!("block diff:{:?}", block_diff);
+				world.difficulty = block_diff.clone();
+				// Add block with custom timestamp
+				let mut block = prepare_block_with_timestamp(&kc, &prev, block_diff, vec![], hash, timespan);
+				chain.set_txhashset_roots(&mut block).unwrap();
 				block.header.bottles = bottles;
-				block.header.pow.proof = get_pow_type(&algo, prev.height);
 				block.header.policy = emitted_policy;
-				println!("==================Block height {}===================", i);
-				println!("\nTimestamp {:?}", block.header.timestamp.timestamp());
-				println!("\nDifficulty {:?}", Difficulty::from_num(i));
-				println!("\nBlock type {:?}\n", block.header.pow.proof);
+				block.header.pow.proof = get_pow_type(&algo, prev.height);
+				println!("Current block type: {:?}", block.header.pow.proof);
+				println!("Timestamp {:?}", block.header.timestamp.timestamp());
+				println!("Difficulty {:?}", block.header.total_difficulty());
+				println!("===================================================\n");
 				chain.process_block(block, chain::Options::SKIP_POW).unwrap();
 			};
 		};
 
-		then "I check all timestamps" |world, _step| {
+		// then regex "I add <([0-9]+)> blocks with simulated timestamp following the policy <([0-9]+)>" |world, matches, _step| {
+		// 	let num: u64 = matches[1].parse().unwrap();
+		// 	let emitted_policy: u8 = matches[2].parse().unwrap();
+		// 	let chain = world.chain.as_ref().unwrap();
+
+		// 	for i in 1..=num {
+		// 		let prev = chain.head_header().unwrap();
+		// 		let kc = epic_keychain::ExtKeychain::from_seed(&[(prev.height + 1) as u8], false).unwrap().clone();
+		// 		let hash = chain
+		// 			.txhashset()
+		// 			.read()
+		// 			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
+		// 			.unwrap();
+		// 		let cursor = chain.bottles_iter(emitted_policy).unwrap();
+		// 		let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
+		// 		println!("\n==================Block height {}===================", i);
+		// 		let diff_iter = chain.difficulty_iter().unwrap();
+		// 	    let next_difficulty = consensus::next_difficulty(prev.height, (&prev.pow.proof).into(), diff_iter);
+
+		// 		// Add block with custom timestamp
+		// 		let mut block = prepare_block_with_timestamp(&kc, &prev, next_difficulty.difficulty, vec![], );
+		// 		chain.set_txhashset_roots(&mut block).unwrap();
+		// 		block.header.bottles = bottles;
+		// 		block.header.policy = emitted_policy;
+		// 		block.header.pow.proof = get_pow_type(&algo, prev.height);
+		// 		println!("Current block type: {:?}", block.header.pow.proof);
+		// 		println!("Timestamp {:?}", block.header.timestamp.timestamp());
+		// 		println!("Difficulty {:?}", block.header.total_difficulty());
+		// 		println!("===================================================\n");
+		// 		chain.process_block(block, chain::Options::SKIP_POW).unwrap();
+		// 	};
+		// };
+
+		given regex "I create a block <([a-z]+)> with timespan <([0-9]+)>" |world, matches, _step| {
+			let algorithm: String = matches[1].parse().unwrap();
+			let timespan: i64 = matches[2].parse().unwrap();
 			let chain = world.chain.as_ref().unwrap();
+			let kc = world.keychain.as_ref().unwrap();
+			let height = chain.head_header().unwrap().height;
+			let prev = chain.head_header().unwrap();
+
+			let hash = chain
+				.txhashset()
+				.read()
+				.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
+				.unwrap();
+
+			let diff_iter = chain.difficulty_iter().unwrap();
+			let next_difficulty = consensus::next_difficulty(prev.height, (&prev.pow.proof).into(), diff_iter);
+
+			// Add block with custom timestamp
+			let mut block = prepare_block_with_timestamp(
+				kc, &prev, next_difficulty.difficulty, vec![], hash, timespan);
+			chain.set_txhashset_roots(&mut block).unwrap();
+
+			// policy
+			let policy = get_policies(0).unwrap();
+			let cursor = chain.bottles_iter(0).unwrap();
+			let (_, bottles) = consensus::next_policy(0, cursor);
+			let algo = get_fw_type(algorithm.as_str());
+			block.header.bottles = bottles;
+			block.header.pow.proof = get_pow_type(&algo, prev.height);
+			block.header.policy = 0;
+
+			chain.process_block(block, chain::Options::SKIP_POW).unwrap();
+		};
+
+		then regex "The block on the height <([0-9]+)> need have a time delta of <([0-9]+)>" |world, matches, _step| {
+			let chain = world.chain.as_ref().unwrap();
+			let height: u64 = matches[1].parse().unwrap();
+			let delta: u64 = matches[2].parse().unwrap();
+			let bh = chain.get_header_by_height(height).unwrap();
+			let diff_iter = epic_chain::store::DifficultyIter::from(bh.hash(), chain.store());
+			let header_infos = global::difficulty_data_to_vector(diff_iter, 1);
+
+			assert_eq!(header_infos[1].timestamp - header_infos[0].timestamp, delta);
+		};
+
+		then regex "The next_difficulty for block <([0-9]+)> need to be <([0-9]+)>" |world, matches, _step| {
+			let chain = world.chain.as_ref().unwrap();
+			let height: u64 = matches[1].parse().unwrap();
+			let diff_value: u64 = matches[2].parse().unwrap();
+			let bh = chain.get_header_by_height(height-1).unwrap();
+			let diff_iter = epic_chain::store::DifficultyIter::from(bh.hash(), chain.store());
+			let pow = (&bh.pow.proof).into();
+			let next_difficulty = consensus::next_difficulty(bh.height, (&bh.pow.proof).into(), diff_iter);
+
+			assert_eq!(next_difficulty.difficulty.to_num(pow), diff_value);
+		};
+
+		then regex "I check all timestamps and difficulties for a window of <([0-9]+)>" |world, matches, _step| {
+			let window_size: u64 = matches[1].parse().unwrap();
+			let chain = world.chain.as_ref().unwrap();
+			let prev = chain.head_header().unwrap();
 		    let diff_iter = chain.difficulty_iter().unwrap();
-			let data_vector = global::difficulty_data_to_vector(diff_iter, 5);
-			for i in 0..data_vector.len(){
-				println!("======Index {}======", i);
-				println!("{:?}", data_vector[i]);
+			// creates the buff vector
+			let data_vector = global::difficulty_data_to_vector(diff_iter, window_size);
+			let head = data_vector.last().unwrap().clone();
+			let diff_head = head.difficulty.to_num((&prev.pow.proof).into());
+			let timestamp_head = head.timestamp;
+			let decrease_const = match prev.pow.proof{
+				pow::Proof::CuckooProof{..} => 2,
+				pow::Proof::RandomXProof{..} => 5,
+				pow::Proof::ProgPowProof{..} => 11,
+				_ => panic!("Error getting diff_decrease! Algorithm {:?} not supported!", prev.pow.proof),
+			};
+			let mut total_decreased = 0;
+			let mut had_to_complete: bool = false;
+			let mut is_genesis: bool = false;
+			// Test if the values inside the buff vector are correct
+			for i in (0..data_vector.len()).rev(){
+				// if the timespan is 0 the block is a "fake block" created to complete the buffer
+				if data_vector[i].prev_timespan == 0 {
+					had_to_complete = true;
+					// if the second element is a fake block, this is the first block of that algo
+					if (data_vector.len() - 2) == i { 
+						is_genesis = true;
+					}
+				}
+				if had_to_complete {
+					// The fake blocks are created with the Head's difficulty
+					assert_eq!(data_vector[i].difficulty.to_num((&prev.pow.proof).into()), diff_head);
+					if is_genesis {
+						// If there is only 1 block of an algo in the chain, all fake blocks timestamps
+						// will be in an interval of 60 seconds. Otherwise, the interval will be
+						// the last block timespan. We subtract the decrease_const to balance
+						// with the decrease_cont added in each iteration.
+						total_decreased += consensus::BLOCK_TIME_SEC - decrease_const;
+					}
+				} else {
+					// All the real blocks have to have the same interval (in this test) between timestamps
+					assert_eq!(data_vector[i].difficulty.to_num((&prev.pow.proof).into()), diff_head - total_decreased);
+				}
+				assert_eq!(data_vector[i].timestamp, timestamp_head.saturating_sub(total_decreased));
+				total_decreased += decrease_const;
 			}
 		};
 
@@ -1005,6 +1170,18 @@ mod mine_chain {
 		};
 	});
 
+	fn difficulty_to_timespan(algo: &FType, difficulty: &Difficulty, height: u64) -> u64 {
+		let diff_num: u64 = difficulty.to_num(algo.clone()).into();
+		let diff_base = match algo {
+			FType::Cuckaroo => 4,
+			FType::RandomX => 8000,
+			FType::Cuckatoo => 4,
+			FType::ProgPow => 134200000,
+			_ => panic!("algorithm not supported"),
+		};
+		diff_num * 40 / diff_base
+	}
+
 	fn timestamp_from_num(num: i64) -> DateTime<Utc> {
 		assert!(
 			num >= 0,
@@ -1039,7 +1216,9 @@ mod mine_chain {
 				edge_bits: 31,
 				nonces: vec![seed; 3],
 			},
-			FType::ProgPow => pow::Proof::ProgPowProof { mix: [0; 32] },
+			FType::ProgPow => pow::Proof::ProgPowProof {
+				mix: [seed as u8; 32],
+			},
 			_ => panic!("algorithm not supported"),
 		}
 	}
@@ -1377,8 +1556,8 @@ mod mine_chain {
 		seed.copy_from_slice(&hash.as_bytes()[0..32]);
 
 		let proof_size = global::proofsize();
-		let key_id =
-			epic_keychain::ExtKeychainPath::new(1, prev.height as u32 + 1, 0, 0, 0).to_identifier();
+		let key_id = epic_keychain::ExtKeychainPath::new(1, (prev.height + 1) as u32 + 1, 0, 0, 0)
+			.to_identifier();
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
 		let reward = libtx::reward::output(kc, &key_id, fees, false, prev.height + 1).unwrap();
 		let mut b = match core::core::Block::new(
