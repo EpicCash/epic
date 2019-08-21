@@ -459,7 +459,8 @@ impl<'a> Iterator for DifficultyIter<'a> {
 				let mut head = header.clone();
 				let mut prev_difficulty = header.total_difficulty();
 				let mut first_time_flag: bool = true;
-				(loop {
+				let mut prev_timespan: i64 = 60;
+				loop {
 					let mut prev_header = None;
 
 					if let Some(ref batch) = self.batch {
@@ -476,13 +477,13 @@ impl<'a> Iterator for DifficultyIter<'a> {
 						let pow: PoWType = (&prev.pow.proof).into();
 						if first_time_flag {
 							prev_difficulty = header.total_difficulty() - prev.total_difficulty();
-						};
-						first_time_flag = false;
-						if pow_type == pow {
-							let prev_timespan = head
+							prev_timespan = header
 								.timestamp
 								.timestamp()
 								.saturating_sub(prev.timestamp.timestamp());
+						};
+						first_time_flag = false;
+						if pow_type == pow {
 							break (
 								Some(prev),
 								prev_difficulty,
@@ -493,9 +494,14 @@ impl<'a> Iterator for DifficultyIter<'a> {
 							head = prev;
 						}
 					} else {
-						break (None, prev_difficulty, 60, head.pow.secondary_scaling);
+						break (
+							None,
+							prev_difficulty,
+							prev_timespan,
+							head.pow.secondary_scaling,
+						);
 					}
-				})
+				}
 			};
 
 			self.prev_header = prev_head_iter;

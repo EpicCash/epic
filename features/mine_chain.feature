@@ -1,5 +1,5 @@
 Feature: Mine a simple chain
-
+ 
 Scenario: test if the timestamps and difficulties are being collected right from the blockchain
   Given I have the policy <0> with <progpow> equals <38>
   And I have the policy <0> with <randomx> equals <60>
@@ -42,28 +42,28 @@ Scenario: test the multi difficulty adjustment with custom timestamps
   Then The block on the height <0> need have a time delta of <60>
   And The block on the height <1> need have a time delta of <60>
   And The block on the height <2> need have a time delta of <60>
-  And The block on the height <3> need have a time delta of <60>
-  And The block on the height <4> need have a time delta of <5>
-  And The block on the height <5> need have a time delta of <120>
+  And The block on the height <3> need have a time delta of <5>
+  And The block on the height <4> need have a time delta of <120>
+  And The block on the height <5> need have a time delta of <3>
   And The block on the height <6> need have a time delta of <30>
-  And The block on the height <7> need have a time delta of <3>
-  And The block on the height <8> need have a time delta of <70>
-  And The block on the height <9> need have a time delta of <29>
-  And The block on the height <10> need have a time delta of <90>
+  And The block on the height <7> need have a time delta of <70>
+  And The block on the height <8> need have a time delta of <29>
+  And The block on the height <9> need have a time delta of <90>
+  And The block on the height <10> need have a time delta of <34>
   And The block on the height <11> need have a time delta of <70>
-  And The block on the height <12> need have a time delta of <34>
+  And The block on the height <12> need have a time delta of <15>
   Then The next_difficulty for block <2> need to be <8064>
   And The next_difficulty for block <3> need to be <134152192>
-  And The next_difficulty for block <4> need to be <7938>
-  And The next_difficulty for block <5> need to be <134217696>
-  And The next_difficulty for block <6> need to be <7566>
-  And The next_difficulty for block <7> need to be <7684>
-  And The next_difficulty for block <8> need to be <134283231>
-  And The next_difficulty for block <9> need to be <7564>
-  And The next_difficulty for block <10> need to be <134348798>
-  And The next_difficulty for block <11> need to be <7446>
-  And The next_difficulty for block <12> need to be <7330>
-  And The next_difficulty for block <13> need to be <134414397>
+  And The next_difficulty for block <4> need to be <8190>
+  And The next_difficulty for block <5> need to be <133955680>
+  And The next_difficulty for block <6> need to be <8317>
+  And The next_difficulty for block <7> need to be <8446>
+  And The next_difficulty for block <8> need to be <133890272>
+  And The next_difficulty for block <9> need to be <8577>
+  And The next_difficulty for block <10> need to be <133824896>
+  And The next_difficulty for block <11> need to be <8711>
+  And The next_difficulty for block <12> need to be <8575>
+  And The next_difficulty for block <13> need to be <133890240>
 
 Scenario: match the mining and foundation rewards with the whitepaper
   Given I have a <mainnet> chain
