@@ -946,27 +946,20 @@ mod mine_chain {
 					.unwrap();
 				let cursor = chain.bottles_iter(emitted_policy).unwrap();
 				let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
-				println!("\n==================Block height {}===================", i);
 				let (timespan, block_diff) = match algo{
 					FType::Cuckatoo => {
-						println!("Prev Block type: Cuckoo");
-						println!("Increasing the previous timestamp by: 2");
 						let mut diff = world.difficulty.clone();
 						let cuckoo_prev = world.difficulty.clone().to_num(FType::Cuckatoo);
 						diff.num.insert(FType::Cuckatoo, cuckoo_prev + 2);
 						(2, diff)
 					},
 					FType::RandomX => {
-						println!("Block type: RandomX");
-						println!("Increasing the previous timestamp by: 5");
 						let mut diff = world.difficulty.clone();
 						let randomx_prev = world.difficulty.clone().to_num(FType::RandomX);
 						diff.num.insert(FType::RandomX, randomx_prev + 5);
 						(5, diff)
 					},
 					FType::ProgPow => {
-						println!("Block type: ProgPow");
-						println!("Increasing the previous timestamp by: 11");
 						let mut diff = world.difficulty.clone();
 						let progpow_prev = world.difficulty.clone().to_num(FType::ProgPow);
 						diff.num.insert(FType::ProgPow, progpow_prev + 11);
@@ -974,7 +967,6 @@ mod mine_chain {
 					},
 					_ => panic!("Error getting timespan of the algorithm {:?}! Algorithm not supported!", algo),
 				};
-				println!("block diff:{:?}", block_diff);
 				world.difficulty = block_diff.clone();
 				// Add block with custom timestamp
 				let mut block = prepare_block_with_timestamp(&kc, &prev, block_diff, vec![], hash, timespan);
@@ -982,10 +974,6 @@ mod mine_chain {
 				block.header.bottles = bottles;
 				block.header.policy = emitted_policy;
 				block.header.pow.proof = get_pow_type(&algo, prev.height);
-				println!("Current block type: {:?}", block.header.pow.proof);
-				println!("Timestamp {:?}", block.header.timestamp.timestamp());
-				println!("Difficulty {:?}", block.header.total_difficulty());
-				println!("===================================================\n");
 				chain.process_block(block, chain::Options::SKIP_POW).unwrap();
 			};
 		};
