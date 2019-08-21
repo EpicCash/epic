@@ -1,6 +1,6 @@
 Feature: Mine a simple chain
  
-Scenario: test if the timestamps and difficulties are being collected right from the blockchain
+Scenario: test the creation of buffers for multi algo adjustment
   Given I have the policy <0> with <progpow> equals <38>
   And I have the policy <0> with <randomx> equals <60>
   And I have the policy <0> with <cuckatoo> equals <2>
@@ -9,14 +9,30 @@ Scenario: test if the timestamps and difficulties are being collected right from
   And I create the genesis block with initial timestamp of <1566241802> and mined with <cuckatoo>
   And I create a chain and add the genesis block
   And I define my output dir as <.epicdifficulty>
-  Then I check all timestamps and difficulties for a window of <10>
-  Then I add <6> blocks with increasing timestamp following the policy <0> 
-  Then I check all timestamps and difficulties for a window of <10>
-  Then I check all timestamps and difficulties for a window of <20>
-  Then I check all timestamps and difficulties for a window of <5>
-  Then I check all timestamps and difficulties for a window of <60>
+  Then I create a buffer of <10> <cuckatoo> that I had to complete <9> blocks
+  Then I add <6> blocks with increasing timestamp following the policy <0>
+  And I create a buffer of <10> <randomx> that I had to complete <6> blocks
   Then I add <1> blocks with increasing timestamp following the policy <0>
-  Then I check all timestamps and difficulties for a window of <10>
+  And I create a buffer of <10> <progpow> that I had to complete <7> blocks
+  Then I add <1> blocks with increasing timestamp following the policy <0>
+  And I create a buffer of <10> <randomx> that I had to complete <5> blocks
+  Then I add <1> blocks with increasing timestamp following the policy <0>
+  And I create a buffer of <10> <progpow> that I had to complete <6> blocks
+  Then I add <2> blocks with increasing timestamp following the policy <0>
+  And I create a buffer of <10> <randomx> that I had to complete <3> blocks
+  Then I add <1> blocks with increasing timestamp following the policy <0>
+  And I create a buffer of <10> <progpow> that I had to complete <5> blocks
+  Then I add <2> blocks with increasing timestamp following the policy <0>
+  And I create a buffer of <10> <randomx> that I had to complete <1> blocks
+  And I create a buffer of <9> <randomx> that I had to complete <0> blocks
+  And I create a buffer of <8> <randomx> that I had to complete <0> blocks
+  Then I add <1> blocks with increasing timestamp following the policy <0>
+  And I create a buffer of <10> <progpow> that I had to complete <4> blocks
+  And I create a buffer of <6> <progpow> that I had to complete <0> blocks
+  And I create a buffer of <5> <progpow> that I had to complete <0> blocks
+  
+
+
 
 Scenario: test the multi difficulty adjustment with custom timestamps
   Given I have the policy <0> with <progpow> equals <38>

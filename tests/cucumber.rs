@@ -1080,8 +1080,10 @@ mod mine_chain {
 			assert_eq!(next_difficulty.difficulty.to_num(pow), diff_value);
 		};
 
-		then regex "I check all timestamps and difficulties for a window of <([0-9]+)>" |world, matches, _step| {
+		then regex "I create a buffer of <([0-9]+)> <([a-z]+)> that I had to complete <([0-9]+)> blocks" |world, matches, _step| {
 			let window_size: u64 = matches[1].parse().unwrap();
+			let algo = get_fw_type(matches[2].as_str());
+			let num_completed: usize = matches[3].parse().unwrap();
 			let chain = world.chain.as_ref().unwrap();
 			let head = chain.head_header().unwrap();
 		    let diff_iter = chain.difficulty_iter().unwrap();
@@ -1090,22 +1092,23 @@ mod mine_chain {
 			let head_info = data_vector.last().unwrap().clone();
 			let diff_head = head_info.difficulty.to_num((&head.pow.proof).into());
 			let timestamp_head = head_info.timestamp;
-			let decrease_const = match head.pow.proof{
-				pow::Proof::CuckooProof{..} => 2,
-				pow::Proof::RandomXProof{..} => 5,
-				pow::Proof::ProgPowProof{..} => 11,
-				_ => panic!("Error getting diff_decrease! Algorithm {:?} not supported!", head.pow.proof),
+			let decrease_const = match algo {
+				FType::Cuckatoo => 2,
+				FType::RandomX => 5,
+				FType::ProgPow => 11,
+				_ => panic!("Error getting diff_decrease! Algorithm {:?} not supported!", algo),
 			};
 			let mut total_decreased = 0;
 			let mut had_to_complete: bool = false;
 			let mut is_genesis: bool = false;
 			// Test if the values inside the buff vector are correct
-			for i in (0..data_vector.len()).rev(){
+			for i in (0..data_vector.len()).rev() {
 				// if the timespan is 0 the block is a "fake block" created to complete the buffer
-				if data_vector[i].prev_timespan == 0 {
+				if data_vector[i].prev_timespan == 0 && !had_to_complete {
+					assert_eq!(num_completed, i, "The number of fake blocks created doesn't match!");
 					had_to_complete = true;
-					// if the second element is a fake block, this is the first block of that algo
-					if (data_vector.len() - 2) == i { 
+					if (window_size as usize - 1) == i {
+						// if the second timestamp onwards are fake, this is the first block of that algo
 						is_genesis = true;
 					}
 				}
@@ -1125,8 +1128,6 @@ mod mine_chain {
 				}
 				assert_eq!(data_vector[i].timestamp, timestamp_head.saturating_sub(total_decreased));
 				total_decreased += decrease_const;
-				println!("\n=====Index {}=====", i);
-				println!("Data_vector: {:?}", data_vector[i]);
 			}
 		};
 
