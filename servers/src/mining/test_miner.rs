@@ -139,9 +139,6 @@ impl Miner {
 		// nothing has changed. We only want to create a new key_id for each new block.
 		let mut key_id = None;
 
-		let mut timestamp = Utc::now().timestamp();
-		let mut height = 99999999999999u64;
-
 		loop {
 			if self.stop_state.is_stopped() {
 				break;
@@ -152,20 +149,12 @@ impl Miner {
 			let head = self.chain.head_header().unwrap();
 			let mut latest_hash = self.chain.head().unwrap().last_block_h;
 
-			timestamp = if height != head.height {
-				height = head.height;
-				Utc::now().timestamp()
-			} else {
-				timestamp
-			};
-
 			let (mut b, block_fees, pow_type) = mine_block::get_block(
 				&self.chain,
 				&self.tx_pool,
 				self.verifier_cache.clone(),
 				key_id.clone(),
 				wallet_listener_url.clone(),
-				timestamp,
 			);
 
 			let sol = self.inner_mining_loop(
