@@ -682,8 +682,6 @@ impl Handler {
 						wallet_listener_url = Some(config.wallet_listener_url.clone());
 					}
 					// If this is a new block, clear the current_block version history
-					let clear_blocks = current_hash != latest_hash;
-
 					// Build the new block (version)
 					let (new_block, block_fees, pow_type) = mine_block::get_block(
 						&self.chain,
@@ -692,6 +690,10 @@ impl Handler {
 						state.current_key_id.clone(),
 						wallet_listener_url,
 					);
+
+					head = self.chain.head().unwrap();
+					let latest_hash = head.last_block_h;
+					let clear_blocks = current_hash != latest_hash;
 
 					state.current_difficulty = (new_block.header.total_difficulty()
 						- head.total_difficulty)
