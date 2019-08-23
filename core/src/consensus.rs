@@ -354,7 +354,7 @@ pub const MIN_DIFFICULTY_PROGPOW: u64 = 100000;
 pub const BLOCK_DIFF_FACTOR_RANDOMX: u64 = 64;
 
 /// Progpow Minimum difficulty (used for saturation)
-pub const BLOCK_DIFF_FACTOR_PROGPOW: u64 = 2048;
+pub const BLOCK_DIFF_FACTOR_PROGPOW: u64 = 64;
 
 /// Minimum scaling factor for AR pow, enforced in diff retargetting
 /// avoids getting stuck when trying to increase ar_scale subject to dampening

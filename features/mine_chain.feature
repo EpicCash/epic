@@ -10,7 +10,11 @@ Scenario: test the creation of buffers for multi algo adjustment
   And I create a chain and add the genesis block
   And I define my output dir as <.epicdifficulty>
   Then I create a buffer of <10> <cuckatoo> that I had to complete <9> blocks
-  Then I add <6> blocks with increasing timestamp following the policy <0>
+  Then I add <1> blocks with increasing timestamp following the policy <0>
+  Then I create a buffer of <10> <randomx> that I had to complete <9> blocks
+  Then I add <1> blocks with increasing timestamp following the policy <0>
+  Then I create a buffer of <10> <progpow> that I had to complete <9> blocks
+  Then I add <4> blocks with increasing timestamp following the policy <0>
   And I create a buffer of <10> <randomx> that I had to complete <6> blocks
   Then I add <1> blocks with increasing timestamp following the policy <0>
   And I create a buffer of <10> <progpow> that I had to complete <7> blocks
@@ -69,17 +73,17 @@ Scenario: test the multi difficulty adjustment with custom timestamps
   And The block on the height <11> need have a time delta of <70>
   And The block on the height <12> need have a time delta of <15>
   Then The next_difficulty for block <2> need to be <8064>
-  And The next_difficulty for block <3> need to be <134152192>
+  And The next_difficulty for block <3> need to be <132120576>
   And The next_difficulty for block <4> need to be <8190>
-  And The next_difficulty for block <5> need to be <133955680>
+  And The next_difficulty for block <5> need to be <125927424>
   And The next_difficulty for block <6> need to be <8317>
   And The next_difficulty for block <7> need to be <8446>
-  And The next_difficulty for block <8> need to be <133890272>
+  And The next_difficulty for block <8> need to be <123959808>
   And The next_difficulty for block <9> need to be <8577>
-  And The next_difficulty for block <10> need to be <133824896>
+  And The next_difficulty for block <10> need to be <122022936>
   And The next_difficulty for block <11> need to be <8711>
   And The next_difficulty for block <12> need to be <8575>
-  And The next_difficulty for block <13> need to be <133890240>
+  And The next_difficulty for block <13> need to be <123929544>
 
 Scenario: match the mining and foundation rewards with the whitepaper
   Given I have a <mainnet> chain
