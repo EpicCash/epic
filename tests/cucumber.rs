@@ -1168,6 +1168,19 @@ mod mine_chain {
 			let bottles = chain.head_header().unwrap().bottles;
 			assert_eq!(count_beans(&bottles), 1);
 		};
+
+		given regex "The file foundation <([0-9a-z.//]+)>" |world, matches, _step| {
+			let path = matches[1].as_str();
+			global::set_foundation_path(path.to_string());
+		};
+
+		then regex "I try to load the foundation on the height <([0-9]+)> with commit <([A-Za-z0-9]+)>" |world, matches, _step| {
+			let height = matches[1].parse().unwrap();
+			let cb_data = load_foundation_output(height);
+			let commit = matches[2].as_str();
+			let target_comment = format!("{:?}", cb_data.output.commitment());
+			assert_eq!(format!("Commitment({})", commit), target_comment);
+		};
 	});
 
 	fn difficulty_to_timespan(algo: &FType, difficulty: &Difficulty, height: u64) -> u64 {

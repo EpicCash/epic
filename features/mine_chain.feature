@@ -1,5 +1,11 @@
 Feature: Mine a simple chain
 
+Scenario: test load output from foundation file
+  Given The file foundation <./tests/assets/foundation.json>
+  Then I try to load the foundation on the height <1440> with commit <096b43c9245a1181bd81b7765df868ad9f4c8512f67f5c48f6518dcd150ef072bc>
+  Then I try to load the foundation on the height <2880> with commit <08a4d252df54161f98941ad7e35019eba87f536acc69ec9f7df5ec6e46453ff48c>
+  Then I try to load the foundation on the height <4320> with commit <0805ec16b2278f8f833fd4f3ab9b095a069d38f17db14fb0b85d57e602d23c6c32>
+
 Scenario: test if the timestamps and difficulties are being collected right from the blockchain
   Given I have the policy <0> with <progpow> equals <38>
   And I have the policy <0> with <randomx> equals <60>
