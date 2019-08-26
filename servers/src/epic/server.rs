@@ -39,9 +39,9 @@ use crate::common::adapters::{
 use crate::common::hooks::{init_chain_hooks, init_net_hooks};
 use crate::common::stats::{DiffBlock, DiffStats, PeerStats, ServerStateInfo, ServerStats};
 use crate::common::types::{Error, ServerConfig, StratumServerConfig, SyncState, SyncStatus};
-use crate::core::core::hash::{Hashed, ZERO_HASH};
+use crate::core::core::hash::{Hash, Hashed, ZERO_HASH};
 use crate::core::core::verifier_cache::{LruVerifierCache, VerifierCache};
-use crate::core::pow::PoWType;
+use crate::core::pow::{PoWType, Proof};
 use crate::core::{consensus, genesis, global, pow};
 use crate::epic::{dandelion_monitor, seed, sync, version};
 use crate::mining::stratumserver;
@@ -486,12 +486,10 @@ impl Server {
 		// code clean. This may be handy for testing but not really needed
 		// for release
 		let diff_stats = {
-			let last_blocks: Vec<consensus::HeaderInfo> = global::difficulty_data_to_vector(
-				self.chain.difficulty_iter()?,
-				consensus::DIFFICULTY_ADJUST_WINDOW,
-			)
-			.into_iter()
-			.collect();
+			let last_blocks: Vec<consensus::HeaderInfo> =
+				global::difficulty_data_to_vector(self.chain.difficulty_iter_all()?, 100)
+					.into_iter()
+					.collect();
 
 			let tip_height = self.head()?.height as i64;
 			let mut height = tip_height as i64 - last_blocks.len() as i64 + 1;
@@ -509,24 +507,39 @@ impl Server {
 
 					// Use header hash if real header.
 					// Default to "zero" hash if synthetic header_info.
-					let hash = if height >= 0 {
+					let (hash, algo_type): (Hash, Option<Proof>) = if height >= 0 {
 						if let Ok(header) = txhashset.get_header_by_height(height as u64) {
-							header.hash()
+							(header.hash(), Some(header.pow.proof.clone()))
 						} else {
-							ZERO_HASH
+							(ZERO_HASH, None)
 						}
 					} else {
-						ZERO_HASH
+						(ZERO_HASH, None)
 					};
-
+					let (algo_type, algo_name) = if let Some(proof) = algo_type {
+						match proof {
+							Proof::CuckooProof { .. } => (PoWType::Cuckatoo, "Cuckatoo"),
+							Proof::RandomXProof { .. } => (PoWType::RandomX, "RandomX"),
+							Proof::ProgPowProof { .. } => (PoWType::ProgPow, "ProgPow"),
+							_ => (PoWType::Cuckatoo, "Cuckatoo"),
+						}
+					} else {
+						(PoWType::Cuckatoo, "Cuckatoo")
+					};
+					let duration = if height <= 1 {
+						60
+					} else {
+						next.timestamp - prev.timestamp
+					};
 					DiffBlock {
 						block_height: height,
 						block_hash: hash,
-						difficulty: next.difficulty.to_num(PoWType::Cuckatoo),
+						difficulty: next.difficulty.to_num(algo_type),
 						time: next.timestamp,
-						duration: next.timestamp - prev.timestamp,
+						duration: duration,
 						secondary_scaling: next.secondary_scaling,
 						is_secondary: next.is_secondary,
+						algorithm: algo_name.to_owned(),
 					}
 				})
 				.collect();
@@ -536,9 +549,9 @@ impl Server {
 			DiffStats {
 				height: height as u64,
 				last_blocks: diff_entries,
-				average_block_time: block_time_sum / (consensus::DIFFICULTY_ADJUST_WINDOW - 1),
-				average_difficulty: block_diff_sum / (consensus::DIFFICULTY_ADJUST_WINDOW - 1),
-				window_size: consensus::DIFFICULTY_ADJUST_WINDOW,
+				average_block_time: block_time_sum / (100 - 1),
+				average_difficulty: block_diff_sum / (100 - 1),
+				window_size: 100,
 			}
 		};
 

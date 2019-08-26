@@ -139,6 +139,8 @@ pub struct DiffBlock {
 	pub secondary_scaling: u32,
 	/// is secondary
 	pub is_secondary: bool,
+	/// Type of the algorithm used to mine the block
+	pub algorithm: String,
 }
 
 /// Struct to return relevant information about peers
