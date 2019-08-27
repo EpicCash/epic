@@ -774,64 +774,64 @@ mod mine_chain {
 			for height in 1..1440*365*130{
 				let (total_block_reward, foundation_levy, mining_reward) = match height {
 					// Launch date to Jan 1, 2020
-					1..=221760 => {
+					1..=172800 => {
 						(16.0, 1.4208, 14.5792)
 					},
 					// Jan 1, 2020 to Jun 29, 2020
-					221761..=480960 => {
+					172801..=432000 => {
 						(16.0, 1.2432, 14.7568)
 					}
 					// Jun 29, 2020 to Jan 1, 2021
-					480961..=747360 => {
+					432001..=698400 => {
 						(8.0, 0.6216, 7.3784)
 					}
 					// Jan 1, 2021 to Oct 11, 2021
-					747361..=1157760 => {
+					698401..=1108800 => {
 						(8.0, 0.5328, 7.4672)
 					}
 					// Oct 11, 2021 to Jan 1, 2022
-					1157761..=1272960 => {
+					1108801..=1224000 => {
 						(4.0, 0.2664, 3.7336)
 					}
 					// Jan 1, 2022 to Jan 1, 2023
-					1272961..=1798560 => {
+					1224001..=1749600 => {
 						(4.0, 0.2220, 3.7780)
 					}
 					// Jan 1, 2023 to Jun 3, 2023
-					1798561..=2023200 => {
+					1749601..=1974240 => {
 						(4.0, 0.1776, 3.8224)
 					}
 					// Jun 3, 2023 to Jan 1, 2024
-					2023201..=2324160=> {
+					1974241..=2275200=> {
 						(2.0, 0.0888, 1.9112)
 					}
 					// Jan 1, 2024 to Jan 1, 2025
-					2324161..=2849760=> {
+					2275201..=2800800=> {
 						(2.0, 0.0666, 1.9334)
 					}
 					// Jan 1, 2025 to Aug 10, 2025
-					2849761..=3175200=> {
+					2800801..=3126240=> {
 						(2.0, 0.0444, 1.9556)
 					}
 					// Aug 10, 2025 to Jan 1, 2026
-					3175201..=3375360=> {
+					3126241..=3326400=> {
 						(1.0, 0.0222, 0.9778)
 					}
 					// Jan 1, 2026 to Jan 1, 2028
-					3375361..=4426560=> {
+					3326401..=4377600=> {
 						(1.0, 0.0111, 0.9889)
 					}
 					// Jan 1, 2028 to May 24, 2028
-					4426561..=4642560=> {
+					4377601..=4593600=> {
 						(1.0, 0.0, 1.0)
 					}
 					// ======Test Bitcoin eras=====
 					// May 24, 2028 to May 22, 2032
-					4426561..=6744960=> {
+					4593601..=6696000=> {
 						(0.15625, 0.0, 0.15625)
 					}
 					// May 22, 2032 to May 20, 2036
-					6744961..=8847360=> {
+					6696001..=8798400=> {
 						(0.078125, 0.0, 0.078125)
 					}
 					_ => break,
@@ -850,7 +850,7 @@ mod mine_chain {
 		};
 
 		then "I test if the cumulative foundation levy is being computed correctly" |_world, _step|{
-			let deadline_levy = 4426560;
+			let deadline_levy = 4377600;
 			// iterating 20 years of blocks
 			for height in 1..1440*365*20 {
 			    // We have some value of foundation levy until we reach the deadline_levy height
@@ -871,11 +871,11 @@ mod mine_chain {
 					assert_eq!(f_reward+sum_r, sum_b);
 					assert_eq!(f_reward+sum_r, consensus::block_total_reward_at_height(height)*1440);
 				} else {
-					// After 154 days + 8 years at the beginning of 2028, there is no more foundation levy
+					// After 120 days + 8 years at the beginning of 2028, there is no more foundation levy
 					// Therefore after this height, even if a height is multiple of the FOUNDATION_HEIGHT
 					// it should not be considered a foundation height.
 					if height % 1440 == 0 {
-						assert!(height >= (154 + 365*8)*1440)
+						assert!(height >= (120 + 365*8)*1440)
 					}
 				}
 			}

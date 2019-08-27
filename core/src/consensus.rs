@@ -44,7 +44,7 @@ pub const FREEMAN: u64 = 1;
 pub const BLOCK_TIME_SEC: u64 = 60;
 
 /// Height of the first epic block emission era
-pub const BLOCK_ERA_1: u64 = DAY_HEIGHT * 334;
+pub const BLOCK_ERA_1: u64 = DAY_HEIGHT * 300;
 /// Height of the second epic block emission era
 pub const BLOCK_ERA_2: u64 = BLOCK_ERA_1 + (DAY_HEIGHT * 470);
 /// Height of the third epic block emission era
@@ -145,7 +145,7 @@ pub fn cumulative_reward_foundation(height: u64) -> u64 {
 
 /// Duration in height of the first foundation levy era
 /// NOTE_L: Adjust this before the official launch
-pub const FOUNDATION_LEVY_ERA_1: u64 = DAY_HEIGHT * 154;
+pub const FOUNDATION_LEVY_ERA_1: u64 = DAY_HEIGHT * 120;
 /// After the first foundation levy era, we decrease the foundation levy each year
 pub const FOUNDATION_LEVY_ERA_2_ONWARDS: u64 = DAY_HEIGHT * 365;
 /// The foundation levy in each era
