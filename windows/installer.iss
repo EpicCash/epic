@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Epic"
-#define MyAppVersion "1.0.5.2"
+#define MyAppVersion "1.5.0"
 #define MyAppPublisher "EpicCash, Inc."
 #define MyAppURL "http://www.epiccash.com/"
 #define MyAppExeName "epic.exe"
