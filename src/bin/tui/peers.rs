@@ -28,6 +28,7 @@ use cursive::view::View;
 use cursive::views::{BoxView, Dialog, LinearLayout, OnEventView, TextView};
 use cursive::Cursive;
 
+use crate::core::pow::PoWType;
 use crate::tui::constants::{MAIN_MENU, TABLE_PEER_STATUS, VIEW_PEER_SYNC};
 use crate::tui::table::{TableView, TableViewItem};
 use crate::tui::types::TUIStatusListener;
@@ -159,6 +160,13 @@ impl TUIStatusListener for TUIPeerView {
 	}
 
 	fn update(c: &mut Cursive, stats: &ServerStats) {
+		let mut total_diff: u64 = 0;
+		total_diff =
+			total_diff.saturating_add(stats.head.total_difficulty.to_num(PoWType::Cuckatoo));
+		total_diff =
+			total_diff.saturating_add(stats.head.total_difficulty.to_num(PoWType::ProgPow));
+		total_diff =
+			total_diff.saturating_add(stats.head.total_difficulty.to_num(PoWType::RandomX));
 		let lp = stats
 			.peer_stats
 			.iter()
@@ -166,7 +174,7 @@ impl TUIStatusListener for TUIPeerView {
 		let lp_str = match lp {
 			Some(l) => format!(
 				"{} D @ {} H vs Us: {} D @ {} H",
-				l.total_difficulty, l.height, stats.head.total_difficulty, stats.head.height
+				l.total_difficulty, l.height, total_diff, stats.head.height
 			)
 			.to_string(),
 			None => "".to_string(),

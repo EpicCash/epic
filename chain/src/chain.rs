@@ -1268,12 +1268,23 @@ impl Chain {
 	}
 
 	/// Builds an iterator on blocks starting from the current chain head and
-	/// running backward. Specialized to return information pertaining to block
+	/// running backward, searching from block with the same type as the head PoWType.
+	/// Specialized to return information pertaining to block
 	/// difficulty calculation (timestamp and previous difficulties).
 	pub fn difficulty_iter(&self) -> Result<store::DifficultyIter<'_>, Error> {
 		let head = self.head()?;
 		let store = self.store.clone();
 		Ok(store::DifficultyIter::from(head.last_block_h, store))
+	}
+
+	/// Builds an iterator on blocks starting from the current chain head and
+	/// running backward, getting the block regardless the head's PoWType.
+	/// Specialized to return information pertaining to block
+	/// difficulty calculation (timestamp and previous difficulties).
+	pub fn difficulty_iter_all(&self) -> Result<store::DifficultyIterAll<'_>, Error> {
+		let head = self.head()?;
+		let store = self.store.clone();
+		Ok(store::DifficultyIterAll::from(head.last_block_h, store))
 	}
 
 	/// Builds an iterator on blocks starting from the current chain head and

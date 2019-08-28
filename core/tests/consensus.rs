@@ -90,7 +90,7 @@ fn repeat(interval: u64, diff: HeaderInfo, len: u64, cur_time: Option<u64>) -> V
 				d.clone(),
 				diff.secondary_scaling,
 				diff.is_secondary,
-				0,
+				interval,
 			)
 		})
 		.collect::<Vec<_>>()
@@ -369,7 +369,10 @@ fn next_target_adjustment() {
 		),
 	);
 
-	assert_ne!(hinext.difficulty, diff_min);
+	assert_ne!(
+		hinext.difficulty.to_num(PoWType::Cuckatoo),
+		diff_min.to_num(PoWType::Cuckatoo)
+	);
 
 	// Check we don't get stuck on scale MIN_DIFFICULTY, when primary frequency is too high
 	assert_ne!(hinext.secondary_scaling, MIN_DIFFICULTY as u32);
@@ -385,7 +388,7 @@ fn next_target_adjustment() {
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(15000).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(10000).to_num(PoWType::Cuckatoo)
 	);
 
 	// check pre difficulty_data_to_vector effect on retargetting
@@ -415,7 +418,7 @@ fn next_target_adjustment() {
 		next_difficulty(1, PoWType::Cuckatoo, s2)
 			.difficulty
 			.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(1000).to_num(PoWType::Cuckatoo)
 	);
 
 	// too slow, diff goes down
@@ -428,7 +431,7 @@ fn next_target_adjustment() {
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(857).to_num(PoWType::Cuckatoo)
 	);
 	assert_eq!(
 		next_difficulty(
@@ -438,7 +441,7 @@ fn next_target_adjustment() {
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(750).to_num(PoWType::Cuckatoo)
 	);
 
 	// too fast, diff goes up
@@ -450,7 +453,7 @@ fn next_target_adjustment() {
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(1028).to_num(PoWType::Cuckatoo)
 	);
 	assert_eq!(
 		next_difficulty(
@@ -460,7 +463,7 @@ fn next_target_adjustment() {
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(1090).to_num(PoWType::Cuckatoo)
 	);
 	assert_eq!(
 		next_difficulty(
@@ -470,7 +473,7 @@ fn next_target_adjustment() {
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(1200).to_num(PoWType::Cuckatoo)
 	);
 
 	// hitting lower time bound, should always get the same result below
@@ -494,7 +497,7 @@ fn next_target_adjustment() {
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(500).to_num(PoWType::Cuckatoo)
 	);
 	assert_eq!(
 		next_difficulty(
@@ -504,7 +507,7 @@ fn next_target_adjustment() {
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(500).to_num(PoWType::Cuckatoo)
 	);
 
 	// We should never drop below minimum

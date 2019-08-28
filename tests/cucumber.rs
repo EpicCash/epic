@@ -946,27 +946,20 @@ mod mine_chain {
 					.unwrap();
 				let cursor = chain.bottles_iter(emitted_policy).unwrap();
 				let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
-				println!("\n==================Block height {}===================", i);
-				let (timespan, block_diff) = match prev.pow.proof{
-					pow::Proof::CuckooProof{..} => {
-						println!("Prev Block type: Cuckoo");
-						println!("Increasing the previous timestamp by: 2");
+				let (timespan, block_diff) = match algo{
+					FType::Cuckatoo => {
 						let mut diff = world.difficulty.clone();
 						let cuckoo_prev = world.difficulty.clone().to_num(FType::Cuckatoo);
 						diff.num.insert(FType::Cuckatoo, cuckoo_prev + 2);
 						(2, diff)
 					},
-					pow::Proof::RandomXProof{..} => {
-						println!("Prev Block type: RandomX");
-						println!("Increasing the previous timestamp by: 5");
+					FType::RandomX => {
 						let mut diff = world.difficulty.clone();
 						let randomx_prev = world.difficulty.clone().to_num(FType::RandomX);
 						diff.num.insert(FType::RandomX, randomx_prev + 5);
 						(5, diff)
 					},
-					pow::Proof::ProgPowProof{..} => {
-						println!("Prev Block type: ProgPow");
-						println!("Increasing the previous timestamp by: 11");
+					FType::ProgPow => {
 						let mut diff = world.difficulty.clone();
 						let progpow_prev = world.difficulty.clone().to_num(FType::ProgPow);
 						diff.num.insert(FType::ProgPow, progpow_prev + 11);
@@ -974,7 +967,6 @@ mod mine_chain {
 					},
 					_ => panic!("Error getting timespan of the algorithm {:?}! Algorithm not supported!", algo),
 				};
-				println!("block diff:{:?}", block_diff);
 				world.difficulty = block_diff.clone();
 				// Add block with custom timestamp
 				let mut block = prepare_block_with_timestamp(&kc, &prev, block_diff, vec![], hash, timespan);
@@ -982,10 +974,6 @@ mod mine_chain {
 				block.header.bottles = bottles;
 				block.header.policy = emitted_policy;
 				block.header.pow.proof = get_pow_type(&algo, prev.height);
-				println!("Current block type: {:?}", block.header.pow.proof);
-				println!("Timestamp {:?}", block.header.timestamp.timestamp());
-				println!("Difficulty {:?}", block.header.total_difficulty());
-				println!("===================================================\n");
 				chain.process_block(block, chain::Options::SKIP_POW).unwrap();
 			};
 		};
@@ -1080,38 +1068,41 @@ mod mine_chain {
 			assert_eq!(next_difficulty.difficulty.to_num(pow), diff_value);
 		};
 
-		then regex "I check all timestamps and difficulties for a window of <([0-9]+)>" |world, matches, _step| {
+		then regex "I create a buffer of <([0-9]+)> <([a-z]+)> that I had to complete <([0-9]+)> blocks" |world, matches, _step| {
 			let window_size: u64 = matches[1].parse().unwrap();
+			let algo = get_fw_type(matches[2].as_str());
+			let num_completed: usize = matches[3].parse().unwrap();
 			let chain = world.chain.as_ref().unwrap();
-			let prev = chain.head_header().unwrap();
+			let head = chain.head_header().unwrap();
 		    let diff_iter = chain.difficulty_iter().unwrap();
 			// creates the buff vector
 			let data_vector = global::difficulty_data_to_vector(diff_iter, window_size);
-			let head = data_vector.last().unwrap().clone();
-			let diff_head = head.difficulty.to_num((&prev.pow.proof).into());
-			let timestamp_head = head.timestamp;
-			let decrease_const = match prev.pow.proof{
-				pow::Proof::CuckooProof{..} => 2,
-				pow::Proof::RandomXProof{..} => 5,
-				pow::Proof::ProgPowProof{..} => 11,
-				_ => panic!("Error getting diff_decrease! Algorithm {:?} not supported!", prev.pow.proof),
+			let head_info = data_vector.last().unwrap().clone();
+			let diff_head = head_info.difficulty.to_num((&head.pow.proof).into());
+			let timestamp_head = head_info.timestamp;
+			let decrease_const = match algo {
+				FType::Cuckatoo => 2,
+				FType::RandomX => 5,
+				FType::ProgPow => 11,
+				_ => panic!("Error getting diff_decrease! Algorithm {:?} not supported!", algo),
 			};
 			let mut total_decreased = 0;
 			let mut had_to_complete: bool = false;
 			let mut is_genesis: bool = false;
 			// Test if the values inside the buff vector are correct
-			for i in (0..data_vector.len()).rev(){
+			for i in (0..data_vector.len()).rev() {
 				// if the timespan is 0 the block is a "fake block" created to complete the buffer
-				if data_vector[i].prev_timespan == 0 {
+				if data_vector[i].prev_timespan == 0 && !had_to_complete {
+					assert_eq!(num_completed, i, "The number of fake blocks created doesn't match!");
 					had_to_complete = true;
-					// if the second element is a fake block, this is the first block of that algo
-					if (data_vector.len() - 2) == i { 
+					if (window_size as usize - 1) == i {
+						// if the second timestamp onwards are fake, this is the first block of that algo
 						is_genesis = true;
 					}
 				}
 				if had_to_complete {
 					// The fake blocks are created with the Head's difficulty
-					assert_eq!(data_vector[i].difficulty.to_num((&prev.pow.proof).into()), diff_head);
+					assert_eq!(data_vector[i].difficulty.to_num((&head.pow.proof).into()), diff_head);
 					if is_genesis {
 						// If there is only 1 block of an algo in the chain, all fake blocks timestamps
 						// will be in an interval of 60 seconds. Otherwise, the interval will be
@@ -1121,7 +1112,7 @@ mod mine_chain {
 					}
 				} else {
 					// All the real blocks have to have the same interval (in this test) between timestamps
-					assert_eq!(data_vector[i].difficulty.to_num((&prev.pow.proof).into()), diff_head - total_decreased);
+					assert_eq!(data_vector[i].difficulty.to_num((&head.pow.proof).into()), diff_head - total_decreased);
 				}
 				assert_eq!(data_vector[i].timestamp, timestamp_head.saturating_sub(total_decreased));
 				total_decreased += decrease_const;

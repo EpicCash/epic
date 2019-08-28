@@ -32,6 +32,7 @@ use crate::tui::constants::{
 };
 use crate::tui::types::TUIStatusListener;
 
+use crate::core::pow::PoWType;
 use crate::servers::{DiffBlock, ServerStats, WorkerStats};
 use crate::tui::table::{TableView, TableViewItem};
 
@@ -117,7 +118,7 @@ impl DiffColumn {
 		match *self {
 			DiffColumn::Height => "Height",
 			DiffColumn::Hash => "Hash",
-			DiffColumn::PoWType => "Type",
+			DiffColumn::PoWType => "Algorithm",
 			DiffColumn::Difficulty => "Network Difficulty",
 			DiffColumn::SecondaryScaling => "Sec. Scaling",
 			DiffColumn::Time => "Block Time",
@@ -130,11 +131,7 @@ impl TableViewItem<DiffColumn> for DiffBlock {
 	fn to_column(&self, column: DiffColumn) -> String {
 		let naive_datetime = NaiveDateTime::from_timestamp(self.time as i64, 0);
 		let datetime: DateTime<Utc> = DateTime::from_utc(naive_datetime, Utc);
-		let pow_type = match self.is_secondary {
-			true => String::from("Secondary"),
-			false => String::from("Primary"),
-		};
-
+		let pow_type = self.algorithm.clone();
 		match column {
 			DiffColumn::Height => self.block_height.to_string(),
 			DiffColumn::Hash => self.block_hash.to_string(),
@@ -192,9 +189,9 @@ impl TUIStatusListener for TUIMiningView {
 			.column(StratumWorkerColumn::LastSeen, "Last Seen", |c| {
 				c.width_percent(16)
 			})
-			.column(StratumWorkerColumn::PowDifficulty, "Pow Difficulty", |c| {
-				c.width_percent(12)
-			})
+			// .column(StratumWorkerColumn::PowDifficulty, "Pow Difficulty", |c| {
+			// 	c.width_percent(12)
+			// })
 			.column(StratumWorkerColumn::NumAccepted, "Num Accepted", |c| {
 				c.width_percent(10)
 			})
@@ -228,15 +225,15 @@ impl TUIStatusListener for TUIMiningView {
 			.child(
 				LinearLayout::new(Orientation::Horizontal)
 					.child(TextView::new("  ").with_id("stratum_network_difficulty_status")),
-			)
-			.child(
-				LinearLayout::new(Orientation::Horizontal)
-					.child(TextView::new("  ").with_id("stratum_network_hashrate")),
-			)
-			.child(
-				LinearLayout::new(Orientation::Horizontal)
-					.child(TextView::new("  ").with_id("stratum_edge_bits_status")),
 			);
+		// .child(
+		// 	LinearLayout::new(Orientation::Horizontal)
+		// 		.child(TextView::new("  ").with_id("stratum_network_hashrate")),
+		// );
+		// .child(
+		// 	LinearLayout::new(Orientation::Horizontal)
+		// 		.child(TextView::new("  ").with_id("stratum_edge_bits_status")),
+		// );
 
 		let mining_device_view = LinearLayout::new(Orientation::Vertical)
 			.child(status_view)
@@ -254,7 +251,7 @@ impl TUIStatusListener for TUIMiningView {
 			)
 			.child(
 				LinearLayout::new(Orientation::Horizontal)
-					.child(TextView::new("Difficulty Adjustment Window: "))
+					.child(TextView::new("Block Window: "))
 					.child(TextView::new("").with_id("diff_adjust_window")),
 			)
 			.child(
@@ -271,13 +268,13 @@ impl TUIStatusListener for TUIMiningView {
 		let diff_table_view = TableView::<DiffBlock, DiffColumn>::new()
 			.column(DiffColumn::Height, "Height", |c| c.width_percent(10))
 			.column(DiffColumn::Hash, "Hash", |c| c.width_percent(10))
-			.column(DiffColumn::PoWType, "Type", |c| c.width_percent(10))
-			.column(DiffColumn::Difficulty, "Network Difficulty", |c| {
-				c.width_percent(15)
+			.column(DiffColumn::PoWType, "Algorithm", |c| c.width_percent(10))
+			.column(DiffColumn::Difficulty, "Difficulty", |c| {
+				c.width_percent(20)
 			})
-			.column(DiffColumn::SecondaryScaling, "Sec. Scaling", |c| {
-				c.width_percent(10)
-			})
+			// .column(DiffColumn::SecondaryScaling, "Sec. Scaling", |c| {
+			// 	c.width_percent(10)
+			// })
 			.column(DiffColumn::Time, "Block Time", |c| c.width_percent(25))
 			.column(DiffColumn::Duration, "Duration", |c| c.width_percent(25));
 
@@ -317,12 +314,11 @@ impl TUIStatusListener for TUIMiningView {
 		c.call_on_id("diff_adjust_window", |t: &mut TextView| {
 			t.set_content(stats.diff_stats.window_size.to_string());
 		});
-		let dur = time::Duration::from_secs(stats.diff_stats.average_block_time);
 		c.call_on_id("diff_avg_block_time", |t: &mut TextView| {
-			t.set_content(format!("{} Secs", dur.as_secs()).to_string());
+			t.set_content(format!("{}", stats.diff_stats.average_block_time.clone()));
 		});
 		c.call_on_id("diff_avg_difficulty", |t: &mut TextView| {
-			t.set_content(stats.diff_stats.average_difficulty.to_string());
+			t.set_content(stats.diff_stats.average_difficulty.clone());
 		});
 
 		let mut diff_stats = stats.diff_stats.last_blocks.clone();
@@ -334,21 +330,39 @@ impl TUIStatusListener for TUIMiningView {
 			},
 		);
 		let stratum_stats = stats.stratum_stats.clone();
-		let stratum_network_hashrate = format!(
-			"Network Hashrate:      {:.*}",
-			2,
-			stratum_stats.network_hashrate(stratum_stats.block_height)
-		);
+		// let stratum_network_hashrate = format!(
+		// 	"Network Hashrate:      {:.*}",
+		// 	2,
+		// 	stratum_stats.network_hashrate(stratum_stats.block_height)
+		// );
 		let worker_stats = stratum_stats.worker_stats;
 		let stratum_enabled = format!("Mining server enabled: {}", stratum_stats.is_enabled);
 		let stratum_is_running = format!("Mining server running: {}", stratum_stats.is_running);
 		let stratum_num_workers = format!("Number of workers:     {}", stratum_stats.num_workers);
 		let stratum_block_height = format!("Solving Block Height:  {}", stratum_stats.block_height);
+		let cuckoo_diff =
+			if let Some(diff) = stratum_stats.network_difficulty.get(&PoWType::Cuckatoo) {
+				format!("{}", diff)
+			} else {
+				"NaN".to_owned()
+			};
+		let progpow_diff =
+			if let Some(diff) = stratum_stats.network_difficulty.get(&PoWType::ProgPow) {
+				format!("{}", diff)
+			} else {
+				"NaN".to_owned()
+			};
+		let randomx_diff =
+			if let Some(diff) = stratum_stats.network_difficulty.get(&PoWType::RandomX) {
+				format!("{}", diff)
+			} else {
+				"NaN".to_owned()
+			};
 		let stratum_network_difficulty = format!(
-			"Network Difficulty:    {:?}",
-			stratum_stats.network_difficulty
+			"Current Difficulty:    Cuckatoo: {}, ProgPow: {}, RandomX: {}",
+			cuckoo_diff, progpow_diff, randomx_diff,
 		);
-		let stratum_edge_bits = format!("Cuckoo Size:           {}", stratum_stats.edge_bits);
+		// let stratum_edge_bits = format!("Cuckoo Size:           {}", stratum_stats.edge_bits);
 
 		c.call_on_id("stratum_config_status", |t: &mut TextView| {
 			t.set_content(stratum_enabled);
@@ -365,12 +379,12 @@ impl TUIStatusListener for TUIMiningView {
 		c.call_on_id("stratum_network_difficulty_status", |t: &mut TextView| {
 			t.set_content(stratum_network_difficulty);
 		});
-		c.call_on_id("stratum_network_hashrate", |t: &mut TextView| {
-			t.set_content(stratum_network_hashrate);
-		});
-		c.call_on_id("stratum_edge_bits_status", |t: &mut TextView| {
-			t.set_content(stratum_edge_bits);
-		});
+		// c.call_on_id("stratum_network_hashrate", |t: &mut TextView| {
+		// 	t.set_content(stratum_network_hashrate);
+		// });
+		// c.call_on_id("stratum_edge_bits_status", |t: &mut TextView| {
+		// 	t.set_content(stratum_edge_bits);
+		// });
 		let _ = c.call_on_id(
 			TABLE_MINING_STATUS,
 			|t: &mut TableView<WorkerStats, StratumWorkerColumn>| {

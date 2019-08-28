@@ -660,8 +660,7 @@ impl Handler {
 		let mut deadline: i64 = 0;
 		let mut head = self.chain.head().unwrap();
 		let mut current_hash = head.prev_block_h;
-		let mut timestamp = Utc::now().timestamp();
-		let mut height = 99999999999999u64;
+
 		//let mut d_block = (Block::default(), mine_block::BlockFees{fees: 0, height, key_id: None}, PoWType::Cuckaroo);
 		loop {
 			// get the latest chain state
@@ -683,15 +682,6 @@ impl Handler {
 						wallet_listener_url = Some(config.wallet_listener_url.clone());
 					}
 					// If this is a new block, clear the current_block version history
-					let clear_blocks = current_hash != latest_hash;
-
-					timestamp = if height != head.height {
-						height = head.height;
-						Utc::now().timestamp()
-					} else {
-						timestamp
-					};
-
 					// Build the new block (version)
 					let (new_block, block_fees, pow_type) = mine_block::get_block(
 						&self.chain,
@@ -699,8 +689,11 @@ impl Handler {
 						verifier_cache.clone(),
 						state.current_key_id.clone(),
 						wallet_listener_url,
-						timestamp,
 					);
+
+					head = self.chain.head().unwrap();
+					let latest_hash = head.last_block_h;
+					let clear_blocks = current_hash != latest_hash;
 
 					state.current_difficulty = (new_block.header.total_difficulty()
 						- head.total_difficulty)
@@ -753,7 +746,8 @@ impl Handler {
 					);
 
 					// set a new deadline for rebuilding with fresh transactions
-					deadline = Utc::now().timestamp() + config.attempt_time_per_block as i64;
+					deadline =
+						Utc::now().timestamp() + u32::min(config.attempt_time_per_block, 30) as i64;
 
 					self.workers.update_block_height(new_block.header.height);
 					self.workers

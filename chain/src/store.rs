@@ -389,8 +389,8 @@ impl<'a> Batch<'a> {
 
 /// An iterator on blocks, from latest to earliest, specialized to return
 /// information pertaining to block difficulty calculation (timestamp and
-/// previous difficulties). Mostly used by the consensus next difficulty
-/// calculation.
+/// previous difficulties). It searches for blocks with the same type as the
+/// head PoWType. Mostly used by the consensus next difficulty calculation.
 pub struct DifficultyIter<'a> {
 	start: Hash,
 	store: Option<Arc<ChainStore>>,
@@ -459,7 +459,8 @@ impl<'a> Iterator for DifficultyIter<'a> {
 				let mut head = header.clone();
 				let mut prev_difficulty = header.total_difficulty();
 				let mut first_time_flag: bool = true;
-				(loop {
+				let mut prev_timespan: i64 = 60;
+				loop {
 					let mut prev_header = None;
 
 					if let Some(ref batch) = self.batch {
@@ -476,13 +477,13 @@ impl<'a> Iterator for DifficultyIter<'a> {
 						let pow: PoWType = (&prev.pow.proof).into();
 						if first_time_flag {
 							prev_difficulty = header.total_difficulty() - prev.total_difficulty();
-						};
-						first_time_flag = false;
-						if pow_type == pow {
-							let prev_timespan = head
+							prev_timespan = header
 								.timestamp
 								.timestamp()
 								.saturating_sub(prev.timestamp.timestamp());
+						};
+						first_time_flag = false;
+						if pow_type == pow {
 							break (
 								Some(prev),
 								prev_difficulty,
@@ -493,9 +494,14 @@ impl<'a> Iterator for DifficultyIter<'a> {
 							head = prev;
 						}
 					} else {
-						break (None, prev_difficulty, 60, head.pow.secondary_scaling);
+						break (
+							None,
+							prev_difficulty,
+							prev_timespan,
+							head.pow.secondary_scaling,
+						);
 					}
-				})
+				}
 			};
 
 			self.prev_header = prev_head_iter;
@@ -506,6 +512,110 @@ impl<'a> Iterator for DifficultyIter<'a> {
 				scaling,
 				header.pow.is_secondary(),
 				prev_timespan as u64,
+			))
+		} else {
+			return None;
+		}
+	}
+}
+
+/// An iterator on blocks, from latest to earliest, specialized to return
+/// information pertaining to block difficulty calculation (timestamp and
+/// previous difficulties). It gets blocks regardless of the head's PoWType.
+/// Mostly used by uptading the TUI stats.
+pub struct DifficultyIterAll<'a> {
+	start: Hash,
+	store: Option<Arc<ChainStore>>,
+	batch: Option<Batch<'a>>,
+
+	// maintain state for both the "next" header in this iteration
+	// and its previous header in the chain ("next next" in the iteration)
+	// so we effectively read-ahead as we iterate through the chain back
+	// toward the genesis block (while maintaining current state)
+	header: Option<BlockHeader>,
+	prev_header: Option<BlockHeader>,
+}
+
+impl<'a> DifficultyIterAll<'a> {
+	/// Build a new iterator using the provided chain store and starting from
+	/// the provided block hash.
+	pub fn from<'b>(start: Hash, store: Arc<ChainStore>) -> DifficultyIterAll<'b> {
+		DifficultyIterAll {
+			start,
+			store: Some(store),
+			batch: None,
+			header: None,
+			prev_header: None,
+		}
+	}
+
+	/// Build a new iterator using the provided chain store batch and starting from
+	/// the provided block hash.
+	pub fn from_batch(start: Hash, batch: Batch<'_>) -> DifficultyIterAll<'_> {
+		DifficultyIterAll {
+			start,
+			store: None,
+			batch: Some(batch),
+			header: None,
+			prev_header: None,
+		}
+	}
+}
+
+impl<'a> Iterator for DifficultyIterAll<'a> {
+	type Item = HeaderInfo;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		// Get both header and previous_header if this is the initial iteration.
+		// Otherwise move prev_header to header and get the next prev_header.
+		self.header = if self.header.is_none() {
+			if let Some(ref batch) = self.batch {
+				batch.get_block_header(&self.start).ok()
+			} else {
+				if let Some(ref store) = self.store {
+					store.get_block_header(&self.start).ok()
+				} else {
+					None
+				}
+			}
+		} else {
+			self.prev_header.clone()
+		};
+
+		// If we have a header we can do this iteration.
+		// Otherwise we are done.
+		if let Some(header) = self.header.clone() {
+			if let Some(ref batch) = self.batch {
+				self.prev_header = batch.get_previous_header(&header).ok();
+			} else {
+				if let Some(ref store) = self.store {
+					self.prev_header = store.get_previous_header(&header).ok();
+				} else {
+					self.prev_header = None;
+				}
+			}
+
+			let prev_difficulty = self
+				.prev_header
+				.clone()
+				.map_or(Difficulty::zero(), |x| x.total_difficulty());
+			let timespan: u64 = if let Some(prev_header_local) = self.prev_header.clone() {
+				header
+					.timestamp
+					.timestamp()
+					.saturating_sub(prev_header_local.timestamp.timestamp()) as u64
+			} else {
+				60
+			};
+			let difficulty = header.total_difficulty() - prev_difficulty;
+			let scaling = header.pow.secondary_scaling;
+
+			Some(HeaderInfo::new(
+				header.timestamp.timestamp() as u64,
+				difficulty,
+				scaling,
+				header.pow.is_secondary(),
+				timespan,
 			))
 		} else {
 			return None;
