@@ -259,7 +259,11 @@ impl GlobalConfig {
 		// 		.clone(),
 		// );
 		// foundation_path.push("foundation.json");
-		let foundation_path = "/usr/share/epic/foundation.json".to_owned();
+		let foundation_path = if cfg!(windows) {
+			"C:\\Program Files\\Epic\\foundation.json".to_owned()
+		} else {
+			"/usr/share/epic/foundation.json".to_owned()
+		};
 		// self.members.as_mut().unwrap().server.foundation_path =
 		// 	foundation_path.to_str().unwrap().to_owned();
 		self.members.as_mut().unwrap().server.foundation_path = foundation_path;
