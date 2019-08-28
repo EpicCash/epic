@@ -174,6 +174,7 @@ pub struct JobTemplate {
 	height: u64,
 	job_id: u64,
 	difficulty: Vec<(String, u64)>,
+	block_difficulty: Vec<(String, u64)>,
 	pre_pow: String,
 	epochs: Vec<(u64, u64, [u8; 32])>,
 	algorithm: String,
@@ -215,7 +216,7 @@ impl State {
 			current_block_versions: blocks,
 			current_key_id: None,
 			current_difficulty,
-			minimum_share_difficulty: minimum_share_difficulty,
+			minimum_share_difficulty,
 		}
 	}
 
@@ -443,6 +444,14 @@ impl Handler {
 				.collect::<Vec<(String, u64)>>()
 		};
 
+		let block_difficulty = {
+			let state = self.current_state.read();
+			algorithms
+				.iter()
+				.map(|x| (x.to_str(), state.get_current_difficulty(*x)))
+				.collect::<Vec<(String, u64)>>()
+		};
+
 		let mut header_buf = vec![];
 		{
 			let mut writer = ser::BinWriter::new(&mut header_buf);
@@ -455,6 +464,7 @@ impl Handler {
 			height: bh.height,
 			job_id: (self.current_state.read().current_block_versions.len() - 1) as u64,
 			difficulty,
+			block_difficulty,
 			pre_pow,
 			epochs,
 			algorithm: pow.to_str(),
