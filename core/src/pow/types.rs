@@ -232,21 +232,21 @@ impl fmt::Display for Difficulty {
 
 impl Ord for Difficulty {
 	fn cmp(&self, other: &Self) -> Ordering {
-		self.num
-			.get(&PoWType::Cuckatoo)
-			.unwrap()
-			.cmp(&other.num.get(&PoWType::Cuckatoo).unwrap())
+		let self_sum: u128 = self.num.iter().map(|(x, y)| *y as u128).sum();
+
+		let other_sum: u128 = other.num.iter().map(|(x, y)| *y as u128).sum();
+
+		self_sum.cmp(&other_sum)
 	}
 }
 
 impl PartialOrd for Difficulty {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		Some(
-			self.num
-				.get(&PoWType::Cuckatoo)
-				.unwrap()
-				.cmp(&other.num.get(&PoWType::Cuckatoo).unwrap()),
-		)
+		let self_sum: u128 = self.num.iter().map(|(x, y)| *y as u128).sum();
+
+		let other_sum: u128 = other.num.iter().map(|(x, y)| *y as u128).sum();
+
+		Some(self_sum.cmp(&other_sum))
 	}
 }
 
@@ -288,7 +288,7 @@ impl Mul<Difficulty> for Difficulty {
 	fn mul(self, other: Difficulty) -> Difficulty {
 		let mut d = DifficultyNumber::number(0);
 		for (algo, v) in &self.num {
-			d.insert(*algo, v * *other.num.get(algo).unwrap_or(&0));
+			d.insert(*algo, v * *other.num.get(algo).unwrap_or(&1));
 		}
 		Difficulty { num: d }
 	}
@@ -299,7 +299,7 @@ impl Div<Difficulty> for Difficulty {
 	fn div(self, other: Difficulty) -> Difficulty {
 		let mut d = DifficultyNumber::number(0);
 		for (algo, v) in &self.num {
-			d.insert(*algo, v / *other.num.get(algo).unwrap_or(&0));
+			d.insert(*algo, v / *other.num.get(algo).unwrap_or(&1));
 		}
 		Difficulty { num: d }
 	}

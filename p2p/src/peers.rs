@@ -222,10 +222,7 @@ impl Peers {
 
 		let mut max_peers = peers
 			.into_iter()
-			.filter(|x| {
-				x.info.total_difficulty().to_num(PoWType::Cuckatoo)
-					== max_total_difficulty.to_num(PoWType::Cuckatoo)
-			})
+			.filter(|x| x.info.total_difficulty() == max_total_difficulty)
 			.collect::<Vec<_>>();
 
 		max_peers.shuffle(&mut thread_rng());

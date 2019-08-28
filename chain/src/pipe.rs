@@ -613,8 +613,7 @@ fn update_head(b: &Block, ctx: &BlockContext<'_>) -> Result<Option<Tip>, Error> 
 
 // Whether the provided block totals more work than the chain tip
 fn has_more_work(header: &BlockHeader, head: &Tip) -> bool {
-	header.total_difficulty().to_num((&header.pow.proof).into())
-		> head.total_difficulty.to_num((&header.pow.proof).into())
+	header.total_difficulty() > head.total_difficulty
 }
 
 /// Update the sync head so we can keep syncing from where we left off.
