@@ -1,6 +1,6 @@
 [package]
 name = "epic"
-version = "1.5.0"
+version = "1.4.0"
 authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
@@ -31,7 +31,6 @@ log = "0.4"
 term = "0.5"
 failure = "0.1"
 failure_derive = "0.1"
-cursive = "0.11.0"
 
 epic_api = { path = "./api", version = "1.0.0" }
 epic_config = { path = "./config", version = "1.0.0" }
@@ -43,6 +42,13 @@ epic_util = { path = "./util", version = "1.0.0" }
 randomx = { path = "./randomx-rust", version="0.1.0" }
 progpow = { path = "./progpow-rust", version="0.1.0" }
 
+[target.'cfg(windows)'.dependencies]
+cursive = { version = "0.12", default-features = false, features = ["pancurses-backend"] }
+[target.'cfg(windows)'.dependencies.pancurses]
+version = "0.16.0"
+features = ["win32"]
+[target.'cfg(unix)'.dependencies]
+cursive = "0.12"
 
 [[test]]
 name = "cucumber"
