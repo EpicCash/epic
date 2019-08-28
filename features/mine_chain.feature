@@ -6,7 +6,23 @@ Scenario: test load output from foundation file
   Then I try to load the foundation on the height <2880> with commit <08a4d252df54161f98941ad7e35019eba87f536acc69ec9f7df5ec6e46453ff48c>
   Then I try to load the foundation on the height <4320> with commit <0805ec16b2278f8f833fd4f3ab9b095a069d38f17db14fb0b85d57e602d23c6c32>
 
-Scenario: test if the timestamps and difficulties are being collected right from the blockchain
+Scenario: test if the chain is selecting correct fork
+  Given I have the policy <0> with <cuckaroo> equals <0>
+  And I have the policy <0> with <randomx> equals <0>
+  And I have the policy <0> with <cuckatoo> equals <100>
+  And I setup all the policies
+  Given I have a <testing> chain
+  And I define my output dir as <.epic-coinbase>
+  And I add foundation wallet pubkeys
+  And I add a genesis block with coinbase and mined with <cuckatoo>
+  And I setup the chain for coinbase test
+  Then I add <6> blocks following the policy <0>
+  Then I make a fork on the height <2> with difficulty <20,25,10,32>
+  Then I add <2> blocks following the policy <0>
+  Then I negate a fork on the height <3> with difficulty <1,1,1,1>
+  Then I make a fork on the height <2> with difficulty <1,1,1000,1>
+
+Scenario: test the creation of buffers of blocks for the difficulty adjustment
   Given I have the policy <0> with <progpow> equals <38>
   And I have the policy <0> with <randomx> equals <60>
   And I have the policy <0> with <cuckatoo> equals <2>
@@ -41,9 +57,6 @@ Scenario: test if the timestamps and difficulties are being collected right from
   And I create a buffer of <6> <progpow> that I had to complete <0> blocks
   And I create a buffer of <5> <progpow> that I had to complete <0> blocks
   
-
-
-
 Scenario: test the multi difficulty adjustment with custom timestamps
   Given I have the policy <0> with <progpow> equals <38>
   Given I have the policy <0> with <randomx> equals <60>
