@@ -24,6 +24,7 @@ use cursive::Cursive;
 use crate::tui::constants::VIEW_BASIC_STATUS;
 use crate::tui::types::TUIStatusListener;
 
+use crate::core::pow::PoWType;
 use crate::servers::common::types::SyncStatus;
 use crate::servers::ServerStats;
 
@@ -238,6 +239,21 @@ impl TUIStatusListener for TUIStatusView {
 				(" ".to_string(), " ".to_string())
 			}
 		};*/
+
+		let cuckoo_diff = stats.head.total_difficulty.to_num(PoWType::Cuckatoo);
+		let progpow_diff = stats.head.total_difficulty.to_num(PoWType::ProgPow);
+		let randomx_diff = stats.head.total_difficulty.to_num(PoWType::RandomX);
+		let head_total_difficulty = format!(
+			"Cuckatoo: {}, ProgPow: {}, RandomX: {}",
+			cuckoo_diff, progpow_diff, randomx_diff,
+		);
+		let cuckoo_header_diff = stats.header_head.total_difficulty.to_num(PoWType::Cuckatoo);
+		let progpow_header_diff = stats.header_head.total_difficulty.to_num(PoWType::ProgPow);
+		let randomx_header_diff = stats.header_head.total_difficulty.to_num(PoWType::RandomX);
+		let header_total_difficulty = format!(
+			"Cuckatoo: {}, ProgPow: {}, RandomX: {}",
+			cuckoo_header_diff, progpow_header_diff, randomx_header_diff,
+		);
 		c.call_on_id("basic_current_status", |t: &mut TextView| {
 			t.set_content(basic_status);
 		});
@@ -251,7 +267,7 @@ impl TUIStatusListener for TUIStatusView {
 			t.set_content(stats.head.height.to_string());
 		});
 		c.call_on_id("basic_total_difficulty", |t: &mut TextView| {
-			t.set_content(stats.head.total_difficulty.to_string());
+			t.set_content(head_total_difficulty);
 		});
 		c.call_on_id("basic_header_tip_hash", |t: &mut TextView| {
 			t.set_content(stats.header_head.last_block_h.to_string() + "...");
@@ -260,7 +276,7 @@ impl TUIStatusListener for TUIStatusView {
 			t.set_content(stats.header_head.height.to_string());
 		});
 		c.call_on_id("basic_header_total_difficulty", |t: &mut TextView| {
-			t.set_content(stats.header_head.total_difficulty.to_string());
+			t.set_content(header_total_difficulty);
 		});
 		/*c.call_on_id("basic_mining_config_status", |t: &mut TextView| {
 			t.set_content(basic_mining_config_status);

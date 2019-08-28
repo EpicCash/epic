@@ -115,9 +115,9 @@ pub struct DiffStats {
 	/// Last WINDOW block data
 	pub last_blocks: Vec<DiffBlock>,
 	/// Average block time for last WINDOW blocks
-	pub average_block_time: u64,
+	pub average_block_time: String,
 	/// Average WINDOW difficulty
-	pub average_difficulty: u64,
+	pub average_difficulty: String,
 	/// WINDOW size
 	pub window_size: u64,
 }
@@ -193,12 +193,19 @@ impl PeerStats {
 			p2p::types::Direction::Inbound => "Inbound",
 			p2p::types::Direction::Outbound => "Outbound",
 		};
+		let mut total_diff: u64 = 0;
+		total_diff =
+			total_diff.saturating_add(peer.info.total_difficulty().to_num(PoWType::Cuckatoo));
+		total_diff =
+			total_diff.saturating_add(peer.info.total_difficulty().to_num(PoWType::ProgPow));
+		total_diff =
+			total_diff.saturating_add(peer.info.total_difficulty().to_num(PoWType::RandomX));
 		PeerStats {
 			state: state.to_string(),
 			addr: addr,
 			version: peer.info.version,
 			user_agent: peer.info.user_agent.clone(),
-			total_difficulty: peer.info.total_difficulty().to_num(PoWType::Cuckatoo),
+			total_difficulty: total_diff,
 			height: peer.info.height(),
 			direction: direction.to_string(),
 			last_seen: peer.info.last_seen(),

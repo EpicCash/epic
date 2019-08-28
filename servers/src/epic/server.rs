@@ -543,14 +543,34 @@ impl Server {
 					}
 				})
 				.collect();
-
-			let block_time_sum = diff_entries.iter().fold(0, |sum, t| sum + t.duration);
-			let block_diff_sum = diff_entries.iter().fold(0, |sum, d| sum + d.difficulty);
+			let mut block_cuckatoo: Vec<DiffBlock> = Vec::new();
+			let mut block_randomx: Vec<DiffBlock> = Vec::new();
+			let mut block_progpow: Vec<DiffBlock> = Vec::new();
+			for diff_block in &diff_entries {
+				match diff_block.algorithm.as_str() {
+					"Cuckatoo" => block_cuckatoo.push(diff_block.clone()),
+					"RandomX" => block_randomx.push(diff_block.clone()),
+					"Progpow" => block_progpow.push(diff_block.clone()),
+					_ => (),
+				};
+			}
+			let (cuckatoo_avg_time, cuckatoo_avg_diff) =
+				get_difficulty_info_average(block_cuckatoo);
+			let (progpow_avg_time, progpow_avg_diff) = get_difficulty_info_average(block_progpow);
+			let (randomx_avg_time, randomx_avg_diff) = get_difficulty_info_average(block_randomx);
+			let avg_block_time = format!(
+				"Cuckatoo: {} secs, ProgPow: {} secs, RandomX: {} secs",
+				cuckatoo_avg_time, progpow_avg_time, randomx_avg_time
+			);
+			let avg_block_difficulty = format!(
+				"Cuckatoo: {}, ProgPow: {}, RandomX: {}",
+				cuckatoo_avg_diff, progpow_avg_diff, randomx_avg_diff
+			);
 			DiffStats {
 				height: height as u64,
 				last_blocks: diff_entries,
-				average_block_time: block_time_sum / (100 - 1),
-				average_difficulty: block_diff_sum / (100 - 1),
+				average_block_time: avg_block_time,
+				average_difficulty: avg_block_difficulty,
 				window_size: 100,
 			}
 		};
@@ -625,5 +645,19 @@ impl Server {
 	pub fn stop_test_miner(&self, stop: Arc<StopState>) {
 		stop.stop();
 		info!("stop_test_miner - stop",);
+	}
+}
+
+fn get_difficulty_info_average(diff_entries: Vec<DiffBlock>) -> (String, String) {
+	let num_elements = diff_entries.len() as u64;
+	if diff_entries.len() > 0 {
+		let block_time_sum: u64 = diff_entries.iter().fold(0, |sum, t| sum + t.duration);
+		let block_diff_sum: u64 = diff_entries.iter().fold(0, |sum, d| sum + d.difficulty);
+		(
+			format!("{}", block_time_sum / num_elements),
+			format!("{}", block_diff_sum / num_elements),
+		)
+	} else {
+		("NaN".to_owned(), "NaN".to_owned())
 	}
 }
