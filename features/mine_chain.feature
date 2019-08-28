@@ -1,5 +1,21 @@
 Feature: Mine a simple chain
 
+Scenario: test if the chain is selecting correct fork
+  Given I have the policy <0> with <cuckaroo> equals <0>
+  And I have the policy <0> with <randomx> equals <0>
+  And I have the policy <0> with <cuckatoo> equals <100>
+  And I setup all the policies
+  Given I have a <testing> chain
+  And I define my output dir as <.epic-coinbase>
+  And I add foundation wallet pubkeys
+  And I add a genesis block with coinbase and mined with <cuckatoo>
+  And I setup the chain for coinbase test
+  Then I add <6> blocks following the policy <0>
+  Then I make a fork on the height <2> with difficulty <20,25,10,32>
+  Then I add <2> blocks following the policy <0>
+  Then I negate a fork on the height <3> with difficulty <1,1,1,1>
+  Then I make a fork on the height <2> with difficulty <1,1,1000,1>
+
 Scenario: test if the timestamps and difficulties are being collected right from the blockchain
   Given I have the policy <0> with <progpow> equals <38>
   And I have the policy <0> with <randomx> equals <60>
