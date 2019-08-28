@@ -257,7 +257,7 @@ mod mine_chain {
 
 			for i in 0..num {
 				let prev = chain.head_header().unwrap();
-				let block = prepare_block(kc, &prev, &chain, height + i);
+				let block = prepare_block(kc, &prev, &chain, prev.height + 1);
 				chain.process_block(block, chain::Options::SKIP_POW).unwrap();
 			};
 		};
@@ -1111,7 +1111,7 @@ mod mine_chain {
 				if data_vector[i].prev_timespan == 0 {
 					had_to_complete = true;
 					// if the second element is a fake block, this is the first block of that algo
-					if (data_vector.len() - 2) == i { 
+					if (data_vector.len() - 2) == i {
 						is_genesis = true;
 					}
 				}
@@ -1200,7 +1200,6 @@ mod mine_chain {
 			let last_height = block.header.height;
 			let block_result = chain.process_block(block, chain::Options::SKIP_POW).unwrap();
 			let header = chain.head_header().unwrap();
-	
 			assert!(block_result.is_some());
 			assert_eq!(header.height, last_height);
 		};
@@ -1592,7 +1591,9 @@ mod mine_chain {
 		seed.copy_from_slice(&hash.as_bytes()[0..32]);
 
 		let proof_size = global::proofsize();
-		let key_id = epic_keychain::ExtKeychainPath::new(1, diff.to_num(FType::Cuckatoo) as u32, 0, 0, 0).to_identifier();
+		let key_id =
+			epic_keychain::ExtKeychainPath::new(1, diff.to_num(FType::Cuckatoo) as u32, 0, 0, 0)
+				.to_identifier();
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
 		let reward = libtx::reward::output(kc, &key_id, fees, false, prev.height + 1).unwrap();
 		let mut b = match core::core::Block::new(
