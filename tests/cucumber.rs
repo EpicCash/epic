@@ -1198,7 +1198,6 @@ mod mine_chain {
 			let last_height = block.header.height;
 			let block_result = chain.process_block(block, chain::Options::SKIP_POW).unwrap();
 			let header = chain.head_header().unwrap();
-	
 			assert!(block_result.is_some());
 			assert_eq!(header.height, last_height);
 		};
@@ -1590,7 +1589,9 @@ mod mine_chain {
 		seed.copy_from_slice(&hash.as_bytes()[0..32]);
 
 		let proof_size = global::proofsize();
-		let key_id = epic_keychain::ExtKeychainPath::new(1, diff.to_num(FType::Cuckatoo) as u32, 0, 0, 0).to_identifier();
+		let key_id =
+			epic_keychain::ExtKeychainPath::new(1, diff.to_num(FType::Cuckatoo) as u32, 0, 0, 0)
+				.to_identifier();
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
 		let reward = libtx::reward::output(kc, &key_id, fees, false, prev.height + 1).unwrap();
 		let mut b = match core::core::Block::new(
