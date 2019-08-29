@@ -550,7 +550,7 @@ impl Server {
 				match diff_block.algorithm.as_str() {
 					"Cuckatoo" => block_cuckatoo.push(diff_block.clone()),
 					"RandomX" => block_randomx.push(diff_block.clone()),
-					"Progpow" => block_progpow.push(diff_block.clone()),
+					"ProgPow" => block_progpow.push(diff_block.clone()),
 					_ => (),
 				};
 			}
