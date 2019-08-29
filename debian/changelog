@@ -1,3 +1,74 @@
+epic (1.6.0-1) bionic; urgency=medium
+
+  [ Aron Castro ]
+  * Fix test for accept pow
+
+  [ Leonardo Viana ]
+  * Change the timestamp computation
+  * Improve the readability of cucumber tests
+  * Remove unnecessary prints
+
+  [ Aron Castro ]
+  * Generate new timestamp for each job
+
+  [ Leonardo Viana ]
+  * Fix some tests
+  * Decrease the control constant of progpow
+  * Increase header version to 4
+
+  [ Aron Castro ]
+  * Fix node sending double jobs for miner
+  * Fix load fundation in the windows
+  * Fix cursive for windows and foundation path
+  * Add tests for load foundation file
+
+  [ Leonardo Viana ]
+  * Fix mining duration time in TUI
+  * Update the foundation rewards
+  * Add assert to invalid heights
+  * Fix more display errors in the TUI
+  * Update foundation.json
+  * Fix genesis test
+
+  [ Aron Castro ]
+  * Fix select fork with difficulty
+
+  [ Leonardo Viana ]
+  * Fix infinite loop in the cucumber test
+
+  [ Aron Castro ]
+  * Add tests for fork based in the difficulty
+
+  [ Leonardo Viana ]
+  * Fix some cucumber errors
+
+  [ Aron Castro ]
+  * Add scripts for windows installer
+  * Update progpow and randomx version
+  * Fix installer version
+  * Fix select fork with difficulty
+
+  [ Leonardo Viana ]
+  * Fix infinite loop in the cucumber test
+
+  [ Aron Castro ]
+  * Add tests for fork based in the difficulty
+
+  [ Leonardo Viana ]
+  * Fix some cucumber errors
+
+  [ Aron Castro ]
+  * Add current difficulty in the job template
+  * Change develop version
+
+  [ Leonardo Viana ]
+  * Fix ProgPow average not being displayed
+
+  [ Aron Castro ]
+  * Fix tests with invalid pow
+
+ -- Ubuntu <ubuntu@ip-172-31-16-240.ec2.internal>  Thu, 29 Aug 2019 16:03:38 +0000
+
 epic (1.5.0-1) bionic; urgency=medium
 
   [ Yuri Albuquerque ]
