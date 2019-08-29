@@ -257,7 +257,7 @@ mod mine_chain {
 
 			for i in 0..num {
 				let prev = chain.head_header().unwrap();
-				let block = prepare_block(kc, &prev, &chain, height + i);
+				let block = prepare_block(kc, &prev, &chain, prev.height + 1);
 				chain.process_block(block, chain::Options::SKIP_POW).unwrap();
 			};
 		};
@@ -277,7 +277,7 @@ mod mine_chain {
 			let mut prev = forked_block;
 
 			for i in 1..(n+1) {
-				let block = prepare_fork_block(kc, &prev, &chain, 2 * i + height);
+				let block = prepare_fork_block(kc, &prev, &chain, Difficulty::from_num(2 * i + height));
 				prev = block.header.clone();
 				chain.process_block(block, chain::Options::SKIP_POW).unwrap();
 			};
@@ -491,7 +491,7 @@ mod mine_chain {
 				.is_err());
 
 			// make the fork win
-			let fork_next = prepare_fork_block(kc, &prev_fork, &chain, 10);
+			let fork_next = prepare_fork_block(kc, &prev_fork, &chain, Difficulty::from_num(10));
 			let prev_fork = fork_next.header.clone();
 			chain
 				.process_block(fork_next, chain::Options::SKIP_POW)
@@ -1166,6 +1166,76 @@ mod mine_chain {
 			let target_comment = format!("{:?}", cb_data.output.commitment());
 			assert_eq!(format!("Commitment({})", commit), target_comment);
 		};
+
+		then regex "I make a fork on the height <([0-9]+)> with difficulty <([0-9]+),([0-9]+),([0-9]+),([0-9]+)>" |world, matches, _step| {
+			let height: u64 = matches[1].parse().unwrap();
+
+			let progpow_difficulty = matches[2].parse().unwrap();
+			let randomx_difficulty = matches[3].parse().unwrap();
+			let cuckatoo_difficulty = matches[4].parse().unwrap();
+			let cuckaroo_difficulty = matches[5].parse().unwrap();
+
+			let mut diff = Difficulty::from_num(1);
+			diff.num.insert(FType::ProgPow, progpow_difficulty);
+			diff.num.insert(FType::RandomX, randomx_difficulty);
+			diff.num.insert(FType::Cuckatoo, cuckatoo_difficulty);
+			diff.num.insert(FType::Cuckaroo, cuckaroo_difficulty);
+
+			let chain = world.chain.as_ref().unwrap();
+			let prev = chain.get_header_by_height(height).unwrap();
+			let kc = world.keychain.as_ref().unwrap();
+			let header = chain.head_header().unwrap();
+			let emitted_policy = 0;
+
+			let mut block = prepare_fork_block(kc, &prev, &chain, diff);
+			let policy = get_policies(emitted_policy).unwrap();
+			let cursor = chain.bottles_iter(emitted_policy).unwrap();
+			let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
+			block.header.bottles = bottles;
+			block.header.pow.proof = get_pow_type(&algo, prev.height);
+			block.header.policy = emitted_policy;
+
+			let last_height = block.header.height;
+			let block_result = chain.process_block(block, chain::Options::SKIP_POW).unwrap();
+			let header = chain.head_header().unwrap();
+			assert!(block_result.is_some());
+			assert_eq!(header.height, last_height);
+		};
+
+		then regex "I negate a fork on the height <([0-9]+)> with difficulty <([0-9]+),([0-9]+),([0-9]+),([0-9]+)>" |world, matches, _step| {
+			let height: u64 = matches[1].parse().unwrap();
+
+			let progpow_difficulty = matches[2].parse().unwrap();
+			let randomx_difficulty = matches[3].parse().unwrap();
+			let cuckatoo_difficulty = matches[4].parse().unwrap();
+			let cuckaroo_difficulty = matches[5].parse().unwrap();
+
+			let mut diff = Difficulty::from_num(1);
+			diff.num.insert(FType::ProgPow, progpow_difficulty);
+			diff.num.insert(FType::RandomX, randomx_difficulty);
+			diff.num.insert(FType::Cuckatoo, cuckatoo_difficulty);
+			diff.num.insert(FType::Cuckaroo, cuckaroo_difficulty);
+
+			let chain = world.chain.as_ref().unwrap();
+			let kc = world.keychain.as_ref().unwrap();
+			let header = chain.head_header().unwrap();
+			let prev = chain.get_header_by_height(height).unwrap();
+			let emitted_policy = 0;
+
+			let mut block = prepare_fork_block(kc, &prev, &chain, diff);
+			let policy = get_policies(emitted_policy).unwrap();
+			let cursor = chain.bottles_iter(emitted_policy).unwrap();
+			let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
+			block.header.bottles = bottles;
+			block.header.pow.proof = get_pow_type(&algo, prev.height);
+			block.header.policy = emitted_policy;
+
+			let block_result = chain.process_block(block, chain::Options::SKIP_POW).unwrap();
+			let chain_header = chain.head_header().unwrap();
+
+			assert!(block_result.is_none());
+			assert_eq!(header.height, chain_header.height);
+		};
 	});
 
 	fn difficulty_to_timespan(algo: &FType, difficulty: &Difficulty, height: u64) -> u64 {
@@ -1446,12 +1516,12 @@ mod mine_chain {
 			.read()
 			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 			.unwrap();
-		let mut b = prepare_block_nosum(kc, prev, diff, vec![], hash);
+		let mut b = prepare_block_nosum(kc, prev, Difficulty::from_num(diff), vec![], hash);
 		chain.set_txhashset_roots(&mut b).unwrap();
 		b
 	}
 
-	fn prepare_fork_block<K>(kc: &K, prev: &BlockHeader, chain: &Chain, diff: u64) -> Block
+	fn prepare_fork_block<K>(kc: &K, prev: &BlockHeader, chain: &Chain, diff: Difficulty) -> Block
 	where
 		K: Keychain,
 	{
@@ -1480,7 +1550,7 @@ mod mine_chain {
 			.read()
 			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 			.unwrap();
-		let mut b = prepare_block_nosum(kc, prev, diff, txs, hash);
+		let mut b = prepare_block_nosum(kc, prev, Difficulty::from_num(diff), txs, hash);
 		chain.set_txhashset_roots(&mut b).unwrap();
 		b
 	}
@@ -1500,7 +1570,7 @@ mod mine_chain {
 			.read()
 			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 			.unwrap();
-		let mut b = prepare_block_nosum(kc, prev, diff, txs, hash);
+		let mut b = prepare_block_nosum(kc, prev, Difficulty::from_num(diff), txs, hash);
 		chain.set_txhashset_roots_forked(&mut b, prev).unwrap();
 		b
 	}
@@ -1508,7 +1578,7 @@ mod mine_chain {
 	fn prepare_block_nosum<K>(
 		kc: &K,
 		prev: &BlockHeader,
-		diff: u64,
+		diff: Difficulty,
 		txs: Vec<&Transaction>,
 		hash: Hash,
 	) -> Block
@@ -1519,20 +1589,22 @@ mod mine_chain {
 		seed.copy_from_slice(&hash.as_bytes()[0..32]);
 
 		let proof_size = global::proofsize();
-		let key_id = epic_keychain::ExtKeychainPath::new(1, diff as u32, 0, 0, 0).to_identifier();
+		let key_id =
+			epic_keychain::ExtKeychainPath::new(1, diff.to_num(FType::Cuckatoo) as u32, 0, 0, 0)
+				.to_identifier();
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
 		let reward = libtx::reward::output(kc, &key_id, fees, false, prev.height + 1).unwrap();
 		let mut b = match core::core::Block::new(
 			prev,
 			txs.into_iter().cloned().collect(),
-			Difficulty::from_num(diff),
+			diff.clone(),
 			reward,
 		) {
 			Err(e) => panic!("{:?}", e),
 			Ok(b) => b,
 		};
 		b.header.timestamp = prev.timestamp + Duration::seconds(60);
-		b.header.pow.total_difficulty = prev.total_difficulty() + Difficulty::from_num(diff);
+		b.header.pow.total_difficulty = prev.total_difficulty() + diff;
 		b.header.pow.proof = pow::Proof::random(proof_size);
 		b.header.pow.seed = seed;
 		b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles);
