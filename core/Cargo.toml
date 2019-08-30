@@ -31,6 +31,7 @@ chrono = { version = "0.4.4", features = ["serde"] }
 md5 = "0.6.1"
 bigint = "4.4.1"
 keccak-hash = "0.2.0"
+sha2 = "0.8.0"
 
 epic_keychain = { path = "../keychain", version = "1.0.0" }
 epic_util = { path = "../util", version = "1.0.0" }

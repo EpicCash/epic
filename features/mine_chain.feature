@@ -1,5 +1,8 @@
 Feature: Mine a simple chain
 
+Scenario: test if the foundation.json is valid
+  Given I test the sha256 checksum
+
 Scenario: test load output from foundation file
   Given The file foundation <./tests/assets/foundation.json>
   Then I try to load the foundation on the height <1440> with commit <096b43c9245a1181bd81b7765df868ad9f4c8512f67f5c48f6518dcd150ef072bc>
