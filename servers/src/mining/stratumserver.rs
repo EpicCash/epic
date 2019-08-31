@@ -705,6 +705,10 @@ impl Handler {
 					let latest_hash = head.last_block_h;
 					let clear_blocks = current_hash != latest_hash;
 
+					if head.total_difficulty > new_block.header.total_difficulty() {
+						continue;
+					}
+
 					state.current_difficulty = (new_block.header.total_difficulty()
 						- head.total_difficulty)
 						.num
