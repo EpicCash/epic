@@ -109,6 +109,13 @@ impl Server {
 			"The foundation.json is being read from {:?}",
 			global::get_foundation_path().unwrap()
 		);
+		let hash_to_compare = global::FOUNDATION_JSON_SHA256;
+		let hash = global::get_file_sha256(global::get_foundation_path().unwrap().as_str());
+		if hash.as_str() != hash_to_compare {
+			error!("Invalid {} file!\nThe sha256 of this file should be: {}\nCheck if the file was not changed!", global::get_foundation_path().unwrap(), hash_to_compare);
+			error!("Closing the application!");
+			std::process::exit(1);
+		}
 		let mining_config = config.stratum_mining_config.clone();
 		let enable_test_miner = config.run_test_miner;
 		let test_miner_wallet_url = config.test_miner_wallet_url.clone();

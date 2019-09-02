@@ -29,8 +29,10 @@ use crate::pow::{self, new_cuckaroo_ctx, new_cuckatoo_ctx, EdgeType, PoWContext}
 /// different sets of parameters for different purposes,
 /// e.g. CI, User testing, production values
 use crate::util::RwLock;
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::env;
+use std::fs::File;
 use std::path::Path;
 /// Define these here, as they should be developer-set, not really tweakable
 /// by users
@@ -89,6 +91,9 @@ pub const PEER_EXPIRATION_REMOVE_TIME: i64 = PEER_EXPIRATION_DAYS * 24 * 3600;
 pub const COMPACTION_CHECK: u64 = DAY_HEIGHT;
 
 pub const CURRENT_HEADER_VERSION: u16 = 4;
+
+pub const FOUNDATION_JSON_SHA256: &str =
+	"505fc8d2cdf3213830de8d0e1b1800ec05ba8682174753538fc3234dc91624a8";
 
 /// Types of chain a server can run with, dictates the genesis block and
 /// and mining parameters used.
@@ -491,4 +496,24 @@ impl Version {
 			version_minor,
 		}
 	}
+}
+
+pub fn get_file_sha256(path: &str) -> String {
+	let mut file = File::open(path).expect(
+		format!(
+			"Error trying to read the foundation.json. Couldn't find/open the file {}!",
+			path
+		)
+		.as_str(),
+	);
+	let mut sha256 = Sha256::new();
+	std::io::copy(&mut file, &mut sha256).expect(
+		format!(
+			"Error trying to read the foundation.json. Couldn't find/open the file {}!",
+			path
+		)
+		.as_str(),
+	);
+	let hash = sha256.result();
+	format!("{:x}", hash)
 }

@@ -1240,6 +1240,12 @@ mod mine_chain {
 			assert!(block_result.is_none());
 			assert_eq!(header.height, chain_header.height);
 		};
+
+		given "I test the sha256 checksum" |_world, _step| {
+			let hash = global::get_file_sha256("./debian/foundation.json");
+			println!("Foundation.json Hash: {}", hash);
+			assert_eq!(hash.as_str(), global::FOUNDATION_JSON_SHA256);
+		};
 	});
 
 	fn difficulty_to_timespan(algo: &FType, difficulty: &Difficulty, height: u64) -> u64 {
