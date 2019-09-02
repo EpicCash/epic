@@ -118,8 +118,8 @@ pub fn genesis_main() -> core::Block {
 
 	diff.insert(PoWType::Cuckaroo, 2_u64.pow(2));
 	diff.insert(PoWType::Cuckatoo, 2_u64.pow(14));
-	diff.insert(PoWType::RandomX, 2_u64.pow(13));
-	diff.insert(PoWType::ProgPow, 2_u64.pow(27));
+	diff.insert(PoWType::RandomX, 2_u64.pow(22));
+	diff.insert(PoWType::ProgPow, 2_u64.pow(30));
 
 	core::Block::with_header(core::BlockHeader {
 		height: 0,
