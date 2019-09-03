@@ -11,15 +11,15 @@ Epic Cash is an in-progress implementation of the MimbleWimble protocol. Epic Ca
   * Transaction fees are based on the number of Outputs created/destroyed and total transaction size.
   * Smooth curve for difficulty adjustments.
 
-
 ## Status
 
-Epic is live with testnet. 
+Epic is live with mainnet.
+
 ## Getting Started
 
 To build and try out Epic, see the [build docs](doc/build.md).
 
-To run the Testnet, see the tutorial of [how to run the test net](doc/running.org).
+To run the Epic Cash blockchain on Linux distributions, see the tutorial of [How to run the Epic Cash blockchain on Linux](doc/running.org).
 
 ## Credits
 

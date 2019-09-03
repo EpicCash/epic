@@ -1,12 +1,12 @@
-#+TITLE: Epic Testnet
+#+TITLE: Epic Cash
 #+OPTIONS: ^:nil
 
 * Introduction
 
-This document describes how to run each of the elements of the testnet
-for the Epic blockchain.
+This document describes how to run each of the elements of the Epic
+blockchain for Linux distributions.
 
-There are three cases that you can do with testnet. 
+There are three different cases that you can run the Epic Cash blockchain: 
 - [[#server][Running only the server]].
 - [[#wallet_server][Running the server and the wallet.]]
 - [[#miner_wallet_server][Running the server, the wallet and the miner]].
@@ -25,11 +25,9 @@ with an epic wallet listening to it and an epic miner.
 
 For now, these are the supported platforms:
 
-- Linux x86_64 [epic + mining + wallet + development].
-  - We have a dpkg for Ubuntu
+- Linux x86_64 (dpkg for Ubuntu)
 - MacOS (no package yet)
-
-We plan to add support for Windows soon.
+- Windows (precompiled binaries)
 
 * Requirements
    
@@ -43,7 +41,7 @@ Before installing the epic components (server, wallet, miner), we need
 to install the libRandomX dependency. The following steps explain how
 to install this dependency:
 
-1. Download the latest version of the *librandomx* package [[https://internal.brickabode.com/edna/epic-packages.html][here]].
+1. Download the latest version of the *librandomx* package [[https://epic.tech/downloads/][here]].
 
 2. In the terminal, navigate to the directory where you downloaded the
    .deb file and execute the following command changing the argument
@@ -160,7 +158,7 @@ Epic Server]].
 ** Installation
 The following steps explain how to install and run the epic-wallet:
 
-1. Download the latest version of the *epic-wallet* package [[https://internal.brickabode.com/edna/epic-packages.html][here]].
+1. Download the latest version of the *epic-wallet* package [[https://epic.tech/downloads/][here]].
 
 2. Open a new terminal window and navigate to the directory where you
    downloaded the .deb file and execute the following command changing
@@ -392,7 +390,7 @@ You should see an output like this:
    The following steps explain how to install and run the epic-miner.
 
    1. Download the latest version of the desired *epic-miner* package
-      [[https://internal.brickabode.com/edna/epic-packages.html][here]]:
+      [[https://epic.tech/downloads/][here]]:
 
    2. Open a new terminal window and navigate to the directory where you
       downloaded the .deb file and execute the following command changing
