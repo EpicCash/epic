@@ -4,7 +4,7 @@
 * Introduction
 
 This document describes how to run each of the elements of the Epic
-blockchain for Linux distributions.
+blockchain on Linux distributions.
 
 There are three different cases that you can run the Epic Cash blockchain: 
 - [[#server][Running only the server]].
@@ -65,7 +65,7 @@ section we explain how to install and setup your epic server.
 
 The following steps explain how to install and run the epic server:
 
-1. Download the latest version of the *epic* package [[https://internal.brickabode.com/edna/epic-packages.html][here]].
+1. Download the latest version of the *epic* package [[https://epic.tech/downloads/][here]].
 
 2. In the terminal, navigate to the directory where you downloaded the
    .deb file and execute the following command changing the argument
