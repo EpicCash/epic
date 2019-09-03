@@ -21,6 +21,8 @@ To build and try out Epic, see the [build docs](doc/build.md).
 
 To run the Epic Cash blockchain on Linux distributions, see the tutorial of [How to run the Epic Cash blockchain on Linux](doc/running.org).
 
+To run the Epic Cash blockchain on windows, see the tutorial of [How to run the Epic Cash blockchain on Windows](doc/windows.org).
+
 ## Credits
 
 Tom Elvis Jedusor for the first formulation of MimbleWimble.
