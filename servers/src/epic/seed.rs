@@ -34,9 +34,9 @@ use crate::util::StopState;
 
 // DNS Seeds with contact email associated
 const MAINNET_DNS_SEEDS: &'static [&'static str] =
-	&["54.233.177.64.xip.io", "3.218.126.145.xip.io"];
+	&["ec2-54-233-177-64.sa-east-1.compute.amazonaws.com", "ec2-3-218-126-145.compute-1.amazonaws.com"];
 const FLOONET_DNS_SEEDS: &'static [&'static str] =
-	&["18.228.59.100.xip.io", "54.167.215.66.xip.io"];
+	&["ec2-18-228-59-100.sa-east-1.compute.amazonaws.com", "ec2-54-167-215-66.compute-1.amazonaws.com"];
 
 pub fn connect_and_monitor(
 	p2p_server: Arc<p2p::Server>,
