@@ -1,10 +1,10 @@
-#+TITLE: Epic Cash on Linux
+#+TITLE: Epic Cash on Windows
 #+OPTIONS: ^:nil
 
 * Introduction
 
 This document describes how to run each of the elements of the Epic
-blockchain on Linux distributions.
+blockchain on Windows.
 
 There are three different cases that you can run the Epic Cash blockchain: 
 - [[#server][Running only the server]].
@@ -29,28 +29,6 @@ For now, these are the supported platforms:
 - MacOS (no package yet)
 - Windows (precompiled binaries)
 
-* Requirements
-   
-    #+begin_src shell
-      sudo apt install libncurses5 libncursesw5 zlib1g openssl
-    #+end_src
-
-** LibRandomX
-
-Before installing the epic components (server, wallet, miner), we need
-to install the libRandomX dependency. The following steps explain how
-to install this dependency:
-
-1. Download the latest version of the *librandomx* package [[https://epic.tech/downloads/][here]].
-
-2. In the terminal, navigate to the directory where you downloaded the
-   .deb file and execute the following command changing the argument
-   <your-librandomX.deb> to the name of your downloaded file:
-
-    #+begin_src shell
-      sudo dpkg -i <your-librandomX.deb>
-    #+end_src
-#+ATTR_HTML: :id server
 * Server
   :PROPERTIES:
   :CUSTOM_ID: server
@@ -65,15 +43,9 @@ section we explain how to install and setup your epic server.
 
 The following steps explain how to install and run the epic server:
 
-1. Download the latest version of the *epic* package [[https://epic.tech/downloads/][here]].
+1. Download the latest version of the *epic* server for windows [[https://epic.tech/downloads/][here]].
 
-2. In the terminal, navigate to the directory where you downloaded the
-   .deb file and execute the following command changing the argument
-   <your-epic-server.deb> to the name of your downloaded file:
-
-    #+begin_src shell
-      sudo dpkg -i <your-epic-server.deb>
-    #+end_src
+2. Unpack the zip file.
 
 #+ATTR_HTML: :id run_epic
 ** Running the Epic Server
@@ -81,11 +53,7 @@ The following steps explain how to install and run the epic server:
   :CUSTOM_ID: run_epic
   :END:
 After you finished the installation, you can run it by executing the
-following command in the terminal:
-
-    #+begin_src shell
-      epic
-    #+end_src
+epic.exe file.
 
 *If you are running the epic server for the first time, it will use*
 *its [[#epic_config_default][default configuration]]. If you want to save all epic server data*
@@ -111,12 +79,13 @@ quit the epic server.
   :END:
 
 By default, the epic server keeps all of its configuration files and
-data in the ~~/.epic~ directory under your user home. The main server
-configuration file can be found in the file
-~~/.epic/main/epic-server.toml~. This file is fully documented and
-contains many configuration options for your Epic server. Leaving
-these values at their defaults should work for most people who simply
-want to run a node.
+data in the ~C:/Users/<YOUR_USERNAME>/.epic/main~ directory. The main
+server configuration file can be found in the file
+~C:/Users/<YOUR_USERNAME>/.epic/main/epic-server.toml~. This file is
+fully documented and contains many configuration options for your Epic
+server. Leaving these values at their defaults should work for most
+people who simply want to run a node.
+
 #+ATTR_HTML: :id epic_config_custom
 *** Configuring a Custom Directory
   :PROPERTIES:
@@ -124,20 +93,18 @@ want to run a node.
   :END:
 
 You can also keep Epic's data and configuration files in a custom
-directory. In the terminal, navigate to the directory in which you
-want Epic to store its files and run:
+directory. In the terminal (cmd), navigate to the directory in which you
+epic.exe is and run:
 
     #+begin_src shell
-      epic server config
+      epic.exe server config
     #+end_src
     
 This will create an ~epic-server.toml~ file in the current directory
 that is configured to place its data files in the same
-directory. *The* *epic command will always check the current directory
-for an* *~epic-server.toml~ file, and if one is found it will use it
-instead of* *~~/.epic/main/epic-server.toml~.* Therefore, we always
-have to navigate to the custom directory before running the
-epic server.
+directory. *The* *epic.exe will always check the current directory for
+an* *~epic-server.toml~ file, and if one is found it will use it
+instead of* *~C:/Users/<YOUR_USERNAME>/.epic/main/epic-server.toml~.*
 
 #+ATTR_HTML: :id wallet_server
 * Wallet + Server
@@ -158,16 +125,14 @@ Epic Server]].
 ** Installation
 The following steps explain how to install and run the epic-wallet:
 
-1. Download the latest version of the *epic-wallet* package [[https://epic.tech/downloads/][here]].
+1. Download the latest version of the *epic-wallet* for windows [[https://epic.tech/downloads/][here]].
 
-2. Open a new terminal window and navigate to the directory where you
-   downloaded the .deb file and execute the following command changing
-   the argument <your-epic-wallet.deb> to the name of your downloaded
-   file:
-
-    #+begin_src shell
-      sudo dpkg -i <your-epic-wallet.deb>
-    #+end_src
+2. Unpack the downloaded .zip file. Since the wallet doesn't have a
+   TUI (TEXT USER INTERFACE), you will need to run it by the command
+   prompt (cmd). You can found more information about how to run the
+   command prompt on windows [[https://www.lifewire.com/how-to-open-command-prompt-2618089][here]] and how to navigate between folder
+   can be found [[https://www.digitalcitizen.life/command-prompt-how-use-basic-commands][here]].
+   
 
 #+ATTR_HTML: :id init_wallet
 ** Initialize the Wallet
@@ -176,11 +141,11 @@ The following steps explain how to install and run the epic-wallet:
   :END:    
 Before you can use the Epic wallet, it must be initialized. This
 process will initialize your wallet's database and create your secret
-master seed file. For this, we need to run the following command in
-the terminal:
+master seed file. For this, open the cmd and navigate to the folder
+where you extracted the epic-wallet and execute the following command:
 
     #+begin_src shell
-      epic-wallet init
+      epic-wallet.exe init
     #+end_src
     
 You will then be prompted to enter a password. This password will be
@@ -202,24 +167,26 @@ this phrase down using a pen and paper and keep it somewhere safe,
 since anyone who has this phrase can control all of your funds:
 
 Your wallet's configuration file is located at
-~~/.epic/main/epic-wallet.toml~. You can change the default node address,
-default listener ports and many more options by editing this file.
+~C:/Users/<YOUR_USERNAME>/.epic/main/epic-wallet.toml~. You can change
+the default node address, default listener ports and many more options
+by editing this file.
 
 ** Initializing from a Custom Directory
 
 You can also keep epic wallet's data and configuration files in a
-custom directory. In the terminal, navigate to the directory in which
-you want Epic to store its files and run:
+custom directory. In the cmd, navigate to the directory in which
+you have the epic-wallet.exe and run:
 
     #+begin_src shell
-      epic-wallet init -h
+      epic-wallet.exe init -h
     #+end_src
     
 This will create an ~epic-wallet.toml~ file in the current directory that
 is configured to place its data files in the same directory. The
-epic-wallet command will always check the current directory for a
+epic-wallet executable will always check the current directory for a
 ~epic-wallet.toml~ file, and if one is found it will use it instead of
-~~/.epic/main/epic-wallet.toml~.
+~C:/Users/<YOUR_USERNAME>/.epic/main/epic-wallet.toml~.
+
 #+ATTR_HTML: :id run_wallet
 ** Running the wallet API
   :PROPERTIES:
@@ -228,10 +195,10 @@ epic-wallet command will always check the current directory for a
 Once you have initialized the wallet, we need to execute it in listen
 mode to be able to make transactions. With your [[#run_epic][epic server running]],
 to execute the epic-wallet in listen mode, run the following command
-in a new terminal window:
+in the cmd:
 
     #+begin_src shell
-      epic-wallet -e listen
+      epic-wallet.exe -e listen
     #+end_src
 
 You will be prompted to enter your wallet password. After you have
@@ -242,7 +209,7 @@ inserted it, the wallet will start to listen for requests.
 To check your contents of your wallet, use the info command:
 
  #+begin_src shell
-   epic-wallet info
+   epic-wallet.exe info
  #+end_src
 
 You should see an output like this:
@@ -356,51 +323,26 @@ You should see an output like this:
     series of other hardware). The general consensus is that if you
     have NVIDIA GPUs (that supports both CUDA and OpenCL), go with
     CUDA as it will generate better performance results. More
-    information regarding this can be found [[https://create.pro/blog/opencl-vs-cuda/][here]]
- 
-***  Prerequisites - OPENCL
-
-    If you want to mine using *OPENCL*, you have to install it
-    first. In Debian-based distributions (Debian, Ubuntu, Mint, etc.),
-    to install the it just run the following command in the terminal:
-
-    #+begin_src shell
-      sudo apt install ocl-icd-opencl-dev
-    #+end_src
-
-***  Prerequisites - CUDA
-    
-    If you want to mine using CUDA (which requires an NVIDIA GPU),
-    make sure that you have the latest NVIDIA drivers
-    installed. Besides that, you will need to have the Cuda toolkit 9+
-    installed (you can check if you have it installed by executing the
-    command in the terminal: nvcc --version).
+    information regarding this can be found [[https://create.pro/blog/opencl-vs-cuda/][here]]. The CUDA executable
+    is currently not available for the windows.
      
 ** Installation
 
-   There are three different versions of the epic-miner package:
+   There are two different versions of the epic-miner executable for
+   windows:
 
      - If you want to mine using *only CPU* (basically RandomX) there
-       is the package called *epic-miner*
+       is the executable called *epic-miner*
      - If you want to mine using *GPU with OPENCL* there is the
        package called *epic-miner-opencl*
-     - If you want to mine using *GPU with CUDA* there is the
-       package called *epic-miner-cuda*
 
    The following steps explain how to install and run the epic-miner.
 
-   1. Download the latest version of the desired *epic-miner* package
+   1. Download the latest version of the desired *epic-miner* executable
       [[https://epic.tech/downloads/][here]]:
 
-   2. Open a new terminal window and navigate to the directory where you
-      downloaded the .deb file and execute the following command changing
-      the argument <your-epic-miner.deb> to the name of your downloaded
-      file:
-      #+begin_src shell
-	 sudo dpkg -i <your-epic-miner.deb>
-      #+end_src
+   2. Extract the downloaded .zip file.
 
-#+ATTR_HTML: :id config_miner_server
 
 #+ATTR_HTML: :id config_miner
 ** Configuring your epic-miner
@@ -409,12 +351,7 @@ You should see an output like this:
   :END:    
 
 To configure your miner, open the ~epic-miner.toml~ in the folder
-~/etc/~ with your text editor. The following terminal command shows how
-to open this file with the vim editor.
-
-    #+begin_src shell
-      sudo vim /etc/epic-miner.toml
-    #+end_src
+where you extracted the epic-miner files with a text editor. 
 
 With the ~epic-miner.toml~ opened, find the line:
 
@@ -516,20 +453,8 @@ following lines:
 In *plugin_name* you can specify what type of cuckoo algorithm you
 will be using. *The cuckaroo_29 is being deprecated, so the miner will
 not work if you use any of its variants (cuckaroo_cpu_avx2_29,
-cuckaroo_cpu_compat_29)*. To get all plugins available, execute the
-following command in the terminal:
-
-    #+begin_src shell
-      ls /opt/epic-miner/bin/plugins
-    #+end_src
-
-You will get something like this as output:
-
-    #+begin_src shell
-     cuckaroo_cpu_avx2_19.cuckooplugin    cuckatoo_lean_cpu_avx2_31.cuckooplugin    cuckatoo_mean_cpu_avx2_31.cuckooplugin
-     cuckaroo_cpu_compat_19.cuckooplugin  cuckatoo_lean_cpu_compat_19.cuckooplugin  cuckatoo_mean_cpu_compat_19.cuckooplugin
-     cuckatoo_mean_cpu_avx2_19.cuckooplugin cuckatoo_lean_cpu_compat_31.cuckooplugin  cuckatoo_mean_cpu_compat_31.cuckooplugin
-    #+end_src
+cuckaroo_cpu_compat_29)*. To get all plugins available navigate to the
+folder ./plugins in the folder where you extracted your epic miner files:
 
 Then, just put the desired plugin name without .cuckooplugin extension
 in the *plugin_name* variable.
@@ -549,7 +474,7 @@ execute the epic-miner open a new terminal window and execute the
 following command:
 
     #+begin_src shell
-      epic-miner
+      epic-miner.exe
     #+end_src
 
 If you executed the epic-miner in TUI mode (the default is true in
@@ -563,9 +488,6 @@ If you executed the epic-miner in TUI mode (the default is true in
 Press the key *Tab* or the *Arrows* keys to change windows inside the epic
 miner. Press the key *Enter* to select an item. Press the key *Q* to quit the
 epic miner.
-
-In the image above, we were mining with RandomX algorithm with 3 threads in the
-cpu.
 
 More details about the epic miner stats can be found in [[#epic_miner_stats][Mining Stats]]. 
 
@@ -597,4 +519,5 @@ else on the network solved the block before the solution was submit).
 *Blocks* found is the actual number of blocks that you've solved, in
 other words, valid solutions that passed the difficulty check and were
 also accepted by the network.
+
 
