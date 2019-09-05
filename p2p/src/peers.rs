@@ -168,8 +168,7 @@ impl Peers {
 		let mut max_peers = peers
 			.into_iter()
 			.filter(|x| {
-				x.info.total_difficulty().to_num(PoWType::Cuckatoo)
-					> total_difficulty.to_num(PoWType::Cuckatoo)
+				x.info.total_difficulty() > total_difficulty
 			})
 			.collect::<Vec<_>>();
 
@@ -190,8 +189,7 @@ impl Peers {
 		Ok(peers
 			.iter()
 			.filter(|x| {
-				x.info.total_difficulty().to_num(PoWType::Cuckatoo)
-					>= total_difficulty.to_num(PoWType::Cuckatoo)
+				x.info.total_difficulty() >= total_difficulty
 			})
 			.count())
 	}
@@ -472,8 +470,7 @@ impl Peers {
 					match self.adapter.total_difficulty() {
 						Ok(total_difficulty) => {
 							if stuck
-								&& diff.to_num(PoWType::Cuckatoo)
-									< total_difficulty.to_num(PoWType::Cuckatoo)
+								&& diff < total_difficulty
 							{
 								debug!("clean_peers {:?}, stuck peer", peer.info.addr);
 								let _ = self.update_state(peer.info.addr, State::Defunct);
