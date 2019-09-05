@@ -250,7 +250,7 @@ impl SyncRunner {
 		} else {
 			// sum the last 5 difficulties to give us the threshold
 			let threshold = {
-				let diff_iter = match self.chain.difficulty_iter() {
+				let diff_iter = match self.chain.difficulty_iter_all() {
 					Ok(v) => v,
 					Err(e) => {
 						error!("failed to get difficulty iterator: {:?}", e);
