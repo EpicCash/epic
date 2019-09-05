@@ -120,6 +120,16 @@ fn comments() -> HashMap<String, String> {
 	);
 
 	retval.insert(
+		"header_sync_timeout".to_string(),
+		"
+#Timeout (in seconds) without the verification of the existence of more headers to be synced.
+#If no valid value is given to this variable (e.g negative values, zero),
+#the default value of 2 (seconds) is used.
+"
+		.to_string(),
+	);
+
+	retval.insert(
 		"run_tui".to_string(),
 		"
 #whether to run the ncurses TUI. Ncurses must be installed and this

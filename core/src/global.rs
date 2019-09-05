@@ -162,6 +162,24 @@ lazy_static! {
 	/// Store the current epic version being executed
 	pub static ref EPIC_VERSION : RwLock<Option<Version>> =
 			RwLock::new(None);
+
+	/// Store the timeout for the header sync
+	pub static ref HEADER_SYNC_TIMEOUT : RwLock<i64> =
+			RwLock::new(2);
+}
+
+/// Get the current Timeout without the verification of the existence of more headers to be synced,
+/// after all header were processed
+pub fn get_header_sync_timeout() -> i64 {
+	let header_sync_timeout = HEADER_SYNC_TIMEOUT.read();
+	header_sync_timeout.clone()
+}
+
+/// Set the current Timeout without the verification of the existence of more headers to be synced,
+/// after all header were processed
+pub fn set_header_sync_timeout(timeout: i64) {
+	let mut header_sync_timeout = HEADER_SYNC_TIMEOUT.write();
+	*header_sync_timeout = if timeout <= 0 { 2 } else { timeout }
 }
 
 /// Set the version of the current epic executable
