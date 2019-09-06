@@ -124,7 +124,7 @@ fn comments() -> HashMap<String, String> {
 		"
 #Timeout (in seconds) without the verification of the existence of more headers to be synced.
 #If no valid value is given to this variable (e.g negative values, zero),
-#the default value of 2 (seconds) is used.
+#the default value of 10 (seconds) is used.
 "
 		.to_string(),
 	);

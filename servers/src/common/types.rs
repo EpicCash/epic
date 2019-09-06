@@ -227,7 +227,7 @@ impl Default for ServerConfig {
 			chain_validation_mode: ChainValidationMode::default(),
 			pool_config: pool::PoolConfig::default(),
 			skip_sync_wait: Some(false),
-			header_sync_timeout: 2,
+			header_sync_timeout: 10,
 			run_tui: Some(true),
 			run_test_miner: Some(false),
 			test_miner_wallet_url: None,
