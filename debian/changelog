@@ -1,3 +1,13 @@
+epic (2.3.0-2) bionic; urgency=medium
+
+  [ Leonardo Viana ]
+  * Fix package generation on rust 1.36.0
+
+  [ Yuri Albuquerque ]
+  * Updating submodules before building
+
+ -- Ubuntu <ubuntu@ip-172-31-16-240.ec2.internal>  Tue, 10 Sep 2019 19:09:30 +0000
+
 epic (2.3.0-1) bionic; urgency=medium
 
   [ Leonardo Viana ]
