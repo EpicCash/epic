@@ -10,7 +10,9 @@ clean: debian/control
 	mkdir -p build
 
 .ONESHELL:
-build/stamp: Cargo.toml api chain config core keychain p2p pool progpow-rust randomx-rust servers src store util
+build/stamp: Cargo.toml api chain config core keychain p2p pool servers src store util
+	git submodule update --init --recursive
+	git submodule update --recursive
 	cargo build --release
 	mkdir -p build
 	touch $(@)
@@ -25,8 +27,8 @@ binary binary-arch binary-indep: build/stamp debian/control
 	dh_prep
 	mkdir -p $(ROOTDIR)/usr/share/epic/
 	install -m 666 debian/foundation.json $(ROOTDIR)/usr/share/epic/foundation.json
-	cargo install --path . --root $(ROOTDIR)/usr/
-	cargo install --path bugreport --root $(ROOTDIR)/usr/
+	cargo install --path . --root $(ROOTDIR)/usr/ --locked
+	cargo install --path bugreport --root $(ROOTDIR)/usr/ --locked
 	strip $(ROOTDIR)/usr/bin/epic
 	rm $(ROOTDIR)/usr/.crates.toml
 	dh_installdocs
