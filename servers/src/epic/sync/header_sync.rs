@@ -19,6 +19,7 @@ use std::sync::Arc;
 use crate::chain;
 use crate::common::types::{Error, SyncState, SyncStatus};
 use crate::core::core::hash::{Hash, Hashed};
+use crate::core::global;
 use crate::p2p::{self, types::ReasonForBan, Peer};
 
 pub struct HeaderSync {
@@ -122,7 +123,7 @@ impl HeaderSync {
 
 		if force_sync || all_headers_received || stalling {
 			self.prev_header_sync = (
-				now + Duration::seconds(10),
+				now + Duration::seconds(global::get_header_sync_timeout()),
 				header_head.height,
 				header_head.height,
 			);
