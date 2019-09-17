@@ -196,6 +196,8 @@ impl Server {
 			pool_net_adapter.clone(),
 		)));
 
+		global::set_header_sync_timeout(config.header_sync_timeout);
+
 		let sync_state = Arc::new(SyncState::new());
 
 		let chain_adapter = Arc::new(ChainToPoolAndNetAdapter::new(
