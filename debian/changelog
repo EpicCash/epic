@@ -1,3 +1,12 @@
+epic (2.3.1-1) bionic; urgency=medium
+
+  [ Leonardo Viana ]
+  * Make header sync timeout user-configurable
+  * Change the default header sync timeout
+  * Improve the broadcasting of mined blocks
+
+ -- Ubuntu <ubuntu@ip-172-31-26-231.ec2.internal>  Tue, 17 Sep 2019 19:04:15 +0000
+
 epic (2.3.0-2) bionic; urgency=medium
 
   [ Leonardo Viana ]
