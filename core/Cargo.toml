@@ -35,8 +35,8 @@ sha2 = "0.8.0"
 
 epic_keychain = { path = "../keychain", version = "1.0.0" }
 epic_util = { path = "../util", version = "1.0.0" }
-randomx = { git = "ssh://git@gitlab.com/epiccash/randomx-rust.git", version="0.1.0" }
-progpow = { git = "ssh://git@gitlab.com/epiccash/progpow-rust.git", version="0.1.0" }
+randomx = { git = "https://gitlab.com/epiccash/randomx-rust.git", version="0.1.0" }
+progpow = { git = "https://gitlab.com/epiccash/progpow-rust.git", version="0.1.0" }
 
 [dev-dependencies]
 serde_json = "1"
