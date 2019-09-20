@@ -1,0 +1,57 @@
+* Today's work
+
+** Icemining's error
+
+   Issues:
+   - https://gitlab.com/epiccash/epicwallet/issues/4
+   - https://gitlab.com/epiccash/epicwallet/issues/10
+   - https://gitlab.com/epiccash/epicwallet/issues/16
+
+   We fixed all of the Epic Wallet tests and enabled the Continuous
+   Integration for it. The plan was that icemining's error would be
+   covered by the testing scenarios.
+
+   They weren't. We're modifying the plan in multiple fronts now:
+
+   1. We've traced the error to a wrong request in the Epic Server API
+      (~/v1/pool/push~), which is implemented [[file:~/Projetos/edna/Epic/api/src/handlers/pool_api.rs::62][here]]. We're debugging
+      this method
+   2. We're creating a test case for this section of communication in
+      the wallet.
+   3. We're manually calling this API with curl
+
+
+* What's to come
+
+** Release
+
+   We'll immediately make a release for the wallet when icemining's
+   error is fixed. We'll call it 2.2.3. As you suggested, we're going
+   to first make a release candidate (2.2.3rc1) before fully
+   committing to 2.2.3.
+
+
+** Other work
+
+   - Wallet proxying
+     - https://gitlab.com/epiccash/epicwallet/issues/11
+   - Core dump capturing
+
+   Will wait for icemining's error.
+
+** Future plans
+
+*** Automation
+
+    Additional steps in the release process:
+
+    - Add release notes to the changelog file
+    - Add the changelog file to the Windows zip
+
+*** More issues
+
+   The GitLab board shows which releases are next in priority:
+
+   - https://gitlab.com/groups/epiccash/-/boards
+
+   We're prioritizing every issue marked as "critical"
