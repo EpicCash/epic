@@ -14,7 +14,7 @@
    They weren't. We're modifying the plan in multiple fronts now:
 
    1. We've traced the error to a wrong request in the Epic Server API
-      (~/v1/pool/push~), which is implemented [[file:~/Projetos/edna/Epic/api/src/handlers/pool_api.rs::62][here]]. We're debugging
+      (~/v1/pool/push~), which is implemented [[file:../..//api/src/handlers/pool_api.rs::62][here]] We're debugging
       this method
    2. We're creating a test case for this section of communication in
       the wallet.
