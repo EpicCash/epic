@@ -178,25 +178,33 @@ pub enum PoolError {
 	Committed(committed::Error),
 	/// Attempt to add a transaction to the pool with lock_height
 	/// greater than height of current block
-	#[fail(display = "Immature transaction")]
+	#[fail(
+		display = "Immature transaction! Attempt to add a transaction to the pool with lock_height greater than height of current block!"
+	)]
 	ImmatureTransaction,
 	/// Attempt to spend a coinbase output before it has sufficiently matured.
-	#[fail(display = "Immature coinbase")]
+	#[fail(
+		display = "Immature coinbase! Attempt to spend a coinbase output before it has sufficiently matured!"
+	)]
 	ImmatureCoinbase,
 	/// Problem propagating a stem tx to the next Dandelion relay node.
-	#[fail(display = "Dandelion error")]
+	#[fail(
+		display = "Dandelion error! Problem propagating a stem tx to the next Dandelion relay node!"
+	)]
 	DandelionError,
 	/// Transaction pool is over capacity, can't accept more transactions
-	#[fail(display = "Over capacity")]
+	#[fail(
+		display = "Transaction pool is over capacity, can't accept more transactions at the moment!"
+	)]
 	OverCapacity,
 	/// Transaction fee is too low given its weight
-	#[fail(display = "Low fee transaction {}", _0)]
+	#[fail(display = "Low fee transaction {} given the tx weight!", _0)]
 	LowFeeTransaction(u64),
 	/// Attempt to add a duplicate output to the pool.
-	#[fail(display = "Duplicate commitment")]
+	#[fail(display = "Duplicate commitment! Attempt to add a duplicate output to the pool!")]
 	DuplicateCommitment,
 	/// Attempt to add a duplicate tx to the pool.
-	#[fail(display = "Duplicate tx")]
+	#[fail(display = "Duplicate tx! Attempt to add a duplicate tx to the pool!")]
 	DuplicateTx,
 	/// Other kinds of error (not yet pulled out into meaningful errors).
 	#[fail(display = "General pool error {}", _0)]

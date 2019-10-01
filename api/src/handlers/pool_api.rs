@@ -100,6 +100,10 @@ impl PoolPushHandler {
 						.context(ErrorKind::Internal("Failed to get chain head".to_owned()))?;
 					let res = tx_pool
 						.add_to_pool(source, tx, !fluff, &header)
+						.map_err(|e| {
+							error!("Failed to post the transaction! Error: {}", e);
+							e
+						})
 						.context(ErrorKind::Internal("Failed to update pool".to_owned()))?;
 					Ok(res)
 				}),
