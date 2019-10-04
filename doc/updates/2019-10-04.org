@@ -1,0 +1,52 @@
+* Today's work
+
+** RandomX tinkering
+
+   - https://gitlab.com/epiccash/epic/issues/40
+
+   We're still investigating this issue, trying to figure out how
+   RandomX isn't efficient enough and how the options are affecting
+   it.
+
+** Epic miner version in the agent string
+
+   - https://gitlab.com/epiccash/epic/issues/40
+
+   We're basically done with this.
+
+* What's to come
+
+** Release
+
+   The person responsible for the package building had some personal
+   problems, so the official release is postponed to Monday. But
+   exchanges are already informed the release candidate works well.
+
+** Other issues
+
+   - Core dump capturing
+
+     We'll wrap each of the processes in each of the projects to
+     capture the core dump information in case they happen so that bugs
+     can be more easily performed.
+
+** Future plans
+
+*** Automation
+
+    Additional steps in the release process:
+
+    - Add release notes to the changelog file
+    - Add the changelog file to the Windows zip
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+    # Local Variables:
+    # ispell-local-dictionary: "en"
+    # End:
