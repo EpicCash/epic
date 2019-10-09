@@ -1,0 +1,37 @@
+* Today's work
+
+** RandomX tinkering
+
+   - https://gitlab.com/epiccash/epic/issues/40
+
+   We're almost done with this task and will have further reports
+   tomorrow.
+
+** Losing peers on long running servers
+
+   - https://gitlab.com/epiccash/epic/issues/44
+
+   No significant improvement was made in this since the last update.
+
+* What's to come
+
+** Future plans
+
+*** Automation
+
+    Additional steps in the release process:
+
+    - Add release notes to the changelog file
+    - Add the changelog file to the Windows zip
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+    # Local Variables:
+    # ispell-local-dictionary: "en"
+    # End:
