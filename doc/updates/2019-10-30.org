@@ -1,0 +1,33 @@
+* Today's work
+
+** Auto-updater
+
+   The auto-updater had some bugs and we're still working on it.
+
+** Atomic operations
+
+   We want to increase the level of atomicity in the system, so we're
+   working on adding transactions to all important operations in the system.
+
+** Telemetry
+
+   We're discussing the possibility of collecting the hashrate data
+   (and absolutely nothing else) from the active miners in the
+   network. We're developing a server that will only collect that.
+   This is still under discussion.
+
+* What's to come
+
+** Future plans
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+    # Local Variables:
+    # ispell-local-dictionary: "en"
+    # End:
