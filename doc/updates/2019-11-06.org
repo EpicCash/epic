@@ -1,0 +1,32 @@
+* Today's work
+
+** Auto-updater
+
+   The auto-updater had some bugs and we're still working on it.
+   Expected release for tomorrow.
+
+** Atomic operations
+
+   This is going to be a long-term work
+
+** Hashrate data collection
+
+   We're going to collect the hashrate data on each miner to know the
+   approximated hashrate of the network. The work on that is almost
+   finished, and will be deployed with the auto-updater.
+
+* What's to come
+
+** Future plans
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+    # Local Variables:
+    # ispell-local-dictionary: "en"
+    # End:
