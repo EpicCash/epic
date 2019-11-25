@@ -1,0 +1,25 @@
+* Today's work
+
+** Auto-updater
+
+   The auto-updater was delayed because the development team was
+   focused on finding solutions to the [[https://medium.com/dragonfly-research/breaking-mimblewimble-privacy-model-84bcd67bfe52][privacy model issue]] that was
+   revealed this week. The next updates will explain our solutions.
+
+   The updater itself will be released tomorrow.
+
+* What's to come
+
+** Future plans
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+    # Local Variables:
+    # ispell-local-dictionary: "en"
+    # End:
