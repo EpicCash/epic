@@ -1,0 +1,83 @@
+* Today's work
+
+** Failed transactions trigger 500 errors in next transactions
+
+   Issues:
+   - https://gitlab.com/epiccash/epicwallet/issues/4
+   - https://gitlab.com/epiccash/epicwallet/issues/10
+   - https://gitlab.com/epiccash/epicwallet/issues/16
+
+   After a lot of investigation, we realized a safer path in the
+   Epic Wallet Owner API to create and post transactions.
+
+   The people involved in this issue were doing the transactions in a
+   single command, which could result in a failure at any point of the
+   command.
+
+   By splitting the command in two, each of the commands can be
+   individually tried again (as documented in [[https://gitlab.com/epiccash/epicwallet/merge_requests/9/diffs][this merge request]]), and
+   the system will be more fault-tolerant in general.
+
+   That is, this documentation describes how to have each operation
+   closer to be atomic.
+
+   Because of the issues that calling ~init_send_tx~ with automatic
+   ~post~ can trigger, we'll remove this option from the API. Users
+   who want to create and post transactions in the API will have to
+   use the two separated operations.
+
+   We're currently having the community validate this behavior.
+
+* What's to come
+
+** Release
+
+   Tomorrow we'll make a release removing the option to do an automatic post in
+   a ~init_send_tx~. It will be called 2.2.3-rc1. If it's proven that
+   the approach is more fault-tolerant, we'll transform 2.2.3-rc1 in 2.2.3
+
+*** Miner release
+
+    We'll rename the ~epic-miner~ package to ~epic-miner-cpu~ to avoid
+    confusion.
+
+** Other work
+
+*** DDoS
+
+   - https://gitlab.com/epiccash/epic/issues/43
+
+   We're investigating if changes in the code are needed and do them
+   accordingly.
+
+*** RandomX tinkering
+
+   - https://gitlab.com/epiccash/epic/issues/40
+
+   We're going to investigate how the options are affecting mining,
+   and possibly change the defaults if it makes sense. This will
+   require internal validation
+
+*** Other issues
+
+   - https://gitlab.com/epiccash/epicwallet/issues/11
+   - Core dump capturing
+
+   Will wait for the release and above issues
+
+** Future plans
+
+*** Automation
+
+    Additional steps in the release process:
+
+    - Add release notes to the changelog file
+    - Add the changelog file to the Windows zip
+
+*** More issues
+
+   The GitLab board shows which releases are next in priority:
+
+   - https://gitlab.com/groups/epiccash/-/boards
+
+   We're prioritizing every issue marked as "critical"

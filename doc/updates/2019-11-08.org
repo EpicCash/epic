@@ -1,0 +1,25 @@
+* Today's work
+
+** Auto-updater
+
+   The installer is still not ready, it'll be postponed for Monday.
+
+** Hashrate data collection
+
+   Waiting for the auto-updater.
+
+* What's to come
+
+** Future plans
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+    # Local Variables:
+    # ispell-local-dictionary: "en"
+    # End:

@@ -1,0 +1,27 @@
+* Today's work
+
+** Auto-updater
+
+   The installer is ready for both Debian and Windows, but I didn't
+   have enough time to release it today. Tomorrow is a national
+   holiday, so it's going to be released Monday morning.
+
+** Hashrate data collection
+
+   To be released with the auto-updater.
+
+* What's to come
+
+** Future plans
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+    # Local Variables:
+    # ispell-local-dictionary: "en"
+    # End:

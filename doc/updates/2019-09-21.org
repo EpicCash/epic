@@ -1,0 +1,55 @@
+* Today's work
+
+** Icemining's error
+
+   Issues:
+   - https://gitlab.com/epiccash/epicwallet/issues/4
+   - https://gitlab.com/epiccash/epicwallet/issues/10
+   - https://gitlab.com/epiccash/epicwallet/issues/16
+
+   We located the source of the error in the code. The error sometimes
+   happens when the server tries to add a transaction to the
+   transaction pool.
+
+   For more context, the transaction pool is the tool used to
+   propagate the transaction to other servers so that it can be mined.
+   For some reason, yet unknown, the transaction is getting rejected.
+
+   By Monday we'll investigate why transactions are being rejected and
+   fix the problem.
+
+
+* What's to come
+
+** Release
+
+   We'll immediately make a release for the wallet when icemining's
+   error is fixed. We'll call it 2.2.3. As you suggested, we're going
+   to first make a release candidate (2.2.3rc1) before fully
+   committing to 2.2.3.
+
+
+** Other work
+
+   - Wallet proxying
+     - https://gitlab.com/epiccash/epicwallet/issues/11
+   - Core dump capturing
+
+   Will wait for icemining's error.
+
+** Future plans
+
+*** Automation
+
+    Additional steps in the release process:
+
+    - Add release notes to the changelog file
+    - Add the changelog file to the Windows zip
+
+*** More issues
+
+   The GitLab board shows which releases are next in priority:
+
+   - https://gitlab.com/groups/epiccash/-/boards
+
+   We're prioritizing every issue marked as "critical"

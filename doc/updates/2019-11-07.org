@@ -1,0 +1,34 @@
+* Today's work
+
+** Auto-updater
+
+   We're doing the installer for Windows and Debian in order to
+   release the auto-updater, we're sorry about the delay.
+
+** Hashrate data collection
+
+   The hashrate data collection work is complete and is waiting for
+   the auto-updater to be released.
+
+   We want to make it clear that you'll be able to opt-out from the
+   data collection. But we want to make it even more clear that we
+   will not collect any sort of personal data, all we're collecting is
+   the hashrate, we won't even identify the owner of each hashrate.
+   Once our work is done, we'll publish it in GitLab so everyone can
+   be sure that we aren't collecting any more data.
+
+* What's to come
+
+** Future plans
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+    # Local Variables:
+    # ispell-local-dictionary: "en"
+    # End:

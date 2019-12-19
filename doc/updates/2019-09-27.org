@@ -1,0 +1,58 @@
+* Today's work
+
+** DDoS
+
+   - https://gitlab.com/epiccash/epic/issues/43
+
+   We're investigating if changes in the code are needed and do them
+   accordingly.
+
+** RandomX tinkering
+
+   - https://gitlab.com/epiccash/epic/issues/40
+
+   We're investigating how the options are affecting mining, and
+   possibly change the defaults if it makes sense. This will require
+   internal validation.
+
+** Grin compatibility
+   - https://gitlab.com/epiccash/epicwallet/issues/11
+
+   Work in progress.
+
+** Compiling the Wallet without RandomX or ProgPoW
+
+   We're began trying to come up with ways to compile the Epic Wallet
+   without RandomX or ProgPoW dependencies so that the wallet can run
+   in more platforms.
+
+* What's to come
+
+*** Other issues
+
+    - Core dump capturing
+
+    We'll wrap each of the processes in each of the projects to
+    capture the core dump information in case they happen so that bugs
+    can be more easily performed.
+
+** Future plans
+
+*** Automation
+
+    Additional steps in the release process:
+
+    - Add release notes to the changelog file
+    - Add the changelog file to the Windows zip
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+# Local Variables:
+# ispell-local-dictionary: "en"
+# End:

@@ -1,0 +1,74 @@
+* Today's work
+
+** DDoS
+
+   - https://gitlab.com/epiccash/epic/issues/43
+
+   We're investigating if changes in the code are needed and do them
+   accordingly.
+
+** RandomX tinkering
+
+   - https://gitlab.com/epiccash/epic/issues/40
+
+   We're investigating how the options are affecting mining, and
+   possibly change the defaults if it makes sense. This will require
+   internal validation.
+
+** Grin compatibility
+   - https://gitlab.com/epiccash/epicwallet/issues/11
+
+   Work in progress.
+
+** Failed transactions trigger 500 errors in next transactions
+
+   Issues:
+   - https://gitlab.com/epiccash/epicwallet/issues/4
+   - https://gitlab.com/epiccash/epicwallet/issues/10
+   - https://gitlab.com/epiccash/epicwallet/issues/16
+
+   We decided not to make a change in the API. Instead, the release
+   will wait for issue epicwallet#11.
+
+   We decided for that because we released a [[https://gitlab.com/epiccash/epicwallet/blob/develop/doc/500_fix_guide.org][document]] explaining why a
+   fix in the user side, for both CLI users and Owner API users.
+
+   We still want to improve the atomicity of the operations, but as of
+   now we have a good enough approach to deal with the wallet errors,
+   and will now give a lower priority to the atomization.
+
+* What's to come
+
+*** Other issues
+
+    - Core dump capturing
+
+    We'll wrap each of the processes in each of the projects to
+    capture the core dump information in case they happen so that bugs
+    can be more easily performed.
+
+** Future plans
+
+*** Automation
+
+    Additional steps in the release process:
+
+    - Add release notes to the changelog file
+    - Add the changelog file to the Windows zip
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+*** Telegram Bot
+
+    We're considering creating a wrapper for epic-bugreport as a
+    Telegram Bot. This is still in initial planning.
+
+# Local Variables:
+# ispell-local-dictionary: "en"
+# End:

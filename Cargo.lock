@@ -678,8 +678,6 @@ dependencies = [
  "humansize 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "pancurses 0.16.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "progpow 0.1.0 (git+ssh://git@gitlab.com/epiccash/progpow-rust.git)",
- "randomx 0.1.0 (git+ssh://git@gitlab.com/epiccash/randomx-rust.git)",
  "serde 1.0.90 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
  "term 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -787,9 +785,9 @@ dependencies = [
  "md5 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "num 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-bigint 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "progpow 0.1.0 (git+ssh://git@gitlab.com/epiccash/progpow-rust.git)",
+ "progpow 0.1.0 (git+https://gitlab.com/epiccash/progpow-rust.git)",
  "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "randomx 0.1.0 (git+ssh://git@gitlab.com/epiccash/randomx-rust.git)",
+ "randomx 0.1.0 (git+https://gitlab.com/epiccash/randomx-rust.git)",
  "serde 1.0.90 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.90 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2027,7 +2025,7 @@ dependencies = [
 [[package]]
 name = "progpow"
 version = "0.1.0"
-source = "git+ssh://git@gitlab.com/epiccash/progpow-rust.git#1f9100e0148119027e70311a8a5359d046dc3b98"
+source = "git+https://gitlab.com/epiccash/progpow-rust.git#1f9100e0148119027e70311a8a5359d046dc3b98"
 dependencies = [
  "bigint 4.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bindgen 0.37.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2037,13 +2035,13 @@ dependencies = [
  "filetime 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.58 (registry+https://github.com/rust-lang/crates.io-index)",
- "progpow_cpu 0.1.0 (git+ssh://git@gitlab.com/epiccash/progpow-rust.git)",
+ "progpow_cpu 0.1.0 (git+https://gitlab.com/epiccash/progpow-rust.git)",
 ]
 
 [[package]]
 name = "progpow_cpu"
 version = "0.1.0"
-source = "git+ssh://git@gitlab.com/epiccash/progpow-rust.git#1f9100e0148119027e70311a8a5359d046dc3b98"
+source = "git+https://gitlab.com/epiccash/progpow-rust.git#1f9100e0148119027e70311a8a5359d046dc3b98"
 dependencies = [
  "crunchy 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "either 1.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2203,7 +2201,7 @@ dependencies = [
 [[package]]
 name = "randomx"
 version = "0.1.0"
-source = "git+ssh://git@gitlab.com/epiccash/randomx-rust.git#e76b48f8798044af0e955a6308e9cc824255b65b"
+source = "git+https://gitlab.com/epiccash/randomx-rust.git#5bb9a4acc2f60b35b63edf9bfde77fb0215f7c96"
 dependencies = [
  "bigint 4.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bindgen 0.37.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3477,8 +3475,8 @@ dependencies = [
 "checksum primitive-types 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2288eb2a39386c4bc817974cc413afe173010dc80e470fcb1e9a35580869f024"
 "checksum proc-macro2 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)" = "77997c53ae6edd6d187fec07ec41b207063b5ee6f33680e9fa86d405cdd313d4"
 "checksum proc-macro2 0.4.27 (registry+https://github.com/rust-lang/crates.io-index)" = "4d317f9caece796be1980837fd5cb3dfec5613ebdb04ad0956deea83ce168915"
-"checksum progpow 0.1.0 (git+ssh://git@gitlab.com/epiccash/progpow-rust.git)" = "<none>"
-"checksum progpow_cpu 0.1.0 (git+ssh://git@gitlab.com/epiccash/progpow-rust.git)" = "<none>"
+"checksum progpow 0.1.0 (git+https://gitlab.com/epiccash/progpow-rust.git)" = "<none>"
+"checksum progpow_cpu 0.1.0 (git+https://gitlab.com/epiccash/progpow-rust.git)" = "<none>"
 "checksum quick-error 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "9274b940887ce9addde99c4eee6b5c44cc494b182b97e73dc8ffdcb3397fd3f0"
 "checksum quote 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)" = "7a6e920b65c65f10b2ae65c831a81a073a89edd28c7cce89475bff467ab4167a"
 "checksum quote 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "9949cfe66888ffe1d53e6ec9d9f3b70714083854be20fd5e271b232a017401e8"
@@ -3495,7 +3493,7 @@ dependencies = [
 "checksum rand_os 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "7b75f676a1e053fc562eafbb47838d67c84801e38fc1ba459e8f180deabd5071"
 "checksum rand_pcg 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "abf9b09b01790cfe0364f52bf32995ea3c39f4d2dd011eac241d2914146d0b44"
 "checksum rand_xorshift 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "cbf7e9e623549b0e21f6e97cf8ecf247c1a8fd2e8a992ae265314300b2455d5c"
-"checksum randomx 0.1.0 (git+ssh://git@gitlab.com/epiccash/randomx-rust.git)" = "<none>"
+"checksum randomx 0.1.0 (git+https://gitlab.com/epiccash/randomx-rust.git)" = "<none>"
 "checksum rdrand 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "678054eb77286b51581ba43620cc911abf02758c91f93f479767aed0f90458b2"
 "checksum redox_syscall 0.1.54 (registry+https://github.com/rust-lang/crates.io-index)" = "12229c14a0f65c4f1cb046a3b52047cdd9da1f4b30f8a39c5063c8bae515e252"
 "checksum redox_termios 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "7e891cfe48e9100a70a3b6eb652fef28920c117d366339687bd5576160db0f76"

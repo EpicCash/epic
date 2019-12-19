@@ -1,0 +1,47 @@
+* Today's work
+
+** RandomX tinkering
+
+   - https://gitlab.com/epiccash/epic/issues/40
+
+   We've discovered an unnecessary lock in the randomx miner, which
+   was removed. However, we lack good benchmarking, so it's hard to
+   tell what the impact of this will be. We are now working to add a
+   benchmark, and that should help us diagnose this problem and others
+   like it in the future.
+
+** Losing peers on long running servers
+
+   - https://gitlab.com/epiccash/epic/issues/44
+
+   We're working on improving the ban and unban conditions for bans in
+   valid nodes to be less frequent, and a recovery from a ban to be
+   quicker.
+
+** Epic Wallet 2.3.0
+
+   We've released Epic Wallet 2.3.0. You can check the release notes
+   at https://gitlab.com/epiccash/epicwallet/-/releases
+
+* What's to come
+
+** Future plans
+
+*** Automation
+
+    Additional steps in the release process:
+
+    - Add release notes to the changelog file
+    - Add the changelog file to the Windows zip
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+    # Local Variables:
+    # ispell-local-dictionary: "en"
+    # End:

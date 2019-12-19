@@ -1,0 +1,48 @@
+* Today's work
+
+** RandomX tinkering
+
+   - https://gitlab.com/epiccash/epic/issues/40
+
+   The last librandomx release, which included more optimisation
+   flags, improved the situation on Linux. Windows already had these
+   flags, so we're investigating what else could be done to improve
+   the performance even further.
+
+** Losing peers on long running servers
+
+   - https://gitlab.com/epiccash/epic/issues/44
+
+   We had plenty of research on that front, but solutions are still
+   being discussed.
+
+** Auto-updater
+
+   We've began working on an auto-updater tool, to make it easier for
+   people to remain up-to-date on Epic.
+
+** Better difficulty adjustment
+
+   Since release, we've a bit faster than the 1 minute target for each
+   block. We've started working on a better adjustment, which will be
+   pushed through the auto-updater.
+
+* What's to come
+
+** Future plans
+
+*** Automation
+
+    With the auto-updater, automation is also being improved.
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+    # Local Variables:
+    # ispell-local-dictionary: "en"
+    # End:

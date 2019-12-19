@@ -1,0 +1,91 @@
+* Today's work
+
+** Failed transactions trigger 500 errors in next transactions
+
+   Issues:
+   - https://gitlab.com/epiccash/epicwallet/issues/4
+   - https://gitlab.com/epiccash/epicwallet/issues/10
+   - https://gitlab.com/epiccash/epicwallet/issues/16
+
+   We now know how the error happens, and we have some strategies to
+   deal with it.
+
+*** Causes
+
+   The wallet sends a transaction to the server, and considers the
+   transaction pushed no matter what happens. Both the server and
+   wallet have their own transaction databases.
+
+   So, if a transaction failed to be added to the server's transaction
+   pool, the wallet still considers it added.
+
+   So the wallet will still use failed transactions to compute the
+   next transactions, and the server won't be able to locate these
+   transactions in the pool or in the chain.
+
+   There are many reasons why the first transaction might fail,
+   triggering the other failures. New transactions might have been
+   added to the transaction pool before the transactions leave the
+   pool to the chain (which means the pool fills up, according to the
+   settings ~max_pool_size~ and ~max_stempool_size~).
+
+*** Workarounds
+
+   - Cancel transactions as soon as they fail, so that they don't
+     infect the next transactions
+   - Then it's suggested to increase ~max_pool_size~ and
+     ~max_stempool_size~
+   - Don't use ~--min_conf 0~ when making a transaction. Wait for some
+     blocks.
+
+*** Planned actions
+
+   1. Improve the error messages so that the user knows what actually
+      happened
+   2. Change the wallet to automatically cancel a transaction when the
+      server responds with an error (so that we get closer to
+      atomicity), and show a warning to the user in this case.
+
+
+* What's to come
+
+** Release
+
+   We'll immediately make a release for the wallet when the
+   transaction error is atomized. We'll call it 2.2.3. As suggested,
+   we're going to first make a release candidate (2.2.3rc1) before
+   fully committing to 2.2.3.
+
+** Other work
+
+   We will look into the possible DDoS and improvements in RandomX
+   acceptance issues first to make sure they get prioritized properly.
+   That is, the issues below:
+
+   - https://gitlab.com/epiccash/epic/issues/40
+   - https://gitlab.com/epiccash/epic/issues/43
+
+   As for
+
+   - Wallet proxying
+     - https://gitlab.com/epiccash/epicwallet/issues/11
+   - Core dump capturing
+
+   Will wait for the release and above issues
+
+** Future plans
+
+*** Automation
+
+    Additional steps in the release process:
+
+    - Add release notes to the changelog file
+    - Add the changelog file to the Windows zip
+
+*** More issues
+
+   The GitLab board shows which releases are next in priority:
+
+   - https://gitlab.com/groups/epiccash/-/boards
+
+   We're prioritizing every issue marked as "critical"

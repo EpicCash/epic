@@ -1,0 +1,64 @@
+* Today's work
+
+** Compiling the Wallet without RandomX or ProgPoW
+
+   We've managed (yesterday) to compile the wallet without RandomX, we
+   hope that helps with people who want to support ARM.
+
+** DDoS
+
+   - https://gitlab.com/epiccash/epic/issues/43
+
+   We have lowered the priority in this issue to focus on the epic#40.
+
+** RandomX tinkering
+
+   - https://gitlab.com/epiccash/epic/issues/40
+
+   We're still investigating this issue, trying to figure out how
+   RandomX isn't efficient enough and how the options are affecting
+   it.
+
+** Epic miner configuration location
+
+   - https://gitlab.com/epiccash/epic-miner/issues/20
+
+   We're adding an option to the epic miner to specify where to find
+   the configuration file, so that it's no longer owned by root. You
+   can find the MR [[https://gitlab.com/epiccash/epic-miner/merge_requests/27][here]].
+
+* What's to come
+
+** Release
+
+   The latest wallet release candidate seems to be successful, so we
+   intend to make it an official release tomorrow.
+
+** Other issues
+
+   - Core dump capturing
+
+     We'll wrap each of the processes in each of the projects to
+     capture the core dump information in case they happen so that bugs
+     can be more easily performed.
+
+** Future plans
+
+*** Automation
+
+    Additional steps in the release process:
+
+    - Add release notes to the changelog file
+    - Add the changelog file to the Windows zip
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+    # Local Variables:
+    # ispell-local-dictionary: "en"
+    # End:
