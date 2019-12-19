@@ -1,3 +1,10 @@
+epic (2.4.0) bionic; urgency=high
+
+  [ Leonardo Viana ]
+  * Add 240 foundation slips
+
+ -- Ubuntu <ubuntu@ip-172-31-26-231.ec2.internal>  Tue, 19 Dec 2019 16:04:15 +0000
+
 epic (2.3.1-1) bionic; urgency=medium
 
   [ Leonardo Viana ]
