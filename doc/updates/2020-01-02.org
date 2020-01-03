@@ -1,0 +1,22 @@
+* Today's work
+
+** Mobile app
+
+   We're close to porting ironbelly to work with Epic. This Friday
+   we'll release a beta.
+
+* What's to come
+
+** Future plans
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+    # Local Variables:
+    # ispell-local-dictionary: "en"
+    # End:
