@@ -1,0 +1,23 @@
+* Today's work
+
+** Mobile app
+
+   We're validating the mobile app with some mobile phones and trying
+   to solve some crashes in some specific circumstances. The
+   prediction is a beta by Monday.
+
+* What's to come
+
+** Future plans
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+    # Local Variables:
+    # ispell-local-dictionary: "en"
+    # End:
