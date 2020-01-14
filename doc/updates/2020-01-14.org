@@ -1,0 +1,26 @@
+* Today's work
+
+** Mobile app
+
+   The build machine had problems compiling the APK, we spent the
+   entire day setting it up for a proper build.
+
+** Floonet
+
+   Finished by tomorrow.
+
+* What's to come
+
+** Future plans
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+    # Local Variables:
+    # ispell-local-dictionary: "en"
+    # End:
