@@ -1,0 +1,26 @@
+* Today's work
+
+** Mobile app
+
+   I just need to sign the APK with the company's certificate. I'm
+   arranging that and will try to get it by tomorrow.
+
+** Floonet
+
+   Working on it after finishing the APK problems.
+
+* What's to come
+
+** Future plans
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+    # Local Variables:
+    # ispell-local-dictionary: "en"
+    # End:
