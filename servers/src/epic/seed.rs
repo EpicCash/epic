@@ -33,10 +33,14 @@ use crate::p2p::ChainAdapter;
 use crate::util::StopState;
 
 // DNS Seeds with contact email associated
-const MAINNET_DNS_SEEDS: &'static [&'static str] =
-	&["ec2-54-233-177-64.sa-east-1.compute.amazonaws.com", "ec2-3-218-126-145.compute-1.amazonaws.com"];
-const FLOONET_DNS_SEEDS: &'static [&'static str] =
-	&["ec2-18-228-59-100.sa-east-1.compute.amazonaws.com", "ec2-54-167-215-66.compute-1.amazonaws.com"];
+const MAINNET_DNS_SEEDS: &'static [&'static str] = &[
+	"ec2-54-233-177-64.sa-east-1.compute.amazonaws.com",
+	"ec2-3-218-126-145.compute-1.amazonaws.com",
+];
+const FLOONET_DNS_SEEDS: &'static [&'static str] = &[
+	"ec2-18-229-48-114.sa-east-1.compute.amazonaws.com",
+	"ec2-3-95-146-171.compute-1.amazonaws.com",
+];
 
 pub fn connect_and_monitor(
 	p2p_server: Arc<p2p::Server>,
