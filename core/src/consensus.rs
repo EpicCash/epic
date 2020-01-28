@@ -290,14 +290,40 @@ pub const BLOCK_KERNEL_WEIGHT: usize = 3;
 ///
 pub const MAX_BLOCK_WEIGHT: usize = 40_000;
 
-/// Fork every 6 months.
-pub const HARD_FORK_INTERVAL: u64 = YEAR_HEIGHT / 2;
+/// Floonet first hard fork height, set to happen around 2020-02-03
+pub const FLOONET_FIRST_HARD_FORK: u64 = 100;
+
+/// AutomatedTesting and UserTesting first hard fork height.
+pub const TESTING_FIRST_HARD_FORK: u64 = 3;
+
+/// Compute possible block version at a given height
+pub fn header_version(height: u64) -> HeaderVersion {
+	let chain_type = global::CHAIN_TYPE.read().clone();
+	match chain_type {
+		global::ChainTypes::Mainnet => HeaderVersion(6),
+		global::ChainTypes::Floonet => {
+			if height < FLOONET_FIRST_HARD_FORK {
+				HeaderVersion(6)
+			} else {
+				HeaderVersion(7)
+			}
+		}
+		global::ChainTypes::AutomatedTesting | global::ChainTypes::UserTesting => {
+			if height < TESTING_FIRST_HARD_FORK {
+				HeaderVersion(6)
+			} else {
+				HeaderVersion(7)
+			}
+		}
+	}
+}
 
 /// Check whether the block version is valid at a given height, implements
 /// 6 months interval scheduled hard forks for the first 2 years.
 pub fn valid_header_version(height: u64, version: HeaderVersion) -> bool {
-	// uncomment below as we go from hard fork to hard fork
-	version == HeaderVersion::default()
+	let correct_header_version = header_version(height);
+	// The first Hard Fork happened after header version 7
+	u16::from(correct_header_version) <= 6 || version == correct_header_version
 }
 
 /// Number of blocks used to calculate difficulty adjustments

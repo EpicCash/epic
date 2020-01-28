@@ -62,6 +62,7 @@ pub fn genesis_floo() -> core::Block {
 	diff.insert(PoWType::ProgPow, 2_u64.pow(26));
 
 	core::Block::with_header(core::BlockHeader {
+		version: core::HeaderVersion(6),
 		height: 0,
 		timestamp: Utc.ymd(2019, 8, 9).and_hms(17, 04, 38),
 		prev_root: Hash::from_hex(
@@ -122,6 +123,7 @@ pub fn genesis_main() -> core::Block {
 	diff.insert(PoWType::ProgPow, 2_u64.pow(30));
 
 	core::Block::with_header(core::BlockHeader {
+		version: core::HeaderVersion(6),
 		height: 0,
 		timestamp: Utc.ymd(2019, 8, 9).and_hms(17, 04, 38),
 		prev_root: Hash::from_hex(
