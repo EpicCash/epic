@@ -22,7 +22,7 @@ use lmdb_zero as lmdb;
 use lmdb_zero::traits::CreateCursor;
 use lmdb_zero::LmdbResultExt;
 
-use crate::core::ser;
+use crate::core::ser::{self, ProtocolVersion};
 use crate::util::{RwLock, RwLockReadGuard};
 
 /// number of bytes to grow the database by when needed
@@ -230,7 +230,7 @@ impl Store {
 	) -> Result<Option<T>, Error> {
 		let res: lmdb::error::Result<&[u8]> = access.get(&db.as_ref().unwrap(), key);
 		match res.to_opt() {
-			Ok(Some(mut res)) => match ser::deserialize(&mut res) {
+			Ok(Some(mut res)) => match ser::deserialize_default(&mut res) {
 				Ok(res) => Ok(Some(res)),
 				Err(e) => Err(Error::SerErr(format!("{}", e))),
 			},
@@ -295,8 +295,13 @@ impl<'a> Batch<'a> {
 
 	/// Writes a single key and its `Writeable` value to the db. Encapsulates
 	/// serialization.
-	pub fn put_ser<W: ser::Writeable>(&self, key: &[u8], value: &W) -> Result<(), Error> {
-		let ser_value = ser::ser_vec(value);
+	pub fn put_ser<W: ser::Writeable>(
+		&self,
+		key: &[u8],
+		value: &W,
+		version: ProtocolVersion,
+	) -> Result<(), Error> {
+		let ser_value = ser::ser_vec(value, version);
 		match ser_value {
 			Ok(data) => self.put(key, &data),
 			Err(err) => Err(Error::SerErr(format!("{}", err))),
@@ -393,7 +398,7 @@ where
 	fn deser_if_prefix_match(&self, key: &[u8], value: &[u8]) -> Option<(Vec<u8>, T)> {
 		let plen = self.prefix.len();
 		if plen == 0 || key[0..plen] == self.prefix[..] {
-			if let Ok(value) = ser::deserialize(&mut &value[..]) {
+			if let Ok(value) = ser::deserialize_default(&mut &value[..]) {
 				Some((key.to_vec(), value))
 			} else {
 				None
