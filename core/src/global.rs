@@ -37,6 +37,13 @@ use std::path::Path;
 /// Define these here, as they should be developer-set, not really tweakable
 /// by users
 
+/// The default "local" protocol version for this node.
+/// We negotiate compatible versions with each peer via Hand/Shake.
+/// Note: We also use a specific (possible different) protocol version
+/// for both the backend database and MMR data files.
+/// This defines the p2p layer protocol version for this node.
+pub const PROTOCOL_VERSION: u32 = 2;
+
 /// Automated testing edge_bits
 pub const AUTOMATED_TESTING_MIN_EDGE_BITS: u8 = 9;
 

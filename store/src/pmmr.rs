@@ -132,11 +132,41 @@ impl<T: PMMRable> Backend<T> for PMMRBackend<T> {
 	/// Returns an iterator over all the leaf positions.
 	/// for a prunable PMMR this is an iterator over the leaf_set bitmap.
 	/// For a non-prunable PMMR this is *all* leaves (this is not yet implemented).
-	fn leaf_pos_iter(&self) -> Box<Iterator<Item = u64> + '_> {
+	fn leaf_pos_iter(&self) -> Box<dyn Iterator<Item = u64> + '_> {
 		if self.prunable {
 			Box::new(self.leaf_set.iter())
 		} else {
 			panic!("leaf_pos_iter not implemented for non-prunable PMMR")
+		}
+	}
+
+	fn n_unpruned_leaves(&self) -> u64 {
+		if self.prunable {
+			self.leaf_set.len() as u64
+		} else {
+			pmmr::n_leaves(self.unpruned_size())
+		}
+	}
+
+	/// Returns an iterator over all the leaf insertion indices (0-indexed).
+	/// If our pos are [1,2,4,5,8] (first 5 leaf pos) then our insertion indices are [0,1,2,3,4]
+	fn leaf_idx_iter(&self, from_idx: u64) -> Box<dyn Iterator<Item = u64> + '_> {
+		// pass from_idx in as param
+		// convert this to pos
+		// iterate, skipping everything prior to this
+		// pass in from_idx=0 then we want to convert to pos=1
+
+		let from_pos = pmmr::insertion_to_pmmr_index(from_idx + 1);
+
+		if self.prunable {
+			Box::new(
+				self.leaf_set
+					.iter()
+					.skip_while(move |x| *x < from_pos)
+					.map(|x| pmmr::n_leaves(x).saturating_sub(1)),
+			)
+		} else {
+			panic!("leaf_idx_iter not implemented for non-prunable PMMR")
 		}
 	}
 

@@ -375,7 +375,7 @@ impl BlockHeader {
 	pub fn pre_pow(&self) -> Vec<u8> {
 		let mut header_buf = vec![];
 		{
-			let mut writer = ser::BinWriter::new(&mut header_buf);
+			let mut writer = ser::BinWriter::default(&mut header_buf);
 			self.version.write(&mut writer).unwrap();
 			self.write_pre_pow(&mut writer).unwrap();
 			self.pow.write_pre_pow(&mut writer).unwrap();
@@ -387,7 +387,7 @@ impl BlockHeader {
 	pub fn pre_pow_hash(&self) -> [u8; 32] {
 		let mut header_buf = vec![];
 		{
-			let mut writer = ser::BinWriter::new(&mut header_buf);
+			let mut writer = ser::BinWriter::default(&mut header_buf);
 			self.version.write(&mut writer).unwrap();
 			self.write_pre_pow(&mut writer).unwrap();
 			self.pow.write_pre_pow(&mut writer).unwrap();
