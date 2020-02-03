@@ -14,14 +14,80 @@
 
 use std::fs::{self, File};
 /// Wrappers around the `zip-rs` library to compress and decompress zip archives.
-use std::io;
+use std::io::{self, BufReader, BufWriter, Write};
 use std::panic;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::thread;
 use walkdir::WalkDir;
 
 use self::zip_rs::result::{ZipError, ZipResult};
 use self::zip_rs::write::FileOptions;
 use zip as zip_rs;
+
+/// Create a zip archive from source dir and list of relative file paths.
+/// Permissions are set to 644 by default.
+pub fn create_zip(dst_file: &File, src_dir: &Path, files: Vec<PathBuf>) -> io::Result<()> {
+	let mut writer = {
+		let zip = zip_rs::ZipWriter::new(dst_file);
+		BufWriter::new(zip)
+	};
+
+	let options = FileOptions::default()
+		.compression_method(zip_rs::CompressionMethod::Stored)
+		.unix_permissions(0o644);
+
+	for x in &files {
+		let file_path = src_dir.join(x);
+		if let Ok(file) = File::open(file_path.clone()) {
+			info!("compress: {:?} -> {:?}", file_path, x);
+			writer.get_mut().start_file_from_path(x, options)?;
+			io::copy(&mut BufReader::new(file), &mut writer)?;
+			// Flush the BufWriter after each file so we start then next one correctly.
+			writer.flush()?;
+		}
+	}
+
+	writer.get_mut().finish()?;
+	dst_file.sync_all()?;
+	Ok(())
+}
+
+/// Extract a set of files from the provided zip archive.
+pub fn extract_files(from_archive: File, dest: &Path, files: Vec<PathBuf>) -> io::Result<()> {
+	let dest: PathBuf = PathBuf::from(dest);
+	let files: Vec<_> = files.iter().cloned().collect();
+	let res = thread::spawn(move || {
+		let mut archive = zip_rs::ZipArchive::new(from_archive).expect("archive file exists");
+		for x in files {
+			if let Ok(file) = archive.by_name(x.to_str().expect("valid path")) {
+				let path = dest.join(file.sanitized_name());
+				let parent_dir = path.parent().expect("valid parent dir");
+				fs::create_dir_all(&parent_dir).expect("create parent dir");
+				let outfile = fs::File::create(&path).expect("file created");
+				io::copy(&mut BufReader::new(file), &mut BufWriter::new(outfile))
+					.expect("write to file");
+
+				info!("extract_files: {:?} -> {:?}", x, path);
+
+				// Set file permissions to "644" (Unix only).
+				#[cfg(unix)]
+				{
+					use std::os::unix::fs::PermissionsExt;
+					let mode = PermissionsExt::from_mode(0o644);
+					fs::set_permissions(&path, mode).expect("set file permissions");
+				}
+			}
+		}
+	})
+	.join();
+
+	// If join() above is Ok then we successfully extracted the files.
+	// If the result is Err then we failed to extract the files.
+	res.map_err(|e| {
+		error!("failed to extract files from zip: {:?}", e);
+		io::Error::new(io::ErrorKind::Other, "failed to extract files from zip")
+	})
+}
 
 /// Compress a source directory recursively into a zip file.
 /// Permissions are set to 644 by default to avoid any
