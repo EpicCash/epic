@@ -648,6 +648,7 @@ impl<'a> Iterator for DifficultyIterAll<'a> {
 				scaling,
 				header.pow.is_secondary(),
 				self.prev_header
+					.clone()
 					.map(|h| h.timestamp.timestamp() as u64)
 					.unwrap_or(0),
 			))

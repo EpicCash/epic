@@ -19,6 +19,7 @@ pub mod feijoada;
 use crate::util::RwLock;
 use chrono::naive::{MAX_DATE, MIN_DATE};
 use chrono::prelude::{DateTime, NaiveDateTime, Utc};
+use chrono::Duration;
 use keccak_hash::keccak_256;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -41,7 +42,7 @@ use crate::core::{
 };
 use crate::global;
 use crate::keychain::{self, BlindingFactor};
-use crate::pow::{Difficulty, PoWType, Proof, ProofOfWork};
+use crate::pow::{verify_size, Difficulty, Proof, ProofOfWork};
 use crate::ser::{self, FixedLength, PMMRable, Readable, Reader, Writeable, Writer};
 use crate::util::{secp, static_secp_instance};
 
@@ -301,52 +302,56 @@ impl Writeable for BlockHeader {
 	}
 }
 
+fn read_block_header(reader: &mut dyn Reader) -> Result<BlockHeader, ser::Error> {
+	let version = HeaderVersion::read(reader)?;
+	let (height, timestamp) = ser_multiread!(reader, read_u64, read_i64);
+	let prev_hash = Hash::read(reader)?;
+	let prev_root = Hash::read(reader)?;
+	let output_root = Hash::read(reader)?;
+	let range_proof_root = Hash::read(reader)?;
+	let kernel_root = Hash::read(reader)?;
+	let total_kernel_offset = BlindingFactor::read(reader)?;
+	let (output_mmr_size, kernel_mmr_size) = ser_multiread!(reader, read_u64, read_u64);
+	let pow = ProofOfWork::read(reader)?;
+	let policy = reader.read_u8()?;
+	let bottles = Policy::read(reader)?;
+
+	if timestamp > MAX_DATE.and_hms(0, 0, 0).timestamp()
+		|| timestamp < MIN_DATE.and_hms(0, 0, 0).timestamp()
+	{
+		return Err(ser::Error::CorruptedData);
+	}
+
+	// Check the block version before proceeding any further.
+	// We want to do this here because blocks can be pretty large
+	// and we want to halt processing as early as possible.
+	// If we receive an invalid block version then the peer is not on our hard-fork.
+	if !consensus::valid_header_version(height, version) {
+		return Err(ser::Error::InvalidBlockVersion);
+	}
+
+	Ok(BlockHeader {
+		version,
+		height,
+		timestamp: DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(timestamp, 0), Utc),
+		prev_hash,
+		prev_root,
+		output_root,
+		range_proof_root,
+		kernel_root,
+		total_kernel_offset,
+		output_mmr_size,
+		kernel_mmr_size,
+		pow,
+		policy,
+		bottles,
+	})
+}
+
 /// Deserialization of a block header
 impl Readable for BlockHeader {
 	fn read(reader: &mut dyn Reader) -> Result<BlockHeader, ser::Error> {
-		let version = HeaderVersion::read(reader)?;
-		let (height, timestamp) = ser_multiread!(reader, read_u64, read_i64);
-		let prev_hash = Hash::read(reader)?;
-		let prev_root = Hash::read(reader)?;
-		let output_root = Hash::read(reader)?;
-		let range_proof_root = Hash::read(reader)?;
-		let kernel_root = Hash::read(reader)?;
-		let total_kernel_offset = BlindingFactor::read(reader)?;
-		let (output_mmr_size, kernel_mmr_size) = ser_multiread!(reader, read_u64, read_u64);
-		let pow = ProofOfWork::read(reader)?;
-		let policy = reader.read_u8()?;
-		let bottles = Policy::read(reader)?;
-
-		if timestamp > MAX_DATE.and_hms(0, 0, 0).timestamp()
-			|| timestamp < MIN_DATE.and_hms(0, 0, 0).timestamp()
-		{
-			return Err(ser::Error::CorruptedData);
-		}
-
-		// Check the block version before proceeding any further.
-		// We want to do this here because blocks can be pretty large
-		// and we want to halt processing as early as possible.
-		// If we receive an invalid block version then the peer is not on our hard-fork.
-		if !consensus::valid_header_version(height, version) {
-			return Err(ser::Error::InvalidBlockVersion);
-		}
-
-		Ok(BlockHeader {
-			version,
-			height,
-			timestamp: DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(timestamp, 0), Utc),
-			prev_hash,
-			prev_root,
-			output_root,
-			range_proof_root,
-			kernel_root,
-			total_kernel_offset,
-			output_mmr_size,
-			kernel_mmr_size,
-			pow,
-			policy,
-			bottles,
-		})
+		read_block_header(reader)
 	}
 }
 
@@ -437,6 +442,59 @@ impl BlockHeader {
 	/// Total kernel offset for the chain state up to and including this block.
 	pub fn total_kernel_offset(&self) -> BlindingFactor {
 		self.total_kernel_offset.clone()
+	}
+}
+
+impl From<UntrustedBlockHeader> for BlockHeader {
+	fn from(header: UntrustedBlockHeader) -> Self {
+		header.0
+	}
+}
+
+/// Block header which does lightweight validation as part of deserialization,
+/// it supposed to be used when we can't trust the channel (eg network)
+pub struct UntrustedBlockHeader(BlockHeader);
+
+/// Deserialization of an untrusted block header
+impl Readable for UntrustedBlockHeader {
+	fn read(reader: &mut dyn Reader) -> Result<UntrustedBlockHeader, ser::Error> {
+		let header = read_block_header(reader)?;
+		if header.timestamp
+			> Utc::now() + Duration::seconds(12 * (consensus::BLOCK_TIME_SEC as i64))
+		{
+			// refuse blocks more than 12 blocks intervals in future (as in bitcoin)
+			// TODO add warning in p2p code if local time is too different from peers
+			error!(
+				"block header {} validation error: block time is more than 12 blocks in future",
+				header.hash()
+			);
+			return Err(ser::Error::CorruptedData);
+		}
+
+		// Check the block version before proceeding any further.
+		// We want to do this here because blocks can be pretty large
+		// and we want to halt processing as early as possible.
+		// If we receive an invalid block version then the peer is not on our hard-fork.
+		if !consensus::valid_header_version(header.height, header.version) {
+			return Err(ser::Error::InvalidBlockVersion);
+		}
+
+		if !header.pow.is_primary() && !header.pow.is_secondary() {
+			error!(
+				"block header {} validation error: invalid edge bits",
+				header.hash()
+			);
+			return Err(ser::Error::CorruptedData);
+		}
+		if let Err(e) = verify_size(&header) {
+			error!(
+				"block header {} validation error: invalid POW: {}",
+				header.hash(),
+				e
+			);
+			return Err(ser::Error::CorruptedData);
+		}
+		Ok(UntrustedBlockHeader(header))
 	}
 }
 
@@ -833,5 +891,38 @@ impl Block {
 			}
 		}
 		Ok(())
+	}
+}
+
+impl From<UntrustedBlock> for Block {
+	fn from(block: UntrustedBlock) -> Self {
+		block.0
+	}
+}
+
+/// Block which does lightweight validation as part of deserialization,
+/// it supposed to be used when we can't trust the channel (eg network)
+pub struct UntrustedBlock(Block);
+
+/// Deserialization of an untrusted block header
+impl Readable for UntrustedBlock {
+	fn read(reader: &mut dyn Reader) -> Result<UntrustedBlock, ser::Error> {
+		// we validate header here before parsing the body
+		let header = UntrustedBlockHeader::read(reader)?;
+		let body = TransactionBody::read(reader)?;
+
+		// Now "lightweight" validation of the block.
+		// Treat any validation issues as data corruption.
+		// An example of this would be reading a block
+		// that exceeded the allowed number of inputs.
+		body.validate_read(Weighting::AsBlock).map_err(|e| {
+			error!("read validation error: {}", e);
+			ser::Error::CorruptedData
+		})?;
+		let block = Block {
+			header: header.into(),
+			body,
+		};
+		Ok(UntrustedBlock(block))
 	}
 }
