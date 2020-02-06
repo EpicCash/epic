@@ -93,7 +93,6 @@ pub mod option_sig_serde {
 			None => Ok(None),
 		})
 	}
-
 }
 
 /// Serializes a secp::Signature to and from hex

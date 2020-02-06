@@ -1,4 +1,4 @@
-// Copyright 2018 The Grin Developers
+// Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,18 +17,16 @@
 //! Primary hash function used in the protocol
 //!
 
+use crate::ser::{
+	self, AsFixedBytes, Error, FixedLength, ProtocolVersion, Readable, Reader, Writeable, Writer,
+};
+use blake2::blake2b::Blake2b;
 use byteorder::{BigEndian, ByteOrder};
+use epic_util as util;
 use std::cmp::min;
 use std::convert::AsRef;
 use std::ops::Add;
 use std::{fmt, ops};
-
-use crate::blake2::blake2b::Blake2b;
-
-use crate::ser::{
-	self, AsFixedBytes, Error, FixedLength, ProtocolVersion, Readable, Reader, Writeable, Writer,
-};
-use crate::util;
 
 /// A hash consisting of all zeroes, used as a sentinel. No known preimage.
 pub const ZERO_HASH: Hash = Hash([0; 32]);
@@ -251,6 +249,7 @@ impl<D: DefaultHashable, E: DefaultHashable> DefaultHashable for (D, E) {}
 impl<D: DefaultHashable, E: DefaultHashable, F: DefaultHashable> DefaultHashable for (D, E, F) {}
 
 /// Implement Hashed trait for external types here
-impl DefaultHashable for crate::util::secp::pedersen::RangeProof {}
+impl DefaultHashable for util::secp::pedersen::RangeProof {}
 impl DefaultHashable for Vec<u8> {}
+impl DefaultHashable for u8 {}
 impl DefaultHashable for u64 {}

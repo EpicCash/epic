@@ -21,7 +21,7 @@
 #![deny(unused_mut)]
 #![warn(missing_docs)]
 
-use blake2_rfc as blake2;
+use blake2;
 extern crate bigint;
 extern crate keccak_hash;
 #[macro_use]

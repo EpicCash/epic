@@ -97,6 +97,12 @@ pub const PEER_EXPIRATION_REMOVE_TIME: i64 = PEER_EXPIRATION_DAYS * 24 * 3600;
 /// For a node configured as "archival_mode = true" only the txhashset will be compacted.
 pub const COMPACTION_CHECK: u64 = DAY_HEIGHT;
 
+/// Number of blocks to reuse a txhashset zip for (automated testing and user testing).
+pub const TESTING_TXHASHSET_ARCHIVE_INTERVAL: u64 = 10;
+
+/// Number of blocks to reuse a txhashset zip for.
+pub const TXHASHSET_ARCHIVE_INTERVAL: u64 = 12 * 60;
+
 pub const CURRENT_HEADER_VERSION: u16 = 7;
 
 #[cfg(target_family = "unix")]
@@ -420,6 +426,16 @@ pub fn is_automated_testing_mode() -> bool {
 pub fn is_user_testing_mode() -> bool {
 	let param_ref = CHAIN_TYPE.read();
 	ChainTypes::UserTesting == *param_ref
+}
+
+/// Number of blocks to reuse a txhashset zip for.
+pub fn txhashset_archive_interval() -> u64 {
+	let param_ref = CHAIN_TYPE.read();
+	match *param_ref {
+		ChainTypes::AutomatedTesting => TESTING_TXHASHSET_ARCHIVE_INTERVAL,
+		ChainTypes::UserTesting => TESTING_TXHASHSET_ARCHIVE_INTERVAL,
+		_ => TXHASHSET_ARCHIVE_INTERVAL,
+	}
 }
 
 /// Are we in production mode?

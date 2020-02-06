@@ -1,4 +1,4 @@
-// Copyright 2018 The Grin Developers
+// Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 //! This module interfaces into the underlying
 //! [Rust Aggsig library](https://github.com/mimblewimble/rust-secp256k1-zkp/blob/master/src/aggsig.rs)
 
-use crate::keychain::{BlindingFactor, Identifier, Keychain};
 use crate::libtx::error::{Error, ErrorKind};
-use crate::util::secp::key::{PublicKey, SecretKey};
-use crate::util::secp::pedersen::Commitment;
-use crate::util::secp::{self, aggsig, Message, Secp256k1, Signature};
+use epic_keychain::{BlindingFactor, Identifier, Keychain, SwitchCommitmentType};
+use epic_util::secp::key::{PublicKey, SecretKey};
+use epic_util::secp::pedersen::Commitment;
+use epic_util::secp::{self, aggsig, Message, Secp256k1, Signature};
 
 /// Creates a new secure nonce (as a SecretKey), guaranteed to be usable during
 /// aggsig creation.
@@ -32,8 +32,7 @@ use crate::util::secp::{self, aggsig, Message, Secp256k1, Signature};
 /// # Example
 ///
 /// ```
-/// # extern crate epic_core as core;
-/// # extern crate epic_util as util;
+/// # extern crate grin_core as core;
 /// use core::libtx::aggsig;
 /// use util::secp::{ContextFlag, Secp256k1};
 /// let secp = Secp256k1::with_caps(ContextFlag::SignOnly);
@@ -66,8 +65,7 @@ pub fn create_secnonce(secp: &Secp256k1) -> Result<SecretKey, Error> {
 /// # Example
 ///
 /// ```
-/// # extern crate epic_core as core;
-/// # extern crate epic_util as util;
+/// # extern crate grin_core as core;
 /// # extern crate rand;
 /// use rand::thread_rng;
 /// use core::libtx::aggsig;
@@ -137,8 +135,7 @@ pub fn calculate_partial_sig(
 /// # Example
 ///
 /// ```
-/// # extern crate epic_core as core;
-/// # extern crate epic_util as util;
+/// # extern crate grin_core as core;
 /// # extern crate rand;
 /// use rand::thread_rng;
 /// use core::libtx::aggsig;
@@ -222,33 +219,34 @@ pub fn verify_partial_sig(
 /// # Example
 ///
 /// ```
-/// # extern crate epic_util as util;
-/// # extern crate epic_core as core;
-/// # extern crate epic_keychain as keychain;
+/// # extern crate grin_core as core;
 /// use core::consensus::reward;
 /// use util::secp::key::{PublicKey, SecretKey};
 /// use util::secp::{ContextFlag, Secp256k1};
 /// use core::libtx::{aggsig, proof};
-/// use core::core::transaction::{kernel_sig_msg, KernelFeatures};
+/// use core::core::transaction::KernelFeatures;
 /// use core::core::{Output, OutputFeatures};
-/// use keychain::{Keychain, ExtKeychain};
+/// use keychain::{Keychain, ExtKeychain, SwitchCommitmentType};
 ///
 /// let secp = Secp256k1::with_caps(ContextFlag::Commit);
 /// let keychain = ExtKeychain::from_random_seed(false).unwrap();
 /// let fees = 10_000;
-/// let value = reward(fees, 1);
+/// let value = reward(fees);
 /// let key_id = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
-/// let commit = keychain.commit(value, &key_id).unwrap();
-/// let rproof = proof::create(&keychain, value, &key_id, commit, None).unwrap();
+/// let switch = &SwitchCommitmentType::Regular;
+/// let commit = keychain.commit(value, &key_id, switch).unwrap();
+/// let builder = proof::ProofBuilder::new(&keychain);
+/// let rproof = proof::create(&keychain, &builder, value, &key_id, switch, commit, None).unwrap();
 /// let output = Output {
 ///		features: OutputFeatures::Coinbase,
 ///		commit: commit,
 ///		proof: rproof,
 /// };
 /// let height = 20;
-/// let over_commit = secp.commit_value(reward(fees, height)).unwrap();
+/// let over_commit = secp.commit_value(reward(fees)).unwrap();
 /// let out_commit = output.commitment();
-/// let msg = kernel_sig_msg(0, height, KernelFeatures::HeightLocked).unwrap();
+/// let features = KernelFeatures::HeightLocked{fee: 0, lock_height: height};
+/// let msg = features.kernel_sig_msg().unwrap();
 /// let excess = secp.commit_sum(vec![out_commit], vec![over_commit]).unwrap();
 /// let pubkey = excess.to_pubkey(&secp).unwrap();
 /// let sig = aggsig::sign_from_key_id(&secp, &keychain, &msg, value, &key_id, None, Some(&pubkey)).unwrap();
@@ -266,7 +264,7 @@ pub fn sign_from_key_id<K>(
 where
 	K: Keychain,
 {
-	let skey = k.derive_key(value, key_id)?;
+	let skey = k.derive_key(value, key_id, &SwitchCommitmentType::Regular)?; // TODO: proper support for different switch commitment schemes
 	let sig = aggsig::sign_single(secp, &msg, &skey, s_nonce, None, None, blind_sum, None)?;
 	Ok(sig)
 }
@@ -287,34 +285,35 @@ where
 /// # Example
 ///
 /// ```
-/// # extern crate epic_util as util;
-/// # extern crate epic_core as core;
-/// # extern crate epic_keychain as keychain;
+/// # extern crate grin_core as core;
 /// use core::consensus::reward;
 /// use core::libtx::{aggsig, proof};
 /// use util::secp::key::{PublicKey, SecretKey};
 /// use util::secp::{ContextFlag, Secp256k1};
-/// use core::core::transaction::{kernel_sig_msg, KernelFeatures};
+/// use core::core::transaction::KernelFeatures;
 /// use core::core::{Output, OutputFeatures};
-/// use keychain::{Keychain, ExtKeychain};
+/// use keychain::{Keychain, ExtKeychain, SwitchCommitmentType};
 ///
 /// // Create signature
 /// let secp = Secp256k1::with_caps(ContextFlag::Commit);
 /// let keychain = ExtKeychain::from_random_seed(false).unwrap();
 /// let fees = 10_000;
-/// let value = reward(fees, 1);
+/// let value = reward(fees);
 /// let key_id = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
-/// let commit = keychain.commit(value, &key_id).unwrap();
-/// let rproof = proof::create(&keychain, value, &key_id, commit, None).unwrap();
+/// let switch = &SwitchCommitmentType::Regular;
+/// let commit = keychain.commit(value, &key_id, switch).unwrap();
+/// let builder = proof::ProofBuilder::new(&keychain);
+/// let rproof = proof::create(&keychain, &builder, value, &key_id, switch, commit, None).unwrap();
 /// let output = Output {
 ///		features: OutputFeatures::Coinbase,
 ///		commit: commit,
 ///		proof: rproof,
 /// };
 /// let height = 20;
-/// let over_commit = secp.commit_value(reward(fees, height)).unwrap();
+/// let over_commit = secp.commit_value(reward(fees)).unwrap();
 /// let out_commit = output.commitment();
-/// let msg = kernel_sig_msg(0, height, KernelFeatures::HeightLocked).unwrap();
+/// let features = KernelFeatures::HeightLocked{fee: 0, lock_height: height};
+/// let msg = features.kernel_sig_msg().unwrap();
 /// let excess = secp.commit_sum(vec![out_commit], vec![over_commit]).unwrap();
 /// let pubkey = excess.to_pubkey(&secp).unwrap();
 /// let sig = aggsig::sign_from_key_id(&secp, &keychain, &msg, value, &key_id, None, Some(&pubkey)).unwrap();
@@ -359,8 +358,7 @@ pub fn verify_single_from_commit(
 /// # Example
 ///
 /// ```
-/// # extern crate epic_core as core;
-/// # extern crate epic_util as util;
+/// # extern crate grin_core as core;
 /// # extern crate rand;
 /// use rand::thread_rng;
 /// use core::libtx::aggsig;

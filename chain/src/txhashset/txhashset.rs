@@ -1,4 +1,4 @@
-// Copyright 2018 The Grin Developers
+// Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -247,7 +247,7 @@ impl TxHashSet {
 					Err(ErrorKind::OutputNotFound.into())
 				}
 			}
-			Err(grin_store::Error::NotFoundErr(_)) => Err(ErrorKind::OutputNotFound.into()),
+			Err(epic_store::Error::NotFoundErr(_)) => Err(ErrorKind::OutputNotFound.into()),
 			Err(e) => Err(ErrorKind::StoreErr(e, format!("txhashset unspent check")).into()),
 		}
 	}
@@ -520,11 +520,13 @@ where
 		let output_pmmr =
 			ReadonlyPMMR::at(&trees.output_pmmr_h.backend, trees.output_pmmr_h.last_pos);
 		let header_pmmr = ReadonlyPMMR::at(&handle.backend, handle.last_pos);
+		let rproof_pmmr =
+			ReadonlyPMMR::at(&trees.rproof_pmmr_h.backend, trees.rproof_pmmr_h.last_pos);
 
 		// Create a new batch here to pass into the utxo_view.
 		// Discard it (rollback) after we finish with the utxo_view.
 		let batch = trees.commit_index.batch()?;
-		let utxo = UTXOView::new(output_pmmr, header_pmmr, &batch);
+		let utxo = UTXOView::new(output_pmmr, header_pmmr, rproof_pmmr, &batch);
 		res = inner(&utxo);
 	}
 	res
@@ -922,6 +924,7 @@ impl<'a> Extension<'a> {
 		UTXOView::new(
 			self.output_pmmr.readonly_pmmr(),
 			header_ext.pmmr.readonly_pmmr(),
+			self.rproof_pmmr.readonly_pmmr(),
 			self.batch,
 		)
 	}
@@ -1423,6 +1426,12 @@ pub fn zip_read(root_dir: String, header: &BlockHeader) -> Result<File, Error> {
 	// if file exist, just re-use it
 	let zip_file = File::open(zip_path.clone());
 	if let Ok(zip) = zip_file {
+		debug!(
+			"zip_read: {} at {}: reusing existing zip file: {:?}",
+			header.hash(),
+			header.height,
+			zip_path
+		);
 		return Ok(zip);
 	} else {
 		// clean up old zips.
@@ -1462,6 +1471,13 @@ pub fn zip_read(root_dir: String, header: &BlockHeader) -> Result<File, Error> {
 
 		temp_txhashset_path
 	};
+
+	debug!(
+		"zip_read: {} at {}: created zip file: {:?}",
+		header.hash(),
+		header.height,
+		zip_path
+	);
 
 	// open it again to read it back
 	let zip_file = File::open(zip_path.clone())?;

@@ -36,7 +36,8 @@ use crate::core::compact_block::{CompactBlock, CompactBlockBody};
 use crate::core::hash::{DefaultHashable, Hash, Hashed, ZERO_HASH};
 use crate::core::verifier_cache::VerifierCache;
 use crate::core::{
-	transaction, Commitment, Input, Output, Transaction, TransactionBody, TxKernel, Weighting,
+	transaction, Commitment, Input, KernelFeatures, Output, Transaction, TransactionBody, TxKernel,
+	Weighting,
 };
 use crate::global;
 use crate::keychain::{self, BlindingFactor};
@@ -180,7 +181,7 @@ impl Hashed for HeaderEntry {
 }
 
 /// Some type safety around header versioning.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Serialize)]
 pub struct HeaderVersion(pub u16);
 
 impl Default for HeaderVersion {
@@ -435,7 +436,7 @@ impl BlockHeader {
 
 	/// Total kernel offset for the chain state up to and including this block.
 	pub fn total_kernel_offset(&self) -> BlindingFactor {
-		self.total_kernel_offset
+		self.total_kernel_offset.clone()
 	}
 }
 
@@ -532,38 +533,8 @@ impl Block {
 		difficulty: Difficulty,
 		reward_output: (Output, TxKernel),
 	) -> Result<Block, Error> {
-		let next_height = prev.height + 1;
-		let mut block = if is_foundation_height(next_height) {
-			let foundation = load_foundation_output(next_height);
-			Block::from_coinbases(
-				prev,
-				txs,
-				(reward_output.0, reward_output.1),
-				(foundation.output, foundation.kernel),
-				difficulty,
-			)?
-		} else {
-			Block::from_reward(prev, txs, reward_output.0, reward_output.1, difficulty)?
-		};
-
-		// Now set the pow on the header so block hashing works as expected.
-		{
-			let proof_size = global::proofsize();
-			block.header.pow.proof = Proof::random(proof_size);
-		}
-
-		Ok(block)
-	}
-
-	#[warn(clippy::new_ret_no_self)]
-	pub fn new_with_coinbase(
-		prev: &BlockHeader,
-		txs: Vec<Transaction>,
-		difficulty: Difficulty,
-		reward: (Output, TxKernel),
-		foundation: (Output, TxKernel),
-	) -> Result<Block, Error> {
-		let mut block = Block::from_coinbases(prev, txs, reward, foundation, difficulty)?;
+		let mut block =
+			Block::from_reward(prev, txs, reward_output.0, reward_output.1, difficulty)?;
 
 		// Now set the pow on the header so block hashing works as expected.
 		{
@@ -641,8 +612,14 @@ impl Block {
 			.with_kernel(reward_kern);
 
 		// Now add the kernel offset of the previous block for a total
-		let total_kernel_offset =
-			committed::sum_kernel_offsets(vec![agg_tx.offset, prev.total_kernel_offset], vec![])?;
+		let total_kernel_offset = committed::sum_kernel_offsets(
+			vec![agg_tx.offset.clone(), prev.total_kernel_offset.clone()],
+			vec![],
+		)?;
+
+		// Determine the height and associated version for the new header.
+		let height = prev.height + 1;
+		let version = consensus::header_version(height);
 
 		let now = Utc::now().timestamp();
 		let timestamp = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(now, 0), Utc);
@@ -652,52 +629,8 @@ impl Block {
 		// Caller must validate the block as necessary.
 		Block {
 			header: BlockHeader {
-				height: prev.height + 1,
-				timestamp,
-				prev_hash: prev.hash(),
-				total_kernel_offset,
-				pow: ProofOfWork {
-					total_difficulty: difficulty + prev.pow.total_difficulty.clone(),
-					..Default::default()
-				},
-				..Default::default()
-			},
-			body: agg_tx.into(),
-		}
-		.cut_through()
-	}
-
-	/// Builds a new block ready to mine from the header of the previous block,
-	/// a vector of transactions and the vector with the reward and foundation coinbase. Checks
-	/// that all transactions are valid and calculates the Merkle tree.
-	pub fn from_coinbases(
-		prev: &BlockHeader,
-		txs: Vec<Transaction>,
-		reward: (Output, TxKernel),
-		foundation: (Output, TxKernel),
-		difficulty: Difficulty,
-	) -> Result<Block, Error> {
-		// A block is just a big transaction, aggregate and add the reward output
-		// and reward kernel. At this point the tx is technically invalid but the
-		// tx body is valid if we account for the reward (i.e. as a block).
-		let agg_tx = transaction::aggregate(txs)?
-			.with_output(reward.0)
-			.with_kernel(reward.1)
-			.with_output(foundation.0)
-			.with_kernel(foundation.1);
-		// Now add the kernel offset of the previous block for a total
-		let total_kernel_offset =
-			committed::sum_kernel_offsets(vec![agg_tx.offset, prev.total_kernel_offset], vec![])?;
-
-		let now = Utc::now().timestamp();
-		let timestamp = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(now, 0), Utc);
-
-		// Now build the block with all the above information.
-		// Note: We have not validated the block here.
-		// Caller must validate the block as necessary.
-		Block {
-			header: BlockHeader {
-				height: prev.height + 1,
+				version,
+				height,
 				timestamp,
 				prev_hash: prev.hash(),
 				total_kernel_offset,
@@ -764,10 +697,7 @@ impl Block {
 
 	/// Sum of all fees (inputs less outputs) in the block
 	pub fn total_fees(&self) -> u64 {
-		self.body
-			.kernels
-			.iter()
-			.fold(0, |acc, ref x| acc.saturating_add(x.fee))
+		self.body.fee()
 	}
 
 	/// Matches any output with a potential spending input, eliminating them
@@ -836,7 +766,7 @@ impl Block {
 		// verify.body.outputs and kernel sums
 		let (_utxo_sum, kernel_sum) = self.verify_kernel_sums(
 			self.header.overage(),
-			self.block_kernel_offset(*prev_kernel_offset)?,
+			self.block_kernel_offset(prev_kernel_offset.clone())?,
 		)?;
 
 		Ok(kernel_sum)
@@ -896,8 +826,10 @@ impl Block {
 		for k in &self.body.kernels {
 			// check we have no kernels with lock_heights greater than current height
 			// no tx can be included in a block earlier than its lock_height
-			if k.lock_height > self.header.height {
-				return Err(Error::KernelLockHeight(k.lock_height));
+			if let KernelFeatures::HeightLocked { lock_height, .. } = k.features {
+				if lock_height > self.header.height {
+					return Err(Error::KernelLockHeight(lock_height));
+				}
 			}
 		}
 		Ok(())
