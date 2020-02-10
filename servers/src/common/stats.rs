@@ -53,9 +53,9 @@ pub struct ServerStats {
 	/// Number of peers
 	pub peer_count: u32,
 	/// Chain head
-	pub head: chain::Tip,
+	pub chain_stats: ChainStats,
 	/// sync header head
-	pub header_head: chain::Tip,
+	pub header_stats: Option<ChainStats>,
 	/// Whether we're currently syncing
 	pub sync_status: SyncStatus,
 	/// Handle to current stratum server stats
@@ -64,10 +64,10 @@ pub struct ServerStats {
 	pub peer_stats: Vec<PeerStats>,
 	/// Difficulty calculation statistics
 	pub diff_stats: DiffStats,
-	// /// Transaction pool statistics
-	// pub tx_stats: Option<TxStats>,
-	// /// Disk usage in GB
-	// pub disk_usage_gb: String,
+	/// Transaction pool statistics
+	pub tx_stats: Option<TxStats>,
+	/// Disk usage in GB
+	pub disk_usage_gb: String,
 }
 
 /// Chain Statistics

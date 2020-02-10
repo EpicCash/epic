@@ -39,6 +39,7 @@ epic_keychain = { path = "./keychain", version = "1.0.0" }
 epic_p2p = { path = "./p2p", version = "1.0.0" }
 epic_servers = { path = "./servers", version = "1.0.0" }
 epic_util = { path = "./util", version = "1.0.0" }
+epic_chain = { path = "./chain", version = "1.0.0" }
 
 [target.'cfg(windows)'.dependencies]
 cursive = { version = "0.12", default-features = false, features = ["pancurses-backend"] }
@@ -56,6 +57,5 @@ harness = false
 built = "0.3"
 
 [dev-dependencies]
-epic_chain = { path = "./chain", version = "1.0.0" }
 epic_store = { path = "./store", version = "1.0.0" }
 cucumber_rust = { version = "^0.5.1", default-features = false }
