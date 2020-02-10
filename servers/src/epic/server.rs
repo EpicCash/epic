@@ -1,4 +1,4 @@
-// Copyright 2018 The Grin Developers
+// Copyright 2020 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,30 +20,33 @@ use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{mpsc, Arc};
 use std::{
 	thread::{self, JoinHandle},
 	time::{self, Duration},
 };
 
 use fs2::FileExt;
-
-use clokwerk::{ScheduleHandle, Scheduler, TimeUnits};
+use walkdir::WalkDir;
 
 use crate::api;
 use crate::api::TLSConfig;
-use crate::chain;
+use crate::chain::{self, SyncState, SyncStatus};
 use crate::common::adapters::{
 	ChainToPoolAndNetAdapter, NetToChainAdapter, PoolToChainAdapter, PoolToNetAdapter,
 };
 use crate::common::hooks::{init_chain_hooks, init_net_hooks};
-use crate::common::stats::{DiffBlock, DiffStats, PeerStats, ServerStateInfo, ServerStats};
-use crate::common::types::{Error, ServerConfig, StratumServerConfig, SyncState, SyncStatus};
-use crate::core::core::hash::{Hash, Hashed, ZERO_HASH};
+use crate::common::stats::{
+	ChainStats, DiffBlock, DiffStats, PeerStats, ServerStateInfo, ServerStats, TxStats,
+};
+use crate::common::types::{Error, ServerConfig, StratumServerConfig};
+use crate::core::core::hash::Hashed;
+use crate::core::core::hash::{Hash, ZERO_HASH};
 use crate::core::core::verifier_cache::{LruVerifierCache, VerifierCache};
 use crate::core::pow::{PoWType, Proof};
+use crate::core::ser::ProtocolVersion;
 use crate::core::{consensus, genesis, global, pow};
-use crate::epic::{dandelion_monitor, seed, sync, version};
+use crate::epic::{dandelion_monitor, seed, sync};
 use crate::mining::stratumserver;
 use crate::mining::test_miner::Miner;
 use crate::p2p;
@@ -51,6 +54,7 @@ use crate::p2p::types::PeerAddr;
 use crate::pool;
 use crate::util::file::get_first_line;
 use crate::util::{RwLock, StopState};
+use epic_util::logger::LogEntry;
 
 /// Epic server holding internal structures.
 pub struct Server {
@@ -61,23 +65,21 @@ pub struct Server {
 	/// data store access
 	pub chain: Arc<chain::Chain>,
 	/// in-memory transaction pool
-	tx_pool: Arc<RwLock<pool::TransactionPool>>,
+	pub tx_pool: Arc<RwLock<pool::TransactionPool>>,
 	/// Shared cache for verification results when
 	/// verifying rangeproof and kernel signatures.
 	verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	/// Whether we're currently syncing
-	sync_state: Arc<SyncState>,
+	pub sync_state: Arc<SyncState>,
 	/// To be passed around to collect stats and info
 	state_info: ServerStateInfo,
 	/// Stop flag
 	pub stop_state: Arc<StopState>,
-	/// Maintain a lock_file so we do not run multiple Epic nodes from same dir.
+	/// Maintain a lock_file so we do not run multiple Grin nodes from same dir.
 	lock_file: Arc<File>,
 	connect_thread: Option<JoinHandle<()>>,
 	sync_thread: JoinHandle<()>,
 	dandelion_thread: JoinHandle<()>,
-	p2p_thread: JoinHandle<()>,
-	version_checker_thread: ScheduleHandle,
 }
 
 impl Server {
@@ -300,7 +302,7 @@ impl Server {
 
 		info!("Starting rest apis at: {}", &config.api_http_addr);
 		let api_secret = get_first_line(config.api_secret_path.clone());
-
+		let foreign_api_secret = get_first_line(config.foreign_api_secret_path.clone());
 		let tls_conf = match config.tls_certificate_file.clone() {
 			None => None,
 			Some(file) => {
@@ -316,14 +318,16 @@ impl Server {
 		};
 
 		// TODO fix API shutdown and join this thread
-		api::start_rest_apis(
-			config.api_http_addr.clone(),
+		api::node_apis(
+			&config.api_http_addr,
 			shared_chain.clone(),
 			tx_pool.clone(),
 			p2p_server.peers.clone(),
-			api_secret,
-			tls_conf,
-		);
+			sync_state.clone(),
+			api_secret.clone(),
+			foreign_api_secret.clone(),
+			tls_conf.clone(),
+		)?;
 
 		info!("Starting dandelion monitor: {}", &config.api_http_addr);
 		let dandelion_thread = dandelion_monitor::monitor_transactions(
@@ -333,31 +337,6 @@ impl Server {
 			verifier_cache.clone(),
 			stop_state.clone(),
 		)?;
-
-		info!("Starting the version checker monitor!");
-		let mut scheduler = Scheduler::new();
-		scheduler.every(15.minutes()).run(|| {
-			if let Ok(dns_version) = version::get_dns_version() {
-				if let Some(our_version) = global::get_epic_version() {
-					if !version::is_version_valid(our_version.clone(), dns_version.clone()) {
-						error!(
-							"Your current epic node version {}.{}.X.X is outdated! Please consider updating your code to the newest version {}.{}.X.X!",
-							our_version.version_major,
-							our_version.version_minor,
-							dns_version.version_major,
-							dns_version.version_minor,
-						);
-						error!("Closing the application!");
-						std::process::exit(1);
-					}
-				} else {
-					error!("Failed to retrieve information about the this application's version!");
-				}
-			} else {
-				error!("Unable to get the allowed versions from the dns server!");
-			}
-		});
-		let version_checker_thread = scheduler.watch_thread(Duration::from_millis(100));
 
 		warn!("Epic server started.");
 		Ok(Server {
@@ -374,9 +353,7 @@ impl Server {
 			lock_file,
 			connect_thread,
 			sync_thread,
-			p2p_thread,
 			dandelion_thread,
-			version_checker_thread,
 		})
 	}
 
@@ -476,9 +453,9 @@ impl Server {
 		self.chain.header_head().map_err(|e| e.into())
 	}
 
-	/// Current p2p layer protocol version.
-	pub fn protocol_version() -> p2p::msg::ProtocolVersion {
-		p2p::msg::ProtocolVersion::default()
+	/// The p2p layer protocol version for this node.
+	pub fn protocol_version() -> ProtocolVersion {
+		ProtocolVersion::local()
 	}
 
 	/// Returns a set of stats about this server. This and the ServerStats
@@ -503,9 +480,6 @@ impl Server {
 			let tip_height = self.head()?.height as i64;
 			let mut height = tip_height as i64 - last_blocks.len() as i64 + 1;
 
-			let txhashset = self.chain.txhashset();
-			let txhashset = txhashset.read();
-
 			let diff_entries: Vec<DiffBlock> = last_blocks
 				.windows(2)
 				.map(|pair| {
@@ -517,7 +491,7 @@ impl Server {
 					// Use header hash if real header.
 					// Default to "zero" hash if synthetic header_info.
 					let (hash, algo_type): (Hash, Option<Proof>) = if height >= 0 {
-						if let Ok(header) = txhashset.get_header_by_height(height as u64) {
+						if let Ok(header) = self.chain.get_header_by_height(height as u64) {
 							(header.hash(), Some(header.pow.proof.clone()))
 						} else {
 							(ZERO_HASH, None)
@@ -628,12 +602,7 @@ impl Server {
 			}
 		}
 		self.p2p.stop();
-		match self.p2p_thread.join() {
-			Err(e) => error!("failed to join to p2p thread: {:?}", e),
-			Ok(_) => info!("p2p thread stopped"),
-		}
 
-		self.version_checker_thread.stop();
 		let _ = self.lock_file.unlock();
 	}
 

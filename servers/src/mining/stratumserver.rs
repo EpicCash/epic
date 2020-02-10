@@ -32,9 +32,9 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use std::{cmp, thread};
 
-use crate::chain;
+use crate::chain::{self, SyncState};
 use crate::common::stats::{StratumStats, WorkerStats};
-use crate::common::types::{StratumServerConfig, SyncState};
+use crate::common::types::StratumServerConfig;
 use crate::core::core::block::feijoada::{next_block_bottles, Deterministic};
 use crate::core::core::hash::Hashed;
 use crate::core::core::verifier_cache::VerifierCache;
@@ -401,7 +401,7 @@ impl Handler {
 
 		let current_seed_hash = self
 			.chain
-			.txhashset()
+			.header_pmmr()
 			.read()
 			.get_header_hash_by_height(current_seed_height)
 			.unwrap();
@@ -418,7 +418,7 @@ impl Handler {
 		if let Some(h) = next_seed_height {
 			let next_seed_hash = self
 				.chain
-				.txhashset()
+				.header_pmmr()
 				.read()
 				.get_header_hash_by_height(h)
 				.unwrap();
@@ -454,7 +454,7 @@ impl Handler {
 
 		let mut header_buf = vec![];
 		{
-			let mut writer = ser::BinWriter::new(&mut header_buf);
+			let mut writer = ser::BinWriter::default(&mut header_buf);
 			bh.version.write(&mut writer).unwrap();
 			bh.write_pre_pow(&mut writer).unwrap();
 			bh.pow.write_pre_pow(&mut writer).unwrap();
