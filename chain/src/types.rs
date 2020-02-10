@@ -239,7 +239,7 @@ impl OutputRoots {
 	/// We assume the header version is consistent with the block height, validated
 	/// as part of pipe::validate_header().
 	pub fn root(&self, header: &BlockHeader) -> Hash {
-		if header.version < HeaderVersion(3) {
+		if header.version < HeaderVersion(7) {
 			self.output_root()
 		} else {
 			self.merged_root(header)

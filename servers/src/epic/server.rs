@@ -86,9 +86,13 @@ impl Server {
 	/// Instantiates and starts a new server. Optionally takes a callback
 	/// for the server to send an ARC copy of itself, to allow another process
 	/// to poll info about the server status
-	pub fn start<F>(config: ServerConfig, mut info_callback: F) -> Result<(), Error>
+	pub fn start<F>(
+		config: ServerConfig,
+		logs_rx: Option<mpsc::Receiver<LogEntry>>,
+		mut info_callback: F,
+	) -> Result<(), Error>
 	where
-		F: FnMut(Server),
+		F: FnMut(Server, Option<mpsc::Receiver<LogEntry>>),
 	{
 		/*let policy_config = config.policy_config.clone();
 		for i in 0..policy_config.policies.len() {
@@ -142,7 +146,7 @@ impl Server {
 			}
 		}
 
-		info_callback(serv);
+		info_callback(serv, logs_rx);
 		Ok(())
 	}
 
@@ -292,7 +296,7 @@ impl Server {
 		)?;
 
 		let p2p_inner = p2p_server.clone();
-		let p2p_thread = thread::Builder::new()
+		let _ = thread::Builder::new()
 			.name("p2p-server".to_string())
 			.spawn(move || {
 				if let Err(e) = p2p_inner.listen() {
@@ -432,15 +436,7 @@ impl Server {
 		miner.set_debug_output_id(format!("Port {}", self.config.p2p_config.port));
 		let _ = thread::Builder::new()
 			.name("test_miner".to_string())
-			.spawn(move || {
-				// TODO push this down in the run loop so miner gets paused anytime we
-				// decide to sync again
-				let secs_5 = time::Duration::from_secs(5);
-				while sync_state.is_syncing() {
-					thread::sleep(secs_5);
-				}
-				miner.run_loop(wallet_listener_url);
-			});
+			.spawn(move || miner.run_loop(wallet_listener_url));
 	}
 
 	/// The chain head
@@ -565,14 +561,59 @@ impl Server {
 			.into_iter()
 			.map(|p| PeerStats::from_peer(&p))
 			.collect();
+
+		// Updating TUI stats should not block any other processing so only attempt to
+		// acquire various read locks with a timeout.
+		let read_timeout = Duration::from_millis(500);
+
+		let tx_stats = self.tx_pool.try_read_for(read_timeout).map(|pool| TxStats {
+			tx_pool_size: pool.txpool.size(),
+			tx_pool_kernels: pool.txpool.kernel_count(),
+			stem_pool_size: pool.stempool.size(),
+			stem_pool_kernels: pool.stempool.kernel_count(),
+		});
+
+		let head = self.chain.head_header()?;
+		let head_stats = ChainStats {
+			latest_timestamp: head.timestamp,
+			height: head.height,
+			last_block_h: head.prev_hash,
+			total_difficulty: head.total_difficulty().num,
+		};
+
+		let header_stats = match self.chain.try_header_head(read_timeout)? {
+			Some(head) => self.chain.get_block_header(&head.hash()).map(|header| {
+				Some(ChainStats {
+					latest_timestamp: header.timestamp,
+					height: header.height,
+					last_block_h: header.prev_hash,
+					total_difficulty: header.total_difficulty().num,
+				})
+			})?,
+			_ => None,
+		};
+
+		let disk_usage_bytes = WalkDir::new(&self.config.db_root)
+			.min_depth(1)
+			.max_depth(3)
+			.into_iter()
+			.filter_map(|entry| entry.ok())
+			.filter_map(|entry| entry.metadata().ok())
+			.filter(|metadata| metadata.is_file())
+			.fold(0, |acc, m| acc + m.len());
+
+		let disk_usage_gb = format!("{:.*}", 3, (disk_usage_bytes as f64 / 1_000_000_000 as f64));
+
 		Ok(ServerStats {
 			peer_count: self.peer_count(),
-			head: self.head()?,
-			header_head: self.header_head()?,
+			chain_stats: head_stats,
+			header_stats: header_stats,
 			sync_status: self.sync_state.status(),
+			disk_usage_gb: disk_usage_gb,
 			stratum_stats: stratum_stats,
 			peer_stats: peer_stats,
 			diff_stats: diff_stats,
+			tx_stats: tx_stats,
 		})
 	}
 

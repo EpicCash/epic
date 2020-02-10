@@ -703,6 +703,53 @@ impl Block {
 		.cut_through()
 	}
 
+	/// Builds a new block ready to mine from the header of the previous block,
+	/// a vector of transactions and the vector with the reward and foundation coinbase. Checks
+	/// that all transactions are valid and calculates the Merkle tree.
+	pub fn from_coinbases(
+		prev: &BlockHeader,
+		txs: Vec<Transaction>,
+		reward: (Output, TxKernel),
+		foundation: (Output, TxKernel),
+		difficulty: Difficulty,
+	) -> Result<Block, Error> {
+		// A block is just a big transaction, aggregate and add the reward output
+		// and reward kernel. At this point the tx is technically invalid but the
+		// tx body is valid if we account for the reward (i.e. as a block).
+		let agg_tx = transaction::aggregate(txs)?
+			.with_output(reward.0)
+			.with_kernel(reward.1)
+			.with_output(foundation.0)
+			.with_kernel(foundation.1);
+		// Now add the kernel offset of the previous block for a total
+		let total_kernel_offset = committed::sum_kernel_offsets(
+			vec![agg_tx.offset.clone(), prev.total_kernel_offset.clone()],
+			vec![],
+		)?;
+
+		let now = Utc::now().timestamp();
+		let timestamp = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(now, 0), Utc);
+
+		// Now build the block with all the above information.
+		// Note: We have not validated the block here.
+		// Caller must validate the block as necessary.
+		Block {
+			header: BlockHeader {
+				height: prev.height + 1,
+				timestamp,
+				prev_hash: prev.hash(),
+				total_kernel_offset,
+				pow: ProofOfWork {
+					total_difficulty: difficulty + prev.pow.total_difficulty.clone(),
+					..Default::default()
+				},
+				..Default::default()
+			},
+			body: agg_tx.into(),
+		}
+		.cut_through()
+	}
+
 	/// Consumes this block and returns a new block with the coinbase output
 	/// and kernels added
 	pub fn with_reward(mut self, reward_out: Output, reward_kern: TxKernel) -> Block {
