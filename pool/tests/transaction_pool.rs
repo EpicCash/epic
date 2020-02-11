@@ -1,4 +1,4 @@
-// Copyright 2018 The Grin Developers
+// Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,10 +19,12 @@ use self::core::core::{transaction, Block, BlockHeader, Weighting};
 use self::core::libtx;
 use self::core::pow::Difficulty;
 use self::keychain::{ExtKeychain, Keychain};
+use self::pool::TxSource;
 use self::util::RwLock;
 use crate::common::*;
 use epic_core as core;
 use epic_keychain as keychain;
+use epic_pool as pool;
 use epic_util as util;
 use std::sync::Arc;
 
@@ -44,7 +46,15 @@ fn test_the_transaction_pool() {
 	let header = {
 		let height = 1;
 		let key_id = ExtKeychain::derive_key_id(1, height as u32, 0, 0, 0);
-		let reward = libtx::reward::output(&keychain, &key_id, 0, false, height).unwrap();
+		let reward = libtx::reward::output(
+			&keychain,
+			&libtx::ProofBuilder::new(&keychain),
+			&key_id,
+			0,
+			false,
+			height,
+		)
+		.unwrap();
 		let block = Block::new(&BlockHeader::default(), vec![], Difficulty::min(), reward).unwrap();
 
 		chain.update_db_for_block(&block);
@@ -230,7 +240,7 @@ fn test_the_transaction_pool() {
 		assert_eq!(write_pool.total_size(), 6);
 		let entry = write_pool.txpool.entries.last().unwrap();
 		assert_eq!(entry.tx.kernels().len(), 1);
-		assert_eq!(entry.src.debug_name, "deagg");
+		assert_eq!(entry.src, TxSource::Deaggregate);
 	}
 
 	// Check we cannot "double spend" an output spent in a previous block.
@@ -246,7 +256,15 @@ fn test_the_transaction_pool() {
 		let header = {
 			let height = 1;
 			let key_id = ExtKeychain::derive_key_id(1, height as u32, 0, 0, 0);
-			let reward = libtx::reward::output(&keychain, &key_id, 0, false, height).unwrap();
+			let reward = libtx::reward::output(
+				&keychain,
+				&libtx::ProofBuilder::new(&keychain),
+				&key_id,
+				0,
+				false,
+				height,
+			)
+			.unwrap();
 			let block =
 				Block::new(&BlockHeader::default(), vec![], Difficulty::min(), reward).unwrap();
 
@@ -433,7 +451,7 @@ fn test_the_transaction_pool() {
 			assert_eq!(write_pool.total_size(), 6);
 			let entry = write_pool.txpool.entries.last().unwrap();
 			assert_eq!(entry.tx.kernels().len(), 1);
-			assert_eq!(entry.src.debug_name, "deagg");
+			assert_eq!(entry.src, TxSource::Deaggregate);
 		}
 
 		// Check we cannot "double spend" an output spent in a previous block.
