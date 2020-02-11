@@ -16,12 +16,12 @@
 
 use crate::libtx::error::{Error, ErrorKind};
 use blake2::blake2b::blake2b;
-use epic_keychain::extkey_bip32::BIP32GrinHasher;
-use epic_keychain::{Identifier, Keychain, SwitchCommitmentType, ViewKey};
-use epic_util::secp::key::SecretKey;
-use epic_util::secp::pedersen::{Commitment, ProofMessage, RangeProof};
-use epic_util::secp::{self, Secp256k1};
+use keychain::extkey_bip32::BIP32GrinHasher;
+use keychain::{Identifier, Keychain, SwitchCommitmentType, ViewKey};
 use std::convert::TryFrom;
+use util::secp::key::SecretKey;
+use util::secp::pedersen::{Commitment, ProofMessage, RangeProof};
+use util::secp::{self, Secp256k1};
 use zeroize::Zeroize;
 
 /// Create a bulletproof

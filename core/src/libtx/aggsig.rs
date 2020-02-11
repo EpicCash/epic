@@ -17,10 +17,10 @@
 //! [Rust Aggsig library](https://github.com/mimblewimble/rust-secp256k1-zkp/blob/master/src/aggsig.rs)
 
 use crate::libtx::error::{Error, ErrorKind};
-use epic_keychain::{BlindingFactor, Identifier, Keychain, SwitchCommitmentType};
-use epic_util::secp::key::{PublicKey, SecretKey};
-use epic_util::secp::pedersen::Commitment;
-use epic_util::secp::{self, aggsig, Message, Secp256k1, Signature};
+use keychain::{BlindingFactor, Identifier, Keychain, SwitchCommitmentType};
+use util::secp::key::{PublicKey, SecretKey};
+use util::secp::pedersen::Commitment;
+use util::secp::{self, aggsig, Message, Secp256k1, Signature};
 
 /// Creates a new secure nonce (as a SecretKey), guaranteed to be usable during
 /// aggsig creation.
@@ -32,7 +32,7 @@ use epic_util::secp::{self, aggsig, Message, Secp256k1, Signature};
 /// # Example
 ///
 /// ```
-/// # extern crate grin_core as core;
+/// # extern crate epic_core as core;
 /// use core::libtx::aggsig;
 /// use util::secp::{ContextFlag, Secp256k1};
 /// let secp = Secp256k1::with_caps(ContextFlag::SignOnly);
@@ -65,7 +65,7 @@ pub fn create_secnonce(secp: &Secp256k1) -> Result<SecretKey, Error> {
 /// # Example
 ///
 /// ```
-/// # extern crate grin_core as core;
+/// # extern crate epic_core as core;
 /// # extern crate rand;
 /// use rand::thread_rng;
 /// use core::libtx::aggsig;
@@ -135,7 +135,7 @@ pub fn calculate_partial_sig(
 /// # Example
 ///
 /// ```
-/// # extern crate grin_core as core;
+/// # extern crate epic_core as core;
 /// # extern crate rand;
 /// use rand::thread_rng;
 /// use core::libtx::aggsig;
@@ -219,7 +219,7 @@ pub fn verify_partial_sig(
 /// # Example
 ///
 /// ```
-/// # extern crate grin_core as core;
+/// # extern crate epic_core as core;
 /// use core::consensus::reward;
 /// use util::secp::key::{PublicKey, SecretKey};
 /// use util::secp::{ContextFlag, Secp256k1};
@@ -285,7 +285,7 @@ where
 /// # Example
 ///
 /// ```
-/// # extern crate grin_core as core;
+/// # extern crate epic_core as core;
 /// use core::consensus::reward;
 /// use core::libtx::{aggsig, proof};
 /// use util::secp::key::{PublicKey, SecretKey};
@@ -358,7 +358,7 @@ pub fn verify_single_from_commit(
 /// # Example
 ///
 /// ```
-/// # extern crate grin_core as core;
+/// # extern crate epic_core as core;
 /// # extern crate rand;
 /// use rand::thread_rng;
 /// use core::libtx::aggsig;

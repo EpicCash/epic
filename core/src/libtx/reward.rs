@@ -21,8 +21,8 @@ use crate::libtx::{
 	aggsig,
 	proof::{self, ProofBuild},
 };
-use epic_keychain::{Identifier, Keychain, SwitchCommitmentType};
-use epic_util::{secp, static_secp_instance};
+use keychain::{Identifier, Keychain, SwitchCommitmentType};
+use util::{secp, static_secp_instance};
 
 pub fn output_foundation<K, B>(
 	keychain: &K,

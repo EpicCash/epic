@@ -26,8 +26,8 @@ extern crate bigint;
 extern crate keccak_hash;
 #[macro_use]
 extern crate enum_primitive;
-use epic_keychain as keychain;
-use epic_util as util;
+use keychain;
+use util;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]

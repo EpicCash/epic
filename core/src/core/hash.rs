@@ -22,11 +22,11 @@ use crate::ser::{
 };
 use blake2::blake2b::Blake2b;
 use byteorder::{BigEndian, ByteOrder};
-use epic_util as util;
 use std::cmp::min;
 use std::convert::AsRef;
 use std::ops::Add;
 use std::{fmt, ops};
+use util;
 
 /// A hash consisting of all zeroes, used as a sentinel. No known preimage.
 pub const ZERO_HASH: Hash = Hash([0; 32]);

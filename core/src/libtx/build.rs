@@ -34,7 +34,7 @@
 use crate::core::{Input, KernelFeatures, Output, OutputFeatures, Transaction, TxKernel};
 use crate::libtx::proof::{self, ProofBuild};
 use crate::libtx::{aggsig, Error};
-use epic_keychain::{BlindSum, BlindingFactor, Identifier, Keychain, SwitchCommitmentType};
+use keychain::{BlindSum, BlindingFactor, Identifier, Keychain, SwitchCommitmentType};
 
 /// Context information available to transaction combinators.
 pub struct Context<'a, K, B>

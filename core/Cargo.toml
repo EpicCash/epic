@@ -34,8 +34,8 @@ keccak-hash = "0.2.0"
 sha2 = "0.8.0"
 zeroize = "0.9"
 
-epic_keychain = { path = "../keychain", version = "1.0.0" }
-epic_util = { path = "../util", version = "1.0.0" }
+keychain = { package = "epic_keychain", path = "../keychain", version = "1.0.0" }
+util = { package = "epic_util", path = "../util", version = "1.0.0" }
 randomx = { git = "https://gitlab.com/epiccash/randomx-rust.git", version="0.1.0" }
 progpow = { git = "https://gitlab.com/epiccash/progpow-rust.git", version="0.1.0" }
 

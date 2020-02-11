@@ -24,16 +24,16 @@ use crate::ser::{
 };
 use crate::{consensus, global};
 use enum_primitive::FromPrimitive;
-use epic_keychain::{self, BlindingFactor};
-use epic_util;
-use epic_util::secp;
-use epic_util::secp::pedersen::{Commitment, RangeProof};
-use epic_util::static_secp_instance;
-use epic_util::RwLock;
+use keychain::{self, BlindingFactor};
 use std::cmp::Ordering;
 use std::cmp::{max, min};
 use std::sync::Arc;
 use std::{error, fmt};
+use util;
+use util::secp;
+use util::secp::pedersen::{Commitment, RangeProof};
+use util::static_secp_instance;
+use util::RwLock;
 
 /// Various tx kernel variants.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -216,7 +216,7 @@ pub enum Error {
 	/// typically)
 	Secp(secp::Error),
 	/// Underlying keychain related error
-	Keychain(epic_keychain::Error),
+	Keychain(keychain::Error),
 	/// The sum of output minus input commitments does not
 	/// match the sum of kernel commitments
 	KernelSumMismatch,
@@ -279,8 +279,8 @@ impl From<secp::Error> for Error {
 	}
 }
 
-impl From<epic_keychain::Error> for Error {
-	fn from(e: epic_keychain::Error) -> Error {
+impl From<keychain::Error> for Error {
+	fn from(e: keychain::Error) -> Error {
 		Error::Keychain(e)
 	}
 }
@@ -1544,7 +1544,7 @@ impl OutputIdentifier {
 		format!(
 			"{:b}{}",
 			self.features as u8,
-			epic_util::to_hex(self.commit.0.to_vec()),
+			util::to_hex(self.commit.0.to_vec()),
 		)
 	}
 }
@@ -1584,8 +1584,8 @@ mod test {
 	use super::*;
 	use crate::core::hash::Hash;
 	use crate::core::id::{ShortId, ShortIdentifiable};
-	use epic_keychain::{ExtKeychain, Keychain, SwitchCommitmentType};
-	use epic_util::secp;
+	use keychain::{ExtKeychain, Keychain, SwitchCommitmentType};
+	use util::secp;
 
 	#[test]
 	fn test_kernel_ser_deser() {

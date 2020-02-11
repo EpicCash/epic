@@ -22,19 +22,19 @@
 use crate::core::hash::{DefaultHashable, Hash, Hashed};
 use crate::global::PROTOCOL_VERSION;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
-use epic_keychain::{BlindingFactor, Identifier, IDENTIFIER_SIZE};
-use epic_util::secp::constants::{
-	AGG_SIGNATURE_SIZE, COMPRESSED_PUBLIC_KEY_SIZE, MAX_PROOF_SIZE, PEDERSEN_COMMITMENT_SIZE,
-	SECRET_KEY_SIZE,
-};
-use epic_util::secp::key::PublicKey;
-use epic_util::secp::pedersen::{Commitment, RangeProof};
-use epic_util::secp::Signature;
-use epic_util::secp::{ContextFlag, Secp256k1};
+use keychain::{BlindingFactor, Identifier, IDENTIFIER_SIZE};
 use std::fmt::{self, Debug};
 use std::io::{self, Read, Write};
 use std::marker;
 use std::{cmp, error};
+use util::secp::constants::{
+	AGG_SIGNATURE_SIZE, COMPRESSED_PUBLIC_KEY_SIZE, MAX_PROOF_SIZE, PEDERSEN_COMMITMENT_SIZE,
+	SECRET_KEY_SIZE,
+};
+use util::secp::key::PublicKey;
+use util::secp::pedersen::{Commitment, RangeProof};
+use util::secp::Signature;
+use util::secp::{ContextFlag, Secp256k1};
 
 /// Possible errors deriving from serializing or deserializing.
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
@@ -929,17 +929,17 @@ impl AsFixedBytes for crate::core::hash::Hash {
 		32
 	}
 }
-impl AsFixedBytes for epic_util::secp::pedersen::RangeProof {
+impl AsFixedBytes for util::secp::pedersen::RangeProof {
 	fn len(&self) -> usize {
 		self.plen
 	}
 }
-impl AsFixedBytes for epic_util::secp::Signature {
+impl AsFixedBytes for util::secp::Signature {
 	fn len(&self) -> usize {
 		64
 	}
 }
-impl AsFixedBytes for epic_util::secp::pedersen::Commitment {
+impl AsFixedBytes for util::secp::pedersen::Commitment {
 	fn len(&self) -> usize {
 		PEDERSEN_COMMITMENT_SIZE
 	}
@@ -949,7 +949,7 @@ impl AsFixedBytes for BlindingFactor {
 		SECRET_KEY_SIZE
 	}
 }
-impl AsFixedBytes for epic_keychain::Identifier {
+impl AsFixedBytes for keychain::Identifier {
 	fn len(&self) -> usize {
 		IDENTIFIER_SIZE
 	}
