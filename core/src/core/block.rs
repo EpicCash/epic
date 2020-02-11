@@ -856,24 +856,18 @@ impl Block {
 		prev_kernel_offset: &BlindingFactor,
 		verifier: Arc<RwLock<dyn VerifierCache>>,
 	) -> Result<Commitment, Error> {
-		println!("block validate");
 		self.body.validate(Weighting::AsBlock, verifier)?;
 
-		println!("verify_kernel_lock_heights");
 		self.verify_kernel_lock_heights()?;
 
-		println!("verify_coinbase");
 		self.verify_coinbase()?;
 
 		// take the kernel offset for this block (block offset minus previous) and
 		// verify.body.outputs and kernel sums
-		println!("let verify_kernel_sums");
 		let (_utxo_sum, kernel_sum) = self.verify_kernel_sums(
 			self.header.overage(),
 			self.block_kernel_offset(prev_kernel_offset.clone())?,
 		)?;
-
-		println!("ehuehueh");
 
 		Ok(kernel_sum)
 	}

@@ -58,12 +58,14 @@ mod mine_chain {
 	use epic_core::core::hash::{Hash, Hashed};
 	use epic_core::core::verifier_cache::LruVerifierCache;
 	use epic_core::core::{
-		Block, BlockHeader, KernelFeatures, Output, OutputIdentifier, Transaction, TxKernel,
+		Block, BlockHeader, HeaderVersion, KernelFeatures, Output, OutputIdentifier, Transaction,
+		TxKernel,
 	};
 	use epic_core::global::{
 		add_allowed_policy, get_emitted_policy, get_policies, set_emitted_policy,
 		set_policy_config, ChainTypes,
 	};
+	use epic_core::libtx::proof::LegacyProofBuilder;
 	use epic_core::libtx::ProofBuilder;
 	use epic_core::libtx::{self, build, reward};
 	use epic_core::pow::{
@@ -1050,7 +1052,7 @@ mod mine_chain {
 			block.header.pow.proof = get_pow_type(&algo, prev.height);
 			block.header.policy = 0;
 
-			chain.process_block(block, chain::Options::SKIP_POW).unwrap();
+			chain.process_block(block, chain::Options::SKIP_POW);
 		};
 
 		then regex "The block on the height <([0-9]+)> need have a time delta of <([0-9]+)>" |world, matches, _step| {
@@ -1132,7 +1134,7 @@ mod mine_chain {
 			let algo = get_fw_type(matches[2].as_str());
 			let num_accepted: u64 = matches[3].parse().unwrap();
 			let chain = world.chain.as_ref().unwrap();
-			let mut count : u64 = 0;
+			let mut count: u64 = 0;
 
 			for i in 0..num {
 				let kc = epic_keychain::ExtKeychain::from_seed(&[i as u8], false).unwrap().clone();
@@ -1533,7 +1535,7 @@ mod mine_chain {
 			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 			.unwrap();
 		let mut b = prepare_block_nosum(kc, prev, Difficulty::from_num(diff), vec![], hash);
-		chain.set_txhashset_roots(&mut b).unwrap();
+		chain.set_txhashset_roots(&mut b);
 		b
 	}
 
@@ -1751,7 +1753,7 @@ mod mine_chain {
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
 		let reward = libtx::reward::output(
 			kc,
-			&ProofBuilder::new(kc),
+			&LegacyProofBuilder::new(kc),
 			&key_id,
 			fees,
 			true,
@@ -1767,6 +1769,7 @@ mod mine_chain {
 			Err(e) => panic!("{:?}", e),
 			Ok(b) => b,
 		};
+		b.header.version = HeaderVersion(6);
 		b.header.timestamp = prev.timestamp + Duration::seconds(60);
 		b.header.pow.total_difficulty = prev.total_difficulty() + diff;
 		b.header.pow.proof = proof;
