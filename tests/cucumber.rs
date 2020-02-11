@@ -133,6 +133,7 @@ mod mine_chain {
 				"cuckaroo" => PoWType::Cuckaroo,
 				"md5" => PoWType::MD5,
 				"randomx" => PoWType::RandomX,
+				
 				"progpow" => PoWType::ProgPow,
 				_ => panic!("Non supported PoW Type"),
 			};
@@ -142,24 +143,6 @@ mod mine_chain {
 
 		then "clean output dir" |world, _step| {
 			clean_output_dir(&world.output_dir);
-		};
-
-		given "I add coinbase data from the dev genesis block" |world, _step| {
-			let genesis = genesis::genesis_dev();
-			world.keychain = Some(epic_keychain::ExtKeychain::from_random_seed(false).unwrap());
-			let key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
-			let kc = world.keychain.as_ref().unwrap();
-			let reward = reward::output(kc, &ProofBuilder::new(kc), &key_id, 0, false, 0).unwrap();
-			world.genesis = Some(genesis.with_reward(reward.0, reward.1));
-			let genesis_ref = world.genesis.as_mut().unwrap();
-
-			let tmp_chain_dir = ".epic.tmp";
-			{
-				let tmp_chain = setup(tmp_chain_dir, pow::mine_genesis_block().unwrap());
-				tmp_chain.set_txhashset_roots(genesis_ref).unwrap();
-				genesis_ref.header.output_mmr_size = 2;
-				genesis_ref.header.kernel_mmr_size = 2;
-			}
 		};
 
 		then "Refuse a foundation commit invalid" |world, _step| {
@@ -542,9 +525,24 @@ mod mine_chain {
 				let pk = epic_keychain::ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
 				let reward = libtx::reward::output(kc, &ProofBuilder::new(kc), &pk, 0, false, n).unwrap();
 				reward_outputs.push(reward.0.clone());
-				let mut b =
-					core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
-						.unwrap();
+				let mut b = if consensus::is_foundation_height(prev.height + 1) {
+					let foundation = load_foundation_output(prev.height + 1);
+					core::core::Block::from_coinbases(
+						&prev,
+						vec![],
+						reward,
+						(foundation.output, foundation.kernel),
+						next_header_info.clone().difficulty,
+					)
+				} else {
+					core::core::Block::from_reward(
+						&prev,
+						vec![],
+						reward.0,
+						reward.1,
+						next_header_info.clone().difficulty,
+					)
+				}.unwrap();
 				b.header.timestamp = prev.timestamp + Duration::seconds(60);
 				b.header.pow.secondary_scaling = next_header_info.secondary_scaling;
 				b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles);
@@ -555,7 +553,7 @@ mod mine_chain {
 
 				b.header.pow.seed = seed;
 
-				chain.set_txhashset_roots(&mut b).unwrap();
+				chain.set_txhashset_roots(&mut b);
 
 				let edge_bits = if n == 2 {
 					global::min_edge_bits() + 1
@@ -664,7 +662,6 @@ mod mine_chain {
 			let reward = reward::output(kc, &ProofBuilder::new(kc), &key_id, 0, false, 0).unwrap();
 			// creating a placeholder for the genesis block
 			let mut genesis = genesis::genesis_dev();
-			print!("{:?}", genesis);
 			// creating the block with the desired reward
 			genesis = genesis.with_reward(reward.0, reward.1);
 			genesis.header.bottles = next_block_bottles(algo, &world.bottles);
@@ -1041,7 +1038,8 @@ mod mine_chain {
 			// Add block with custom timestamp
 			let mut block = prepare_block_with_timestamp(
 				kc, &prev, next_difficulty.difficulty, vec![], hash, timespan);
-			chain.set_txhashset_roots(&mut block).unwrap();
+
+			chain.set_txhashset_roots(&mut block);
 
 			// policy
 			let policy = get_policies(0).unwrap();
@@ -1620,15 +1618,27 @@ mod mine_chain {
 			prev.height + 1,
 		)
 		.unwrap();
-		let mut b = match core::core::Block::new(
-			prev,
-			txs.into_iter().cloned().collect(),
-			diff.clone(),
-			reward,
-		) {
-			Err(e) => panic!("{:?}", e),
-			Ok(b) => b,
-		};
+
+		let mut b = if consensus::is_foundation_height(prev.height + 1) {
+			let foundation = load_foundation_output(prev.height + 1);
+			core::core::Block::from_coinbases(
+				&prev,
+				txs.into_iter().cloned().collect(),
+				reward,
+				(foundation.output, foundation.kernel),
+				diff.clone(),
+			)
+		} else {
+			core::core::Block::from_reward(
+				prev,
+				txs.into_iter().cloned().collect(),
+				reward.0,
+				reward.1,
+				diff.clone(),
+			)
+		}
+		.unwrap();
+
 		b.header.timestamp = prev.timestamp + Duration::seconds(60);
 		b.header.pow.total_difficulty = prev.total_difficulty() + diff;
 		b.header.pow.proof = pow::Proof::random(proof_size);
@@ -1664,15 +1674,27 @@ mod mine_chain {
 			prev.height + 1,
 		)
 		.unwrap();
-		let mut b = match core::core::Block::new(
-			prev,
-			txs.into_iter().cloned().collect(),
-			difficulty.clone(),
-			reward,
-		) {
-			Err(e) => panic!("{:?}", e),
-			Ok(b) => b,
-		};
+
+		let mut b = if consensus::is_foundation_height(prev.height + 1) {
+			let foundation = load_foundation_output(prev.height + 1);
+			core::core::Block::from_coinbases(
+				&prev,
+				txs.into_iter().cloned().collect(),
+				reward,
+				(foundation.output, foundation.kernel),
+				difficulty.clone(),
+			)
+		} else {
+			core::core::Block::from_reward(
+				prev,
+				txs.into_iter().cloned().collect(),
+				reward.0,
+				reward.1,
+				difficulty.clone(),
+			)
+		}
+		.unwrap();
+
 		b.header.timestamp = prev.timestamp + Duration::seconds(timespan);
 		b.header.pow.total_difficulty = prev.total_difficulty() + difficulty;
 		b.header.pow.proof = pow::Proof::random(proof_size);

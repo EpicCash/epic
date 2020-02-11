@@ -536,15 +536,7 @@ impl Writeable for Block {
 impl Readable for Block {
 	fn read(reader: &mut dyn Reader) -> Result<Block, ser::Error> {
 		let header = BlockHeader::read(reader)?;
-
 		let body = TransactionBody::read(reader)?;
-
-		// Now "lightweight" validation of the block.
-		// Treat any validation issues as data corruption.
-		// An example of this would be reading a block
-		// that exceeded the allowed number of inputs.
-		body.validate_read(Weighting::AsBlock)
-			.map_err(|_| ser::Error::CorruptedData)?;
 
 		Ok(Block { header, body })
 	}
@@ -727,6 +719,7 @@ impl Block {
 			vec![],
 		)?;
 
+		let height = prev.height + 1;
 		let now = Utc::now().timestamp();
 		let timestamp = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(now, 0), Utc);
 
@@ -735,7 +728,8 @@ impl Block {
 		// Caller must validate the block as necessary.
 		Block {
 			header: BlockHeader {
-				height: prev.height + 1,
+				height: height,
+				version: consensus::header_version(height),
 				timestamp,
 				prev_hash: prev.hash(),
 				total_kernel_offset,
@@ -862,17 +856,24 @@ impl Block {
 		prev_kernel_offset: &BlindingFactor,
 		verifier: Arc<RwLock<dyn VerifierCache>>,
 	) -> Result<Commitment, Error> {
+		println!("block validate");
 		self.body.validate(Weighting::AsBlock, verifier)?;
 
+		println!("verify_kernel_lock_heights");
 		self.verify_kernel_lock_heights()?;
+
+		println!("verify_coinbase");
 		self.verify_coinbase()?;
 
 		// take the kernel offset for this block (block offset minus previous) and
 		// verify.body.outputs and kernel sums
+		println!("let verify_kernel_sums");
 		let (_utxo_sum, kernel_sum) = self.verify_kernel_sums(
 			self.header.overage(),
 			self.block_kernel_offset(prev_kernel_offset.clone())?,
 		)?;
+
+		println!("ehuehueh");
 
 		Ok(kernel_sum)
 	}
@@ -898,7 +899,6 @@ impl Block {
 		{
 			if is_foundation_height(self.header.height) {
 				let cb_data = load_foundation_output(self.header.height);
-
 				if cb_outs
 					.iter()
 					.filter(|x| x.commitment() == cb_data.output.commitment())
@@ -920,6 +920,7 @@ impl Block {
 
 			// Verify the kernel sum equals the output sum accounting for block fees.
 			if kerns_sum != out_adjust_sum {
+				println!("error");
 				return Err(Error::CoinbaseSumMismatch);
 			}
 		}
