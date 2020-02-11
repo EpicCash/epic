@@ -68,7 +68,7 @@ fn validate_pow_only(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result
 	if !header.pow.is_primary() && !header.pow.is_secondary() {
 		return Err(ErrorKind::LowEdgebits.into());
 	}
-	if !(ctx.pow_verifier)(header).is_ok() {
+	if (ctx.pow_verifier)(header).is_err() {
 		error!(
 			"pipe: error validating header with cuckoo edge_bits {}",
 			header.pow.edge_bits(),
@@ -163,7 +163,7 @@ pub fn process_block(b: &Block, ctx: &mut BlockContext<'_>) -> Result<Option<Tip
 	// Add the validated block to the db.
 	// We do this even if we have not increased the total cumulative work
 	// so we can maintain multiple (in progress) forks.
-	add_block(b, &ctx.batch)?;
+	add_block(b, &block_sums, &ctx.batch)?;
 
 	// If we have no "tail" then set it now.
 	if ctx.batch.tail().is_err() {
@@ -534,10 +534,11 @@ fn apply_block_to_txhashset(
 
 /// Officially adds the block to our chain.
 /// Header must be added separately (assume this has been done previously).
-fn add_block(b: &Block, batch: &store::Batch<'_>) -> Result<(), Error> {
+fn add_block(b: &Block, block_sums: &BlockSums, batch: &store::Batch<'_>) -> Result<(), Error> {
 	batch
 		.save_block(b)
 		.map_err(|e| ErrorKind::StoreErr(e, "pipe save block".to_owned()))?;
+	batch.save_block_sums(&b.hash(), block_sums)?;
 	Ok(())
 }
 
@@ -580,7 +581,7 @@ pub fn rewind_and_apply_header_fork(
 	ext: &mut txhashset::HeaderExtension<'_>,
 ) -> Result<(), Error> {
 	let mut fork_hashes = vec![];
-	let mut current = ext.batch.get_previous_header(header)?;
+	let mut current = header.clone();
 	while current.height > 0 && !ext.is_on_current_chain(&current).is_ok() {
 		fork_hashes.push(current.hash());
 		current = ext.batch.get_previous_header(&current)?;
@@ -598,6 +599,7 @@ pub fn rewind_and_apply_header_fork(
 			.batch
 			.get_block_header(&h)
 			.map_err(|e| ErrorKind::StoreErr(e, format!("getting forked headers")))?;
+		ext.validate_root(&header)?;
 		ext.apply_header(&header)?;
 	}
 	Ok(())
