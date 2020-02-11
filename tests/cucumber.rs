@@ -57,11 +57,14 @@ mod mine_chain {
 	use epic_core::core::foundation::load_foundation_output;
 	use epic_core::core::hash::{Hash, Hashed};
 	use epic_core::core::verifier_cache::LruVerifierCache;
-	use epic_core::core::{Block, BlockHeader, Output, OutputIdentifier, Transaction, TxKernel};
+	use epic_core::core::{
+		Block, BlockHeader, KernelFeatures, Output, OutputIdentifier, Transaction, TxKernel,
+	};
 	use epic_core::global::{
 		add_allowed_policy, get_emitted_policy, get_policies, set_emitted_policy,
 		set_policy_config, ChainTypes,
 	};
+	use epic_core::libtx::ProofBuilder;
 	use epic_core::libtx::{self, build, reward};
 	use epic_core::pow::{
 		new_cuckaroo_ctx, new_cuckatoo_ctx, new_md5_ctx, new_progpow_ctx, new_randomx_ctx,
@@ -145,7 +148,8 @@ mod mine_chain {
 			let genesis = genesis::genesis_dev();
 			world.keychain = Some(epic_keychain::ExtKeychain::from_random_seed(false).unwrap());
 			let key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
-			let reward = reward::output(world.keychain.as_ref().unwrap(), &key_id, 0, false, 0).unwrap();
+			let kc = world.keychain.as_ref().unwrap();
+			let reward = reward::output(kc, &ProofBuilder::new(kc), &key_id, 0, false, 0).unwrap();
 			world.genesis = Some(genesis.with_reward(reward.0, reward.1));
 			let genesis_ref = world.genesis.as_mut().unwrap();
 
@@ -164,10 +168,10 @@ mod mine_chain {
 			let prev = chain.head_header().unwrap();
 
 			let key_id = epic_keychain::ExtKeychain::derive_key_id(1, 3, 0, 0, 0);
-			let reward = reward::output(kc, &key_id, 0, false, prev.height+1).unwrap();
-			let foundation = libtx::reward::output_foundation(kc, &key_id, true, prev.height+1).unwrap();
+			let reward = reward::output(kc, &ProofBuilder::new(kc), &key_id, 0, false, prev.height+1).unwrap();
+			let foundation = libtx::reward::output_foundation(kc, &ProofBuilder::new(kc), &key_id, true, prev.height+1).unwrap();
 
-			let hash = chain.txhashset().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1)).unwrap();
+			let hash = chain.header_pmmr().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1)).unwrap();
 			let mut block = prepare_block_with_coinbase(&prev, 2, vec![], reward, foundation, hash);
 			chain.set_txhashset_roots(&mut block).unwrap();
 			let emitted_policy = get_emitted_policy();
@@ -319,7 +323,7 @@ mod mine_chain {
 			diff.insert(FType::RandomX, 1);
 			diff.insert(FType::ProgPow, 1);
 
-			let hash = chain.txhashset().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(head.height + 1)).unwrap();
+			let hash = chain.header_pmmr().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(head.height + 1)).unwrap();
 			let mut block = prepare_block_pow(&kc, &head, Difficulty::from_dic_number(diff), vec![], proof, hash);
 			chain.set_txhashset_roots(&mut block).unwrap();
 
@@ -362,7 +366,7 @@ mod mine_chain {
 			diff.insert(FType::RandomX, 1);
 			diff.insert(FType::ProgPow, 1);
 
-			let hash = chain.txhashset().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(head.height + 1)).unwrap();
+			let hash = chain.header_pmmr().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(head.height + 1)).unwrap();
 			let mut block = prepare_block_pow(&kc, &head, Difficulty::from_dic_number(diff), vec![], proof, hash);
 			chain.set_txhashset_roots(&mut block);
 
@@ -432,13 +436,16 @@ mod mine_chain {
 			let key_id30 = epic_keychain::ExtKeychainPath::new(1, 30, 0, 0, 0).to_identifier();
 			let key_id31 = epic_keychain::ExtKeychainPath::new(1, 31, 0, 0, 0).to_identifier();
 
+			let pb = ProofBuilder::new(kc);
+
 			let tx1 = build::transaction(
+				KernelFeatures::Plain { fee: 20000 },
 				vec![
 					build::coinbase_input(consensus::reward_at_height(1), key_id2.clone()),
 					build::output(consensus::reward_at_height(1) - 20000, key_id30.clone()),
-					build::with_fee(20000),
 				],
 				kc,
+				&pb,
 			)
 			.unwrap();
 
@@ -450,12 +457,13 @@ mod mine_chain {
 			chain.validate(false).unwrap();
 
 			let tx2 = build::transaction(
+				KernelFeatures::Plain { fee: 20000 },
 				vec![
 					build::input(consensus::reward_at_height(1) - 20000, key_id30.clone()),
 					build::output(consensus::reward_at_height(1) - 40000, key_id31.clone()),
-					build::with_fee(20000),
 				],
 				kc,
+				&pb,
 			)
 			.unwrap();
 
@@ -532,7 +540,7 @@ mod mine_chain {
 					(&prev.pow.proof).into(),
 					chain.difficulty_iter().unwrap());
 				let pk = epic_keychain::ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
-				let reward = libtx::reward::output(kc, &pk, 0, false, n).unwrap();
+				let reward = libtx::reward::output(kc, &ProofBuilder::new(kc), &pk, 0, false, n).unwrap();
 				reward_outputs.push(reward.0.clone());
 				let mut b =
 					core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
@@ -541,7 +549,7 @@ mod mine_chain {
 				b.header.pow.secondary_scaling = next_header_info.secondary_scaling;
 				b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles);
 
-				let hash = chain.txhashset().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1)).unwrap();
+				let hash = chain.header_pmmr().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1)).unwrap();
 				let mut seed = [0u8; 32];
 				seed.copy_from_slice(&hash.as_bytes()[0..32]);
 
@@ -651,10 +659,12 @@ mod mine_chain {
 		given regex "I add a genesis block with coinbase and mined with <([a-zA-Z0-9]+)>" |world, matches, _step| {
 			let algo = get_fw_type(matches[1].as_str());
 			let key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
+			let kc = world.keychain.as_ref().unwrap();
 
-			let reward = reward::output(world.keychain.as_ref().unwrap(), &key_id, 0, false, 0).unwrap();
+			let reward = reward::output(kc, &ProofBuilder::new(kc), &key_id, 0, false, 0).unwrap();
 			// creating a placeholder for the genesis block
 			let mut genesis = genesis::genesis_dev();
+			print!("{:?}", genesis);
 			// creating the block with the desired reward
 			genesis = genesis.with_reward(reward.0, reward.1);
 			genesis.header.bottles = next_block_bottles(algo, &world.bottles);
@@ -745,10 +755,10 @@ mod mine_chain {
 			let transactions: Vec<&Transaction>  = vec![];
 			let key_id = epic_keychain::ExtKeychainPath::new(3, 0, 0, diff as u32, 0).to_identifier();
 			let fees = transactions.iter().map(|tx| tx.fee()).sum();
-			let mining_reward = libtx::reward::output(kc, &key_id, fees, false, prev.height+1).unwrap();
+			let mining_reward = libtx::reward::output(kc, &ProofBuilder::new(kc), &key_id, fees, false, prev.height+1).unwrap();
 			let foundation_reward = load_foundation_output(prev.height + 1);
 			// Creating the block
-			let hash = chain.txhashset().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1)).unwrap();
+			let hash = chain.header_pmmr().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1)).unwrap();
 			let mut block = prepare_block_with_coinbase(&prev, diff, transactions, mining_reward, (foundation_reward.output, foundation_reward.kernel), hash);
 			chain.set_txhashset_roots(&mut block).unwrap();
 			// Mining
@@ -940,7 +950,7 @@ mod mine_chain {
 				let prev = chain.head_header().unwrap();
 				let kc = epic_keychain::ExtKeychain::from_seed(&[(prev.height + 1) as u8], false).unwrap().clone();
 				let hash = chain
-					.txhashset()
+					.header_pmmr()
 					.read()
 					.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 					.unwrap();
@@ -987,7 +997,7 @@ mod mine_chain {
 		// 		let prev = chain.head_header().unwrap();
 		// 		let kc = epic_keychain::ExtKeychain::from_seed(&[(prev.height + 1) as u8], false).unwrap().clone();
 		// 		let hash = chain
-		// 			.txhashset()
+		// 			.header_pmmr()
 		// 			.read()
 		// 			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 		// 			.unwrap();
@@ -1020,7 +1030,7 @@ mod mine_chain {
 			let prev = chain.head_header().unwrap();
 
 			let hash = chain
-				.txhashset()
+				.header_pmmr()
 				.read()
 				.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 				.unwrap();
@@ -1421,7 +1431,9 @@ mod mine_chain {
 				chain.difficulty_iter().unwrap(),
 			);
 			let pk = epic_keychain::ExtKeychainPath::new(1, n as u32, 0, 0, 0).to_identifier();
-			let reward = libtx::reward::output(keychain, &pk, 0, false, n).unwrap();
+			let reward =
+				libtx::reward::output(keychain, &ProofBuilder::new(keychain), &pk, 0, false, n)
+					.unwrap();
 			let mut b =
 				core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
 					.unwrap();
@@ -1440,7 +1452,7 @@ mod mine_chain {
 			);
 
 			let hash = chain
-				.txhashset()
+				.header_pmmr()
 				.read()
 				.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 				.unwrap();
@@ -1518,7 +1530,7 @@ mod mine_chain {
 		K: Keychain,
 	{
 		let hash = chain
-			.txhashset()
+			.header_pmmr()
 			.read()
 			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 			.unwrap();
@@ -1532,12 +1544,12 @@ mod mine_chain {
 		K: Keychain,
 	{
 		let hash = chain
-			.txhashset()
+			.header_pmmr()
 			.read()
 			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 			.unwrap();
 		let mut b = prepare_block_nosum(kc, prev, diff, vec![], hash);
-		chain.set_txhashset_roots_forked(&mut b, prev).unwrap();
+		chain.set_txhashset_roots(&mut b).unwrap();
 		b
 	}
 
@@ -1552,7 +1564,7 @@ mod mine_chain {
 		K: Keychain,
 	{
 		let hash = chain
-			.txhashset()
+			.header_pmmr()
 			.read()
 			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 			.unwrap();
@@ -1572,12 +1584,12 @@ mod mine_chain {
 		K: Keychain,
 	{
 		let hash = chain
-			.txhashset()
+			.header_pmmr()
 			.read()
 			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 			.unwrap();
 		let mut b = prepare_block_nosum(kc, prev, Difficulty::from_num(diff), txs, hash);
-		chain.set_txhashset_roots_forked(&mut b, prev).unwrap();
+		chain.set_txhashset_roots(&mut b).unwrap();
 		b
 	}
 
@@ -1599,7 +1611,15 @@ mod mine_chain {
 			epic_keychain::ExtKeychainPath::new(1, diff.to_num(FType::Cuckatoo) as u32, 0, 0, 0)
 				.to_identifier();
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
-		let reward = libtx::reward::output(kc, &key_id, fees, false, prev.height + 1).unwrap();
+		let reward = libtx::reward::output(
+			kc,
+			&ProofBuilder::new(kc),
+			&key_id,
+			fees,
+			false,
+			prev.height + 1,
+		)
+		.unwrap();
 		let mut b = match core::core::Block::new(
 			prev,
 			txs.into_iter().cloned().collect(),
@@ -1635,7 +1655,15 @@ mod mine_chain {
 		let key_id = epic_keychain::ExtKeychainPath::new(1, (prev.height + 1) as u32 + 1, 0, 0, 0)
 			.to_identifier();
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
-		let reward = libtx::reward::output(kc, &key_id, fees, false, prev.height + 1).unwrap();
+		let reward = libtx::reward::output(
+			kc,
+			&ProofBuilder::new(kc),
+			&key_id,
+			fees,
+			false,
+			prev.height + 1,
+		)
+		.unwrap();
 		let mut b = match core::core::Block::new(
 			prev,
 			txs.into_iter().cloned().collect(),
@@ -1662,12 +1690,12 @@ mod mine_chain {
 		hash: Hash,
 	) -> Block {
 		let proof_size = global::proofsize();
-		let mut b = match core::core::Block::new_with_coinbase(
+		let mut b = match core::core::Block::from_coinbases(
 			prev,
 			txs.into_iter().cloned().collect(),
-			Difficulty::from_num(diff),
 			reward,
 			foundation,
+			Difficulty::from_num(diff),
 		) {
 			Err(e) => panic!("{:?}", e),
 			Ok(b) => b,
@@ -1699,7 +1727,15 @@ mod mine_chain {
 		let key_id = epic_keychain::ExtKeychainPath::new(1, 3, 0, 0, 0).to_identifier();
 
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
-		let reward = libtx::reward::output(kc, &key_id, fees, true, prev.height + 1).unwrap();
+		let reward = libtx::reward::output(
+			kc,
+			&ProofBuilder::new(kc),
+			&key_id,
+			fees,
+			true,
+			prev.height + 1,
+		)
+		.unwrap();
 		let mut b = match core::core::Block::new(
 			prev,
 			txs.into_iter().cloned().collect(),

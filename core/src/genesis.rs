@@ -38,6 +38,7 @@ use crate::keychain::BlindingFactor;
 pub fn genesis_dev() -> core::Block {
 	core::Block::with_header(core::BlockHeader {
 		height: 0,
+		version: core::HeaderVersion(6),
 		// previous: core::hash::Hash([0xff; 32]),
 		timestamp: Utc.ymd(1997, 8, 4).and_hms(0, 0, 0),
 		pow: ProofOfWork {
