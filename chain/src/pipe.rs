@@ -250,6 +250,8 @@ pub fn process_block_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) ->
 		}
 	}
 
+	validate_header(header, ctx)?;
+
 	txhashset::header_extending(&mut ctx.header_pmmr, &mut ctx.batch, |ext| {
 		rewind_and_apply_header_fork(&prev_header, ext)?;
 		ext.validate_root(header)?;
@@ -260,7 +262,6 @@ pub fn process_block_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) ->
 		Ok(())
 	})?;
 
-	validate_header(header, ctx)?;
 	add_block_header(header, &ctx.batch)?;
 
 	Ok(())
