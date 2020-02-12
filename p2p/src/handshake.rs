@@ -134,12 +134,7 @@ impl Handshake {
 
 		debug!(
 			"Connected! Cumulative {} offered from {:?}, {:?}, {:?}, {:?}",
-			shake
-				.total_difficulty
-				.num
-				.iter()
-				.map(|(_, v)| *v)
-				.fold(0, |acc, x| acc + x),
+			shake.total_difficulty.clone(),
 			peer_info.addr,
 			peer_info.version,
 			peer_info.user_agent,
@@ -186,9 +181,7 @@ impl Handshake {
 			user_agent: hand.user_agent,
 			addr: resolve_peer_addr(hand.sender_addr, &conn),
 			version: negotiated_version,
-			live_info: Arc::new(RwLock::new(PeerLiveInfo::new(
-				hand.total_difficulty.clone(),
-			))),
+			live_info: Arc::new(RwLock::new(PeerLiveInfo::new(hand.total_difficulty))),
 			direction: Direction::Inbound,
 		};
 
@@ -205,7 +198,7 @@ impl Handshake {
 			version: self.protocol_version,
 			capabilities: capab,
 			genesis: self.genesis,
-			total_difficulty: total_difficulty.clone(),
+			total_difficulty: total_difficulty,
 			user_agent: USER_AGENT.to_string(),
 		};
 
