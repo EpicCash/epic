@@ -1,6 +1,6 @@
 [package]
 name = "epic_core"
-version = "1.0.0"
+version = "2.0.0"
 authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
 description = "Chain implementation for epic, a simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
@@ -34,8 +34,8 @@ keccak-hash = "0.2.0"
 sha2 = "0.8.0"
 zeroize = "0.9"
 
-keychain = { package = "epic_keychain", path = "../keychain", version = "1.0.0" }
-util = { package = "epic_util", path = "../util", version = "1.0.0" }
+keychain = { package = "epic_keychain", path = "../keychain", version = "2.0.0" }
+util = { package = "epic_util", path = "../util", version = "2.0.0" }
 randomx = { git = "https://gitlab.com/epiccash/randomx-rust.git", version="0.1.0" }
 progpow = { git = "https://gitlab.com/epiccash/progpow-rust.git", version="0.1.0" }
 
