@@ -270,7 +270,7 @@ fn empty_block_serialized_size() {
 	let b = new_block(vec![], &keychain, &builder, &prev, &key_id, 1);
 	let mut vec = Vec::new();
 	ser::serialize_default(&mut vec, &b).expect("serialization failed");
-	assert_eq!(vec.len(), 1_096);
+	assert_eq!(vec.len(), 1_189);
 }
 
 #[test]
@@ -284,7 +284,7 @@ fn block_single_tx_serialized_size() {
 	let b = new_block(vec![&tx1], &keychain, &builder, &prev, &key_id, 1);
 	let mut vec = Vec::new();
 	ser::serialize_default(&mut vec, &b).expect("serialization failed");
-	assert_eq!(vec.len(), 2_670);
+	assert_eq!(vec.len(), 2_763);
 }
 
 #[test]
@@ -298,7 +298,7 @@ fn empty_compact_block_serialized_size() {
 	let cb: CompactBlock = b.into();
 	let mut vec = Vec::new();
 	ser::serialize_default(&mut vec, &cb).expect("serialization failed");
-	assert_eq!(vec.len(), 1_104);
+	assert_eq!(vec.len(), 1_197);
 }
 
 #[test]
@@ -313,7 +313,7 @@ fn compact_block_single_tx_serialized_size() {
 	let cb: CompactBlock = b.into();
 	let mut vec = Vec::new();
 	ser::serialize_default(&mut vec, &cb).expect("serialization failed");
-	assert_eq!(vec.len(), 1_110);
+	assert_eq!(vec.len(), 1_203);
 }
 
 #[test]
@@ -335,21 +335,21 @@ fn block_10_tx_serialized_size() {
 	{
 		let mut vec = Vec::new();
 		ser::serialize_default(&mut vec, &b).expect("serialization failed");
-		assert_eq!(vec.len(), 16_836);
+		assert_eq!(vec.len(), 16_929);
 	}
 
 	// Explicit protocol version 1
 	{
 		let mut vec = Vec::new();
 		ser::serialize(&mut vec, ser::ProtocolVersion(1), &b).expect("serialization failed");
-		assert_eq!(vec.len(), 16_932);
+		assert_eq!(vec.len(), 17_025);
 	}
 
 	// Explicit protocol version 2
 	{
 		let mut vec = Vec::new();
 		ser::serialize(&mut vec, ser::ProtocolVersion(2), &b).expect("serialization failed");
-		assert_eq!(vec.len(), 16_836);
+		assert_eq!(vec.len(), 16_929);
 	}
 }
 
@@ -370,7 +370,7 @@ fn compact_block_10_tx_serialized_size() {
 	let cb: CompactBlock = b.into();
 	let mut vec = Vec::new();
 	ser::serialize_default(&mut vec, &cb).expect("serialization failed");
-	assert_eq!(vec.len(), 1_164);
+	assert_eq!(vec.len(), 1_257);
 }
 
 #[test]
