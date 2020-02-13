@@ -306,11 +306,11 @@ fn get_coinbase(
 
 /// Call the wallet API to create a coinbase output for the given block_fees.
 /// Will retry based on default "retry forever with backoff" behavior.
-fn create_coinbase(dest: &str, block_fees: &BlockFees) -> Result<CbData, Error> {
+fn build_coinbase(dest: &str, block_fees: &BlockFees, method: &str) -> Result<CbData, Error> {
 	let url = format!("{}/v2/foreign", dest);
 	let req_body = json!({
 		"jsonrpc": "2.0",
-		"method": "build_coinbase",
+		"method": method,
 		"id": 1,
 		"params": {
 			"block_fees": block_fees
@@ -353,15 +353,11 @@ fn create_coinbase(dest: &str, block_fees: &BlockFees) -> Result<CbData, Error> 
 	Ok(ret_val)
 }
 
+fn create_coinbase(dest: &str, block_fees: &BlockFees) -> Result<CbData, Error> {
+	build_coinbase(dest, block_fees, "build_coinbase")
+}
 /// Call the wallet API to create a foundation coinbase output for the given block_fees.
 /// Will retry based on default "retry forever with backoff" behavior.
 pub fn create_foundation(dest: &str, block_fees: &BlockFees) -> Result<CbData, Error> {
-	let url = format!("{}/v1/wallet/foreign/build_foundation", dest);
-	api::client::post(&url, None, &block_fees).map_err(|e| {
-		error!(
-			"Failed to get coinbase from {}. Is the wallet listening?",
-			url
-		);
-		Error::WalletComm(format!("{}", e))
-	})
+	build_coinbase(dest, block_fees, "build_foundation")
 }

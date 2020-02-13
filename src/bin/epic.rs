@@ -20,7 +20,8 @@ extern crate clap;
 #[macro_use]
 extern crate log;
 use crate::config::config::SERVER_CONFIG_FILE_NAME;
-use crate::core::global;
+use crate::core::core::foundation;
+use crate::core::{consensus, global};
 use crate::util::init_logger;
 use clap::App;
 use epic_api as api;
@@ -31,6 +32,9 @@ use epic_p2p as p2p;
 use epic_servers as servers;
 use epic_util as util;
 use epic_util::logger::LogEntry;
+use servers::foundation::create_foundation;
+use std::env;
+use std::path::Path;
 use std::sync::mpsc;
 
 mod cmd;
@@ -77,6 +81,56 @@ fn real_main() -> i32 {
 		.version(built_info::PKG_VERSION)
 		.get_matches();
 	let node_config;
+
+	if let ("taxes", Some(taxes_args)) = args.subcommand() {
+		let generate: u64 = taxes_args
+			.value_of("generate")
+			.unwrap()
+			.parse()
+			.unwrap_or_else(|e| {
+				panic!("The generate value must be a positive integer: {}", e);
+			});
+
+		let url = taxes_args.value_of("from_wallet").unwrap().clone();
+		let mut wallet_url = String::new();
+		if !url.contains("http") {
+			wallet_url.push_str("http://");
+		}
+		wallet_url.push_str(url);
+
+		let path_str = taxes_args
+			.value_of("path")
+			.map(|p| Some(p.to_owned()))
+			.unwrap_or_else(|| {
+				let p = env::current_dir().ok()?;
+				let s = p.to_str()?;
+				Some(s.to_owned())
+			})
+			.expect("Any valid path was found to save the foundation.json");
+		let path = Path::new(path_str.as_str());
+		assert_eq!(
+			path.exists(),
+			true,
+			"The path: {} does not exist!",
+			path.display()
+		);
+		let height: u64 = if let Some(h) = taxes_args.value_of("height") {
+			h.parse().unwrap_or_else(|e| {
+				panic!("The height value must be a positive integer: {}", e);
+			})
+		} else {
+			consensus::foundation_height()
+		};
+		// TODO-FOUNDATION: PUT THE FUNCTION TO CHECK IF THE FILE EXISTS HERE IF HEIGHT != 0
+		let foundation_coinbases = create_foundation(&wallet_url, generate, height);
+		let serialized = foundation::serialize_foundation(foundation_coinbases);
+		println!(
+			"Total size in bytes serialized: {:?}",
+			serialized.as_bytes().len()
+		);
+		foundation::save_in_disk(serialized, &path);
+		return 0;
+	}
 
 	// Temporary wallet warning message
 	match args.subcommand() {
