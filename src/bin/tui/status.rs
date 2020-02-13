@@ -25,6 +25,7 @@ use crate::tui::constants::VIEW_BASIC_STATUS;
 use crate::tui::types::TUIStatusListener;
 
 use crate::chain::SyncStatus;
+use crate::core::pow::{DifficultyNumber, PoWType};
 use crate::servers::ServerStats;
 
 const NANO_TO_MILLIS: f64 = 1.0 / 1_000_000.0;
@@ -249,6 +250,14 @@ impl TUIStatusListener for TUIStatusView {
 	fn update(c: &mut Cursive, stats: &ServerStats) {
 		let basic_status = TUIStatusView::update_sync_status(stats.sync_status);
 
+		let cuckoo_diff = stats.chain_stats.total_difficulty.to_num(PoWType::Cuckatoo);
+		let progpow_diff = stats.chain_stats.total_difficulty.to_num(PoWType::ProgPow);
+		let randomx_diff = stats.chain_stats.total_difficulty.to_num(PoWType::RandomX);
+		let head_total_difficulty = format!(
+			"Cuckatoo: {}, ProgPow: {}, RandomX: {}",
+			cuckoo_diff, progpow_diff, randomx_diff,
+		);
+
 		c.call_on_id("basic_current_status", |t: &mut TextView| {
 			t.set_content(basic_status);
 		});
@@ -265,12 +274,20 @@ impl TUIStatusListener for TUIStatusView {
 			t.set_content(stats.chain_stats.height.to_string());
 		});
 		c.call_on_id("basic_total_difficulty", |t: &mut TextView| {
-			t.set_content(format!("{:?}", stats.chain_stats.total_difficulty));
+			t.set_content(head_total_difficulty);
 		});
 		c.call_on_id("chain_timestamp", |t: &mut TextView| {
 			t.set_content(stats.chain_stats.latest_timestamp.to_string());
 		});
 		if let Some(header_stats) = &stats.header_stats {
+			let cuckoo_header_diff = header_stats.total_difficulty.to_num(PoWType::Cuckatoo);
+			let progpow_header_diff = header_stats.total_difficulty.to_num(PoWType::ProgPow);
+			let randomx_header_diff = header_stats.total_difficulty.to_num(PoWType::RandomX);
+			let header_total_difficulty = format!(
+				"Cuckatoo: {}, ProgPow: {}, RandomX: {}",
+				cuckoo_header_diff, progpow_header_diff, randomx_header_diff,
+			);
+
 			c.call_on_id("basic_header_tip_hash", |t: &mut TextView| {
 				t.set_content(header_stats.last_block_h.to_string() + "...");
 			});
@@ -278,7 +295,7 @@ impl TUIStatusListener for TUIStatusView {
 				t.set_content(header_stats.height.to_string());
 			});
 			c.call_on_id("basic_header_total_difficulty", |t: &mut TextView| {
-				t.set_content(format!("{:?}", header_stats.total_difficulty));
+				t.set_content(header_total_difficulty);
 			});
 			c.call_on_id("basic_header_timestamp", |t: &mut TextView| {
 				t.set_content(header_stats.latest_timestamp.to_string());

@@ -22,7 +22,7 @@ use std::time::SystemTime;
 
 use crate::core::consensus::graph_weight;
 use crate::core::core::hash::Hash;
-use crate::core::pow::{DifficultyNumber, PoWType};
+use crate::core::pow::{Difficulty, DifficultyNumber, PoWType};
 use crate::core::ser::ProtocolVersion;
 
 use chrono::prelude::*;
@@ -78,7 +78,7 @@ pub struct ChainStats {
 	/// Last block pushed to the fork
 	pub last_block_h: Hash,
 	/// Total difficulty accumulated on that fork
-	pub total_difficulty: DifficultyNumber,
+	pub total_difficulty: Difficulty,
 	/// Timestamp of highest block or header
 	pub latest_timestamp: DateTime<Utc>,
 }

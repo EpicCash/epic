@@ -578,7 +578,7 @@ impl Server {
 			latest_timestamp: head.timestamp,
 			height: head.height,
 			last_block_h: head.prev_hash,
-			total_difficulty: head.total_difficulty().num,
+			total_difficulty: head.total_difficulty(),
 		};
 
 		let header_stats = match self.chain.try_header_head(read_timeout)? {
@@ -587,7 +587,7 @@ impl Server {
 					latest_timestamp: header.timestamp,
 					height: header.height,
 					last_block_h: header.prev_hash,
-					total_difficulty: header.total_difficulty().num,
+					total_difficulty: header.total_difficulty(),
 				})
 			})?,
 			_ => None,
