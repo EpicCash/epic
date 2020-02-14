@@ -21,7 +21,7 @@ For Mac using [brew](https://brew.sh/):
 
 ```sh
 xcode-select --install
-brew install --with-toolchain llvm
+brew install llvm
 brew install pkg-config
 brew install openssl
 ```

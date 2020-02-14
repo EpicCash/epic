@@ -1,4 +1,4 @@
-// Copyright 2018 The Grin Developers
+// Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 
 //! Implementation of BIP32 hierarchical deterministic wallets, as defined
 //! at https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
-//! Modified from above to integrate into epic and allow for different
+//! Modified from above to integrate into grin and allow for different
 //! hashing algorithms if desired
 
 #[cfg(feature = "serde")]
@@ -50,7 +50,7 @@ use sha2::{Sha256, Sha512};
 
 use crate::base58;
 
-// Create alias for HMAC-SHA256
+// Create alias for HMAC-SHA512
 type HmacSha512 = Hmac<Sha512>;
 
 /// A chain code
@@ -72,7 +72,7 @@ impl Default for Fingerprint {
 }
 
 /// Allow different implementations of hash functions used in BIP32 Derivations
-/// Epic uses blake2 everywhere but the spec calls for SHA512/Ripemd160, so allow
+/// Grin uses blake2 everywhere but the spec calls for SHA512/Ripemd160, so allow
 /// this in future and allow us to unit test against published BIP32 test vectors
 /// The function names refer to the place of the hash in the reference BIP32 spec,
 /// not what the actual implementation is
@@ -90,22 +90,22 @@ pub trait BIP32Hasher {
 
 /// Implementation of the above that uses the standard BIP32 Hash algorithms
 #[derive(Clone, Debug)]
-pub struct BIP32EpicHasher {
+pub struct BIP32GrinHasher {
 	is_floo: bool,
 	hmac_sha512: Hmac<Sha512>,
 }
 
-impl BIP32EpicHasher {
+impl BIP32GrinHasher {
 	/// New empty hasher
-	pub fn new(is_floo: bool) -> BIP32EpicHasher {
-		BIP32EpicHasher {
+	pub fn new(is_floo: bool) -> BIP32GrinHasher {
+		BIP32GrinHasher {
 			is_floo: is_floo,
 			hmac_sha512: HmacSha512::new(GenericArray::from_slice(&[0u8; 128])),
 		}
 	}
 }
 
-impl BIP32Hasher for BIP32EpicHasher {
+impl BIP32Hasher for BIP32GrinHasher {
 	fn network_priv(&self) -> [u8; 4] {
 		match self.is_floo {
 			true => [0x03, 0x27, 0x3A, 0x10],  // fprv
@@ -122,7 +122,7 @@ impl BIP32Hasher for BIP32EpicHasher {
 		b"IamVoldemort".to_owned()
 	}
 	fn init_sha512(&mut self, seed: &[u8]) {
-		self.hmac_sha512 = HmacSha512::new_varkey(seed).expect("HMAC can take key of any size");;
+		self.hmac_sha512 = HmacSha512::new_varkey(seed).expect("HMAC can take key of any size");
 	}
 	fn append_sha512(&mut self, value: &[u8]) {
 		self.hmac_sha512.input(value);
@@ -384,8 +384,8 @@ impl ExtendedPrivKey {
 			Ok(s) => s,
 			Err(e) => return Err(Error::MnemonicError(e)),
 		};
-		let mut hasher = BIP32EpicHasher::new(is_floo);
-		let key = r#try!(ExtendedPrivKey::new_master(secp, &mut hasher, &seed));
+		let mut hasher = BIP32GrinHasher::new(is_floo);
+		let key = ExtendedPrivKey::new_master(secp, &mut hasher, &seed)?;
 		Ok(key)
 	}
 
@@ -716,7 +716,7 @@ mod tests {
 			b"Bitcoin seed".to_owned()
 		}
 		fn init_sha512(&mut self, seed: &[u8]) {
-			self.hmac_sha512 = HmacSha512::new_varkey(seed).expect("HMAC can take key of any size");;
+			self.hmac_sha512 = HmacSha512::new_varkey(seed).expect("HMAC can take key of any size");
 		}
 		fn append_sha512(&mut self, value: &[u8]) {
 			self.hmac_sha512.input(value);
@@ -900,5 +900,4 @@ mod tests {
 		serde_round_trip!(ChildNumber::from_hardened_idx(1));
 		serde_round_trip!(ChildNumber::from_hardened_idx((1 << 31) - 1));
 	}
-
 }

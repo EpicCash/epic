@@ -1,4 +1,4 @@
-// Copyright 2019 The Grin Developers
+// Copyright 2020 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ use tokio::runtime::Runtime;
 
 /// Returns the list of event hooks that will be initialized for network events
 pub fn init_net_hooks(config: &ServerConfig) -> Vec<Box<dyn NetEvents + Send + Sync>> {
-	let mut list: Vec<Box<NetEvents + Send + Sync>> = Vec::new();
+	let mut list: Vec<Box<dyn NetEvents + Send + Sync>> = Vec::new();
 	list.push(Box::new(EventLogger));
 	if config.webhook_config.block_received_url.is_some()
 		|| config.webhook_config.tx_received_url.is_some()
@@ -50,7 +50,7 @@ pub fn init_net_hooks(config: &ServerConfig) -> Vec<Box<dyn NetEvents + Send + S
 
 /// Returns the list of event hooks that will be initialized for chain events
 pub fn init_chain_hooks(config: &ServerConfig) -> Vec<Box<dyn ChainEvents + Send + Sync>> {
-	let mut list: Vec<Box<ChainEvents + Send + Sync>> = Vec::new();
+	let mut list: Vec<Box<dyn ChainEvents + Send + Sync>> = Vec::new();
 	list.push(Box::new(EventLogger));
 	if config.webhook_config.block_accepted_url.is_some() {
 		list.push(Box::new(WebHook::from_config(&config.webhook_config)));
@@ -117,11 +117,12 @@ impl NetEvents for EventLogger {
 impl ChainEvents for EventLogger {
 	fn on_block_accepted(&self, block: &core::Block, status: &BlockStatus) {
 		match status {
-			BlockStatus::Reorg => {
+			BlockStatus::Reorg(depth) => {
 				warn!(
-					"block_accepted (REORG!): {:?} at {} (diff: {})",
+					"block_accepted (REORG!): {:?} at {} (depth: {}, diff: {})",
 					block.hash(),
 					block.header.height,
+					depth,
 					block.header.total_difficulty(),
 				);
 			}
@@ -261,16 +262,29 @@ impl WebHook {
 
 impl ChainEvents for WebHook {
 	fn on_block_accepted(&self, block: &core::Block, status: &BlockStatus) {
-		let status = match status {
-			BlockStatus::Reorg => "reorg",
+		let status_str = match status {
+			BlockStatus::Reorg(_) => "reorg",
 			BlockStatus::Fork => "fork",
 			BlockStatus::Next => "head",
 		};
-		let payload = json!({
-			"hash": block.header.hash().to_hex(),
-			"status": status,
-			"data": block
-		});
+
+		// Add additional `depth` field to the JSON in case of reorg
+		let payload = if let BlockStatus::Reorg(depth) = status {
+			json!({
+				"hash": block.header.hash().to_hex(),
+				"status": status_str,
+				"data": block,
+
+				"depth": depth
+			})
+		} else {
+			json!({
+				"hash": block.header.hash().to_hex(),
+				"status": status_str,
+				"data": block
+			})
+		};
+
 		if !self.make_request(&payload, &self.block_accepted_url) {
 			error!(
 				"Failed to serialize block {} at height {}",

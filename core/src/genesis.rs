@@ -38,6 +38,7 @@ use crate::keychain::BlindingFactor;
 pub fn genesis_dev() -> core::Block {
 	core::Block::with_header(core::BlockHeader {
 		height: 0,
+		version: core::HeaderVersion(6),
 		// previous: core::hash::Hash([0xff; 32]),
 		timestamp: Utc.ymd(1997, 8, 4).and_hms(0, 0, 0),
 		pow: ProofOfWork {
@@ -62,6 +63,7 @@ pub fn genesis_floo() -> core::Block {
 	diff.insert(PoWType::ProgPow, 2_u64.pow(26));
 
 	core::Block::with_header(core::BlockHeader {
+		version: core::HeaderVersion(6),
 		height: 0,
 		timestamp: Utc.ymd(2019, 8, 9).and_hms(17, 04, 38),
 		prev_root: Hash::from_hex(
@@ -122,6 +124,7 @@ pub fn genesis_main() -> core::Block {
 	diff.insert(PoWType::ProgPow, 2_u64.pow(30));
 
 	core::Block::with_header(core::BlockHeader {
+		version: core::HeaderVersion(6),
 		height: 0,
 		timestamp: Utc.ymd(2019, 8, 9).and_hms(17, 04, 38),
 		prev_root: Hash::from_hex(
@@ -172,13 +175,13 @@ pub fn genesis_main() -> core::Block {
 mod test {
 	use super::*;
 	use crate::core::hash::Hashed;
-	use crate::ser;
+	use crate::ser::{self, ProtocolVersion};
 
 	#[test]
 	fn floonet_genesis_hash() {
 		let gen_hash = genesis_floo().hash();
 		println!("floonet genesis hash: {}", gen_hash.to_hex());
-		let gen_bin = ser::ser_vec(&genesis_floo()).unwrap();
+		let gen_bin = ser::ser_vec(&genesis_floo(), ProtocolVersion(1)).unwrap();
 		println!("floonet genesis full hash: {}\n", gen_bin.hash().to_hex());
 		assert_eq!(
 			gen_hash.to_hex(),
@@ -195,7 +198,7 @@ mod test {
 	fn mainnet_genesis_hash() {
 		let gen_hash = genesis_main().hash();
 		println!("mainnet genesis hash: {}", gen_hash.to_hex());
-		let gen_bin = ser::ser_vec(&genesis_main()).unwrap();
+		let gen_bin = ser::ser_vec(&genesis_main(), ProtocolVersion(1)).unwrap();
 		println!("mainnet genesis full hash: {}\n", gen_bin.hash().to_hex());
 		assert_eq!(
 			gen_hash.to_hex(),

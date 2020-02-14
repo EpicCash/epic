@@ -56,6 +56,19 @@ fn get_epic_path(chain_type: &global::ChainTypes) -> Result<PathBuf, ConfigError
 	Ok(epic_path)
 }
 
+fn get_foundation_path() -> String {
+	let foundation_name = match global::CHAIN_TYPE.read().clone() {
+		global::ChainTypes::Mainnet => "foundation.json",
+		_ => "foundation_floonet.json",
+	};
+
+	if cfg!(windows) {
+		format!("C:\\Program Files\\Epic\\{}", foundation_name).to_owned()
+	} else {
+		format!("/usr/share/epic/{}", foundation_name).to_owned()
+	}
+}
+
 fn check_config_current_dir(path: &str) -> Option<PathBuf> {
 	let p = env::current_dir();
 	let mut c = p.ok()?;
@@ -246,29 +259,15 @@ impl GlobalConfig {
 		self.members.as_mut().unwrap().server.db_root = chain_path.to_str().unwrap().to_owned();
 		let mut secret_path = epic_home.clone();
 		secret_path.push(API_SECRET_FILE_NAME);
+
 		self.members.as_mut().unwrap().server.api_secret_path =
 			Some(secret_path.to_str().unwrap().to_owned());
-		// TODO-FOUNDATION
-		// let mut foundation_path = epic_home.clone();
-		// foundation_path.push(
-		// 	self.members
-		// 		.as_ref()
-		// 		.unwrap()
-		// 		.server
-		// 		.foundation_path
-		// 		.clone(),
-		// );
-		// foundation_path.push("foundation.json");
-		let foundation_path = if cfg!(windows) {
-			"C:\\Program Files\\Epic\\foundation.json".to_owned()
-		} else {
-			"/usr/share/epic/foundation.json".to_owned()
-		};
-		// self.members.as_mut().unwrap().server.foundation_path =
-		// 	foundation_path.to_str().unwrap().to_owned();
-		self.members.as_mut().unwrap().server.foundation_path = foundation_path;
+
+		self.members.as_mut().unwrap().server.foundation_path = get_foundation_path();
+
 		let mut log_path = epic_home.clone();
 		log_path.push(SERVER_LOG_FILE_NAME);
+
 		self.members
 			.as_mut()
 			.unwrap()

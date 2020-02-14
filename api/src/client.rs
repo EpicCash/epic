@@ -1,4 +1,4 @@
-// Copyright 2018 The Grin Developers
+// Copyright 2020 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,8 +23,10 @@ use hyper::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use hyper::rt::{Future, Stream};
 use hyper::{Body, Client, Request};
 use hyper_rustls;
+use hyper_timeout::TimeoutConnector;
 use serde::{Deserialize, Serialize};
 use serde_json;
+use std::time::Duration;
 use tokio::runtime::Runtime;
 
 pub type ClientResponseFuture<T> = Box<dyn Future<Item = T, Error = Error> + Send>;
@@ -125,8 +127,8 @@ where
 	}
 }
 
-fn build_request<'a>(
-	url: &'a str,
+fn build_request(
+	url: &str,
 	method: &str,
 	api_secret: Option<String>,
 	body: Option<String>,
@@ -137,14 +139,14 @@ fn build_request<'a>(
 	})?;
 	let mut builder = Request::builder();
 	if let Some(api_secret) = api_secret {
-		let basic_auth = format!("Basic {}", to_base64(&format!("epic:{}", api_secret)));
+		let basic_auth = format!("Basic {}", to_base64(&format!("grin:{}", api_secret)));
 		builder.header(AUTHORIZATION, basic_auth);
 	}
 
 	builder
 		.method(method)
 		.uri(uri)
-		.header(USER_AGENT, "epic-client")
+		.header(USER_AGENT, "grin-client")
 		.header(ACCEPT, "application/json")
 		.header(CONTENT_TYPE, "application/json")
 		.body(match body {
@@ -195,7 +197,11 @@ where
 
 fn send_request_async(req: Request<Body>) -> Box<dyn Future<Item = String, Error = Error> + Send> {
 	let https = hyper_rustls::HttpsConnector::new(1);
-	let client = Client::builder().build::<_, Body>(https);
+	let mut connector = TimeoutConnector::new(https);
+	connector.set_connect_timeout(Some(Duration::from_secs(20)));
+	connector.set_read_timeout(Some(Duration::from_secs(20)));
+	connector.set_write_timeout(Some(Duration::from_secs(20)));
+	let client = Client::builder().build::<_, hyper::Body>(connector);
 	Box::new(
 		client
 			.request(req)

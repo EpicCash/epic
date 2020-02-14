@@ -37,6 +37,13 @@ use std::path::Path;
 /// Define these here, as they should be developer-set, not really tweakable
 /// by users
 
+/// The default "local" protocol version for this node.
+/// We negotiate compatible versions with each peer via Hand/Shake.
+/// Note: We also use a specific (possible different) protocol version
+/// for both the backend database and MMR data files.
+/// This defines the p2p layer protocol version for this node.
+pub const PROTOCOL_VERSION: u32 = 2;
+
 /// Automated testing edge_bits
 pub const AUTOMATED_TESTING_MIN_EDGE_BITS: u8 = 9;
 
@@ -90,13 +97,26 @@ pub const PEER_EXPIRATION_REMOVE_TIME: i64 = PEER_EXPIRATION_DAYS * 24 * 3600;
 /// For a node configured as "archival_mode = true" only the txhashset will be compacted.
 pub const COMPACTION_CHECK: u64 = DAY_HEIGHT;
 
-pub const CURRENT_HEADER_VERSION: u16 = 6;
+/// Number of blocks to reuse a txhashset zip for (automated testing and user testing).
+pub const TESTING_TXHASHSET_ARCHIVE_INTERVAL: u64 = 10;
+
+/// Number of blocks to reuse a txhashset zip for.
+pub const TXHASHSET_ARCHIVE_INTERVAL: u64 = 12 * 60;
+
+pub const CURRENT_HEADER_VERSION: u16 = 7;
 
 #[cfg(target_family = "unix")]
-pub const FOUNDATION_JSON_SHA256: &str =
+pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
 	"ddf5ad515d3200d1c9fe2a566b9eb81cff0835690ce7f6f3b2a89ee52636ada0";
 #[cfg(target_family = "windows")]
-pub const FOUNDATION_JSON_SHA256: &str =
+pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
+	"4d01ca4134959d19ae1b76058c8d11040b63bd1bd112401b80b36185e7faf94a";
+
+#[cfg(target_family = "unix")]
+pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
+	"8dc984dcabba639bca6b5a5dcfb0d661d1c962591118484013329d0274ca8f45";
+#[cfg(target_family = "windows")]
+pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
 	"4d01ca4134959d19ae1b76058c8d11040b63bd1bd112401b80b36185e7faf94a";
 
 /// Types of chain a server can run with, dictates the genesis block and
@@ -166,6 +186,14 @@ lazy_static! {
 	/// Store the timeout for the header sync
 	pub static ref HEADER_SYNC_TIMEOUT : RwLock<i64> =
 			RwLock::new(10);
+}
+
+pub fn foundation_json_sha256() -> &'static str {
+	let param_ref = CHAIN_TYPE.read();
+	match *param_ref {
+		ChainTypes::Mainnet => MAINNET_FOUNDATION_JSON_SHA256,
+		_ => FLOONET_FOUNDATION_JSON_SHA256,
+	}
 }
 
 /// Get the current Timeout without the verification of the existence of more headers to be synced,
@@ -413,6 +441,16 @@ pub fn is_automated_testing_mode() -> bool {
 pub fn is_user_testing_mode() -> bool {
 	let param_ref = CHAIN_TYPE.read();
 	ChainTypes::UserTesting == *param_ref
+}
+
+/// Number of blocks to reuse a txhashset zip for.
+pub fn txhashset_archive_interval() -> u64 {
+	let param_ref = CHAIN_TYPE.read();
+	match *param_ref {
+		ChainTypes::AutomatedTesting => TESTING_TXHASHSET_ARCHIVE_INTERVAL,
+		ChainTypes::UserTesting => TESTING_TXHASHSET_ARCHIVE_INTERVAL,
+		_ => TXHASHSET_ARCHIVE_INTERVAL,
+	}
 }
 
 /// Are we in production mode?

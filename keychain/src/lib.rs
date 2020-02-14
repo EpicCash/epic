@@ -1,4 +1,4 @@
-// Copyright 2018 The Grin Developers
+// Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,10 +29,13 @@ mod base58;
 pub mod extkey_bip32;
 pub mod mnemonic;
 mod types;
+pub mod view_key;
 
 pub mod keychain;
 pub use crate::extkey_bip32::ChildNumber;
 pub use crate::keychain::ExtKeychain;
 pub use crate::types::{
-	BlindSum, BlindingFactor, Error, ExtKeychainPath, Identifier, Keychain, IDENTIFIER_SIZE,
+	BlindSum, BlindingFactor, Error, ExtKeychainPath, Identifier, Keychain, SwitchCommitmentType,
+	IDENTIFIER_SIZE,
 };
+pub use crate::view_key::ViewKey;

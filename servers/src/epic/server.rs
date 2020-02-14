@@ -1,4 +1,4 @@
-// Copyright 2018 The Grin Developers
+// Copyright 2020 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,30 +20,33 @@ use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{mpsc, Arc};
 use std::{
 	thread::{self, JoinHandle},
 	time::{self, Duration},
 };
 
 use fs2::FileExt;
-
-use clokwerk::{ScheduleHandle, Scheduler, TimeUnits};
+use walkdir::WalkDir;
 
 use crate::api;
 use crate::api::TLSConfig;
-use crate::chain;
+use crate::chain::{self, SyncState, SyncStatus};
 use crate::common::adapters::{
 	ChainToPoolAndNetAdapter, NetToChainAdapter, PoolToChainAdapter, PoolToNetAdapter,
 };
 use crate::common::hooks::{init_chain_hooks, init_net_hooks};
-use crate::common::stats::{DiffBlock, DiffStats, PeerStats, ServerStateInfo, ServerStats};
-use crate::common::types::{Error, ServerConfig, StratumServerConfig, SyncState, SyncStatus};
-use crate::core::core::hash::{Hash, Hashed, ZERO_HASH};
+use crate::common::stats::{
+	ChainStats, DiffBlock, DiffStats, PeerStats, ServerStateInfo, ServerStats, TxStats,
+};
+use crate::common::types::{Error, ServerConfig, StratumServerConfig};
+use crate::core::core::hash::Hashed;
+use crate::core::core::hash::{Hash, ZERO_HASH};
 use crate::core::core::verifier_cache::{LruVerifierCache, VerifierCache};
 use crate::core::pow::{PoWType, Proof};
+use crate::core::ser::ProtocolVersion;
 use crate::core::{consensus, genesis, global, pow};
-use crate::epic::{dandelion_monitor, seed, sync, version};
+use crate::epic::{dandelion_monitor, seed, sync};
 use crate::mining::stratumserver;
 use crate::mining::test_miner::Miner;
 use crate::p2p;
@@ -51,6 +54,7 @@ use crate::p2p::types::PeerAddr;
 use crate::pool;
 use crate::util::file::get_first_line;
 use crate::util::{RwLock, StopState};
+use epic_util::logger::LogEntry;
 
 /// Epic server holding internal structures.
 pub struct Server {
@@ -61,32 +65,34 @@ pub struct Server {
 	/// data store access
 	pub chain: Arc<chain::Chain>,
 	/// in-memory transaction pool
-	tx_pool: Arc<RwLock<pool::TransactionPool>>,
+	pub tx_pool: Arc<RwLock<pool::TransactionPool>>,
 	/// Shared cache for verification results when
 	/// verifying rangeproof and kernel signatures.
 	verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	/// Whether we're currently syncing
-	sync_state: Arc<SyncState>,
+	pub sync_state: Arc<SyncState>,
 	/// To be passed around to collect stats and info
 	state_info: ServerStateInfo,
 	/// Stop flag
 	pub stop_state: Arc<StopState>,
-	/// Maintain a lock_file so we do not run multiple Epic nodes from same dir.
+	/// Maintain a lock_file so we do not run multiple Grin nodes from same dir.
 	lock_file: Arc<File>,
 	connect_thread: Option<JoinHandle<()>>,
 	sync_thread: JoinHandle<()>,
 	dandelion_thread: JoinHandle<()>,
-	p2p_thread: JoinHandle<()>,
-	version_checker_thread: ScheduleHandle,
 }
 
 impl Server {
 	/// Instantiates and starts a new server. Optionally takes a callback
 	/// for the server to send an ARC copy of itself, to allow another process
 	/// to poll info about the server status
-	pub fn start<F>(config: ServerConfig, mut info_callback: F) -> Result<(), Error>
+	pub fn start<F>(
+		config: ServerConfig,
+		logs_rx: Option<mpsc::Receiver<LogEntry>>,
+		mut info_callback: F,
+	) -> Result<(), Error>
 	where
-		F: FnMut(Server),
+		F: FnMut(Server, Option<mpsc::Receiver<LogEntry>>),
 	{
 		/*let policy_config = config.policy_config.clone();
 		for i in 0..policy_config.policies.len() {
@@ -109,10 +115,10 @@ impl Server {
 			"The foundation.json is being read from {:?}",
 			global::get_foundation_path().unwrap()
 		);
-		let hash_to_compare = global::FOUNDATION_JSON_SHA256;
+		let hash_to_compare = global::foundation_json_sha256();
 		let hash = global::get_file_sha256(global::get_foundation_path().unwrap().as_str());
 		if hash.as_str() != hash_to_compare {
-			error!("Invalid {} file!\nThe sha256 of this file should be: {}\nCheck if the file was not changed!", global::get_foundation_path().unwrap(), hash_to_compare);
+			error!("Invalid {} file!\nThe sha256 of this file should be: {} - {}\nCheck if the file was not changed!", global::get_foundation_path().unwrap(), hash_to_compare, hash.as_str());
 			error!("Closing the application!");
 			std::process::exit(1);
 		}
@@ -140,7 +146,7 @@ impl Server {
 			}
 		}
 
-		info_callback(serv);
+		info_callback(serv, logs_rx);
 		Ok(())
 	}
 
@@ -290,7 +296,7 @@ impl Server {
 		)?;
 
 		let p2p_inner = p2p_server.clone();
-		let p2p_thread = thread::Builder::new()
+		let _ = thread::Builder::new()
 			.name("p2p-server".to_string())
 			.spawn(move || {
 				if let Err(e) = p2p_inner.listen() {
@@ -300,7 +306,7 @@ impl Server {
 
 		info!("Starting rest apis at: {}", &config.api_http_addr);
 		let api_secret = get_first_line(config.api_secret_path.clone());
-
+		let foreign_api_secret = get_first_line(config.foreign_api_secret_path.clone());
 		let tls_conf = match config.tls_certificate_file.clone() {
 			None => None,
 			Some(file) => {
@@ -316,14 +322,16 @@ impl Server {
 		};
 
 		// TODO fix API shutdown and join this thread
-		api::start_rest_apis(
-			config.api_http_addr.clone(),
+		api::node_apis(
+			&config.api_http_addr,
 			shared_chain.clone(),
 			tx_pool.clone(),
 			p2p_server.peers.clone(),
-			api_secret,
-			tls_conf,
-		);
+			sync_state.clone(),
+			api_secret.clone(),
+			foreign_api_secret.clone(),
+			tls_conf.clone(),
+		)?;
 
 		info!("Starting dandelion monitor: {}", &config.api_http_addr);
 		let dandelion_thread = dandelion_monitor::monitor_transactions(
@@ -333,31 +341,6 @@ impl Server {
 			verifier_cache.clone(),
 			stop_state.clone(),
 		)?;
-
-		info!("Starting the version checker monitor!");
-		let mut scheduler = Scheduler::new();
-		scheduler.every(15.minutes()).run(|| {
-			if let Ok(dns_version) = version::get_dns_version() {
-				if let Some(our_version) = global::get_epic_version() {
-					if !version::is_version_valid(our_version.clone(), dns_version.clone()) {
-						error!(
-							"Your current epic node version {}.{}.X.X is outdated! Please consider updating your code to the newest version {}.{}.X.X!",
-							our_version.version_major,
-							our_version.version_minor,
-							dns_version.version_major,
-							dns_version.version_minor,
-						);
-						error!("Closing the application!");
-						std::process::exit(1);
-					}
-				} else {
-					error!("Failed to retrieve information about the this application's version!");
-				}
-			} else {
-				error!("Unable to get the allowed versions from the dns server!");
-			}
-		});
-		let version_checker_thread = scheduler.watch_thread(Duration::from_millis(100));
 
 		warn!("Epic server started.");
 		Ok(Server {
@@ -374,9 +357,7 @@ impl Server {
 			lock_file,
 			connect_thread,
 			sync_thread,
-			p2p_thread,
 			dandelion_thread,
-			version_checker_thread,
 		})
 	}
 
@@ -455,15 +436,7 @@ impl Server {
 		miner.set_debug_output_id(format!("Port {}", self.config.p2p_config.port));
 		let _ = thread::Builder::new()
 			.name("test_miner".to_string())
-			.spawn(move || {
-				// TODO push this down in the run loop so miner gets paused anytime we
-				// decide to sync again
-				let secs_5 = time::Duration::from_secs(5);
-				while sync_state.is_syncing() {
-					thread::sleep(secs_5);
-				}
-				miner.run_loop(wallet_listener_url);
-			});
+			.spawn(move || miner.run_loop(wallet_listener_url));
 	}
 
 	/// The chain head
@@ -476,9 +449,9 @@ impl Server {
 		self.chain.header_head().map_err(|e| e.into())
 	}
 
-	/// Current p2p layer protocol version.
-	pub fn protocol_version() -> p2p::msg::ProtocolVersion {
-		p2p::msg::ProtocolVersion::default()
+	/// The p2p layer protocol version for this node.
+	pub fn protocol_version() -> ProtocolVersion {
+		ProtocolVersion::local()
 	}
 
 	/// Returns a set of stats about this server. This and the ServerStats
@@ -503,9 +476,6 @@ impl Server {
 			let tip_height = self.head()?.height as i64;
 			let mut height = tip_height as i64 - last_blocks.len() as i64 + 1;
 
-			let txhashset = self.chain.txhashset();
-			let txhashset = txhashset.read();
-
 			let diff_entries: Vec<DiffBlock> = last_blocks
 				.windows(2)
 				.map(|pair| {
@@ -517,7 +487,7 @@ impl Server {
 					// Use header hash if real header.
 					// Default to "zero" hash if synthetic header_info.
 					let (hash, algo_type): (Hash, Option<Proof>) = if height >= 0 {
-						if let Ok(header) = txhashset.get_header_by_height(height as u64) {
+						if let Ok(header) = self.chain.get_header_by_height(height as u64) {
 							(header.hash(), Some(header.pow.proof.clone()))
 						} else {
 							(ZERO_HASH, None)
@@ -591,14 +561,59 @@ impl Server {
 			.into_iter()
 			.map(|p| PeerStats::from_peer(&p))
 			.collect();
+
+		// Updating TUI stats should not block any other processing so only attempt to
+		// acquire various read locks with a timeout.
+		let read_timeout = Duration::from_millis(500);
+
+		let tx_stats = self.tx_pool.try_read_for(read_timeout).map(|pool| TxStats {
+			tx_pool_size: pool.txpool.size(),
+			tx_pool_kernels: pool.txpool.kernel_count(),
+			stem_pool_size: pool.stempool.size(),
+			stem_pool_kernels: pool.stempool.kernel_count(),
+		});
+
+		let head = self.chain.head_header()?;
+		let head_stats = ChainStats {
+			latest_timestamp: head.timestamp,
+			height: head.height,
+			last_block_h: head.prev_hash,
+			total_difficulty: head.total_difficulty(),
+		};
+
+		let header_stats = match self.chain.try_header_head(read_timeout)? {
+			Some(head) => self.chain.get_block_header(&head.hash()).map(|header| {
+				Some(ChainStats {
+					latest_timestamp: header.timestamp,
+					height: header.height,
+					last_block_h: header.prev_hash,
+					total_difficulty: header.total_difficulty(),
+				})
+			})?,
+			_ => None,
+		};
+
+		let disk_usage_bytes = WalkDir::new(&self.config.db_root)
+			.min_depth(1)
+			.max_depth(3)
+			.into_iter()
+			.filter_map(|entry| entry.ok())
+			.filter_map(|entry| entry.metadata().ok())
+			.filter(|metadata| metadata.is_file())
+			.fold(0, |acc, m| acc + m.len());
+
+		let disk_usage_gb = format!("{:.*}", 3, (disk_usage_bytes as f64 / 1_000_000_000 as f64));
+
 		Ok(ServerStats {
 			peer_count: self.peer_count(),
-			head: self.head()?,
-			header_head: self.header_head()?,
+			chain_stats: head_stats,
+			header_stats: header_stats,
 			sync_status: self.sync_state.status(),
+			disk_usage_gb: disk_usage_gb,
 			stratum_stats: stratum_stats,
 			peer_stats: peer_stats,
 			diff_stats: diff_stats,
+			tx_stats: tx_stats,
 		})
 	}
 
@@ -628,12 +643,7 @@ impl Server {
 			}
 		}
 		self.p2p.stop();
-		match self.p2p_thread.join() {
-			Err(e) => error!("failed to join to p2p thread: {:?}", e),
-			Ok(_) => info!("p2p thread stopped"),
-		}
 
-		self.version_checker_thread.stop();
 		let _ = self.lock_file.unlock();
 	}
 

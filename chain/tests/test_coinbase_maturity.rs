@@ -1,4 +1,4 @@
-// Copyright 2018 The Grin Developers
+// Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
 
 use self::chain::types::NoopAdapter;
 use self::chain::ErrorKind;
-use self::core::core::block::feijoada;
 use self::core::core::verifier_cache::LruVerifierCache;
-use self::core::global::{self, set_foundation_path, set_policy_config, ChainTypes};
-use self::core::libtx::{self, build};
+use self::core::core::KernelFeatures;
+use self::core::global::{self, ChainTypes};
+use self::core::libtx::{self, build, ProofBuilder};
 use self::core::pow::{Difficulty, PoWType};
 use self::core::{consensus, pow};
 use self::keychain::{ExtKeychain, ExtKeychainPath, Keychain};
-use self::util::{RwLock, StopState};
+use self::util::RwLock;
 use chrono::Duration;
 use env_logger;
 use epic_chain as chain;
@@ -37,13 +37,6 @@ fn clean_output_dir(dir_name: &str) {
 
 #[test]
 fn test_coinbase_maturity() {
-	global::set_foundation_path("../tests/assets/foundation.json".to_string());
-	let mut policies: feijoada::Policy = feijoada::get_bottles_default();
-	policies.insert(feijoada::PoWType::Cuckatoo, 100);
-	set_policy_config(feijoada::PolicyConfig {
-		policies: vec![policies.clone()],
-		..Default::default()
-	});
 	let _ = env_logger::init();
 	let chain_dir = ".epic_coinbase";
 	clean_output_dir(chain_dir);
@@ -55,7 +48,7 @@ fn test_coinbase_maturity() {
 
 	{
 		let chain = chain::Chain::init(
-			".epic".to_string(),
+			chain_dir.to_string(),
 			Arc::new(NoopAdapter {}),
 			genesis_block,
 			pow::verify_size,
@@ -67,32 +60,18 @@ fn test_coinbase_maturity() {
 		let prev = chain.head_header().unwrap();
 
 		let keychain = ExtKeychain::from_random_seed(false).unwrap();
+		let builder = ProofBuilder::new(&keychain);
 		let key_id1 = ExtKeychainPath::new(1, 1, 0, 0, 0).to_identifier();
 		let key_id2 = ExtKeychainPath::new(1, 2, 0, 0, 0).to_identifier();
 		let key_id3 = ExtKeychainPath::new(1, 3, 0, 0, 0).to_identifier();
 		let key_id4 = ExtKeychainPath::new(1, 4, 0, 0, 0).to_identifier();
-		let height = prev.height + 1; //modification
-		let next_header_info = consensus::next_difficulty(
-			height,
-			(&prev.pow.proof).into(),
-			chain.difficulty_iter().unwrap(),
-		);
-		let reward = libtx::reward::output(&keychain, &key_id1, 0, false, height).unwrap(); //modification
-		let mut block =
-			core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
-				.unwrap();
+
+		let next_header_info =
+			consensus::next_difficulty(1, PoWType::Cuckatoo, chain.difficulty_iter().unwrap());
+		let reward = libtx::reward::output(&keychain, &builder, &key_id1, 0, false, 1).unwrap();
+		let mut block = core::core::Block::new(&prev, vec![], Difficulty::min(), reward).unwrap();
 		block.header.timestamp = prev.timestamp + Duration::seconds(60);
 		block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-
-		let hash = chain
-			.txhashset()
-			.read()
-			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
-			.unwrap();
-		let mut seed = [0u8; 32];
-		seed.copy_from_slice(&hash.as_bytes()[0..32]);
-
-		block.header.pow.seed = seed.clone();
 
 		chain.set_txhashset_roots(&mut block).unwrap();
 
@@ -104,11 +83,7 @@ fn test_coinbase_maturity() {
 		)
 		.unwrap();
 
-		if consensus::is_foundation_height(prev.height + 1) {
-			assert_eq!(block.outputs().len(), 2);
-		} else {
-			assert_eq!(block.outputs().len(), 1);
-		}
+		assert_eq!(block.outputs().len(), 1);
 		let coinbase_output = block.outputs()[0];
 		assert!(coinbase_output.is_coinbase());
 
@@ -126,30 +101,25 @@ fn test_coinbase_maturity() {
 		// here we build a tx that attempts to spend the earlier coinbase output
 		// this is not a valid tx as the coinbase output cannot be spent yet
 		let coinbase_txn = build::transaction(
+			KernelFeatures::Plain { fee: 2 },
 			vec![
 				build::coinbase_input(amount, key_id1.clone()),
 				build::output(amount - 2, key_id2.clone()),
-				build::with_fee(2),
 			],
 			&keychain,
+			&builder,
 		)
 		.unwrap();
 
 		let txs = vec![coinbase_txn.clone()];
 		let fees = txs.iter().map(|tx| tx.fee()).sum();
-		let height = prev.height + 1; //modification
-		let next_header_info = consensus::next_difficulty(
-			height,
-			(&prev.pow.proof).into(),
-			chain.difficulty_iter().unwrap(),
-		);
-		let reward = libtx::reward::output(&keychain, &key_id3, fees, false, height).unwrap();
-		let mut block =
-			core::core::Block::new(&prev, txs, next_header_info.clone().difficulty, reward)
-				.unwrap();
+		let reward = libtx::reward::output(&keychain, &builder, &key_id3, fees, false, 1).unwrap();
+		let mut block = core::core::Block::new(&prev, txs, Difficulty::min(), reward).unwrap();
+		let next_header_info =
+			consensus::next_difficulty(1, PoWType::Cuckatoo, chain.difficulty_iter().unwrap());
 		block.header.timestamp = prev.timestamp + Duration::seconds(60);
 		block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-		block.header.pow.seed = seed.clone();
+
 		chain.set_txhashset_roots(&mut block).unwrap();
 
 		// Confirm the tx attempting to spend the coinbase output
@@ -176,21 +146,17 @@ fn test_coinbase_maturity() {
 			let prev = chain.head_header().unwrap();
 
 			let keychain = ExtKeychain::from_random_seed(false).unwrap();
+			let builder = ProofBuilder::new(&keychain);
 			let key_id1 = ExtKeychainPath::new(1, 1, 0, 0, 0).to_identifier();
-			let height = prev.height + 1;
-			let next_header_info = consensus::next_difficulty(
-				height,
-				(&prev.pow.proof).into(),
-				chain.difficulty_iter().unwrap(),
-			);
-			let reward = libtx::reward::output(&keychain, &key_id1, 0, false, height).unwrap();
+
+			let next_header_info =
+				consensus::next_difficulty(1, PoWType::Cuckatoo, chain.difficulty_iter().unwrap());
+			let reward = libtx::reward::output(&keychain, &builder, &key_id1, 0, false, 1).unwrap();
 			let mut block =
-				core::core::Block::new(&prev, vec![], next_header_info.clone().difficulty, reward)
-					.unwrap();
+				core::core::Block::new(&prev, vec![], Difficulty::min(), reward).unwrap();
 
 			block.header.timestamp = prev.timestamp + Duration::seconds(60);
 			block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-			block.header.pow.seed = seed.clone();
 
 			chain.set_txhashset_roots(&mut block).unwrap();
 
@@ -202,11 +168,7 @@ fn test_coinbase_maturity() {
 			)
 			.unwrap();
 
-			if consensus::is_foundation_height(prev.height + 1) {
-				assert_eq!(block.outputs().len(), 2);
-			} else {
-				assert_eq!(block.outputs().len(), 1);
-			}
+			assert_eq!(block.outputs().len(), 1);
 			let coinbase_output = block.outputs()[0];
 			assert!(coinbase_output.is_coinbase());
 
@@ -224,31 +186,26 @@ fn test_coinbase_maturity() {
 			// here we build a tx that attempts to spend the earlier coinbase output
 			// this is not a valid tx as the coinbase output cannot be spent yet
 			let coinbase_txn = build::transaction(
+				KernelFeatures::Plain { fee: 2 },
 				vec![
 					build::coinbase_input(amount, key_id1.clone()),
 					build::output(amount - 2, key_id2.clone()),
-					build::with_fee(2),
 				],
 				&keychain,
+				&builder,
 			)
 			.unwrap();
 
 			let txs = vec![coinbase_txn.clone()];
 			let fees = txs.iter().map(|tx| tx.fee()).sum();
-			let height = prev.height + 1; //modification
-			let next_header_info = consensus::next_difficulty(
-				prev.height,
-				(&prev.pow.proof).into(),
-				chain.difficulty_iter().unwrap(),
-			);
-			let reward = libtx::reward::output(&keychain, &key_id3, fees, false, height).unwrap();
-			let mut block =
-				core::core::Block::new(&prev, txs, next_header_info.clone().difficulty, reward)
-					.unwrap();
-
+			let reward =
+				libtx::reward::output(&keychain, &builder, &key_id3, fees, false, 1).unwrap();
+			let mut block = core::core::Block::new(&prev, txs, Difficulty::min(), reward).unwrap();
+			let next_header_info =
+				consensus::next_difficulty(1, PoWType::Cuckatoo, chain.difficulty_iter().unwrap());
 			block.header.timestamp = prev.timestamp + Duration::seconds(60);
 			block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-			block.header.pow.seed = seed.clone();
+
 			chain.set_txhashset_roots(&mut block).unwrap();
 
 			// Confirm the tx attempting to spend the coinbase output
@@ -271,28 +228,24 @@ fn test_coinbase_maturity() {
 
 			// mine enough blocks to increase the height sufficiently for
 			// coinbase to reach maturity and be spendable in the next block
-			for _ in 0..3 {
+			for i in 0..3 {
 				let prev = chain.head_header().unwrap();
 
 				let keychain = ExtKeychain::from_random_seed(false).unwrap();
+				let builder = ProofBuilder::new(&keychain);
 				let pk = ExtKeychainPath::new(1, 1, 0, 0, 0).to_identifier();
-				let height = prev.height + 1; //modification
+
+				let reward = libtx::reward::output(&keychain, &builder, &pk, 0, false, i).unwrap();
+				let mut block =
+					core::core::Block::new(&prev, vec![], Difficulty::min(), reward).unwrap();
 				let next_header_info = consensus::next_difficulty(
-					height,
-					(&prev.pow.proof).into(),
+					1,
+					PoWType::Cuckatoo,
 					chain.difficulty_iter().unwrap(),
 				);
-				let reward = libtx::reward::output(&keychain, &pk, 0, false, height).unwrap();
-				let mut block = core::core::Block::new(
-					&prev,
-					vec![],
-					next_header_info.clone().difficulty,
-					reward,
-				)
-				.unwrap();
 				block.header.timestamp = prev.timestamp + Duration::seconds(60);
 				block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-				block.header.pow.seed = seed.clone();
+
 				chain.set_txhashset_roots(&mut block).unwrap();
 
 				pow::pow_size(
@@ -314,20 +267,14 @@ fn test_coinbase_maturity() {
 
 			let txs = vec![coinbase_txn];
 			let fees = txs.iter().map(|tx| tx.fee()).sum();
-			let next_header_info = consensus::next_difficulty(
-				height,
-				(&prev.pow.proof).into(),
-				chain.difficulty_iter().unwrap(),
-			);
-			let height = prev.height + 1; //modification
-			let reward = libtx::reward::output(&keychain, &key_id4, fees, false, height).unwrap();
-			let mut block =
-				core::core::Block::new(&prev, txs, next_header_info.clone().difficulty, reward)
-					.unwrap();
+			let next_header_info =
+				consensus::next_difficulty(1, PoWType::Cuckatoo, chain.difficulty_iter().unwrap());
+			let reward =
+				libtx::reward::output(&keychain, &builder, &key_id4, fees, false, 1).unwrap();
+			let mut block = core::core::Block::new(&prev, txs, Difficulty::min(), reward).unwrap();
 
 			block.header.timestamp = prev.timestamp + Duration::seconds(60);
 			block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-			block.header.pow.seed = seed.clone();
 
 			chain.set_txhashset_roots(&mut block).unwrap();
 

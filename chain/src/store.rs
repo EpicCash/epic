@@ -1,4 +1,4 @@
-// Copyright 2018 The Grin Developers
+// Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,11 +14,12 @@
 
 //! Implements storage primitives required by the chain
 
-use crate::core::consensus::{HeaderInfo, BLOCK_TIME_SEC};
+use crate::core::consensus::HeaderInfo;
 use crate::core::core::feijoada::Policy;
 use crate::core::core::hash::{Hash, Hashed};
 use crate::core::core::{Block, BlockHeader, BlockSums};
 use crate::core::pow::{Difficulty, PoWType};
+use crate::core::ser::ProtocolVersion;
 use crate::types::Tip;
 use crate::util::secp::pedersen::Commitment;
 use croaring::Bitmap;
@@ -32,9 +33,8 @@ const BLOCK_HEADER_PREFIX: u8 = 'h' as u8;
 const BLOCK_PREFIX: u8 = 'b' as u8;
 const HEAD_PREFIX: u8 = 'H' as u8;
 const TAIL_PREFIX: u8 = 'T' as u8;
-const HEADER_HEAD_PREFIX: u8 = 'I' as u8;
-const SYNC_HEAD_PREFIX: u8 = 's' as u8;
 const COMMIT_POS_PREFIX: u8 = 'c' as u8;
+const COMMIT_POS_HGT_PREFIX: u8 = 'p' as u8;
 const BLOCK_INPUT_BITMAP_PREFIX: u8 = 'B' as u8;
 const BLOCK_SUMS_PREFIX: u8 = 'M' as u8;
 
@@ -49,17 +49,28 @@ impl ChainStore {
 		let db = store::Store::new(db_root, None, Some(STORE_SUBPATH.clone()), None)?;
 		Ok(ChainStore { db })
 	}
+
+	/// Create a new instance of the chain store based on this instance
+	/// but with the provided protocol version. This is used when migrating
+	/// data in the db to a different protocol version, reading using one version and
+	/// writing back to the db with a different version.
+	pub fn with_version(&self, version: ProtocolVersion) -> ChainStore {
+		let db_with_version = self.db.with_version(version);
+		ChainStore {
+			db: db_with_version,
+		}
+	}
 }
 
 impl ChainStore {
 	/// The current chain head.
 	pub fn head(&self) -> Result<Tip, Error> {
-		option_to_not_found(self.db.get_ser(&vec![HEAD_PREFIX]), "HEAD")
+		option_to_not_found(self.db.get_ser(&vec![HEAD_PREFIX]), || "HEAD".to_owned())
 	}
 
 	/// The current chain "tail" (earliest block in the store).
 	pub fn tail(&self) -> Result<Tip, Error> {
-		option_to_not_found(self.db.get_ser(&vec![TAIL_PREFIX]), "TAIL")
+		option_to_not_found(self.db.get_ser(&vec![TAIL_PREFIX]), || "TAIL".to_owned())
 	}
 
 	/// Header of the block at the head of the block chain (not the same thing as header_head).
@@ -67,21 +78,11 @@ impl ChainStore {
 		self.get_block_header(&self.head()?.last_block_h)
 	}
 
-	/// Head of the header chain (not the same thing as head_header).
-	pub fn header_head(&self) -> Result<Tip, Error> {
-		option_to_not_found(self.db.get_ser(&vec![HEADER_HEAD_PREFIX]), "HEADER_HEAD")
-	}
-
-	/// The "sync" head.
-	pub fn get_sync_head(&self) -> Result<Tip, Error> {
-		option_to_not_found(self.db.get_ser(&vec![SYNC_HEAD_PREFIX]), "SYNC_HEAD")
-	}
-
 	/// Get full block.
 	pub fn get_block(&self, h: &Hash) -> Result<Block, Error> {
 		option_to_not_found(
 			self.db.get_ser(&to_key(BLOCK_PREFIX, &mut h.to_vec())),
-			&format!("BLOCK: {}", h),
+			|| format!("BLOCK: {}", h),
 		)
 	}
 
@@ -94,7 +95,7 @@ impl ChainStore {
 	pub fn get_block_sums(&self, h: &Hash) -> Result<BlockSums, Error> {
 		option_to_not_found(
 			self.db.get_ser(&to_key(BLOCK_SUMS_PREFIX, &mut h.to_vec())),
-			&format!("Block sums for block: {}", h),
+			|| format!("Block sums for block: {}", h),
 		)
 	}
 
@@ -108,16 +109,47 @@ impl ChainStore {
 		option_to_not_found(
 			self.db
 				.get_ser(&to_key(BLOCK_HEADER_PREFIX, &mut h.to_vec())),
-			&format!("BLOCK HEADER: {}", h),
+			|| format!("BLOCK HEADER: {}", h),
 		)
 	}
 
+	/// Get all outputs PMMR pos. (only for migration purpose)
+	pub fn get_all_output_pos(&self) -> Result<Vec<(Commitment, u64)>, Error> {
+		let mut outputs_pos = Vec::new();
+		let key = to_key(COMMIT_POS_PREFIX, &mut "".to_string().into_bytes());
+		for (k, pos) in self.db.iter::<u64>(&key)? {
+			outputs_pos.push((Commitment::from_vec(k[2..].to_vec()), pos));
+		}
+		Ok(outputs_pos)
+	}
+
 	/// Get PMMR pos for the given output commitment.
+	/// Note:
+	/// 	- Original prefix 'COMMIT_POS_PREFIX' is not used anymore for normal case, refer to #2889 for detail.
+	///		- To be compatible with the old callers, let's keep this function name but replace with new prefix 'COMMIT_POS_HGT_PREFIX'
 	pub fn get_output_pos(&self, commit: &Commitment) -> Result<u64, Error> {
+		let res: Result<Option<(u64, u64)>, Error> = self.db.get_ser(&to_key(
+			COMMIT_POS_HGT_PREFIX,
+			&mut commit.as_ref().to_vec(),
+		));
+		match res {
+			Ok(None) => Err(Error::NotFoundErr(format!(
+				"Output position for: {:?}",
+				commit
+			))),
+			Ok(Some((pos, _height))) => Ok(pos),
+			Err(e) => Err(e),
+		}
+	}
+
+	/// Get PMMR pos and block height for the given output commitment.
+	pub fn get_output_pos_height(&self, commit: &Commitment) -> Result<(u64, u64), Error> {
 		option_to_not_found(
-			self.db
-				.get_ser(&to_key(COMMIT_POS_PREFIX, &mut commit.as_ref().to_vec())),
-			&format!("Output position for: {:?}", commit),
+			self.db.get_ser(&to_key(
+				COMMIT_POS_HGT_PREFIX,
+				&mut commit.as_ref().to_vec(),
+			)),
+			|| format!("Output position for: {:?}", commit),
 		)
 	}
 
@@ -138,33 +170,17 @@ pub struct Batch<'a> {
 impl<'a> Batch<'a> {
 	/// The head.
 	pub fn head(&self) -> Result<Tip, Error> {
-		option_to_not_found(self.db.get_ser(&vec![HEAD_PREFIX]), "HEAD")
+		option_to_not_found(self.db.get_ser(&vec![HEAD_PREFIX]), || "HEAD".to_owned())
 	}
 
 	/// The tail.
 	pub fn tail(&self) -> Result<Tip, Error> {
-		option_to_not_found(self.db.get_ser(&vec![TAIL_PREFIX]), "TAIL")
+		option_to_not_found(self.db.get_ser(&vec![TAIL_PREFIX]), || "TAIL".to_owned())
 	}
 
 	/// Header of the block at the head of the block chain (not the same thing as header_head).
 	pub fn head_header(&self) -> Result<BlockHeader, Error> {
 		self.get_block_header(&self.head()?.last_block_h)
-	}
-
-	/// Head of the header chain (not the same thing as head_header).
-	pub fn header_head(&self) -> Result<Tip, Error> {
-		option_to_not_found(self.db.get_ser(&vec![HEADER_HEAD_PREFIX]), "HEADER_HEAD")
-	}
-
-	/// Get "sync" head.
-	pub fn get_sync_head(&self) -> Result<Tip, Error> {
-		option_to_not_found(self.db.get_ser(&vec![SYNC_HEAD_PREFIX]), "SYNC_HEAD")
-	}
-
-	/// Save head to db.
-	pub fn save_head(&self, t: &Tip) -> Result<(), Error> {
-		self.db.put_ser(&vec![HEAD_PREFIX], t)?;
-		self.db.put_ser(&vec![HEADER_HEAD_PREFIX], t)
 	}
 
 	/// Save body head to db.
@@ -177,33 +193,11 @@ impl<'a> Batch<'a> {
 		self.db.put_ser(&vec![TAIL_PREFIX], t)
 	}
 
-	/// Save header_head to db.
-	pub fn save_header_head(&self, t: &Tip) -> Result<(), Error> {
-		self.db.put_ser(&vec![HEADER_HEAD_PREFIX], t)
-	}
-
-	/// Save "sync" head to db.
-	pub fn save_sync_head(&self, t: &Tip) -> Result<(), Error> {
-		self.db.put_ser(&vec![SYNC_HEAD_PREFIX], t)
-	}
-
-	/// Reset sync_head to the current head of the header chain.
-	pub fn reset_sync_head(&self) -> Result<(), Error> {
-		let head = self.header_head()?;
-		self.save_sync_head(&head)
-	}
-
-	/// Reset header_head to the current head of the body chain.
-	pub fn reset_header_head(&self) -> Result<(), Error> {
-		let tip = self.head()?;
-		self.save_header_head(&tip)
-	}
-
 	/// get block
 	pub fn get_block(&self, h: &Hash) -> Result<Block, Error> {
 		option_to_not_found(
 			self.db.get_ser(&to_key(BLOCK_PREFIX, &mut h.to_vec())),
-			&format!("Block with hash: {}", h),
+			|| format!("Block with hash: {}", h),
 		)
 	}
 
@@ -222,6 +216,17 @@ impl<'a> Batch<'a> {
 		self.db
 			.put_ser(&to_key(BLOCK_PREFIX, &mut b.hash().to_vec())[..], b)?;
 
+		Ok(())
+	}
+
+	/// Migrate a block stored in the db by serializing it using the provided protocol version.
+	/// Block may have been read using a previous protocol version but we do not actually care.
+	pub fn migrate_block(&self, b: &Block, version: ProtocolVersion) -> Result<(), Error> {
+		self.db.put_ser_with_version(
+			&to_key(BLOCK_PREFIX, &mut b.hash().to_vec())[..],
+			b,
+			version,
+		)?;
 		Ok(())
 	}
 
@@ -252,27 +257,62 @@ impl<'a> Batch<'a> {
 		Ok(())
 	}
 
-	/// Save output_pos to index.
-	pub fn save_output_pos(&self, commit: &Commitment, pos: u64) -> Result<(), Error> {
+	/// Save output_pos and block height to index.
+	pub fn save_output_pos_height(
+		&self,
+		commit: &Commitment,
+		pos: u64,
+		height: u64,
+	) -> Result<(), Error> {
 		self.db.put_ser(
-			&to_key(COMMIT_POS_PREFIX, &mut commit.as_ref().to_vec())[..],
-			&pos,
+			&to_key(COMMIT_POS_HGT_PREFIX, &mut commit.as_ref().to_vec())[..],
+			&(pos, height),
 		)
 	}
 
 	/// Get output_pos from index.
+	/// Note:
+	/// 	- Original prefix 'COMMIT_POS_PREFIX' is not used for normal case anymore, refer to #2889 for detail.
+	///		- To be compatible with the old callers, let's keep this function name but replace with new prefix 'COMMIT_POS_HGT_PREFIX'
 	pub fn get_output_pos(&self, commit: &Commitment) -> Result<u64, Error> {
+		let res: Result<Option<(u64, u64)>, Error> = self.db.get_ser(&to_key(
+			COMMIT_POS_HGT_PREFIX,
+			&mut commit.as_ref().to_vec(),
+		));
+		match res {
+			Ok(None) => Err(Error::NotFoundErr(format!(
+				"Output position for: {:?}",
+				commit
+			))),
+			Ok(Some((pos, _height))) => Ok(pos),
+			Err(e) => Err(e),
+		}
+	}
+
+	/// Get output_pos and block height from index.
+	pub fn get_output_pos_height(&self, commit: &Commitment) -> Result<(u64, u64), Error> {
 		option_to_not_found(
-			self.db
-				.get_ser(&to_key(COMMIT_POS_PREFIX, &mut commit.as_ref().to_vec())),
-			&format!("Output position for commit: {:?}", commit),
+			self.db.get_ser(&to_key(
+				COMMIT_POS_HGT_PREFIX,
+				&mut commit.as_ref().to_vec(),
+			)),
+			|| format!("Output position for commit: {:?}", commit),
 		)
 	}
 
-	/// Clear all entries from the output_pos index (must be rebuilt after).
+	/// Clear all entries from the output_pos index. (only for migration purpose)
 	pub fn clear_output_pos(&self) -> Result<(), Error> {
 		let key = to_key(COMMIT_POS_PREFIX, &mut "".to_string().into_bytes());
 		for (k, _) in self.db.iter::<u64>(&key)? {
+			self.db.delete(&k)?;
+		}
+		Ok(())
+	}
+
+	/// Clear all entries from the (output_pos,height) index (must be rebuilt after).
+	pub fn clear_output_pos_height(&self) -> Result<(), Error> {
+		let key = to_key(COMMIT_POS_HGT_PREFIX, &mut "".to_string().into_bytes());
+		for (k, _) in self.db.iter::<(u64, u64)>(&key)? {
 			self.db.delete(&k)?;
 		}
 		Ok(())
@@ -288,7 +328,7 @@ impl<'a> Batch<'a> {
 		option_to_not_found(
 			self.db
 				.get_ser(&to_key(BLOCK_HEADER_PREFIX, &mut h.to_vec())),
-			&format!("BLOCK HEADER: {}", h),
+			|| format!("BLOCK HEADER: {}", h),
 		)
 	}
 
@@ -316,7 +356,7 @@ impl<'a> Batch<'a> {
 	pub fn get_block_sums(&self, h: &Hash) -> Result<BlockSums, Error> {
 		option_to_not_found(
 			self.db.get_ser(&to_key(BLOCK_SUMS_PREFIX, &mut h.to_vec())),
-			&format!("Block sums for block: {}", h),
+			|| format!("Block sums for block: {}", h),
 		)
 	}
 
@@ -599,14 +639,6 @@ impl<'a> Iterator for DifficultyIterAll<'a> {
 				.prev_header
 				.clone()
 				.map_or(Difficulty::zero(), |x| x.total_difficulty());
-			let timespan: u64 = if let Some(prev_header_local) = self.prev_header.clone() {
-				header
-					.timestamp
-					.timestamp()
-					.saturating_sub(prev_header_local.timestamp.timestamp()) as u64
-			} else {
-				60
-			};
 			let difficulty = header.total_difficulty() - prev_difficulty;
 			let scaling = header.pow.secondary_scaling;
 
@@ -615,7 +647,10 @@ impl<'a> Iterator for DifficultyIterAll<'a> {
 				difficulty,
 				scaling,
 				header.pow.is_secondary(),
-				timespan,
+				self.prev_header
+					.clone()
+					.map(|h| h.timestamp.timestamp() as u64)
+					.unwrap_or(0),
 			))
 		} else {
 			return None;

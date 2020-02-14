@@ -1,0 +1,29 @@
+* Today's work
+
+** Mobile app
+
+   The app is basically at the point of release, we just need to setup
+   the safe machine to build and sign the APK, so it will be available
+   at some point tomorrow. We still don't know how hard it will be to
+   get it on the Play Store and F-Droid.
+
+** Floonet
+
+   We're recreating the servers of the floonet. Probably the work will
+   be done by tomorrow as well.
+
+* What's to come
+
+** Future plans
+
+*** More issues
+
+    The GitLab board shows which releases are next in priority:
+
+    - https://gitlab.com/groups/epiccash/-/boards
+
+    We're prioritizing every issue marked as "critical"
+
+    # Local Variables:
+    # ispell-local-dictionary: "en"
+    # End:

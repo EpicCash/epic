@@ -21,13 +21,13 @@
 #![deny(unused_mut)]
 #![warn(missing_docs)]
 
-use blake2_rfc as blake2;
+use blake2;
 extern crate bigint;
 extern crate keccak_hash;
 #[macro_use]
 extern crate enum_primitive;
-use epic_keychain as keychain;
-use epic_util as util;
+use keychain;
+use util;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]

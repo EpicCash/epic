@@ -18,7 +18,7 @@ Scenario: test if the chain is selecting correct fork
   And I define my output dir as <.epic-coinbase>
   And I add foundation wallet pubkeys
   And I add a genesis block with coinbase and mined with <cuckatoo>
-  And I setup the chain for coinbase test
+  And I setup a chain
   Then I add <6> blocks following the policy <0>
   Then I make a fork on the height <2> with difficulty <20,25,10,32>
   Then I add <2> blocks following the policy <0>
@@ -236,7 +236,7 @@ Scenario: mine cuckatoo genesis reward chain
   And I setup all the policies
   Given I have a <testing> chain
   Given I define my output dir as <.epic.genesis>
-  Given I add coinbase data from the dev genesis block
+  Given I setup a chain
   Then I get a valid <cuckatoo> PoW
   Then I mine
   Then clean tmp chain dir
@@ -343,7 +343,7 @@ Scenario: mine randomx genesis reward chain
   Given I have a <testing> chain
   Given I setup a chain
   Given I define my output dir as <.epic.genesis20>
-  Given I add coinbase data from the dev genesis block
+  Given I setup a chain
   Then I get a valid <randomx> PoW
   Then I mine <randomx>
   Then clean tmp chain dir
@@ -382,7 +382,7 @@ Scenario: mine progpow genesis reward chain
   Given I have a <testing> chain
   Given I setup a chain
   Given I define my output dir as <.epic.genesis20>
-  Given I add coinbase data from the dev genesis block
+  Given I setup a chain
   Then I get a valid <progpow> PoW
   Then I mine <progpow>
   Then clean tmp chain dir
