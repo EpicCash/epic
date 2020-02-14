@@ -1,4 +1,4 @@
-// Copyright 2018 The Grin Developers
+// Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,7 +51,15 @@ fn test_block_building_max_weight() {
 				let height = prev_header.height + 1;
 				let key_id = ExtKeychain::derive_key_id(1, height as u32, 0, 0, 0);
 				let fee = txs.iter().map(|x| x.fee()).sum();
-				let reward = libtx::reward::output(&keychain, &key_id, fee, false, height).unwrap();
+				let reward = libtx::reward::output(
+					&keychain,
+					&libtx::ProofBuilder::new(&keychain),
+					&key_id,
+					fee,
+					false,
+					height,
+				)
+				.unwrap();
 				let mut block = Block::new(&prev_header, txs, Difficulty::min(), reward).unwrap();
 
 				// Set the prev_root to the prev hash for testing purposes (no MMR to obtain a root from).

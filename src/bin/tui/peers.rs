@@ -1,4 +1,4 @@
-// Copyright 2018 The Grin Developers
+// Copyright 2020 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,13 +28,12 @@ use cursive::view::View;
 use cursive::views::{BoxView, Dialog, LinearLayout, OnEventView, TextView};
 use cursive::Cursive;
 
-use crate::core::pow::PoWType;
 use crate::tui::constants::{MAIN_MENU, TABLE_PEER_STATUS, VIEW_PEER_SYNC};
 use crate::tui::table::{TableView, TableViewItem};
 use crate::tui::types::TUIStatusListener;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
-enum PeerColumn {
+pub enum PeerColumn {
 	Address,
 	State,
 	UsedBandwidth,
@@ -69,7 +68,7 @@ impl TableViewItem<PeerColumn> for PeerStats {
 			PeerColumn::Address => self.addr.clone(),
 			PeerColumn::State => self.state.clone(),
 			PeerColumn::UsedBandwidth => format!(
-				"S: {}, R: {}",
+				"↑: {}, ↓: {}",
 				size_to_string(self.sent_bytes_per_sec),
 				size_to_string(self.received_bytes_per_sec),
 			)
@@ -104,14 +103,19 @@ impl TableViewItem<PeerColumn> for PeerStats {
 			curr_sum.cmp(&other_sum)
 		};
 
+		let sort_by_addr = || self.addr.cmp(&other.addr);
+
 		match column {
-			PeerColumn::Address => self.addr.cmp(&other.addr),
-			PeerColumn::State => self.state.cmp(&other.state),
-			PeerColumn::UsedBandwidth => cmp_used_bandwidth(&self, &other),
-			PeerColumn::TotalDifficulty => self.total_difficulty.cmp(&other.total_difficulty),
-			PeerColumn::Direction => self.direction.cmp(&other.direction),
-			PeerColumn::Version => self.version.cmp(&other.version),
-			PeerColumn::UserAgent => self.user_agent.cmp(&other.user_agent),
+			PeerColumn::Address => sort_by_addr(),
+			PeerColumn::State => self.state.cmp(&other.state).then(sort_by_addr()),
+			PeerColumn::UsedBandwidth => cmp_used_bandwidth(&self, &other).then(sort_by_addr()),
+			PeerColumn::TotalDifficulty => self
+				.total_difficulty
+				.cmp(&other.total_difficulty)
+				.then(sort_by_addr()),
+			PeerColumn::Direction => self.direction.cmp(&other.direction).then(sort_by_addr()),
+			PeerColumn::Version => self.version.cmp(&other.version).then(sort_by_addr()),
+			PeerColumn::UserAgent => self.user_agent.cmp(&other.user_agent).then(sort_by_addr()),
 		}
 	}
 }
@@ -160,21 +164,17 @@ impl TUIStatusListener for TUIPeerView {
 	}
 
 	fn update(c: &mut Cursive, stats: &ServerStats) {
-		let mut total_diff: u64 = 0;
-		total_diff =
-			total_diff.saturating_add(stats.head.total_difficulty.to_num(PoWType::Cuckatoo));
-		total_diff =
-			total_diff.saturating_add(stats.head.total_difficulty.to_num(PoWType::ProgPow));
-		total_diff =
-			total_diff.saturating_add(stats.head.total_difficulty.to_num(PoWType::RandomX));
 		let lp = stats
 			.peer_stats
 			.iter()
 			.max_by(|x, y| x.total_difficulty.cmp(&y.total_difficulty));
 		let lp_str = match lp {
 			Some(l) => format!(
-				"{} D @ {} H vs Us: {} D @ {} H",
-				l.total_difficulty, l.height, total_diff, stats.head.height
+				"{} D @ {} H vs Us: {:?} D @ {} H",
+				l.total_difficulty,
+				l.height,
+				stats.chain_stats.total_difficulty,
+				stats.chain_stats.height
 			)
 			.to_string(),
 			None => "".to_string(),

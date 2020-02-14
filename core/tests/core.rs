@@ -1,4 +1,4 @@
-// Copyright 2018 The Grin Developers
+// Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,35 +20,51 @@ use self::core::core::block::BlockHeader;
 use self::core::core::block::Error::KernelLockHeight;
 use self::core::core::hash::{Hashed, ZERO_HASH};
 use self::core::core::verifier_cache::{LruVerifierCache, VerifierCache};
-use self::core::core::{aggregate, deaggregate, KernelFeatures, Output, Transaction, Weighting};
-use self::core::libtx::build::{
-	self, initial_tx, input, output, with_excess, with_fee, with_lock_height,
+use self::core::core::{
+	aggregate, deaggregate, KernelFeatures, Output, Transaction, TxKernel, Weighting,
 };
+use self::core::libtx::build::{self, initial_tx, input, output, with_excess};
+use self::core::libtx::ProofBuilder;
 use self::core::ser;
-use self::keychain::{BlindingFactor, ExtKeychain, Keychain};
-use self::util::static_secp_instance;
-use self::util::RwLock;
 use crate::common::{new_block, tx1i1o, tx1i2o, tx2i1o};
 use epic_core as core;
-use epic_keychain as keychain;
-use epic_util as util;
+use keychain::{BlindingFactor, ExtKeychain, Keychain};
 use std::sync::Arc;
+use util::static_secp_instance;
+use util::RwLock;
 
 #[test]
 fn simple_tx_ser() {
 	let tx = tx2i1o();
-	let mut vec = Vec::new();
-	ser::serialize(&mut vec, &tx).expect("serialization failed");
-	let target_len = 955;
-	assert_eq!(vec.len(), target_len,);
+
+	// Default protocol version.
+	{
+		let mut vec = Vec::new();
+		ser::serialize_default(&mut vec, &tx).expect("serialization failed");
+		assert_eq!(vec.len(), 947);
+	}
+
+	// Explicit protocol version 1.
+	{
+		let mut vec = Vec::new();
+		ser::serialize(&mut vec, ser::ProtocolVersion(1), &tx).expect("serialization failed");
+		assert_eq!(vec.len(), 955);
+	}
+
+	// Explicit protocol version 2.
+	{
+		let mut vec = Vec::new();
+		ser::serialize(&mut vec, ser::ProtocolVersion(2), &tx).expect("serialization failed");
+		assert_eq!(vec.len(), 947);
+	}
 }
 
 #[test]
 fn simple_tx_ser_deser() {
 	let tx = tx2i1o();
 	let mut vec = Vec::new();
-	ser::serialize(&mut vec, &tx).expect("serialization failed");
-	let dtx: Transaction = ser::deserialize(&mut &vec[..]).unwrap();
+	ser::serialize_default(&mut vec, &tx).expect("serialization failed");
+	let dtx: Transaction = ser::deserialize_default(&mut &vec[..]).unwrap();
 	assert_eq!(dtx.fee(), 2);
 	assert_eq!(dtx.inputs().len(), 2);
 	assert_eq!(dtx.outputs().len(), 1);
@@ -61,12 +77,12 @@ fn tx_double_ser_deser() {
 	let btx = tx2i1o();
 
 	let mut vec = Vec::new();
-	assert!(ser::serialize(&mut vec, &btx).is_ok());
-	let dtx: Transaction = ser::deserialize(&mut &vec[..]).unwrap();
+	assert!(ser::serialize_default(&mut vec, &btx).is_ok());
+	let dtx: Transaction = ser::deserialize_default(&mut &vec[..]).unwrap();
 
 	let mut vec2 = Vec::new();
-	assert!(ser::serialize(&mut vec2, &btx).is_ok());
-	let dtx2: Transaction = ser::deserialize(&mut &vec2[..]).unwrap();
+	assert!(ser::serialize_default(&mut vec2, &btx).is_ok());
+	let dtx2: Transaction = ser::deserialize_default(&mut &vec2[..]).unwrap();
 
 	assert_eq!(btx.hash(), dtx.hash());
 	assert_eq!(dtx.hash(), dtx2.hash());
@@ -75,18 +91,16 @@ fn tx_double_ser_deser() {
 #[test]
 #[should_panic(expected = "Keychain Error")]
 fn test_zero_commit_fails() {
-	let mut keychain = ExtKeychain::from_random_seed(false).unwrap();
-	keychain.set_use_switch_commits(false);
+	let keychain = ExtKeychain::from_random_seed(false).unwrap();
+	let builder = ProofBuilder::new(&keychain);
 	let key_id1 = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 
 	// blinding should fail as signing with a zero r*G shouldn't work
 	build::transaction(
-		vec![
-			input(10, key_id1.clone()),
-			output(9, key_id1.clone()),
-			with_fee(1),
-		],
+		KernelFeatures::Plain { fee: 0 },
+		vec![input(10, key_id1.clone()), output(10, key_id1.clone())],
 		&keychain,
+		&builder,
 	)
 	.unwrap();
 }
@@ -98,19 +112,17 @@ fn verifier_cache() -> Arc<RwLock<dyn VerifierCache>> {
 #[test]
 fn build_tx_kernel() {
 	let keychain = ExtKeychain::from_random_seed(false).unwrap();
+	let builder = ProofBuilder::new(&keychain);
 	let key_id1 = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 	let key_id2 = ExtKeychain::derive_key_id(1, 2, 0, 0, 0);
 	let key_id3 = ExtKeychain::derive_key_id(1, 3, 0, 0, 0);
 
 	// first build a valid tx with corresponding blinding factor
 	let tx = build::transaction(
-		vec![
-			input(10, key_id1),
-			output(5, key_id2),
-			output(3, key_id3),
-			with_fee(2),
-		],
+		KernelFeatures::Plain { fee: 2 },
+		vec![input(10, key_id1), output(5, key_id2), output(3, key_id3)],
 		&keychain,
+		&builder,
 	)
 	.unwrap();
 
@@ -123,8 +135,8 @@ fn build_tx_kernel() {
 	let kern = &tx.kernels()[0];
 	kern.verify().unwrap();
 
-	assert_eq!(kern.features, KernelFeatures::Plain);
-	assert_eq!(kern.fee, tx.fee());
+	assert_eq!(kern.features, KernelFeatures::Plain { fee: 2 });
+	assert_eq!(2, tx.fee());
 }
 
 // Combine two transactions into one big transaction (with multiple kernels)
@@ -350,18 +362,16 @@ fn basic_transaction_deaggregation() {
 #[test]
 fn hash_output() {
 	let keychain = ExtKeychain::from_random_seed(false).unwrap();
+	let builder = ProofBuilder::new(&keychain);
 	let key_id1 = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 	let key_id2 = ExtKeychain::derive_key_id(1, 2, 0, 0, 0);
 	let key_id3 = ExtKeychain::derive_key_id(1, 3, 0, 0, 0);
 
 	let tx = build::transaction(
-		vec![
-			input(75, key_id1),
-			output(42, key_id2),
-			output(32, key_id3),
-			with_fee(1),
-		],
+		KernelFeatures::Plain { fee: 1 },
+		vec![input(75, key_id1), output(42, key_id2), output(32, key_id3)],
 		&keychain,
+		&builder,
 	)
 	.unwrap();
 	let h = tx.outputs()[0].hash();
@@ -407,6 +417,7 @@ fn tx_hash_diff() {
 #[test]
 fn tx_build_exchange() {
 	let keychain = ExtKeychain::from_random_seed(false).unwrap();
+	let builder = ProofBuilder::new(&keychain);
 	let key_id1 = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 	let key_id2 = ExtKeychain::derive_key_id(1, 2, 0, 0, 0);
 	let key_id3 = ExtKeychain::derive_key_id(1, 3, 0, 0, 0);
@@ -419,8 +430,10 @@ fn tx_build_exchange() {
 
 		// Alice builds her transaction, with change, which also produces the sum
 		// of blinding factors before they're obscured.
+		let tx = Transaction::empty()
+			.with_kernel(TxKernel::with_features(KernelFeatures::Plain { fee: 2 }));
 		let (tx, sum) =
-			build::partial_transaction(vec![in1, in2, output(1, key_id3), with_fee(2)], &keychain)
+			build::partial_transaction(tx, vec![in1, in2, output(1, key_id3)], &keychain, &builder)
 				.unwrap();
 
 		(tx, sum)
@@ -430,12 +443,14 @@ fn tx_build_exchange() {
 	// blinding factors. He adds his output, finalizes the transaction so it's
 	// ready for broadcast.
 	let tx_final = build::transaction(
+		KernelFeatures::Plain { fee: 2 },
 		vec![
 			initial_tx(tx_alice),
 			with_excess(blind_sum),
 			output(4, key_id4),
 		],
 		&keychain,
+		&builder,
 	)
 	.unwrap();
 
@@ -447,11 +462,12 @@ fn tx_build_exchange() {
 #[test]
 fn reward_empty_block() {
 	let keychain = keychain::ExtKeychain::from_random_seed(false).unwrap();
+	let builder = ProofBuilder::new(&keychain);
 	let key_id = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 
 	let previous_header = BlockHeader::default();
 
-	let b = new_block(vec![], &keychain, &previous_header, &key_id);
+	let b = new_block(vec![], &keychain, &builder, &previous_header, &key_id, 1);
 
 	b.cut_through()
 		.unwrap()
@@ -462,6 +478,7 @@ fn reward_empty_block() {
 #[test]
 fn reward_with_tx_block() {
 	let keychain = keychain::ExtKeychain::from_random_seed(false).unwrap();
+	let builder = ProofBuilder::new(&keychain);
 	let key_id = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 
 	let vc = verifier_cache();
@@ -471,7 +488,14 @@ fn reward_with_tx_block() {
 
 	let previous_header = BlockHeader::default();
 
-	let block = new_block(vec![&mut tx1], &keychain, &previous_header, &key_id);
+	let block = new_block(
+		vec![&mut tx1],
+		&keychain,
+		&builder,
+		&previous_header,
+		&key_id,
+		1,
+	);
 	block
 		.cut_through()
 		.unwrap()
@@ -482,6 +506,7 @@ fn reward_with_tx_block() {
 #[test]
 fn simple_block() {
 	let keychain = keychain::ExtKeychain::from_random_seed(false).unwrap();
+	let builder = ProofBuilder::new(&keychain);
 	let key_id = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 
 	let vc = verifier_cache();
@@ -493,8 +518,10 @@ fn simple_block() {
 	let b = new_block(
 		vec![&mut tx1, &mut tx2],
 		&keychain,
+		&builder,
 		&previous_header,
 		&key_id,
+		1,
 	);
 
 	b.validate(&BlindingFactor::zero(), vc.clone()).unwrap();
@@ -503,7 +530,7 @@ fn simple_block() {
 #[test]
 fn test_block_with_timelocked_tx() {
 	let keychain = keychain::ExtKeychain::from_random_seed(false).unwrap();
-
+	let builder = ProofBuilder::new(&keychain);
 	let key_id1 = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 	let key_id2 = ExtKeychain::derive_key_id(1, 2, 0, 0, 0);
 	let key_id3 = ExtKeychain::derive_key_id(1, 3, 0, 0, 0);
@@ -513,36 +540,50 @@ fn test_block_with_timelocked_tx() {
 	// first check we can add a timelocked tx where lock height matches current
 	// block height and that the resulting block is valid
 	let tx1 = build::transaction(
-		vec![
-			input(5, key_id1.clone()),
-			output(3, key_id2.clone()),
-			with_fee(2),
-			with_lock_height(1),
-		],
+		KernelFeatures::HeightLocked {
+			fee: 2,
+			lock_height: 1,
+		},
+		vec![input(5, key_id1.clone()), output(3, key_id2.clone())],
 		&keychain,
+		&builder,
 	)
 	.unwrap();
 
 	let previous_header = BlockHeader::default();
 
-	let b = new_block(vec![&tx1], &keychain, &previous_header, &key_id3.clone());
+	let b = new_block(
+		vec![&tx1],
+		&keychain,
+		&builder,
+		&previous_header,
+		&key_id3.clone(),
+		1,
+	);
 	b.validate(&BlindingFactor::zero(), vc.clone()).unwrap();
 
 	// now try adding a timelocked tx where lock height is greater than current
 	// block height
 	let tx1 = build::transaction(
-		vec![
-			input(5, key_id1.clone()),
-			output(3, key_id2.clone()),
-			with_fee(2),
-			with_lock_height(2),
-		],
+		KernelFeatures::HeightLocked {
+			fee: 2,
+			lock_height: 2,
+		},
+		vec![input(5, key_id1.clone()), output(3, key_id2.clone())],
 		&keychain,
+		&builder,
 	)
 	.unwrap();
 
 	let previous_header = BlockHeader::default();
-	let b = new_block(vec![&tx1], &keychain, &previous_header, &key_id3.clone());
+	let b = new_block(
+		vec![&tx1],
+		&keychain,
+		&builder,
+		&previous_header,
+		&key_id3.clone(),
+		1,
+	);
 
 	match b.validate(&BlindingFactor::zero(), vc.clone()) {
 		Err(KernelLockHeight(height)) => {

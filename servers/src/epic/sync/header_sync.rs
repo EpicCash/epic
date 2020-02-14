@@ -1,4 +1,4 @@
-// Copyright 2018 The Grin Developers
+// Copyright 2020 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,10 +16,9 @@ use chrono::prelude::{DateTime, Utc};
 use chrono::Duration;
 use std::sync::Arc;
 
-use crate::chain;
-use crate::common::types::{Error, SyncState, SyncStatus};
+use crate::chain::{self, SyncState, SyncStatus};
+use crate::common::types::Error;
 use crate::core::core::hash::{Hash, Hashed};
-use crate::core::global;
 use crate::p2p::{self, types::ReasonForBan, Peer};
 
 pub struct HeaderSync {
@@ -82,9 +81,6 @@ impl HeaderSync {
 				// correctly, so reset any previous (and potentially stale) sync_head to match
 				// our last known "good" header_head.
 				//
-				self.chain.reset_sync_head()?;
-
-				// Rebuild the sync MMR to match our updated sync_head.
 				self.chain.rebuild_sync_mmr(&header_head)?;
 
 				self.history_locator.retain(|&x| x.0 == 0);
@@ -123,7 +119,7 @@ impl HeaderSync {
 
 		if force_sync || all_headers_received || stalling {
 			self.prev_header_sync = (
-				now + Duration::seconds(global::get_header_sync_timeout()),
+				now + Duration::seconds(10),
 				header_head.height,
 				header_head.height,
 			);
@@ -144,16 +140,17 @@ impl HeaderSync {
 				if let Some(ref stalling_ts) = self.stalling_ts {
 					if let Some(ref peer) = self.syncing_peer {
 						match self.sync_state.status() {
-							SyncStatus::HeaderSync {
-								current_height: _,
-								highest_height,
-							} => {
+							SyncStatus::HeaderSync { .. } | SyncStatus::BodySync { .. } => {
 								// Ban this fraud peer which claims a higher work but can't send us the real headers
 								if now > *stalling_ts + Duration::seconds(120)
-									&& highest_height == peer.info.height()
+									&& header_head.total_difficulty < peer.info.total_difficulty()
 								{
-									self.peers
-										.ban_peer(peer.info.addr, ReasonForBan::FraudHeight);
+									if let Err(e) = self
+										.peers
+										.ban_peer(peer.info.addr, ReasonForBan::FraudHeight)
+									{
+										error!("failed to ban peer {}: {:?}", peer.info.addr, e);
+									}
 									info!(
 										"sync: ban a fraud peer: {}, claimed height: {}, total difficulty: {}",
 										peer.info.addr,

@@ -1,5 +1,5 @@
 extern crate epic_core;
-extern crate epic_keychain;
+extern crate keychain;
 
 use epic_core::core::{Block, CompactBlock, Transaction};
 use epic_core::ser;

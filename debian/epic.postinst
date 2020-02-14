@@ -1,3 +1,4 @@
 #!/bin/sh
 
 chmod ugo+r /usr/share/epic/foundation.json
+chmod ugo+r /usr/share/epic/foundation_floonet.json
