@@ -115,10 +115,10 @@ impl Server {
 			"The foundation.json is being read from {:?}",
 			global::get_foundation_path().unwrap()
 		);
-		let hash_to_compare = global::FOUNDATION_JSON_SHA256;
+		let hash_to_compare = global::foundation_json_sha256();
 		let hash = global::get_file_sha256(global::get_foundation_path().unwrap().as_str());
 		if hash.as_str() != hash_to_compare {
-			error!("Invalid {} file!\nThe sha256 of this file should be: {}\nCheck if the file was not changed!", global::get_foundation_path().unwrap(), hash_to_compare);
+			error!("Invalid {} file!\nThe sha256 of this file should be: {} - {}\nCheck if the file was not changed!", global::get_foundation_path().unwrap(), hash_to_compare, hash.as_str());
 			error!("Closing the application!");
 			std::process::exit(1);
 		}

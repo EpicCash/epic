@@ -106,10 +106,17 @@ pub const TXHASHSET_ARCHIVE_INTERVAL: u64 = 12 * 60;
 pub const CURRENT_HEADER_VERSION: u16 = 7;
 
 #[cfg(target_family = "unix")]
-pub const FOUNDATION_JSON_SHA256: &str =
+pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
 	"ddf5ad515d3200d1c9fe2a566b9eb81cff0835690ce7f6f3b2a89ee52636ada0";
 #[cfg(target_family = "windows")]
-pub const FOUNDATION_JSON_SHA256: &str =
+pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
+	"4d01ca4134959d19ae1b76058c8d11040b63bd1bd112401b80b36185e7faf94a";
+
+#[cfg(target_family = "unix")]
+pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
+	"8dc984dcabba639bca6b5a5dcfb0d661d1c962591118484013329d0274ca8f45";
+#[cfg(target_family = "windows")]
+pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
 	"4d01ca4134959d19ae1b76058c8d11040b63bd1bd112401b80b36185e7faf94a";
 
 /// Types of chain a server can run with, dictates the genesis block and
@@ -179,6 +186,14 @@ lazy_static! {
 	/// Store the timeout for the header sync
 	pub static ref HEADER_SYNC_TIMEOUT : RwLock<i64> =
 			RwLock::new(10);
+}
+
+pub fn foundation_json_sha256() -> &'static str {
+	let param_ref = CHAIN_TYPE.read();
+	match *param_ref {
+		ChainTypes::Mainnet => MAINNET_FOUNDATION_JSON_SHA256,
+		_ => FLOONET_FOUNDATION_JSON_SHA256,
+	}
 }
 
 /// Get the current Timeout without the verification of the existence of more headers to be synced,

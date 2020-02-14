@@ -27,6 +27,7 @@ binary binary-arch binary-indep: build/stamp debian/control
 	dh_prep
 	mkdir -p $(ROOTDIR)/usr/share/epic/
 	install -m 666 debian/foundation.json $(ROOTDIR)/usr/share/epic/foundation.json
+	install -m 666 debian/foundation_floonet.json $(ROOTDIR)/usr/share/epic/foundation_floonet.json
 	cargo install --path . --root $(ROOTDIR)/usr/ --locked
 	cargo install --path bugreport --root $(ROOTDIR)/usr/ --locked
 	strip $(ROOTDIR)/usr/bin/epic

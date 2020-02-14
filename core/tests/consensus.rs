@@ -694,14 +694,8 @@ fn test_secondary_pow_scale() {
 #[test]
 fn hard_forks() {
 	global::set_mining_mode(global::ChainTypes::AutomatedTesting);
-	assert!(valid_header_version(0, HeaderVersion(1)));
-	assert!(valid_header_version(0, HeaderVersion(2)));
-	assert!(valid_header_version(0, HeaderVersion(3)));
-	assert!(valid_header_version(0, HeaderVersion(4)));
-	assert!(valid_header_version(0, HeaderVersion(5)));
-	assert!(valid_header_version(0, HeaderVersion(6)));
-	assert!(!valid_header_version(10, HeaderVersion(6)));
-	assert!(valid_header_version(10, HeaderVersion(7)));
+	assert!(!valid_header_version(199, HeaderVersion(6)));
+	assert!(valid_header_version(200, HeaderVersion(7)));
 	assert!(valid_header_version(YEAR_HEIGHT / 2 - 1, HeaderVersion(7)));
 }
 

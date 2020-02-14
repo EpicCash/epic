@@ -1250,7 +1250,7 @@ mod mine_chain {
 		given "I test the sha256 checksum" |_world, _step| {
 			let hash = global::get_file_sha256("./debian/foundation.json");
 			println!("Foundation.json Hash: {}", hash);
-			assert_eq!(hash.as_str(), global::FOUNDATION_JSON_SHA256);
+			assert_eq!(hash.as_str(), global::foundation_json_sha256());
 		};
 	});
 
