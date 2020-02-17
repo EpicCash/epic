@@ -481,6 +481,12 @@ where
 	(pow_type, b)
 }
 
+macro_rules! error_invalid_pow {
+	($pow:expr) => {
+		panic!("The function next_hash_difficulty is only used by Progpow and RandomX, but it got a {:?}", $pow);
+	}
+}
+
 /// Computes the proof-of-work difficulty that the next block should comply
 /// with. Takes an iterator over past block headers information, from latest
 /// (highest height) to oldest (lowest height).
@@ -525,13 +531,13 @@ where
 		PoWType::RandomX => {
 			diff.insert(
 				PoWType::RandomX,
-				next_hash_difficulty(PoWType::RandomX, &diff_data),
+				next_hash_difficulty(height, PoWType::RandomX, &diff_data),
 			);
 		}
 		PoWType::ProgPow => {
 			diff.insert(
 				PoWType::ProgPow,
-				next_hash_difficulty(PoWType::ProgPow, &diff_data),
+				next_hash_difficulty(height, PoWType::ProgPow, &diff_data),
 			);
 		}
 	};
@@ -563,15 +569,19 @@ fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>
 	max(MIN_DIFFICULTY, diff_sum * BLOCK_TIME_SEC / adj_ts)
 }
 
-pub fn next_hash_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
+pub fn next_hash_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	// Desired time per block
-	let diff_adjustment_cutoff = 60;
+	let diff_adjustment_cutoff = match header_version(height) {
+		HeaderVersion(6) => 60,
+		HeaderVersion(7) => 50,
+		HeaderVersion(_) => 0,
+	};
 
 	// Constant used to divide the previous difficulty.
 	let block_diff_factor = match pow {
 		PoWType::RandomX => BLOCK_DIFF_FACTOR_RANDOMX,
 		PoWType::ProgPow => BLOCK_DIFF_FACTOR_PROGPOW,
-		_ => panic!("The function next_hash_difficulty is only used by Progpow and RandomX, but it got a {:?}", pow),
+		_ => error_invalid_pow!(pow),
 	};
 
 	let current_diff = diff_data[1].difficulty.to_num(pow);
@@ -581,7 +591,7 @@ pub fn next_hash_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	let min_diff = match pow {
 		PoWType::RandomX => MIN_DIFFICULTY_RANDOMX,
 		PoWType::ProgPow => MIN_DIFFICULTY_PROGPOW,
-		_ => panic!("The function next_hash_difficulty is only used by Progpow and RandomX, but it got a {:?}", pow),
+		_ => error_invalid_pow!(pow),
 	};
 
 	// Get the timestamp delta across the window
