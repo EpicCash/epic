@@ -1,3 +1,14 @@
+epic (3.0.0~alpha-1) bionic; urgency=medium
+
+  [ Yuri Albuquerque ]
+  * This patch only affects floonet
+  * Integrates grin 3.0.0 codebase into ours
+  * Fixes some synchronization problems
+  * Adjusts the difficulty adjustment a bit
+  * Introduces a hard-fork in floonet at height 2880
+
+ -- Ubuntu <ubuntu@ip-172-31-26-231.ec2.internal>  Tue, 18 Feb 2020 17:02:00 +0000
+
 epic (2.4.0) bionic; urgency=high
 
   [ Leonardo Viana ]
