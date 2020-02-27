@@ -1,3 +1,9 @@
+epic (3.0.0~alpha-2) bionic; urgency=medium
+
+  [ Yuri Albuquerque ]
+  * Fixing conflict with EpicWallet
+
+ -- Ubuntu <ubuntu@ip-172-31-26-231.ec2.internal>  Tue, 18 Feb 2020 17:02:00 +0000
 epic (3.0.0~alpha-1) bionic; urgency=medium
 
   [ Yuri Albuquerque ]

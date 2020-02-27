@@ -803,7 +803,7 @@ dependencies = [
 
 [[package]]
 name = "epic"
-version = "3.0.0-alpha"
+version = "3.0.0-alpha-2"
 dependencies = [
  "blake2-rfc",
  "built",
