@@ -88,7 +88,7 @@ pub fn node_apis(
 	// Add basic auth to v1 API and owner v2 API
 	if let Some(api_secret) = api_secret {
 		let api_basic_auth =
-			"Basic ".to_string() + &to_base64(&("grin:".to_string() + &api_secret));
+			"Basic ".to_string() + &to_base64(&("epic:".to_string() + &api_secret));
 		let basic_auth_middleware = Arc::new(BasicAuthMiddleware::new(
 			api_basic_auth,
 			&EPIC_BASIC_REALM,
@@ -107,7 +107,7 @@ pub fn node_apis(
 	// Add basic auth to v2 foreign API only
 	if let Some(api_secret) = foreign_api_secret {
 		let api_basic_auth =
-			"Basic ".to_string() + &to_base64(&("grin:".to_string() + &api_secret));
+			"Basic ".to_string() + &to_base64(&("epic:".to_string() + &api_secret));
 		let basic_auth_middleware = Arc::new(BasicAuthURIMiddleware::new(
 			api_basic_auth,
 			&EPIC_FOREIGN_BASIC_REALM,
