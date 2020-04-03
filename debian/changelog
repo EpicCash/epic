@@ -1,3 +1,9 @@
+epic (3.0.0~alpha-3) bionic; urgency=medium
+
+  [ Yuri Albuquerque ]
+  * Fixing the communication between server and wallet
+
+ -- Ubuntu <ubuntu@ip-172-31-26-231.ec2.internal>  Fri, 03 Apr 2020 11:00:00 +0000
 epic (3.0.0~alpha-2) bionic; urgency=medium
 
   [ Yuri Albuquerque ]
