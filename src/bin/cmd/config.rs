@@ -31,7 +31,7 @@ pub fn config_command_server(chain_type: &global::ChainTypes, file_name: &str) {
 			file_name
 		);
 	}
-	default_config.update_paths(&current_dir);
+	default_config.update_paths(&current_dir, chain_type);
 	default_config
 		.write_to_file(config_file_name.to_str().unwrap())
 		.unwrap_or_else(|e| {

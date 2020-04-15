@@ -117,7 +117,7 @@ pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
 	"8dc984dcabba639bca6b5a5dcfb0d661d1c962591118484013329d0274ca8f45";
 #[cfg(target_family = "windows")]
 pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
-	"4d01ca4134959d19ae1b76058c8d11040b63bd1bd112401b80b36185e7faf94a";
+	"6d824e517b0360da54ad19ce716ab47305df2eec079fcb76773c6d32eb7ef8a8";
 
 /// Types of chain a server can run with, dictates the genesis block and
 /// and mining parameters used.
@@ -233,6 +233,7 @@ pub fn set_foundation_path(path: String) {
 
 ///	Check if the foundation.json exists in the directory appointed by the .toml file, if not,
 /// use the alternative path ../../debian/foundation.json relative to the folder where the executable is in.
+/// If we are running floonet, it will look for the file foundation_floonet.json .
 pub fn use_alternative_path(path_str: String) -> String {
 	let check_path = Path::new(&path_str);
 	if !check_path.exists() {
@@ -242,7 +243,11 @@ pub fn use_alternative_path(path_str: String) -> String {
 			p.pop();
 		}
 		p.push("debian");
-		p.push("foundation.json");
+		let foundation_name = match CHAIN_TYPE.read().clone() {
+			ChainTypes::Mainnet => "foundation.json",
+			_ => "foundation_floonet.json",
+		};
+		p.push(foundation_name);
 		warn!(
 			"The file `{}` was not found! Will try to use the alternative file `{}`!",
 			check_path.display(),

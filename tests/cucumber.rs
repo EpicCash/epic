@@ -1247,9 +1247,15 @@ mod mine_chain {
 			assert_eq!(header.height, chain_header.height);
 		};
 
-		given "I test the sha256 checksum" |_world, _step| {
+		given "I test the sha256 checksum of the foundation.json" |_world, _step| {
 			let hash = global::get_file_sha256("./debian/foundation.json");
 			println!("Foundation.json Hash: {}", hash);
+			assert_eq!(hash.as_str(), global::foundation_json_sha256());
+		};
+
+		given "I test the sha256 checksum of the foundation_floonet.json" |_world, _step| {
+			let hash = global::get_file_sha256("./debian/foundation_floonet.json");
+			println!("Foundation_floonet.json Hash: {}", hash);
 			assert_eq!(hash.as_str(), global::foundation_json_sha256());
 		};
 	});
