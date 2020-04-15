@@ -1,7 +1,12 @@
 Feature: Mine a simple chain
 
+Scenario: test if the foundation_floonet.json is valid
+  Given I have a <floonet> chain
+  Given I test the sha256 checksum of the foundation_floonet.json
+
 Scenario: test if the foundation.json is valid
-  Given I test the sha256 checksum
+  Given I have a <mainnet> chain
+  Given I test the sha256 checksum of the foundation.json
 
 Scenario: test load output from foundation file
   Given The file foundation <./tests/assets/foundation.json>

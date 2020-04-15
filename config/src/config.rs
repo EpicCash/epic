@@ -56,14 +56,14 @@ fn get_epic_path(chain_type: &global::ChainTypes) -> Result<PathBuf, ConfigError
 	Ok(epic_path)
 }
 
-fn get_foundation_path() -> String {
-	let foundation_name = match global::CHAIN_TYPE.read().clone() {
+fn get_foundation_path(chain_type: &global::ChainTypes) -> String {
+	let foundation_name = match *chain_type {
 		global::ChainTypes::Mainnet => "foundation.json",
 		_ => "foundation_floonet.json",
 	};
 
 	if cfg!(windows) {
-		format!("C:\\Program Files\\Epic\\{}", foundation_name).to_owned()
+		format!(".\\{}", foundation_name).to_owned()
 	} else {
 		format!("/usr/share/epic/{}", foundation_name).to_owned()
 	}
@@ -133,7 +133,7 @@ pub fn initial_setup_server(chain_type: &global::ChainTypes) -> Result<GlobalCon
 		if !config_path.exists() {
 			let mut default_config = GlobalConfig::for_chain(chain_type);
 			// update paths relative to current dir
-			default_config.update_paths(&epic_path);
+			default_config.update_paths(&epic_path, chain_type);
 			default_config.write_to_file(config_path.to_str().unwrap())?;
 		}
 
@@ -252,7 +252,7 @@ impl GlobalConfig {
 	}
 
 	/// Update paths
-	pub fn update_paths(&mut self, epic_home: &PathBuf) {
+	pub fn update_paths(&mut self, epic_home: &PathBuf, chain_type: &global::ChainTypes) {
 		// need to update server chain path
 		let mut chain_path = epic_home.clone();
 		chain_path.push(EPIC_CHAIN_DIR);
@@ -263,7 +263,7 @@ impl GlobalConfig {
 		self.members.as_mut().unwrap().server.api_secret_path =
 			Some(secret_path.to_str().unwrap().to_owned());
 
-		self.members.as_mut().unwrap().server.foundation_path = get_foundation_path();
+		self.members.as_mut().unwrap().server.foundation_path = get_foundation_path(chain_type);
 
 		let mut log_path = epic_home.clone();
 		log_path.push(SERVER_LOG_FILE_NAME);

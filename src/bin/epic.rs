@@ -82,7 +82,15 @@ fn real_main() -> i32 {
 		.get_matches();
 	let node_config;
 
+	let chain_type = if args.is_present("floonet") {
+		global::ChainTypes::Floonet
+	} else if args.is_present("usernet") {
+		global::ChainTypes::UserTesting
+	} else {
+		global::ChainTypes::Mainnet
+	};
 	if let ("taxes", Some(taxes_args)) = args.subcommand() {
+		global::set_mining_mode(chain_type.clone());
 		let generate: u64 = taxes_args
 			.value_of("generate")
 			.unwrap()
@@ -106,7 +114,7 @@ fn real_main() -> i32 {
 				let s = p.to_str()?;
 				Some(s.to_owned())
 			})
-			.expect("Any valid path was found to save the foundation.json");
+			.expect("No valid path was found to save the foundation.json");
 		let path = Path::new(path_str.as_str());
 		assert_eq!(
 			path.exists(),
@@ -121,7 +129,6 @@ fn real_main() -> i32 {
 		} else {
 			consensus::foundation_height()
 		};
-		// TODO-FOUNDATION: PUT THE FUNCTION TO CHECK IF THE FILE EXISTS HERE IF HEIGHT != 0
 		let foundation_coinbases = create_foundation(&wallet_url, generate, height);
 		let serialized = foundation::serialize_foundation(foundation_coinbases);
 		println!(
@@ -145,14 +152,6 @@ fn real_main() -> i32 {
 		}
 		_ => {}
 	}
-
-	let chain_type = if args.is_present("floonet") {
-		global::ChainTypes::Floonet
-	} else if args.is_present("usernet") {
-		global::ChainTypes::UserTesting
-	} else {
-		global::ChainTypes::Mainnet
-	};
 
 	// Deal with configuration file creation
 	match args.subcommand() {

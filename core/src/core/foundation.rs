@@ -23,6 +23,7 @@ pub struct CbData {
 
 /// Size in bytes of each foundation coinbase (Output + Kernel)
 pub const FOUNDATION_COINBASE_SIZE_1: usize = 1803;
+/// Size in bytes of each foundation coinbase (Output + Kernel) after the first hardfork
 pub const FOUNDATION_COINBASE_SIZE_2: usize = 1775;
 
 // TODO-FOUNDATION : Create a function to verify if the file exists if the height is different form 0 in the CLI
@@ -55,28 +56,28 @@ pub fn save_in_disk(serialization: String, path: &Path) {
 		.expect("Couldn't save the serialization in the disk!")
 }
 
-fn get_tx_version_size(version: HeaderVersion) -> usize {
+fn get_foundation_tx_version_size(version: HeaderVersion) -> usize {
 	match version {
 		HeaderVersion(6) => FOUNDATION_COINBASE_SIZE_1,
 		HeaderVersion(7) => FOUNDATION_COINBASE_SIZE_2,
-		HeaderVersion(_) => panic!("YOU NEED UPDATE YOUR NODE!"),
+		HeaderVersion(_) => panic!("YOU NEED TO UPDATE YOUR NODE!"),
 	}
 }
 
-fn get_tx_offset(index: u64, version: HeaderVersion) -> u64 {
+fn get_foundation_tx_offset(index: u64, version: HeaderVersion) -> u64 {
 	let size = match version {
 		HeaderVersion(6) => index * (FOUNDATION_COINBASE_SIZE_1 as u64),
 		HeaderVersion(7) => {
 			let fork_height = first_fork_height();
 			let fork_index = foundation_index(fork_height);
-			let index = index.saturating_sub(fork_index);
+			let new_index = index.saturating_sub(fork_index);
 
 			let size_1 = fork_index * (FOUNDATION_COINBASE_SIZE_1 as u64);
-			let size_2 = index * (FOUNDATION_COINBASE_SIZE_2 as u64);
+			let size_2 = new_index * (FOUNDATION_COINBASE_SIZE_2 as u64);
 
 			size_1 + size_2
 		}
-		HeaderVersion(_) => panic!("YOU NEED UPDATE YOUR NODE!"),
+		HeaderVersion(_) => panic!("YOU NEED TO UPDATE YOUR NODE!"),
 	};
 
 	if cfg!(windows) {
@@ -89,7 +90,7 @@ fn get_tx_offset(index: u64, version: HeaderVersion) -> u64 {
 /// Load the foundation coinbase relative to the height of the chain
 pub fn load_foundation_output(height: u64) -> CbData {
 	let height_version = header_version(height);
-	let height = foundation_index(height);
+	let index_foundation = foundation_index(height);
 
 	let path_str = get_foundation_path()
 		.unwrap_or_else(|| panic!("No path to the foundation.json was provided!"));
@@ -99,7 +100,7 @@ pub fn load_foundation_output(height: u64) -> CbData {
 		Err(why) => panic!(
 			"Error trying to read the foundation coinbase. Couldn't open the file {}: {}",
 			path.display(),
-			why.description()
+			why.to_string()
 		),
 		Ok(file) => file,
 	};
@@ -107,14 +108,14 @@ pub fn load_foundation_output(height: u64) -> CbData {
 
 	// Checks if the file has its size multiple of 1 json
 	// Each json has to have a fixed size in bytes (FOUNDATION_COINBASE_SIZE) for the reading occurs successfully.
-	let offset = get_tx_offset(height, height_version);
+	let offset = get_foundation_tx_offset(index_foundation, height_version);
 
 	if offset >= file_len {
 		// TODO: What should we do when the foundations blocks ends ?
 		panic!("Not implemented yet!");
 	};
 
-	let mut buffer = vec![0 as u8; get_tx_version_size(height_version)];
+	let mut buffer = vec![0 as u8; get_foundation_tx_version_size(height_version)];
 	file.seek(SeekFrom::Start(offset)).unwrap();
 	file.read_exact(&mut buffer).unwrap();
 	let buffer_str = String::from_utf8(buffer).unwrap();
