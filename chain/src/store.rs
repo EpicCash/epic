@@ -639,6 +639,16 @@ impl<'a> Iterator for DifficultyIterAll<'a> {
 				.prev_header
 				.clone()
 				.map_or(Difficulty::zero(), |x| x.total_difficulty());
+			let timespan: u64 = self
+				.prev_header
+				.as_ref()
+				.map(|prev_header_local| {
+					header
+						.timestamp
+						.timestamp()
+						.saturating_sub(prev_header_local.timestamp.timestamp()) as u64
+				})
+				.unwrap_or(60u64);
 			let difficulty = header.total_difficulty() - prev_difficulty;
 			let scaling = header.pow.secondary_scaling;
 
@@ -647,10 +657,7 @@ impl<'a> Iterator for DifficultyIterAll<'a> {
 				difficulty,
 				scaling,
 				header.pow.is_secondary(),
-				self.prev_header
-					.clone()
-					.map(|h| h.timestamp.timestamp() as u64)
-					.unwrap_or(0),
+				timespan,
 			))
 		} else {
 			return None;
