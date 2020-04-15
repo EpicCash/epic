@@ -16,8 +16,8 @@ pub fn create_foundation(
 		consensus::foundation_height()
 	);
 	assert!(
-		num_to_generate <= 3040,
-		"Error trying to generate {} days of foundation levy. Following the epic cash schedule, we only can generate at most 3040 days of foundation levy.",
+		num_to_generate <= 3074,
+		"Error trying to generate {} days of foundation levy. Following the epic cash schedule, we only can generate at most 3074 days of foundation levy.",
 		num_to_generate
 	);
 	let height = height_gen;

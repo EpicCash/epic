@@ -114,10 +114,10 @@ pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
 
 #[cfg(target_family = "unix")]
 pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
-	"8dc984dcabba639bca6b5a5dcfb0d661d1c962591118484013329d0274ca8f45";
+	"a72a6172fcdfb3478eb9eb0a7011410458e89a438817a290d39c4ba94e94d91d";
 #[cfg(target_family = "windows")]
 pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
-	"6d824e517b0360da54ad19ce716ab47305df2eec079fcb76773c6d32eb7ef8a8";
+	"c91a3866341c2a68bca56680ad33616e8d21f8770fca49d0539f1abbfd061916";
 
 /// Types of chain a server can run with, dictates the genesis block and
 /// and mining parameters used.
