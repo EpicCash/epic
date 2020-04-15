@@ -4,8 +4,7 @@ epic (3.0.0~alpha-4) bionic; urgency=medium
   * Changes the emission schedule
   * Fixes wrong times being shown on the tui
 
- -- Yuri <yurialbuquerque@brickabode.com>  Wed, 15 Apr 2020 17:00:00+0000
-
+ -- Yuri <yurialbuquerque@brickabode.com>  Wed, 15 Apr 2020 11:00:00 +0000
 epic (3.0.0~alpha-3) bionic; urgency=medium
 
   [ Yuri Albuquerque ]
