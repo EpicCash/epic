@@ -96,9 +96,9 @@ impl Default for PolicyConfig {
 		};
 
 		let mut policy_era2 = get_bottles_default();
-		policy_era2.insert(PoWType::RandomX, 30);
-		policy_era2.insert(PoWType::ProgPow, 65);
-		policy_era2.insert(PoWType::Cuckatoo, 5);
+		policy_era2.insert(PoWType::RandomX, 60);
+		policy_era2.insert(PoWType::ProgPow, 38);
+		policy_era2.insert(PoWType::Cuckatoo, 2);
 		policy_era2.insert(PoWType::Cuckaroo, 0);
 		let allowed_policy_era2 = AllowPolicy {
 			height: consensus::BLOCK_ERA_1 + 1,

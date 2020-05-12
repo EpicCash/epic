@@ -44,7 +44,7 @@ pub const FREEMAN: u64 = 1;
 pub const BLOCK_TIME_SEC: u64 = 60;
 
 /// Height of the first epic block emission era
-pub const BLOCK_ERA_1: u64 = DAY_HEIGHT * 300;
+pub const BLOCK_ERA_1: u64 = DAY_HEIGHT * 334;
 /// Height of the second epic block emission era
 pub const BLOCK_ERA_2: u64 = BLOCK_ERA_1 + (DAY_HEIGHT * 470);
 /// Height of the third epic block emission era
