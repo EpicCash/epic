@@ -94,7 +94,7 @@ pub const CURRENT_HEADER_VERSION: u16 = 6;
 
 #[cfg(target_family = "unix")]
 pub const FOUNDATION_JSON_SHA256: &str =
-	"97355566892a7979696091904e3c508ef8d472e44a33c92e425a8fb33d926d7a";
+	"7884970ec1ba753d6b5a9500bb10512cb3cfca895e5ac83a2d95de3b067f787f";
 #[cfg(target_family = "windows")]
 pub const FOUNDATION_JSON_SHA256: &str =
 	"35c9535a887bdf71c7d52f1fe3632afdac0aa2f5f67274ee7d69329aaf9960d5";
