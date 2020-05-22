@@ -97,7 +97,7 @@ pub const FOUNDATION_JSON_SHA256: &str =
 	"7884970ec1ba753d6b5a9500bb10512cb3cfca895e5ac83a2d95de3b067f787f";
 #[cfg(target_family = "windows")]
 pub const FOUNDATION_JSON_SHA256: &str =
-	"35c9535a887bdf71c7d52f1fe3632afdac0aa2f5f67274ee7d69329aaf9960d5";
+	"35bad9961b55be054a1c30a22d951c231bfcec5f090f6add5039d800abcaacc1";
 
 /// Types of chain a server can run with, dictates the genesis block and
 /// and mining parameters used.
