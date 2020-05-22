@@ -1,4 +1,4 @@
-epic (2.6.0) bionic; urgency=high
+epic (2.7.0-1) bionic; urgency=high
 
   [ Yuri Albuquerque ]
   * Fixing a bug in the foundation.json
