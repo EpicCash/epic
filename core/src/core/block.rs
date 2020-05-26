@@ -180,7 +180,7 @@ impl Hashed for HeaderEntry {
 }
 
 /// Some type safety around header versioning.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Ord, PartialOrd)]
 pub struct HeaderVersion(pub u16);
 
 impl Default for HeaderVersion {

@@ -1045,6 +1045,40 @@ mod mine_chain {
 			chain.process_block(block, chain::Options::SKIP_POW).unwrap();
 		};
 
+		given regex "I create a block <([a-z]+)> with future timespan <(\\-?[0-9]+)>" |world, matches, _step| {
+			let algorithm: String = matches[1].parse().unwrap();
+			let timespan: i64 = matches[2].parse().unwrap();
+			let chain = world.chain.as_ref().unwrap();
+			let kc = world.keychain.as_ref().unwrap();
+			let height = chain.head_header().unwrap().height;
+			let prev = chain.head_header().unwrap();
+
+			let hash = chain
+				.txhashset()
+				.read()
+				.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
+				.unwrap();
+
+			let diff_iter = chain.difficulty_iter().unwrap();
+			let next_difficulty = consensus::next_difficulty(prev.height, (&prev.pow.proof).into(), diff_iter);
+
+			// Add block with custom timestamp
+			let mut block = prepare_block_with_future_timestamp(
+				kc, &prev, next_difficulty.difficulty, vec![], hash, timespan);
+			chain.set_txhashset_roots(&mut block).unwrap();
+
+			// policy
+			let policy = get_policies(0).unwrap();
+			let cursor = chain.bottles_iter(0).unwrap();
+			let (_, bottles) = consensus::next_policy(0, cursor);
+			let algo = get_fw_type(algorithm.as_str());
+			block.header.bottles = bottles;
+			block.header.pow.proof = get_pow_type(&algo, prev.height);
+			block.header.policy = 0;
+
+			chain.process_block(block, chain::Options::SKIP_POW).unwrap();
+		};
+
 		then regex "The block on the height <([0-9]+)> need have a time delta of <([0-9]+)>" |world, matches, _step| {
 			let chain = world.chain.as_ref().unwrap();
 			let height: u64 = matches[1].parse().unwrap();
@@ -1646,6 +1680,42 @@ mod mine_chain {
 			Ok(b) => b,
 		};
 		b.header.timestamp = prev.timestamp + Duration::seconds(timespan);
+		b.header.pow.total_difficulty = prev.total_difficulty() + difficulty;
+		b.header.pow.proof = pow::Proof::random(proof_size);
+		b.header.pow.seed = seed;
+
+		b
+	}
+
+	fn prepare_block_with_future_timestamp<K>(
+		kc: &K,
+		prev: &BlockHeader,
+		difficulty: Difficulty,
+		txs: Vec<&Transaction>,
+		hash: Hash,
+		timespan: i64,
+	) -> Block
+	where
+		K: Keychain,
+	{
+		let mut seed = [0u8; 32];
+		seed.copy_from_slice(&hash.as_bytes()[0..32]);
+
+		let proof_size = global::proofsize();
+		let key_id = epic_keychain::ExtKeychainPath::new(1, (prev.height + 1) as u32 + 1, 0, 0, 0)
+			.to_identifier();
+		let fees = txs.iter().map(|tx| tx.fee()).sum();
+		let reward = libtx::reward::output(kc, &key_id, fees, false, prev.height + 1).unwrap();
+		let mut b = match core::core::Block::new(
+			prev,
+			txs.into_iter().cloned().collect(),
+			difficulty.clone(),
+			reward,
+		) {
+			Err(e) => panic!("{:?}", e),
+			Ok(b) => b,
+		};
+		b.header.timestamp = Utc::now() + Duration::seconds(timespan);
 		b.header.pow.total_difficulty = prev.total_difficulty() + difficulty;
 		b.header.pow.proof = pow::Proof::random(proof_size);
 		b.header.pow.seed = seed;

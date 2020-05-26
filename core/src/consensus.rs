@@ -297,10 +297,10 @@ pub const HARD_FORK_INTERVAL: u64 = YEAR_HEIGHT / 2;
 pub const MAINNET_FIRST_HARD_FORK: u64 = 460000;
 
 /// Floonet first hard fork height, set to happen around 2020-02-03
-pub const FLOONET_FIRST_HARD_FORK: u64 = 30;
+pub const FLOONET_FIRST_HARD_FORK: u64 = 2;
 
 /// AutomatedTesting and UserTesting first hard fork height.
-pub const TESTING_FIRST_HARD_FORK: u64 = 10;
+pub const TESTING_FIRST_HARD_FORK: u64 = 2;
 
 pub fn first_fork_height() -> u64 {
 	match global::CHAIN_TYPE.read().clone() {
