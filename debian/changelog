@@ -1,3 +1,10 @@
+epic (2.9.0~alpha-2) bionic; urgency=high
+
+  [ Yuri Albuquerque ]
+  * Fixing addresses of floonet
+
+ -- Ubuntu <ubuntu@ip-172-31-26-231.ec2.internal>  Thu, 28 May 2020 20:00:00 +0000
+
 epic (2.9.0~alpha-1) bionic; urgency=high
 
   [ Yuri Albuquerque ]
