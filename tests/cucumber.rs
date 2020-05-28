@@ -778,19 +778,19 @@ mod mine_chain {
 						(16.0, 1.4208, 14.5792)
 					},
 					// Jan 1, 2020 to Jun 29, 2020
-					172801..=432000 => {
+					172801..=480960 => {
 						(16.0, 1.2432, 14.7568)
 					}
 					// Jun 29, 2020 to Jan 1, 2021
-					432001..=698400 => {
+					480961..=698400 => {
 						(8.0, 0.6216, 7.3784)
 					}
 					// Jan 1, 2021 to Oct 11, 2021
-					698401..=1108800 => {
+					698401..=1157760 => {
 						(8.0, 0.5328, 7.4672)
 					}
 					// Oct 11, 2021 to Jan 1, 2022
-					1108801..=1224000 => {
+					1157761..=1224000 => {
 						(4.0, 0.2664, 3.7336)
 					}
 					// Jan 1, 2022 to Jan 1, 2023
@@ -798,11 +798,11 @@ mod mine_chain {
 						(4.0, 0.2220, 3.7780)
 					}
 					// Jan 1, 2023 to Jun 3, 2023
-					1749601..=1974240 => {
+					1749601..=2023200 => {
 						(4.0, 0.1776, 3.8224)
 					}
 					// Jun 3, 2023 to Jan 1, 2024
-					1974241..=2275200=> {
+					2023201..=2275200=> {
 						(2.0, 0.0888, 1.9112)
 					}
 					// Jan 1, 2024 to Jan 1, 2025
@@ -810,11 +810,11 @@ mod mine_chain {
 						(2.0, 0.0666, 1.9334)
 					}
 					// Jan 1, 2025 to Aug 10, 2025
-					2800801..=3126240=> {
+					2800801..=3175200=> {
 						(2.0, 0.0444, 1.9556)
 					}
 					// Aug 10, 2025 to Jan 1, 2026
-					3126241..=3326400=> {
+					3175201..=3326400=> {
 						(1.0, 0.0222, 0.9778)
 					}
 					// Jan 1, 2026 to Jan 1, 2028
@@ -822,16 +822,16 @@ mod mine_chain {
 						(1.0, 0.0111, 0.9889)
 					}
 					// Jan 1, 2028 to May 24, 2028
-					4377601..=4593600=> {
+					4377601..=4642560=> {
 						(1.0, 0.0, 1.0)
 					}
 					// ======Test Bitcoin eras=====
 					// May 24, 2028 to May 22, 2032
-					4593601..=6696000=> {
+					4642561..=6744960=> {
 						(0.15625, 0.0, 0.15625)
 					}
 					// May 22, 2032 to May 20, 2036
-					6696001..=8798400=> {
+					6744961..=8798400=> {
 						(0.078125, 0.0, 0.078125)
 					}
 					_ => break,
@@ -1030,6 +1030,40 @@ mod mine_chain {
 
 			// Add block with custom timestamp
 			let mut block = prepare_block_with_timestamp(
+				kc, &prev, next_difficulty.difficulty, vec![], hash, timespan);
+			chain.set_txhashset_roots(&mut block).unwrap();
+
+			// policy
+			let policy = get_policies(0).unwrap();
+			let cursor = chain.bottles_iter(0).unwrap();
+			let (_, bottles) = consensus::next_policy(0, cursor);
+			let algo = get_fw_type(algorithm.as_str());
+			block.header.bottles = bottles;
+			block.header.pow.proof = get_pow_type(&algo, prev.height);
+			block.header.policy = 0;
+
+			chain.process_block(block, chain::Options::SKIP_POW).unwrap();
+		};
+
+		given regex "I create a block <([a-z]+)> with future timespan <(\\-?[0-9]+)>" |world, matches, _step| {
+			let algorithm: String = matches[1].parse().unwrap();
+			let timespan: i64 = matches[2].parse().unwrap();
+			let chain = world.chain.as_ref().unwrap();
+			let kc = world.keychain.as_ref().unwrap();
+			let height = chain.head_header().unwrap().height;
+			let prev = chain.head_header().unwrap();
+
+			let hash = chain
+				.txhashset()
+				.read()
+				.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
+				.unwrap();
+
+			let diff_iter = chain.difficulty_iter().unwrap();
+			let next_difficulty = consensus::next_difficulty(prev.height, (&prev.pow.proof).into(), diff_iter);
+
+			// Add block with custom timestamp
+			let mut block = prepare_block_with_future_timestamp(
 				kc, &prev, next_difficulty.difficulty, vec![], hash, timespan);
 			chain.set_txhashset_roots(&mut block).unwrap();
 
@@ -1646,6 +1680,42 @@ mod mine_chain {
 			Ok(b) => b,
 		};
 		b.header.timestamp = prev.timestamp + Duration::seconds(timespan);
+		b.header.pow.total_difficulty = prev.total_difficulty() + difficulty;
+		b.header.pow.proof = pow::Proof::random(proof_size);
+		b.header.pow.seed = seed;
+
+		b
+	}
+
+	fn prepare_block_with_future_timestamp<K>(
+		kc: &K,
+		prev: &BlockHeader,
+		difficulty: Difficulty,
+		txs: Vec<&Transaction>,
+		hash: Hash,
+		timespan: i64,
+	) -> Block
+	where
+		K: Keychain,
+	{
+		let mut seed = [0u8; 32];
+		seed.copy_from_slice(&hash.as_bytes()[0..32]);
+
+		let proof_size = global::proofsize();
+		let key_id = epic_keychain::ExtKeychainPath::new(1, (prev.height + 1) as u32 + 1, 0, 0, 0)
+			.to_identifier();
+		let fees = txs.iter().map(|tx| tx.fee()).sum();
+		let reward = libtx::reward::output(kc, &key_id, fees, false, prev.height + 1).unwrap();
+		let mut b = match core::core::Block::new(
+			prev,
+			txs.into_iter().cloned().collect(),
+			difficulty.clone(),
+			reward,
+		) {
+			Err(e) => panic!("{:?}", e),
+			Ok(b) => b,
+		};
+		b.header.timestamp = Utc::now() + Duration::seconds(timespan);
 		b.header.pow.total_difficulty = prev.total_difficulty() + difficulty;
 		b.header.pow.proof = pow::Proof::random(proof_size);
 		b.header.pow.seed = seed;

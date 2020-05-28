@@ -32,6 +32,7 @@ use crate::util::RwLock;
 use bigint::uint::U256;
 use chrono::prelude::Utc;
 use chrono::Duration;
+use epic_core::core::block::HeaderVersion;
 use epic_store;
 use std::sync::Arc;
 
@@ -355,10 +356,13 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		return Err(ErrorKind::InvalidBlockVersion(header.version).into());
 	}
 
+	let tolerance = if header.version <= HeaderVersion(6) {
+		Duration::seconds(12 * (consensus::BLOCK_TIME_SEC as i64))
+	} else {
+		Duration::seconds(30) // 30 seconds
+	};
 	// TODO: remove CI check from here somehow
-	if header.timestamp > Utc::now() + Duration::seconds(12 * (consensus::BLOCK_TIME_SEC as i64))
-		&& !global::is_automated_testing_mode()
-	{
+	if header.timestamp > Utc::now() + tolerance && !global::is_automated_testing_mode() {
 		// refuse blocks more than 12 blocks intervals in future (as in bitcoin)
 		// TODO add warning in p2p code if local time is too different from peers
 		return Err(ErrorKind::InvalidBlockTime.into());

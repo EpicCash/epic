@@ -180,7 +180,7 @@ impl Hashed for HeaderEntry {
 }
 
 /// Some type safety around header versioning.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Ord, PartialOrd)]
 pub struct HeaderVersion(pub u16);
 
 impl Default for HeaderVersion {
@@ -660,6 +660,7 @@ impl Block {
 					total_difficulty: difficulty + prev.pow.total_difficulty.clone(),
 					..Default::default()
 				},
+				version: consensus::header_version(prev.height + 1),
 				..Default::default()
 			},
 			body: agg_tx.into(),
@@ -705,6 +706,7 @@ impl Block {
 					total_difficulty: difficulty + prev.pow.total_difficulty.clone(),
 					..Default::default()
 				},
+				version: consensus::header_version(prev.height + 1),
 				..Default::default()
 			},
 			body: agg_tx.into(),

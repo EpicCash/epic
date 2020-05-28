@@ -19,6 +19,7 @@
 
 use chrono::prelude::{TimeZone, Utc};
 
+use crate::consensus;
 use crate::core;
 use crate::core::block::feijoada::get_bottles_default;
 use crate::global;
@@ -44,6 +45,7 @@ pub fn genesis_dev() -> core::Block {
 			nonce: global::get_genesis_nonce(),
 			..Default::default()
 		},
+		version: consensus::header_version(0),
 		..Default::default()
 	})
 }
@@ -63,6 +65,7 @@ pub fn genesis_floo() -> core::Block {
 
 	core::Block::with_header(core::BlockHeader {
 		height: 0,
+		version: consensus::header_version(0),
 		timestamp: Utc.ymd(2019, 8, 9).and_hms(17, 04, 38),
 		prev_root: Hash::from_hex(
 			"00000000000000000017ff4903ef366c8f62e3151ba74e41b8332a126542f538",
@@ -123,6 +126,7 @@ pub fn genesis_main() -> core::Block {
 
 	core::Block::with_header(core::BlockHeader {
 		height: 0,
+		version: consensus::header_version(0),
 		timestamp: Utc.ymd(2019, 8, 9).and_hms(17, 04, 38),
 		prev_root: Hash::from_hex(
 			"00000000000000000004de683e7aa4d35c51f46ec76c6852b0f3161bd1e2e00e",
