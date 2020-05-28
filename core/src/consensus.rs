@@ -294,10 +294,10 @@ pub const MAX_BLOCK_WEIGHT: usize = 40_000;
 pub const HARD_FORK_INTERVAL: u64 = YEAR_HEIGHT / 2;
 
 /// Floonet first hard fork height, set to happen around 2020-03-01
-pub const MAINNET_FIRST_HARD_FORK: u64 = 460000;
+pub const MAINNET_FIRST_HARD_FORK: u64 = 964937;
 
 /// Floonet first hard fork height, set to happen around 2020-02-03
-pub const FLOONET_FIRST_HARD_FORK: u64 = 2;
+pub const FLOONET_FIRST_HARD_FORK: u64 = 1440;
 
 /// AutomatedTesting and UserTesting first hard fork height.
 pub const TESTING_FIRST_HARD_FORK: u64 = 2;
