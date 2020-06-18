@@ -25,8 +25,5 @@ parking_lot = {version = "0.6"}
 zeroize = "0.5.2"
 
 [dependencies.grin_secp256k1zkp]
-#git = "https://github.com/mimblewimble/rust-secp256k1-zkp"
-#tag = "epic_integration_29"
-#path = "../../rust-secp256k1-zkp"
-version = "0.7.5"
+git = "https://gitlab.com/unitonebeat/epic_secp256k1zkp.git"
 features = ["bullet-proof-sizing"]

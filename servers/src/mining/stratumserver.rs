@@ -580,14 +580,23 @@ impl Handler {
 				.update_stats(worker_id, |worker_stats| worker_stats.num_blocks_found += 1);
 			// Log message to make it obvious we found a block
 			let stats = self.workers.get_stats(worker_id)?;
-			warn!(
-					"(Server ID: {}) Solution Found for block {}, hash {} - Yay!!! Worker ID: {}, blocks found: {}, shares: {}",
+			info!(
+					"(Server ID: {}) Solution Found for block {}, hash {} - Yay!!! Worker ID: {}, blocks found: {}, shares: {}, timestamp {}, job_id {}",
 					self.id, params.height,
 					b.hash(),
 					stats.id,
 					stats.num_blocks_found,
 					stats.num_accepted,
+					b.header.timestamp,
+					params.job_id
 				);
+
+				warn!(
+						"block found: block {}, timestamp {}, job_id {}",
+						params.height,
+						b.header.timestamp,
+						params.job_id
+					);
 		} else {
 			// Do some validation but dont submit
 			let res = pow::verify_size(&b.header);

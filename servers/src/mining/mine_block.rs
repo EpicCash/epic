@@ -220,12 +220,19 @@ fn build_block(
 	let (pow_type, bottles) = consensus::next_policy(b.header.policy, bottle_cursor);
 	b.header.bottles = bottles;
 
-	debug!(
-		"Built new block with {} inputs and {} outputs, block difficulty: {:?}, cumulative difficulty {:?}",
+	/*warn!(
+		"Built new block with {} inputs and {} outputs, block difficulty: {:?}, cumulative difficulty {:?}, timestamp {:?}",
 		b.inputs().len(),
 		b.outputs().len(),
 		difficulty.difficulty,
 		b.header.total_difficulty().num,
+		b.header.timestamp,
+	);*/
+
+	warn!(
+		"Built block: block {}, timestamp {}",
+		b.header.height,
+		b.header.timestamp,
 	);
 
 	// Now set txhashset roots and sizes on the header of the block being built.

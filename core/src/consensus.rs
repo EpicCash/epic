@@ -316,6 +316,21 @@ pub const DIFFICULTY_DAMP_FACTOR: u64 = 3;
 /// Dampening factor to use for AR scale calculation.
 pub const AR_SCALE_DAMP_FACTOR: u64 = 13;
 
+/// Clamp factor to use for difficulty adjustment
+/// Limit value to within this factor of goal
+pub const RX_CLAMP_FACTOR: u64 = 2;
+
+/// Dampening factor to use for difficulty adjustment
+pub const RX_DIFFICULTY_DAMP_FACTOR: u64 = 3;
+
+/// Clamp factor to use for difficulty adjustment
+/// Limit value to within this factor of goal
+pub const PP_CLAMP_FACTOR: u64 = 2;
+
+/// Dampening factor to use for difficulty adjustment
+pub const PP_DIFFICULTY_DAMP_FACTOR: u64 = 3;
+
+
 /// Compute weight of a graph as number of siphash bits defining the graph
 /// Must be made dependent on height to phase out smaller size over the years
 /// This can wait until end of 2019 at latest
@@ -345,10 +360,10 @@ pub fn graph_weight(height: u64, edge_bits: u8) -> u64 {
 pub const MIN_DIFFICULTY: u64 = DIFFICULTY_DAMP_FACTOR;
 
 /// RandomX Minimum difficulty (used for saturation)
-pub const MIN_DIFFICULTY_RANDOMX: u64 = 5000;
+pub const MIN_DIFFICULTY_RANDOMX: u64 = 4000;
 
 /// Progpow Minimum difficulty (used for saturation)
-pub const MIN_DIFFICULTY_PROGPOW: u64 = 100000;
+pub const MIN_DIFFICULTY_PROGPOW: u64 = 200000;
 
 /// RandomX Minimum difficulty (used for saturation)
 pub const BLOCK_DIFF_FACTOR_RANDOMX: u64 = 64;
@@ -457,19 +472,6 @@ where
 	(pow_type, b)
 }
 
-/// Computes the proof-of-work difficulty that the next block should comply
-/// with. Takes an iterator over past block headers information, from latest
-/// (highest height) to oldest (lowest height).
-///
-/// The difficulty calculation is based on both Digishield and GravityWave
-/// family of difficulty computation, coming to something very close to Zcash.
-/// The reference difficulty is an average of the difficulty over a window of
-/// DIFFICULTY_ADJUST_WINDOW blocks. The corresponding timespan is calculated
-/// by using the difference between the median timestamps at the beginning
-/// and the end of the window.
-///
-/// The secondary proof-of-work factor is calculated along the same lines, as
-/// an adjustment on the deviation against the ideal value.
 pub fn next_difficulty<T>(height: u64, prev_algo: PoWType, cursor: T) -> HeaderInfo
 where
 	T: IntoIterator<Item = HeaderInfo>,
@@ -477,10 +479,10 @@ where
 	let diff_data = match prev_algo.clone() {
 		PoWType::Cuckatoo => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
 		PoWType::Cuckaroo => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
-		PoWType::RandomX => global::difficulty_data_to_vector(cursor, 1),
-		PoWType::ProgPow => global::difficulty_data_to_vector(cursor, 1),
+		PoWType::RandomX => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
+		PoWType::ProgPow => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
 	};
-
+//	info!("diff_data {:?}", diff_data);
 	// First, get the ratio of secondary PoW vs primary, skipping initial header
 	let sec_pow_scaling = secondary_pow_scaling(height, &diff_data[1..]);
 	let mut diff = diff_data.last().unwrap().difficulty.num.clone();
@@ -489,25 +491,25 @@ where
 		PoWType::Cuckatoo => {
 			diff.insert(
 				PoWType::Cuckatoo,
-				next_cuckoo_difficulty(height, PoWType::Cuckatoo, &diff_data),
+				next_cuckoo_difficulty(PoWType::Cuckatoo, &diff_data),
 			);
 		}
 		PoWType::Cuckaroo => {
 			diff.insert(
 				PoWType::Cuckaroo,
-				next_cuckoo_difficulty(height, PoWType::Cuckaroo, &diff_data),
+				next_cuckoo_difficulty(PoWType::Cuckaroo, &diff_data),
 			);
 		}
 		PoWType::RandomX => {
 			diff.insert(
 				PoWType::RandomX,
-				next_hash_difficulty(PoWType::RandomX, &diff_data),
+				next_randomx_difficulty(PoWType::RandomX, &diff_data),
 			);
 		}
 		PoWType::ProgPow => {
 			diff.insert(
 				PoWType::ProgPow,
-				next_hash_difficulty(PoWType::ProgPow, &diff_data),
+				next_progpow_difficulty(PoWType::ProgPow, &diff_data),
 			);
 		}
 	};
@@ -515,11 +517,14 @@ where
 	HeaderInfo::from_diff_scaling(Difficulty::from_dic_number(diff), sec_pow_scaling)
 }
 
-fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
-	// Get the timestamp delta across the window
+/// Calculate next target for ProgPow block
+fn next_progpow_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 
-	let ts_delta: u64 =
-		diff_data[DIFFICULTY_ADJUST_WINDOW as usize].timestamp - diff_data[0].timestamp;
+	// Get the timestamp delta across the window
+	let mut ts_delta:u64 = 0;
+	for i in 1..diff_data.len() {
+		ts_delta += diff_data[i - 1].timestamp - diff_data[i - 1].timestamp.saturating_sub(diff_data[i - 1].prev_timespan);
+	}
 
 	// Get the difficulty sum of the last DIFFICULTY_ADJUST_WINDOW elements
 	let diff_sum: u64 = diff_data
@@ -530,6 +535,59 @@ fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>
 
 	// adjust time delta toward goal subject to dampening and clamping
 	let adj_ts = clamp(
+		damp(ts_delta, BLOCK_TIME_WINDOW, PP_DIFFICULTY_DAMP_FACTOR),
+		BLOCK_TIME_WINDOW,
+		PP_CLAMP_FACTOR,
+	);
+
+	// minimum difficulty avoids getting stuck due to dampening
+	max(MIN_DIFFICULTY_PROGPOW, diff_sum * BLOCK_TIME_SEC / adj_ts)
+}
+
+/// Calculate next target for RandomX block
+fn next_randomx_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
+
+	// Get the timestamp delta across the window
+	let mut ts_delta:u64 = 0;
+	for i in 1..diff_data.len() {
+		ts_delta += diff_data[i - 1].timestamp - diff_data[i - 1].timestamp.saturating_sub(diff_data[i - 1].prev_timespan);
+	}
+
+	// Get the difficulty sum of the last DIFFICULTY_ADJUST_WINDOW elements
+	let diff_sum: u64 = diff_data
+		.iter()
+		.skip(1)
+		.map(|dd| dd.difficulty.to_num(pow))
+		.sum();
+
+	// adjust time delta toward goal subject to dampening and clamping
+	let adj_ts = clamp(
+		damp(ts_delta, BLOCK_TIME_WINDOW, RX_DIFFICULTY_DAMP_FACTOR),
+		BLOCK_TIME_WINDOW,
+		RX_CLAMP_FACTOR,
+	);
+
+	// minimum difficulty avoids getting stuck due to dampening
+	max(MIN_DIFFICULTY_RANDOMX, diff_sum * BLOCK_TIME_SEC / adj_ts)
+}
+
+/// Calculate next target for Cuckatoo block
+fn next_cuckoo_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
+
+	// Get the timestamp delta across the window
+	let mut ts_delta:u64 = 0;
+	for i in 1..diff_data.len() {
+		ts_delta += diff_data[i - 1].timestamp - diff_data[i - 1].timestamp.saturating_sub(diff_data[i - 1].prev_timespan);
+	}
+
+	// Get the difficulty sum of the last DIFFICULTY_ADJUST_WINDOW elements
+	let diff_sum: u64 = diff_data
+		.iter()
+		.skip(1)
+		.map(|dd| dd.difficulty.to_num(pow))
+		.sum();
+
+	let adj_ts = clamp(
 		damp(ts_delta, BLOCK_TIME_WINDOW, DIFFICULTY_DAMP_FACTOR),
 		BLOCK_TIME_WINDOW,
 		CLAMP_FACTOR,
@@ -538,6 +596,7 @@ fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>
 	// minimum difficulty avoids getting stuck due to dampening
 	max(MIN_DIFFICULTY, diff_sum * BLOCK_TIME_SEC / adj_ts)
 }
+
 
 pub fn next_hash_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	// Desired time per block
