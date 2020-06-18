@@ -42,7 +42,7 @@ use crate::common::types::{Error, ServerConfig, StratumServerConfig, SyncState, 
 use crate::core::core::hash::{Hash, Hashed, ZERO_HASH};
 use crate::core::core::verifier_cache::{LruVerifierCache, VerifierCache};
 use crate::core::pow::{PoWType, Proof};
-use crate::core::{consensus, genesis, global, pow};
+use crate::core::{consensus, genesis, global, pow, consensus::DIFFICULTY_ADJUST_WINDOW};
 use crate::epic::{dandelion_monitor, seed, sync, version};
 use crate::mining::stratumserver;
 use crate::mining::test_miner::Miner;
@@ -496,7 +496,7 @@ impl Server {
 		// for release
 		let diff_stats = {
 			let last_blocks: Vec<consensus::HeaderInfo> =
-				global::difficulty_data_to_vector(self.chain.difficulty_iter_all()?, 100)
+				global::difficulty_data_to_vector(self.chain.difficulty_iter_all()?, 300)
 					.into_iter()
 					.collect();
 
@@ -580,7 +580,7 @@ impl Server {
 				last_blocks: diff_entries,
 				average_block_time: avg_block_time,
 				average_difficulty: avg_block_difficulty,
-				window_size: 100,
+				window_size: DIFFICULTY_ADJUST_WINDOW,
 			}
 		};
 
@@ -658,10 +658,14 @@ impl Server {
 }
 
 fn get_difficulty_info_average(diff_entries: Vec<DiffBlock>) -> (String, String) {
-	let num_elements = diff_entries.len() as u64;
-	if diff_entries.len() > 0 {
-		let block_time_sum: u64 = diff_entries.iter().fold(0, |sum, t| sum + t.duration);
-		let block_diff_sum: u64 = diff_entries.iter().fold(0, |sum, d| sum + d.difficulty);
+	let num_elements = if diff_entries.len() as u64 > DIFFICULTY_ADJUST_WINDOW { DIFFICULTY_ADJUST_WINDOW } else {diff_entries.len() as u64};
+	let mut entries = diff_entries.clone();
+	entries.reverse();
+	if entries.len() > 0 {
+
+		let block_time_sum: u64 = entries.iter().take(DIFFICULTY_ADJUST_WINDOW as usize).fold(0, |sum, t| sum + t.duration);
+		let block_diff_sum: u64 = entries.iter().take(DIFFICULTY_ADJUST_WINDOW as usize).fold(0, |sum, d| sum + d.difficulty);
+
 		(
 			format!("{}", block_time_sum / num_elements),
 			format!("{}", block_diff_sum / num_elements),
