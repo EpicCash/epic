@@ -361,9 +361,13 @@ pub const MIN_DIFFICULTY: u64 = DIFFICULTY_DAMP_FACTOR;
 
 /// RandomX Minimum difficulty (used for saturation)
 pub const MIN_DIFFICULTY_RANDOMX: u64 = 4000;
+/// RandomX Minimum difficulty until fork (used for saturation)
+pub const OLD_MIN_DIFFICULTY_RANDOMX: u64 = 5000;
 
 /// Progpow Minimum difficulty (used for saturation)
 pub const MIN_DIFFICULTY_PROGPOW: u64 = 200000;
+/// Progpow Minimum difficulty until fork (used for saturation)
+pub const OLD_MIN_DIFFICULTY_PROGPOW: u64 = 100000;
 
 /// RandomX Minimum difficulty (used for saturation)
 pub const BLOCK_DIFF_FACTOR_RANDOMX: u64 = 64;
@@ -472,6 +476,74 @@ where
 	(pow_type, b)
 }
 
+pub fn next_difficulty_3662<T>(height: u64, prev_algo: PoWType, cursor: T) -> HeaderInfo
+where
+	T: IntoIterator<Item = HeaderInfo>,
+{
+	let diff_data = match prev_algo.clone() {
+		PoWType::Cuckatoo => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
+		PoWType::Cuckaroo => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
+		PoWType::RandomX => global::difficulty_data_to_vector(cursor, 1),
+		PoWType::ProgPow => global::difficulty_data_to_vector(cursor, 1),
+	};
+//	info!("diff_data {:?}", diff_data);
+	// First, get the ratio of secondary PoW vs primary, skipping initial header
+	let sec_pow_scaling = secondary_pow_scaling(height, &diff_data[1..]);
+	let mut diff = diff_data.last().unwrap().difficulty.num.clone();
+
+	match prev_algo {
+		PoWType::Cuckatoo => {
+			diff.insert(
+				PoWType::Cuckatoo,
+				next_cuckoo_difficulty_3662(height, PoWType::Cuckatoo, &diff_data),
+			);
+		}
+		PoWType::Cuckaroo => {
+			diff.insert(
+				PoWType::Cuckaroo,
+				next_cuckoo_difficulty_3662(height, PoWType::Cuckaroo, &diff_data),
+			);
+		}
+		PoWType::RandomX => {
+				diff.insert(
+					PoWType::RandomX,
+					next_hash_difficulty(PoWType::RandomX, &diff_data),
+				);
+		}
+		PoWType::ProgPow => {
+			diff.insert(
+				PoWType::ProgPow,
+				next_hash_difficulty(PoWType::ProgPow, &diff_data),
+			);
+		}
+	};
+
+	HeaderInfo::from_diff_scaling(Difficulty::from_dic_number(diff), sec_pow_scaling)
+}
+fn next_cuckoo_difficulty_3662(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
+	// Get the timestamp delta across the window
+
+	let ts_delta: u64 =
+		diff_data[DIFFICULTY_ADJUST_WINDOW as usize].timestamp - diff_data[0].timestamp;
+
+	// Get the difficulty sum of the last DIFFICULTY_ADJUST_WINDOW elements
+	let diff_sum: u64 = diff_data
+		.iter()
+		.skip(1)
+		.map(|dd| dd.difficulty.to_num(pow))
+		.sum();
+
+	// adjust time delta toward goal subject to dampening and clamping
+	let adj_ts = clamp(
+		damp(ts_delta, BLOCK_TIME_WINDOW, DIFFICULTY_DAMP_FACTOR),
+		BLOCK_TIME_WINDOW,
+		CLAMP_FACTOR,
+	);
+
+	// minimum difficulty avoids getting stuck due to dampening
+	max(MIN_DIFFICULTY, diff_sum * BLOCK_TIME_SEC / adj_ts)
+}
+
 pub fn next_difficulty<T>(height: u64, prev_algo: PoWType, cursor: T) -> HeaderInfo
 where
 	T: IntoIterator<Item = HeaderInfo>,
@@ -501,10 +573,11 @@ where
 			);
 		}
 		PoWType::RandomX => {
-			diff.insert(
-				PoWType::RandomX,
-				next_randomx_difficulty(PoWType::RandomX, &diff_data),
-			);
+				diff.insert(
+					PoWType::RandomX,
+					next_randomx_difficulty(PoWType::RandomX, &diff_data),
+				);
+
 		}
 		PoWType::ProgPow => {
 			diff.insert(
@@ -614,8 +687,8 @@ pub fn next_hash_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	let prev_timestamp = diff_data[0].timestamp;
 
 	let min_diff = match pow {
-		PoWType::RandomX => MIN_DIFFICULTY_RANDOMX,
-		PoWType::ProgPow => MIN_DIFFICULTY_PROGPOW,
+		PoWType::RandomX => OLD_MIN_DIFFICULTY_RANDOMX,
+		PoWType::ProgPow => OLD_MIN_DIFFICULTY_PROGPOW,
 		_ => panic!("The function next_hash_difficulty is only used by Progpow and RandomX, but it got a {:?}", pow),
 	};
 

@@ -465,6 +465,10 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		let diff_proof = diff.to_num((&header.pow.proof).into());
 
 		if diff_proof < target_difficulty_proof {
+			info!(
+				"validate_header: {}",
+				header.height
+			);
 			return Err(ErrorKind::DifficultyTooLow.into());
 		}
 
@@ -473,8 +477,15 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		// (during testnet1 we use _block_ difficulty here)
 		let child_batch = ctx.batch.child()?;
 		let diff_iter = store::DifficultyIter::from_batch(prev.hash(), child_batch);
-		let next_header_info =
-			consensus::next_difficulty(header.height, (&prev.pow.proof).into(), diff_iter);
+
+		 /* fork difficulty */
+		 /* before publish: take a future height where this functions will be switching */
+		 let next_header_info = if header.height < 3662 {
+		 	consensus::next_difficulty_3662(header.height, (&prev.pow.proof).into(), diff_iter)
+		 } else {
+		 	consensus::next_difficulty(header.height, (&prev.pow.proof).into(), diff_iter)
+		 };
+
 
 		if target_difficulty != next_header_info.difficulty {
 			info!(
@@ -486,10 +497,7 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		// check the secondary PoW scaling factor if applicable
 		if let pow::Proof::CuckooProof { .. } = header.pow.proof {
 			if header.pow.secondary_scaling != next_header_info.secondary_scaling {
-				info!(
-					"validate_header: header secondary scaling {} != {}",
-					header.pow.secondary_scaling, next_header_info.secondary_scaling
-				);
+
 				return Err(ErrorKind::InvalidScaling.into());
 			}
 		}
