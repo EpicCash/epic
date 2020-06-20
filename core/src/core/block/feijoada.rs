@@ -79,7 +79,6 @@ impl FuzzySearch for AllowedPolicy {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PolicyConfig {
 	pub allowed_policies: AllowedPolicy,
-	pub emitted_policy: u8,
 	pub policies: Vec<Policy>,
 }
 
@@ -154,7 +153,6 @@ impl Default for PolicyConfig {
 				allowed_policy_era5,
 				allowed_policy_era6,
 			],
-			emitted_policy: 0,
 			policies: vec![
 				policy_era1,
 				policy_era2,
