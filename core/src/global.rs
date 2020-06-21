@@ -16,6 +16,7 @@
 //! having to pass them all over the place, but aren't consensus values.
 //! should be used sparingly.
 
+use crate::consensus;
 use crate::consensus::HeaderInfo;
 use crate::consensus::{
 	graph_weight, BASE_EDGE_BITS, BLOCK_TIME_SEC, COINBASE_MATURITY, CUT_THROUGH_HORIZON,
@@ -238,11 +239,6 @@ pub fn set_policy_config(policy: PolicyConfig) {
 	*policy_config = policy;
 }
 
-pub fn set_emitted_policy(emitted: u8) {
-	let mut policy_config = POLICY_CONFIG.write();
-	policy_config.emitted_policy = emitted;
-}
-
 pub fn add_allowed_policy(height: u64, value: u64) {
 	let mut policy_config = POLICY_CONFIG.write();
 	policy_config
@@ -255,9 +251,21 @@ pub fn get_allowed_policies() -> Vec<AllowPolicy> {
 	policy_config.allowed_policies.clone()
 }
 
-pub fn get_emitted_policy() -> u8 {
+pub fn get_emitted_policy(height: u64) -> u8 {
 	let policy_config = POLICY_CONFIG.read();
-	policy_config.emitted_policy
+	if (height <= consensus::BLOCK_ERA_1) {
+		0
+	} else if (height <= consensus::BLOCK_ERA_2) {
+		1
+	} else if (height <= consensus::BLOCK_ERA_3) {
+		2
+	} else if (height <= consensus::BLOCK_ERA_4) {
+		3
+	} else if (height <= consensus::BLOCK_ERA_5) {
+		4
+	} else {
+		5
+	}
 }
 
 pub fn get_policies(index: u8) -> Option<Policy> {

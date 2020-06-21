@@ -1,3 +1,10 @@
+epic (2.9.0-1) bionic; urgency=high
+
+  [ Yuri Albuquerque ]
+  * Fixing a bug in the poicies configuration
+
+ -- Ubuntu <ubuntu@ip-172-31-26-231.ec2.internal>  Sat, 20 Jun 2020 18:37:00 +0000
+
 epic (2.8.0-1) bionic; urgency=high
 
   [ Yuri Albuquerque ]
