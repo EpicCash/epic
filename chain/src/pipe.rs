@@ -35,6 +35,8 @@ use chrono::Duration;
 use epic_store;
 use std::sync::Arc;
 
+
+
 /// Contextual information required to process a new block and either reject or
 /// accept it.
 pub struct BlockContext<'a> {
@@ -356,7 +358,20 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 	}
 
 	// TODO: remove CI check from here somehow
-	if header.timestamp > Utc::now() + Duration::seconds(12 * (consensus::BLOCK_TIME_SEC as i64))
+	// introduce median timestamp from peer
+	// not more than 1 minute network time adjust
+	let nat = if global::get_network_adjusted_time() < 60 && global::get_network_adjusted_time() > -60 {
+		global::get_network_adjusted_time()
+	} else {
+		0
+	};
+	info!(
+		"check future block: network_adjusted_time {}, header {}, limit {}",
+		nat,
+		header.timestamp,
+		DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(Utc::now().timestamp() + nat + 30, 0), Utc)
+	);
+	if header.timestamp.timestamp() > Utc::now().timestamp() + nat + 30
 		&& !global::is_automated_testing_mode()
 	{
 		// refuse blocks more than 12 blocks intervals in future (as in bitcoin)

@@ -256,6 +256,7 @@ impl ChainAdapter for DummyAdapter {
 	fn total_height(&self) -> Result<u64, chain::Error> {
 		Ok(0)
 	}
+
 	fn get_transaction(&self, _h: Hash) -> Option<core::Transaction> {
 		None
 	}
@@ -346,7 +347,7 @@ impl NetAdapter for DummyAdapter {
 		vec![]
 	}
 	fn peer_addrs_received(&self, _: Vec<PeerAddr>) {}
-	fn peer_difficulty(&self, _: PeerAddr, _: Difficulty, _: u64) {}
+	fn peer_difficulty(&self, _: PeerAddr, _: Difficulty, _: u64, _: i64) {}
 	fn is_banned(&self, _: PeerAddr) -> bool {
 		false
 	}

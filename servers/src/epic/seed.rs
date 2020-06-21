@@ -176,6 +176,7 @@ fn monitor_peers(
 	// maintenance step first, clean up p2p server peers
 	peers.clean_peers(config.peer_max_count() as usize);
 
+
 	if peers.healthy_peers_mix() {
 		return;
 	}
@@ -183,6 +184,8 @@ fn monitor_peers(
 	// loop over connected peers
 	// ask them for their list of peers
 	let mut connected_peers: Vec<PeerAddr> = vec![];
+	let mut ts: Vec<i64> = vec![];
+
 	for p in peers.connected_peers() {
 		trace!(
 			"monitor_peers: {}:{} ask {} for more peers",
@@ -191,8 +194,25 @@ fn monitor_peers(
 			p.info.addr,
 		);
 		let _ = p.send_peer_request(p2p::Capabilities::PEER_LIST);
-		connected_peers.push(p.info.addr)
+		connected_peers.push(p.info.addr);
+		//set offset timestamp from local time and peers for median
+
+		ts.push(p.info.live_info.read().local_timestamp - Utc::now().timestamp());
 	}
+
+	if ts.len() > 1 {
+		ts.sort();
+
+		let half = ts.len() / 2;
+		let median_ts:i64 = if (ts.len() % 2) == 0 {
+			ts[half]
+		}else{
+			(ts[half - 1] + ts[half]) / 2
+		};
+		global::set_network_adjusted_time(median_ts);
+	}
+
+
 
 	// Attempt to connect to preferred peers if there is some
 	if let Some(preferred_peers) = preferred_peers_list {

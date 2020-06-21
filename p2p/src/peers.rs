@@ -73,6 +73,7 @@ impl Peers {
 			last_banned: 0,
 			ban_reason: ReasonForBan::None,
 			last_connected: Utc::now().timestamp(),
+			local_timestamp: Utc::now().timestamp(),
 		};
 		debug!("Saving newly connected peer {}.", peer_data.addr);
 		self.save_peer(&peer_data)?;
@@ -92,6 +93,7 @@ impl Peers {
 			last_banned: Utc::now().timestamp(),
 			ban_reason,
 			last_connected: Utc::now().timestamp(),
+			local_timestamp: Utc::now().timestamp(),
 		};
 		debug!("Banning peer {}.", addr);
 		self.save_peer(&peer_data)
@@ -359,7 +361,7 @@ impl Peers {
 	/// or disconnects. This acts as a liveness test.
 	pub fn check_all(&self, total_difficulty: Difficulty, height: u64) {
 		for p in self.connected_peers().iter() {
-			if let Err(e) = p.send_ping(total_difficulty.clone(), height) {
+			if let Err(e) = p.send_ping(total_difficulty.clone(), height, Utc::now().timestamp()) {
 				debug!("Error pinging peer {:?}: {:?}", &p.info.addr, e);
 				let mut peers = match self.peers.try_write_for(LOCK_TIMEOUT) {
 					Some(peers) => peers,
@@ -372,6 +374,10 @@ impl Peers {
 				peers.remove(&p.info.addr);
 			}
 		}
+
+		
+
+
 	}
 
 	/// All peer information we have in storage
@@ -549,6 +555,7 @@ impl ChainAdapter for Peers {
 	fn total_height(&self) -> Result<u64, chain::Error> {
 		self.adapter.total_height()
 	}
+
 
 	fn get_transaction(&self, kernel_hash: Hash) -> Option<core::Transaction> {
 		self.adapter.get_transaction(kernel_hash)
@@ -728,6 +735,7 @@ impl NetAdapter for Peers {
 				last_banned: 0,
 				ban_reason: ReasonForBan::None,
 				last_connected: Utc::now().timestamp(),
+				local_timestamp: Utc::now().timestamp(),
 			};
 			if let Err(e) = self.save_peer(&peer) {
 				error!("Could not save received peer address: {:?}", e);
@@ -735,11 +743,13 @@ impl NetAdapter for Peers {
 		}
 	}
 
-	fn peer_difficulty(&self, addr: PeerAddr, diff: Difficulty, height: u64) {
+	fn peer_difficulty(&self, addr: PeerAddr, diff: Difficulty, height: u64, local_timestamp: i64) {
 		if let Some(peer) = self.get_connected_peer(addr) {
-			peer.info.update(height, diff);
+			peer.info.update(height, diff, local_timestamp);
 		}
 	}
+
+
 
 	fn is_banned(&self, addr: PeerAddr) -> bool {
 		if let Ok(peer) = self.get_peer(addr) {

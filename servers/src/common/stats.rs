@@ -162,6 +162,8 @@ pub struct PeerStats {
 	pub direction: String,
 	/// Last time we saw a ping/pong from this peer.
 	pub last_seen: DateTime<Utc>,
+	/// Last time we saw a ping/pong from this peer.
+	pub local_timestamp: i64,
 	/// Number of bytes we've sent to the peer.
 	pub sent_bytes_per_sec: u64,
 	/// Number of bytes we've received from the peer.
@@ -209,6 +211,7 @@ impl PeerStats {
 			height: peer.info.height(),
 			direction: direction.to_string(),
 			last_seen: peer.info.last_seen(),
+			local_timestamp: peer.info.local_timestamp(),
 			sent_bytes_per_sec: peer.last_min_sent_bytes().unwrap_or(0) / 60,
 			received_bytes_per_sec: peer.last_min_received_bytes().unwrap_or(0) / 60,
 		}

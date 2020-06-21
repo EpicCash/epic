@@ -68,6 +68,8 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 	fn get_transaction(&self, kernel_hash: Hash) -> Option<core::Transaction> {
 		self.tx_pool.read().retrieve_tx_by_kernel_hash(kernel_hash)
 	}
+	/// Current local timestamp
+
 
 	fn tx_kernel_received(
 		&self,

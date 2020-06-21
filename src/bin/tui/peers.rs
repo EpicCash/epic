@@ -75,15 +75,17 @@ impl TableViewItem<PeerColumn> for PeerStats {
 			)
 			.to_string(),
 			PeerColumn::TotalDifficulty => format!(
-				"{} D @ {} H ({}s)",
+				"{} D @ {} H ({}s), LT {}",
 				self.total_difficulty,
 				self.height,
 				(Utc::now() - self.last_seen).num_seconds(),
+				DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(self.local_timestamp, 0), Utc),
 			)
 			.to_string(),
 			PeerColumn::Direction => self.direction.clone(),
 			PeerColumn::Version => format!("{}", self.version),
 			PeerColumn::UserAgent => self.user_agent.clone(),
+
 		}
 	}
 

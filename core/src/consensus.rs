@@ -97,7 +97,7 @@ pub fn foundation_height() -> u64 {
 	let param_ref = global::CHAIN_TYPE.read();
 	match *param_ref {
 		global::ChainTypes::AutomatedTesting => AUTOMATEDTEST_FOUNDATION_HEIGHT,
-		global::ChainTypes::UserTesting => AUTOMATEDTEST_FOUNDATION_HEIGHT,
+		global::ChainTypes::UserTesting => FLOONET_FOUNDATION_HEIGHT,
 		global::ChainTypes::Floonet => FLOONET_FOUNDATION_HEIGHT,
 		_ => MAINNET_FOUNDATION_HEIGHT,
 	}
@@ -556,7 +556,7 @@ where
 		PoWType::ProgPow  => global::ts_data_to_vector(cursor, 6),
 	};
 
-	let mut ts: Vec<u64> = Vec::new();
+	let mut ts: Vec<u64> = vec![];
 
 	for i in 0..diff_data.len() {
 		ts.push(diff_data[i].timestamp);

@@ -35,6 +35,7 @@ use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::path::Path;
+use chrono::prelude::Utc;
 /// Define these here, as they should be developer-set, not really tweakable
 /// by users
 
@@ -167,7 +168,25 @@ lazy_static! {
 	/// Store the timeout for the header sync
 	pub static ref HEADER_SYNC_TIMEOUT : RwLock<i64> =
 			RwLock::new(10);
+
+	/// Store the median timestamp from all peers
+	pub static ref NETWORK_ADJUSTED_TIME : RwLock<i64> =
+			RwLock::new(Utc::now().timestamp());
 }
+
+
+
+/// Get the current median offset for Network-adjusted
+pub fn get_network_adjusted_time() -> i64 {
+	let network_adjusted_time = NETWORK_ADJUSTED_TIME.read();
+	network_adjusted_time.clone()
+}
+/// Set the current median offset for Network-adjusted
+pub fn set_network_adjusted_time(timestamp: i64) {
+	let mut network_adjusted_time = NETWORK_ADJUSTED_TIME.write();
+	*network_adjusted_time = if timestamp <= 0 { Utc::now().timestamp() } else { timestamp }
+}
+
 
 /// Get the current Timeout without the verification of the existence of more headers to be synced,
 /// after all header were processed
@@ -540,7 +559,7 @@ where
 		}
 	}
 
-	
+
 	last_n
 }
 /// Strcut that store the major and minor release versions

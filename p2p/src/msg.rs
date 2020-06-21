@@ -586,12 +586,15 @@ pub struct Ping {
 	pub total_difficulty: Difficulty,
 	/// total height
 	pub height: u64,
+	/// local time
+	pub local_timestamp: i64,
 }
 
 impl Writeable for Ping {
 	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
 		self.total_difficulty.write(writer)?;
 		self.height.write(writer)?;
+		self.local_timestamp.write(writer)?;
 		Ok(())
 	}
 }
@@ -600,9 +603,11 @@ impl Readable for Ping {
 	fn read(reader: &mut dyn Reader) -> Result<Ping, ser::Error> {
 		let total_difficulty = Difficulty::read(reader)?;
 		let height = reader.read_u64()?;
+		let local_timestamp = reader.read_i64()?;
 		Ok(Ping {
 			total_difficulty,
 			height,
+			local_timestamp,
 		})
 	}
 }
@@ -613,12 +618,15 @@ pub struct Pong {
 	pub total_difficulty: Difficulty,
 	/// height accumulated by sender
 	pub height: u64,
+	/// local time
+	pub local_timestamp: i64,
 }
 
 impl Writeable for Pong {
 	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
 		self.total_difficulty.write(writer)?;
 		self.height.write(writer)?;
+		self.local_timestamp.write(writer)?;
 		Ok(())
 	}
 }
@@ -627,9 +635,11 @@ impl Readable for Pong {
 	fn read(reader: &mut dyn Reader) -> Result<Pong, ser::Error> {
 		let total_difficulty = Difficulty::read(reader)?;
 		let height = reader.read_u64()?;
+		let local_timestamp = reader.read_i64()?;
 		Ok(Pong {
 			total_difficulty,
 			height,
+			local_timestamp,
 		})
 	}
 }

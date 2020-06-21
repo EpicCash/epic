@@ -559,6 +559,8 @@ impl Handler {
 		if share_difficulty >= current_difficulty && pow_type == b_pow_type {
 			// This is a full solution, submit it to the network
 			let res = self.chain.process_block(b.clone(), chain::Options::MINE);
+
+
 			if let Err(e) = res {
 				// Return error status
 				error!(
