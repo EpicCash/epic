@@ -29,8 +29,8 @@ use crate::store::BottleIter;
 use crate::txhashset;
 use crate::types::{Options, Tip};
 use crate::util::RwLock;
-use bigint::uint::U256;
-use chrono::prelude::Utc;
+
+use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 use chrono::Duration;
 use epic_store;
 use std::sync::Arc;
@@ -475,9 +475,24 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		// explicit check to ensure total_difficulty has increased by exactly
 		// the _network_ difficulty of the previous block
 		// (during testnet1 we use _block_ difficulty here)
+
+		let median_batch = ctx.batch.child()?;
+		let median_iter = store::DifficultyIter::from_batch(prev.hash(), median_batch);
+		let last_median:u64 = consensus::timestamp_median( header.timestamp.timestamp() as u64, (&prev.pow.proof).into(), median_iter);
+		if last_median as i64 > header.timestamp.timestamp()
+			&& !global::is_automated_testing_mode()
+		{
+			// refuse block lower median
+			info!(
+				"last_median {:?}, header timestamp {:?}",
+				DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(last_median as i64, 0), Utc),
+				header.timestamp
+			);
+			return Err(ErrorKind::InvalidBlockTime.into());
+		}
+
 		let child_batch = ctx.batch.child()?;
 		let diff_iter = store::DifficultyIter::from_batch(prev.hash(), child_batch);
-
 		 /* fork difficulty */
 		 /* before publish: take a future height where this functions will be switching */
 		 let next_header_info = if header.height < 3662 {

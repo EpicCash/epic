@@ -505,10 +505,10 @@ where
 			);
 		}
 		PoWType::RandomX => {
-				diff.insert(
-					PoWType::RandomX,
-					next_hash_difficulty(PoWType::RandomX, &diff_data),
-				);
+			diff.insert(
+				PoWType::RandomX,
+				next_hash_difficulty(PoWType::RandomX, &diff_data),
+			);
 		}
 		PoWType::ProgPow => {
 			diff.insert(
@@ -542,6 +542,37 @@ fn next_cuckoo_difficulty_3662(height: u64, pow: PoWType, diff_data: &Vec<Header
 
 	// minimum difficulty avoids getting stuck due to dampening
 	max(MIN_DIFFICULTY, diff_sum * BLOCK_TIME_SEC / adj_ts)
+}
+
+pub fn timestamp_median<T>(header_ts: u64, prev_algo: PoWType, cursor: T) ->  u64
+where
+	T: IntoIterator<Item = HeaderInfo>,
+{
+
+	let diff_data = match prev_algo.clone() {
+		PoWType::Cuckatoo => global::ts_data_to_vector(cursor, 6),
+		PoWType::Cuckaroo => global::ts_data_to_vector(cursor, 6),
+		PoWType::RandomX  => global::ts_data_to_vector(cursor, 6),
+		PoWType::ProgPow  => global::ts_data_to_vector(cursor, 6),
+	};
+
+	let mut ts: Vec<u64> = Vec::new();
+
+	for i in 0..diff_data.len() {
+		ts.push(diff_data[i].timestamp);
+	}
+	ts.push(header_ts);
+	ts.sort();
+
+	let half = ts.len() / 2;
+	let median_ts:u64 = if (ts.len() % 2) == 0 {
+		ts[half]
+	}else{
+		(ts[half - 1] + ts[half]) / 2
+	};
+
+	median_ts
+
 }
 
 pub fn next_difficulty<T>(height: u64, prev_algo: PoWType, cursor: T) -> HeaderInfo

@@ -464,7 +464,6 @@ pub fn chain_shortname() -> String {
 /// Converts an iterator of block difficulty data to more a more manageable
 /// vector and pads if needed (which will) only be needed for the first few
 /// blocks after genesis
-
 pub fn difficulty_data_to_vector<T>(cursor: T, needed_block_count: u64) -> Vec<HeaderInfo>
 where
 	T: IntoIterator<Item = HeaderInfo>,
@@ -501,6 +500,41 @@ where
 	last_n
 }
 
+pub fn ts_data_to_vector<T>(cursor: T, needed_block_count: u64) -> Vec<HeaderInfo>
+where
+	T: IntoIterator<Item = HeaderInfo>,
+{
+	// Convert iterator to vector, so we can append to it if necessary
+	let needed_block_count = needed_block_count as usize + 1;
+	let mut last_n: Vec<HeaderInfo> = cursor.into_iter().take(needed_block_count).collect();
+	for i in 1..last_n.len() {
+		last_n[i].timestamp = last_n[i - 1]
+			.timestamp
+			.saturating_sub(last_n[i - 1].prev_timespan);
+	}
+	// Only needed just after blockchain launch... basically ensures there's
+	// always enough data by simulating perfectly timed pre-genesis
+	// blocks at the genesis difficulty as needed.
+	let n = last_n.len();
+	if needed_block_count > n {
+		let last_ts_delta = if n > 1 {
+			last_n[0].timestamp - last_n[1].timestamp
+		} else {
+			BLOCK_TIME_SEC
+		};
+		let last_diff = last_n[0].difficulty.clone();
+
+		// fill in simulated blocks with values from the previous real block
+		let mut last_ts = last_n.last().unwrap().timestamp;
+		for _ in n..needed_block_count {
+			last_ts = last_ts.saturating_sub(last_ts_delta);
+			last_n.push(HeaderInfo::from_ts_diff(last_ts, last_diff.clone()));
+		}
+	}
+
+	
+	last_n
+}
 /// Strcut that store the major and minor release versions
 #[derive(Debug, Clone)]
 pub struct Version {
