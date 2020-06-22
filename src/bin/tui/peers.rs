@@ -123,14 +123,14 @@ pub struct TUIPeerView;
 impl TUIStatusListener for TUIPeerView {
 	fn create() -> Box<dyn View> {
 		let table_view = TableView::<PeerStats, PeerColumn>::new()
-			.column(PeerColumn::Address, "Address", |c| c.width_percent(16))
+			.column(PeerColumn::Address, "Address", |c| c.width_percent(14))
 			.column(PeerColumn::State, "State", |c| c.width_percent(8))
 			.column(PeerColumn::UsedBandwidth, "Used bandwidth", |c| {
-				c.width_percent(16)
+				c.width_percent(12)
 			})
 			.column(PeerColumn::Direction, "Direction", |c| c.width_percent(8))
 			.column(PeerColumn::TotalDifficulty, "Total Difficulty", |c| {
-				c.width_percent(24)
+				c.width_percent(30)
 			})
 			.column(PeerColumn::Version, "Proto", |c| c.width_percent(6))
 			.column(PeerColumn::UserAgent, "User Agent", |c| c.width_percent(18));
