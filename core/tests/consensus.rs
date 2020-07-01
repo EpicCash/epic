@@ -59,6 +59,8 @@ pub struct DiffStats {
 	pub earliest_ts: u64,
 	/// ts delta
 	pub ts_delta: u64,
+	/// pow type
+	pub pow_type: PoWType,
 }
 
 impl Display for DiffBlock {
@@ -97,7 +99,7 @@ fn repeat(interval: u64, diff: HeaderInfo, len: u64, cur_time: Option<u64>) -> V
 }
 
 // Creates a new chain with a genesis at a simulated difficulty
-fn create_chain_sim(diff: u64) -> Vec<(HeaderInfo, DiffStats)> {
+fn create_chain_sim(diff: u64, pow_type: PoWType) -> Vec<(HeaderInfo, DiffStats)> {
 	println!(
 		"adding create: {}, {}",
 		Utc::now().timestamp(),
@@ -107,14 +109,14 @@ fn create_chain_sim(diff: u64) -> Vec<(HeaderInfo, DiffStats)> {
 		Utc::now().timestamp() as u64,
 		Difficulty::from_num(diff),
 	)];
-	let diff_stats = get_diff_stats(&return_vec);
+	let diff_stats = get_diff_stats(&return_vec, pow_type);
 	vec![(
 		HeaderInfo::from_ts_diff(Utc::now().timestamp() as u64, Difficulty::from_num(diff)),
 		diff_stats,
 	)]
 }
 
-fn get_diff_stats(chain_sim: &Vec<HeaderInfo>) -> DiffStats {
+fn get_diff_stats(chain_sim: &Vec<HeaderInfo>, pow_type:PoWType) -> DiffStats {
 	// Fill out some difficulty stats for convenience
 	let diff_iter = chain_sim.clone();
 	let last_blocks: Vec<HeaderInfo> =
@@ -145,7 +147,7 @@ fn get_diff_stats(chain_sim: &Vec<HeaderInfo>) -> DiffStats {
 			last_time = n.timestamp;
 			DiffBlock {
 				block_number: height,
-				difficulty: n.difficulty.to_num(PoWType::Cuckatoo),
+				difficulty: n.difficulty.to_num(pow_type),
 				time: n.timestamp,
 				duration: dur,
 			}
@@ -168,7 +170,7 @@ fn get_diff_stats(chain_sim: &Vec<HeaderInfo>) -> DiffStats {
 			last_time = n.timestamp;
 			DiffBlock {
 				block_number: height,
-				difficulty: n.difficulty.to_num(PoWType::Cuckatoo),
+				difficulty: n.difficulty.to_num(pow_type),
 				time: n.timestamp,
 				duration: dur,
 			}
@@ -186,6 +188,7 @@ fn get_diff_stats(chain_sim: &Vec<HeaderInfo>) -> DiffStats {
 		latest_ts: latest_ts,
 		earliest_ts: earliest_ts,
 		ts_delta: latest_ts - earliest_ts,
+		pow_type: pow_type,
 	}
 }
 
@@ -194,15 +197,17 @@ fn get_diff_stats(chain_sim: &Vec<HeaderInfo>) -> DiffStats {
 fn add_block(
 	interval: u64,
 	chain_sim: Vec<(HeaderInfo, DiffStats)>,
+	pow_type: PoWType
 ) -> Vec<(HeaderInfo, DiffStats)> {
 	let mut ret_chain_sim = chain_sim.clone();
 	let mut return_chain: Vec<HeaderInfo> = chain_sim.clone().iter().map(|e| e.0.clone()).collect();
 	// get last interval
-	let diff = next_difficulty(1, PoWType::Cuckatoo, return_chain.clone());
+	let diff = next_difficulty(1, pow_type, return_chain.clone());
 	let last_elem = chain_sim.first().unwrap().clone().0;
 	let time = last_elem.timestamp + interval;
+
 	return_chain.insert(0, HeaderInfo::from_ts_diff(time, diff.difficulty.clone()));
-	let diff_stats = get_diff_stats(&return_chain);
+	let diff_stats = get_diff_stats(&return_chain, pow_type);
 	ret_chain_sim.insert(
 		0,
 		(HeaderInfo::from_ts_diff(time, diff.difficulty), diff_stats),
@@ -215,10 +220,11 @@ fn add_block_repeated(
 	interval: u64,
 	chain_sim: Vec<(HeaderInfo, DiffStats)>,
 	iterations: usize,
+	pow_type: PoWType
 ) -> Vec<(HeaderInfo, DiffStats)> {
 	let mut return_chain = chain_sim.clone();
 	for _ in 0..iterations {
-		return_chain = add_block(interval, return_chain.clone());
+		return_chain = add_block(interval, return_chain.clone(), pow_type);
 	}
 	return_chain
 }
@@ -243,7 +249,7 @@ fn print_chain_sim(chain_sim: Vec<(HeaderInfo, DiffStats)>) {
 			first = false;
 		}
 		println!(
-			"Height: {}, Time: {}, Interval: {}, Network difficulty:{}, Average Block Time: {}, Average Difficulty {}, Block Time Sum: {}, Block Diff Sum: {}, Latest Timestamp: {}, Earliest Timestamp: {}, Timestamp Delta: {}",
+			"Height: {}, Time: {}, Interval: {}, Network difficulty:{}, Average Block Time: {}, Average Difficulty {}, Block Time Sum: {}, Block Diff Sum: {}, Latest Timestamp: {}, Earliest Timestamp: {}, Timestamp Delta: {}, PoWType: {:?}",
 			i,
 			block.timestamp,
 			block.timestamp - last_time,
@@ -255,6 +261,7 @@ fn print_chain_sim(chain_sim: Vec<(HeaderInfo, DiffStats)>) {
 			stats.latest_ts,
 			stats.earliest_ts,
 			stats.ts_delta,
+			stats.pow_type,
 		);
 		let mut sb = stats.last_blocks.clone();
 		sb.reverse();
@@ -279,28 +286,29 @@ fn repeat_offs(from: u64, interval: u64, diff: u64, len: u64) -> Vec<HeaderInfo>
 fn adjustment_scenarios() {
 	// Use production parameters for genesis diff
 	global::set_mining_mode(global::ChainTypes::Mainnet);
-
+	let pow_type:PoWType = PoWType::RandomX;
+	let initial_difficulty:u64 = 4000;
 	// Genesis block with initial diff
-	let chain_sim = create_chain_sim(global::initial_block_difficulty());
+	let chain_sim = create_chain_sim(initial_difficulty, pow_type);
 	// Scenario 1) Hash power is massively over estimated, first block takes an hour
-	let chain_sim = add_block_repeated(3600, chain_sim, 2);
-	let chain_sim = add_block_repeated(1800, chain_sim, 2);
-	let chain_sim = add_block_repeated(900, chain_sim, 10);
-	let chain_sim = add_block_repeated(450, chain_sim, 30);
-	let chain_sim = add_block_repeated(400, chain_sim, 30);
-	let chain_sim = add_block_repeated(300, chain_sim, 30);
+	let chain_sim = add_block_repeated(3600, chain_sim, 2, pow_type);
+	let chain_sim = add_block_repeated(1800, chain_sim, 2, pow_type);
+	let chain_sim = add_block_repeated(900, chain_sim, 10, pow_type);
+	let chain_sim = add_block_repeated(450, chain_sim, 30, pow_type);
+	let chain_sim = add_block_repeated(400, chain_sim, 30, pow_type);
+	let chain_sim = add_block_repeated(300, chain_sim, 30, pow_type);
 
 	println!("*********************************************************");
 	println!("Scenario 1) Grossly over-estimated genesis difficulty ");
 	println!("*********************************************************");
 	print_chain_sim(chain_sim);
 	println!("*********************************************************");
-
+/*
 	// Under-estimated difficulty
-	let chain_sim = create_chain_sim(global::initial_block_difficulty());
-	let chain_sim = add_block_repeated(1, chain_sim, 5);
-	let chain_sim = add_block_repeated(20, chain_sim, 5);
-	let chain_sim = add_block_repeated(30, chain_sim, 20);
+	let chain_sim = create_chain_sim(initial_difficulty, pow_type);
+	let chain_sim = add_block_repeated(1, chain_sim, 5, pow_type);
+	let chain_sim = add_block_repeated(20, chain_sim, 5, pow_type);
+	let chain_sim = add_block_repeated(30, chain_sim, 20, pow_type);
 
 	println!("*********************************************************");
 	println!("Scenario 2) Grossly under-estimated genesis difficulty ");
@@ -310,9 +318,9 @@ fn adjustment_scenarios() {
 	let just_enough = (DIFFICULTY_ADJUST_WINDOW) as usize;
 
 	// Steady difficulty for a good while, then a sudden drop
-	let chain_sim = create_chain_sim(global::initial_block_difficulty());
-	let chain_sim = add_block_repeated(60, chain_sim, just_enough as usize);
-	let chain_sim = add_block_repeated(600, chain_sim, 60);
+	let chain_sim = create_chain_sim(initial_difficulty, pow_type);
+	let chain_sim = add_block_repeated(60, chain_sim, just_enough as usize, pow_type);
+	let chain_sim = add_block_repeated(600, chain_sim, 60, pow_type);
 
 	println!("");
 	println!("*********************************************************");
@@ -322,9 +330,9 @@ fn adjustment_scenarios() {
 	println!("*********************************************************");
 
 	// Sudden increase
-	let chain_sim = create_chain_sim(global::initial_block_difficulty());
-	let chain_sim = add_block_repeated(60, chain_sim, just_enough as usize);
-	let chain_sim = add_block_repeated(10, chain_sim, 10);
+	let chain_sim = create_chain_sim(initial_difficulty, pow_type);
+	let chain_sim = add_block_repeated(60, chain_sim, just_enough as usize, pow_type);
+	let chain_sim = add_block_repeated(10, chain_sim, 10, pow_type);
 
 	println!("");
 	println!("*********************************************************");
@@ -334,11 +342,11 @@ fn adjustment_scenarios() {
 	println!("*********************************************************");
 
 	// Oscillations
-	let chain_sim = create_chain_sim(global::initial_block_difficulty());
-	let chain_sim = add_block_repeated(60, chain_sim, just_enough as usize);
-	let chain_sim = add_block_repeated(10, chain_sim, 10);
-	let chain_sim = add_block_repeated(60, chain_sim, 20);
-	let chain_sim = add_block_repeated(10, chain_sim, 10);
+	let chain_sim = create_chain_sim(initial_difficulty, pow_type);
+	let chain_sim = add_block_repeated(60, chain_sim, just_enough as usize, pow_type);
+	let chain_sim = add_block_repeated(10, chain_sim, 10, pow_type);
+	let chain_sim = add_block_repeated(60, chain_sim, 20, pow_type);
+	let chain_sim = add_block_repeated(10, chain_sim, 10, pow_type);
 
 	println!("");
 	println!("*********************************************************");
@@ -346,6 +354,7 @@ fn adjustment_scenarios() {
 	println!("*********************************************************");
 	print_chain_sim(chain_sim);
 	println!("*********************************************************");
+	*/
 }
 
 /// Checks different next_target adjustments and difficulty boundaries
@@ -354,13 +363,13 @@ fn next_target_adjustment() {
 	global::set_mining_mode(global::ChainTypes::AutomatedTesting);
 	let cur_time = Utc::now().timestamp() as u64;
 	let diff_min = Difficulty::min();
-
+	let pow_type:PoWType = PoWType::RandomX;
 	// Check we don't get stuck on difficulty <= MIN_DIFFICULTY (at 4x faster blocks at least)
 	let mut hi = HeaderInfo::from_diff_scaling(diff_min.clone(), AR_SCALE_DAMP_FACTOR as u32);
 	hi.is_secondary = false;
 	let hinext = next_difficulty(
 		1,
-		PoWType::Cuckatoo,
+		pow_type,
 		repeat(
 			BLOCK_TIME_SEC / 4,
 			hi.clone(),
@@ -370,8 +379,8 @@ fn next_target_adjustment() {
 	);
 
 	assert_ne!(
-		hinext.difficulty.to_num(PoWType::Cuckatoo),
-		diff_min.to_num(PoWType::Cuckatoo)
+		hinext.difficulty.to_num(pow_type),
+		diff_min.to_num(pow_type)
 	);
 
 	// Check we don't get stuck on scale MIN_DIFFICULTY, when primary frequency is too high
@@ -383,24 +392,24 @@ fn next_target_adjustment() {
 	assert_eq!(
 		next_difficulty(
 			1,
-			PoWType::Cuckatoo,
+			pow_type,
 			repeat(BLOCK_TIME_SEC, hi.clone(), just_enough, None)
 		)
 		.difficulty
-		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(10000).to_num(PoWType::Cuckatoo)
+		.to_num(pow_type),
+		Difficulty::from_num(10000).to_num(pow_type)
 	);
 
 	// check pre difficulty_data_to_vector effect on retargetting
 	assert_eq!(
 		next_difficulty(
 			1,
-			PoWType::Cuckatoo,
+			pow_type,
 			vec![HeaderInfo::from_ts_diff(42, hi.difficulty)]
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(14913).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(14913).to_num(pow_type)
 	);
 
 	// checking averaging works
@@ -415,10 +424,10 @@ fn next_target_adjustment() {
 	);
 	s2.append(&mut s1);
 	assert_eq!(
-		next_difficulty(1, PoWType::Cuckatoo, s2)
+		next_difficulty(1, pow_type, s2)
 			.difficulty
-			.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1000).to_num(PoWType::Cuckatoo)
+			.to_num(pow_type),
+		Difficulty::from_num(1000).to_num(pow_type)
 	);
 
 	// too slow, diff goes down
@@ -426,88 +435,88 @@ fn next_target_adjustment() {
 	assert_eq!(
 		next_difficulty(
 			1,
-			PoWType::Cuckatoo,
+			pow_type,
 			repeat(90, hi.clone(), just_enough, None)
 		)
 		.difficulty
-		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(857).to_num(PoWType::Cuckatoo)
+		.to_num(pow_type),
+		Difficulty::from_num(857).to_num(pow_type)
 	);
 	assert_eq!(
 		next_difficulty(
 			1,
-			PoWType::Cuckatoo,
+			pow_type,
 			repeat(120, hi.clone(), just_enough, None)
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(750).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(750).to_num(pow_type)
 	);
 
 	// too fast, diff goes up
 	assert_eq!(
 		next_difficulty(
 			1,
-			PoWType::Cuckatoo,
+			pow_type,
 			repeat(55, hi.clone(), just_enough, None)
 		)
 		.difficulty
-		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1028).to_num(PoWType::Cuckatoo)
+		.to_num(pow_type),
+		Difficulty::from_num(1028).to_num(pow_type)
 	);
 	assert_eq!(
 		next_difficulty(
 			1,
-			PoWType::Cuckatoo,
+			pow_type,
 			repeat(45, hi.clone(), just_enough, None)
 		)
 		.difficulty
-		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1090).to_num(PoWType::Cuckatoo)
+		.to_num(pow_type),
+		Difficulty::from_num(1090).to_num(pow_type)
 	);
 	assert_eq!(
 		next_difficulty(
 			1,
-			PoWType::Cuckatoo,
+			pow_type,
 			repeat(30, hi.clone(), just_enough, None)
 		)
 		.difficulty
-		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1200).to_num(PoWType::Cuckatoo)
+		.to_num(pow_type),
+		Difficulty::from_num(1200).to_num(pow_type)
 	);
 
 	// hitting lower time bound, should always get the same result below
 	assert_eq!(
 		next_difficulty(
 			1,
-			PoWType::Cuckatoo,
+			pow_type,
 			repeat(0, hi.clone(), just_enough, None)
 		)
 		.difficulty
-		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(1500).to_num(PoWType::Cuckatoo)
+		.to_num(pow_type),
+		Difficulty::from_num(1500).to_num(pow_type)
 	);
 
 	// hitting higher time bound, should always get the same result above
 	assert_eq!(
 		next_difficulty(
 			1,
-			PoWType::Cuckatoo,
+			pow_type,
 			repeat(300, hi.clone(), just_enough, None)
 		)
 		.difficulty
-		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(500).to_num(PoWType::Cuckatoo)
+		.to_num(pow_type),
+		Difficulty::from_num(500).to_num(pow_type)
 	);
 	assert_eq!(
 		next_difficulty(
 			1,
-			PoWType::Cuckatoo,
+			pow_type,
 			repeat(400, hi.clone(), just_enough, None)
 		)
 		.difficulty
 		.to_num(PoWType::Cuckatoo),
-		Difficulty::from_num(500).to_num(PoWType::Cuckatoo)
+		Difficulty::from_num(500).to_num(pow_type)
 	);
 
 	// We should never drop below minimum
@@ -515,12 +524,12 @@ fn next_target_adjustment() {
 	assert_eq!(
 		next_difficulty(
 			1,
-			PoWType::Cuckatoo,
+			pow_type,
 			repeat(90, hi.clone(), just_enough, None)
 		)
 		.difficulty
-		.to_num(PoWType::Cuckatoo),
-		Difficulty::min().to_num(PoWType::Cuckatoo)
+		.to_num(pow_type),
+		Difficulty::min().to_num(pow_type)
 	);
 }
 
@@ -724,7 +733,27 @@ fn hard_forks() {
 		HeaderVersion::new(2)
 	));*/
 }
+#[test]
+fn next_difficulty_era_height() {
 
+
+	global::set_mining_mode(global::ChainTypes::Mainnet);
+
+	let blockheight = 501100;
+	let func = if blockheight > MAINNET_DIFFICULTY_ERA {
+		"next_difficulty"
+	}else{
+		"next_difficulty_era1"
+	};
+
+	if blockheight >= difficultyfix_height() {
+		println!("next_difficulty_era1");
+		assert_eq!("next_difficulty_era1", func);
+	}
+
+
+
+}
 // #[test]
 // fn hard_fork_2() {
 // 	assert!(valid_header_version(0, 1));

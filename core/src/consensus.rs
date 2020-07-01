@@ -42,7 +42,12 @@ pub const FREEMAN: u64 = 1;
 /// with Cuckoo Cycle, networks improve and block propagation is optimized
 /// (adjusting the reward accordingly).
 pub const BLOCK_TIME_SEC: u64 = 60;
-
+///defines the block height at wich the difficulty adjustment era changes for testing
+pub const TESTING_DIFFICULTY_ERA: u64 = 50;
+///defines the block height at wich the difficulty adjustment era changes for floonet
+pub const FLOONET_DIFFICULTY_ERA: u64 = 200;
+///defines the block height at wich the difficulty adjustment era changes
+pub const MAINNET_DIFFICULTY_ERA: u64 = 501100;
 /// Height of the first epic block emission era
 pub const BLOCK_ERA_1: u64 = DAY_HEIGHT * 334;
 /// Height of the second epic block emission era
@@ -100,6 +105,17 @@ pub fn foundation_height() -> u64 {
 		global::ChainTypes::UserTesting => FLOONET_FOUNDATION_HEIGHT,
 		global::ChainTypes::Floonet => FLOONET_FOUNDATION_HEIGHT,
 		_ => MAINNET_FOUNDATION_HEIGHT,
+	}
+}
+
+/// Get the height where the difficulty patch will be added.
+pub fn difficultyfix_height() -> u64 {
+	let param_ref = global::CHAIN_TYPE.read();
+	match *param_ref {
+		global::ChainTypes::AutomatedTesting => TESTING_DIFFICULTY_ERA,
+		global::ChainTypes::UserTesting => TESTING_DIFFICULTY_ERA,
+		global::ChainTypes::Floonet => FLOONET_DIFFICULTY_ERA,
+		_ => MAINNET_DIFFICULTY_ERA,
 	}
 }
 
@@ -476,7 +492,8 @@ where
 	(pow_type, b)
 }
 
-pub fn next_difficulty_3662<T>(height: u64, prev_algo: PoWType, cursor: T) -> HeaderInfo
+/// changes the header info with new difficulty for the block to mine
+pub fn next_difficulty<T>(height: u64, prev_algo: PoWType, cursor: T) -> HeaderInfo
 where
 	T: IntoIterator<Item = HeaderInfo>,
 {
@@ -486,7 +503,7 @@ where
 		PoWType::RandomX => global::difficulty_data_to_vector(cursor, 1),
 		PoWType::ProgPow => global::difficulty_data_to_vector(cursor, 1),
 	};
-//	info!("diff_data {:?}", diff_data);
+
 	// First, get the ratio of secondary PoW vs primary, skipping initial header
 	let sec_pow_scaling = secondary_pow_scaling(height, &diff_data[1..]);
 	let mut diff = diff_data.last().unwrap().difficulty.num.clone();
@@ -495,13 +512,13 @@ where
 		PoWType::Cuckatoo => {
 			diff.insert(
 				PoWType::Cuckatoo,
-				next_cuckoo_difficulty_3662(height, PoWType::Cuckatoo, &diff_data),
+				next_cuckoo_difficulty(height, PoWType::Cuckatoo, &diff_data),
 			);
 		}
 		PoWType::Cuckaroo => {
 			diff.insert(
 				PoWType::Cuckaroo,
-				next_cuckoo_difficulty_3662(height, PoWType::Cuckaroo, &diff_data),
+				next_cuckoo_difficulty(height, PoWType::Cuckaroo, &diff_data),
 			);
 		}
 		PoWType::RandomX => {
@@ -520,7 +537,9 @@ where
 
 	HeaderInfo::from_diff_scaling(Difficulty::from_dic_number(diff), sec_pow_scaling)
 }
-fn next_cuckoo_difficulty_3662(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
+
+/// calculates the next difficulty level for cuckoo
+fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	// Get the timestamp delta across the window
 
 	let ts_delta: u64 =
@@ -544,6 +563,7 @@ fn next_cuckoo_difficulty_3662(height: u64, pow: PoWType, diff_data: &Vec<Header
 	max(MIN_DIFFICULTY, diff_sum * BLOCK_TIME_SEC / adj_ts)
 }
 
+/// returns the median timestamp from last 6 mined blocks
 pub fn timestamp_median<T>(header_ts: u64, prev_algo: PoWType, cursor: T) ->  u64
 where
 	T: IntoIterator<Item = HeaderInfo>,
@@ -575,7 +595,8 @@ where
 
 }
 
-pub fn next_difficulty<T>(height: u64, prev_algo: PoWType, cursor: T) -> HeaderInfo
+/// changes the header info with new difficulty era1 for the block to mine
+pub fn next_difficulty_era1<T>(height: u64, prev_algo: PoWType, cursor: T) -> HeaderInfo
 where
 	T: IntoIterator<Item = HeaderInfo>,
 {
@@ -585,7 +606,7 @@ where
 		PoWType::RandomX => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
 		PoWType::ProgPow => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
 	};
-//	info!("diff_data {:?}", diff_data);
+
 	// First, get the ratio of secondary PoW vs primary, skipping initial header
 	let sec_pow_scaling = secondary_pow_scaling(height, &diff_data[1..]);
 	let mut diff = diff_data.last().unwrap().difficulty.num.clone();
@@ -594,26 +615,26 @@ where
 		PoWType::Cuckatoo => {
 			diff.insert(
 				PoWType::Cuckatoo,
-				next_cuckoo_difficulty(PoWType::Cuckatoo, &diff_data),
+				next_cuckoo_difficulty_era1(PoWType::Cuckatoo, &diff_data),
 			);
 		}
 		PoWType::Cuckaroo => {
 			diff.insert(
 				PoWType::Cuckaroo,
-				next_cuckoo_difficulty(PoWType::Cuckaroo, &diff_data),
+				next_cuckoo_difficulty_era1(PoWType::Cuckaroo, &diff_data),
 			);
 		}
 		PoWType::RandomX => {
 				diff.insert(
 					PoWType::RandomX,
-					next_randomx_difficulty(PoWType::RandomX, &diff_data),
+					next_randomx_difficulty_era1(PoWType::RandomX, &diff_data),
 				);
 
 		}
 		PoWType::ProgPow => {
 			diff.insert(
 				PoWType::ProgPow,
-				next_progpow_difficulty(PoWType::ProgPow, &diff_data),
+				next_progpow_difficulty_era1(PoWType::ProgPow, &diff_data),
 			);
 		}
 	};
@@ -621,8 +642,8 @@ where
 	HeaderInfo::from_diff_scaling(Difficulty::from_dic_number(diff), sec_pow_scaling)
 }
 
-/// Calculate next target for ProgPow block
-fn next_progpow_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
+/// calculates the next difficulty level for progpow
+fn next_progpow_difficulty_era1(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 
 	// Get the timestamp delta across the window
 	let mut ts_delta:u64 = 0;
@@ -648,8 +669,8 @@ fn next_progpow_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	max(MIN_DIFFICULTY_PROGPOW, diff_sum * BLOCK_TIME_SEC / adj_ts)
 }
 
-/// Calculate next target for RandomX block
-fn next_randomx_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
+/// calculates the next difficulty level for randomx
+fn next_randomx_difficulty_era1(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 
 	// Get the timestamp delta across the window
 	let mut ts_delta:u64 = 0;
@@ -675,8 +696,8 @@ fn next_randomx_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	max(MIN_DIFFICULTY_RANDOMX, diff_sum * BLOCK_TIME_SEC / adj_ts)
 }
 
-/// Calculate next target for Cuckatoo block
-fn next_cuckoo_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
+/// calculates the next difficulty era1 level for cuckoo
+fn next_cuckoo_difficulty_era1(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 
 	// Get the timestamp delta across the window
 	let mut ts_delta:u64 = 0;
@@ -701,7 +722,7 @@ fn next_cuckoo_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	max(MIN_DIFFICULTY, diff_sum * BLOCK_TIME_SEC / adj_ts)
 }
 
-
+/// calculates the next difficulty level for progpow and randomx
 pub fn next_hash_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	// Desired time per block
 	let diff_adjustment_cutoff = 60;
@@ -770,6 +791,18 @@ pub fn secondary_pow_scaling(height: u64, diff_data: &[HeaderInfo]) -> u32 {
 #[cfg(test)]
 mod test {
 	use super::*;
+
+	#[test]
+	fn test_difficulty_defaults() {
+
+		global::set_mining_mode(global::ChainTypes::Floonet);
+		assert_eq!(difficultyfix_height(), FLOONET_DIFFICULTY_ERA);
+
+		global::set_mining_mode(global::ChainTypes::Mainnet);
+		assert_eq!(difficultyfix_height(), MAINNET_DIFFICULTY_ERA);
+
+	}
+
 
 	#[test]
 	fn test_graph_weight() {

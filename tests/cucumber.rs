@@ -59,7 +59,7 @@ mod mine_chain {
 	use epic_core::core::verifier_cache::LruVerifierCache;
 	use epic_core::core::{Block, BlockHeader, Output, OutputIdentifier, Transaction, TxKernel};
 	use epic_core::global::{
-		add_allowed_policy, get_emitted_policy, get_policies, set_emitted_policy,
+		add_allowed_policy, get_emitted_policy, get_policies,
 		set_policy_config, ChainTypes,
 	};
 	use epic_core::libtx::{self, build, reward};

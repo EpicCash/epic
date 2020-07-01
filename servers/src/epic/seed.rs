@@ -195,8 +195,8 @@ fn monitor_peers(
 		);
 		let _ = p.send_peer_request(p2p::Capabilities::PEER_LIST);
 		connected_peers.push(p.info.addr);
-		//set offset timestamp from local time and peers for median
 
+		//set offset timestamp from local time and peers for median
 		ts.push(p.info.live_info.read().local_timestamp - Utc::now().timestamp());
 	}
 

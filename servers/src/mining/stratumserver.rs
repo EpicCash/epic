@@ -593,12 +593,6 @@ impl Handler {
 					params.job_id
 				);
 
-				warn!(
-						"block found: block {}, timestamp {}, job_id {}",
-						params.height,
-						b.header.timestamp,
-						params.job_id
-					);
 		} else {
 			// Do some validation but dont submit
 			let res = pow::verify_size(&b.header);

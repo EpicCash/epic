@@ -158,15 +158,15 @@ fn build_block(
 
 	// Determine the difficulty our block should be at.
 	// Note: do not keep the difficulty_iter in scope (it has an active batch).
-	let difficulty = if head.height < 3662 {
-		consensus::next_difficulty_3662(
+	let difficulty = if head.height < consensus::difficultyfix_height() - 1 {
+		consensus::next_difficulty(
 			head.height + 1,
 			(&head.pow.proof).into(),
 			chain.difficulty_iter()?,
 		)
 
 	} else {
-		consensus::next_difficulty(
+		consensus::next_difficulty_era1(
 			head.height + 1,
 			(&head.pow.proof).into(),
 			chain.difficulty_iter()?,
@@ -230,16 +230,8 @@ fn build_block(
 	let (pow_type, bottles) = consensus::next_policy(b.header.policy, bottle_cursor);
 	b.header.bottles = bottles;
 
-	/*warn!(
-		"Built new block with {} inputs and {} outputs, block difficulty: {:?}, cumulative difficulty {:?}, timestamp {:?}",
-		b.inputs().len(),
-		b.outputs().len(),
-		difficulty.difficulty,
-		b.header.total_difficulty().num,
-		b.header.timestamp,
-	);*/
 
-	warn!(
+	debug!(
 		"Built block: block {}, timestamp {}",
 		b.header.height,
 		b.header.timestamp,

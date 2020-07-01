@@ -365,13 +365,32 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 	} else {
 		0
 	};
-	info!(
-		"check future block: network_adjusted_time {}, header {}, limit {}",
-		nat,
-		header.timestamp,
-		DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(Utc::now().timestamp() + nat + 30, 0), Utc)
-	);
+
+	// 51pool method
 	if header.timestamp.timestamp() > Utc::now().timestamp() + nat + 30
+		&& !global::is_automated_testing_mode()
+	{
+		debug!(
+			"51pool method InvalidBlockTime: header {}, limit {}",
+			header.timestamp,
+			DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(Utc::now().timestamp() + 30, 0), Utc)
+		);
+	}
+
+	// Yuri method
+	if header.timestamp > Utc::now() + Duration::seconds(30)
+		&& !global::is_automated_testing_mode()
+	{
+		debug!(
+			"Yuri method InvalidBlockTime: header {}, limit {}",
+			header.timestamp,
+			DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(Utc::now().timestamp() + 30, 0), Utc)
+		);
+	}
+
+	// TODO: remove CI check from here somehow
+	//set from 12 min to 6 min
+	if header.timestamp > Utc::now() + Duration::seconds(6 * (consensus::BLOCK_TIME_SEC as i64))
 		&& !global::is_automated_testing_mode()
 	{
 		// refuse blocks more than 12 blocks intervals in future (as in bitcoin)
@@ -491,7 +510,8 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		// the _network_ difficulty of the previous block
 		// (during testnet1 we use _block_ difficulty here)
 
-		let median_batch = ctx.batch.child()?;
+		/* checkout median next release */
+		/*let median_batch = ctx.batch.child()?;
 		let median_iter = store::DifficultyIter::from_batch(prev.hash(), median_batch);
 		let last_median:u64 = consensus::timestamp_median( header.timestamp.timestamp() as u64, (&prev.pow.proof).into(), median_iter);
 		if last_median as i64 > header.timestamp.timestamp()
@@ -504,16 +524,17 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 				header.timestamp
 			);
 			return Err(ErrorKind::InvalidBlockTime.into());
-		}
+		}*/
 
 		let child_batch = ctx.batch.child()?;
 		let diff_iter = store::DifficultyIter::from_batch(prev.hash(), child_batch);
 		 /* fork difficulty */
 		 /* before publish: take a future height where this functions will be switching */
-		 let next_header_info = if header.height < 3662 {
-		 	consensus::next_difficulty_3662(header.height, (&prev.pow.proof).into(), diff_iter)
-		 } else {
+		 let next_header_info = if header.height < consensus::difficultyfix_height() {
 		 	consensus::next_difficulty(header.height, (&prev.pow.proof).into(), diff_iter)
+		 } else {
+		 	consensus::next_difficulty_era1(header.height, (&prev.pow.proof).into(), diff_iter)
+
 		 };
 
 
