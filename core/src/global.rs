@@ -30,12 +30,12 @@ use crate::pow::{self, new_cuckaroo_ctx, new_cuckatoo_ctx, EdgeType, PoWContext}
 /// different sets of parameters for different purposes,
 /// e.g. CI, User testing, production values
 use crate::util::RwLock;
+use chrono::prelude::Utc;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::path::Path;
-use chrono::prelude::Utc;
 /// Define these here, as they should be developer-set, not really tweakable
 /// by users
 
@@ -174,8 +174,6 @@ lazy_static! {
 			RwLock::new(Utc::now().timestamp());
 }
 
-
-
 /// Get the current median offset for Network-adjusted
 pub fn get_network_adjusted_time() -> i64 {
 	let network_adjusted_time = NETWORK_ADJUSTED_TIME.read();
@@ -184,9 +182,12 @@ pub fn get_network_adjusted_time() -> i64 {
 /// Set the current median offset for Network-adjusted
 pub fn set_network_adjusted_time(timestamp: i64) {
 	let mut network_adjusted_time = NETWORK_ADJUSTED_TIME.write();
-	*network_adjusted_time = if timestamp <= 0 { Utc::now().timestamp() } else { timestamp }
+	*network_adjusted_time = if timestamp <= 0 {
+		Utc::now().timestamp()
+	} else {
+		timestamp
+	}
 }
-
 
 /// Get the current Timeout without the verification of the existence of more headers to be synced,
 /// after all header were processed
@@ -290,11 +291,10 @@ pub fn get_emitted_policy(height: u64) -> u8 {
 pub fn get_policies(index: u8) -> Option<Policy> {
 	let policy_config = POLICY_CONFIG.read();
 
-	if (index as usize) < (*policy_config).policies.len() {
-		Some(policy_config.policies[index as usize].clone())
-	} else {
-		None
-	}
+	policy_config
+		.policies
+		.get(index as usize)
+		.map(|x| x.clone())
 }
 
 /// Get the policy configuration that is being used by the blockchain
@@ -558,7 +558,6 @@ where
 			last_n.push(HeaderInfo::from_ts_diff(last_ts, last_diff.clone()));
 		}
 	}
-
 
 	last_n
 }

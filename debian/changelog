@@ -1,3 +1,10 @@
+epic (2.10.0-1) bionic; urgency=high
+
+  [ Johannes Hahn ]
+  * Improving difficulty adjustment and other fixes
+
+ -- Ubuntu <ubuntu@ip-172-31-26-231.ec2.internal>  Thu, 2 Jul 2020 15:49:00 +0000
+
 epic (2.9.0-1) bionic; urgency=high
 
   [ Yuri Albuquerque ]
