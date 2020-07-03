@@ -47,7 +47,7 @@ pub const TESTING_DIFFICULTY_ERA: u64 = 50;
 ///defines the block height at wich the difficulty adjustment era changes for floonet
 pub const FLOONET_DIFFICULTY_ERA: u64 = 200;
 ///defines the block height at wich the difficulty adjustment era changes
-pub const MAINNET_DIFFICULTY_ERA: u64 = 501100;
+pub const MAINNET_DIFFICULTY_ERA: u64 = 501160;
 /// Height of the first epic block emission era
 pub const BLOCK_ERA_1: u64 = DAY_HEIGHT * 334;
 /// Height of the second epic block emission era
@@ -346,7 +346,6 @@ pub const PP_CLAMP_FACTOR: u64 = 2;
 /// Dampening factor to use for difficulty adjustment
 pub const PP_DIFFICULTY_DAMP_FACTOR: u64 = 3;
 
-
 /// Compute weight of a graph as number of siphash bits defining the graph
 /// Must be made dependent on height to phase out smaller size over the years
 /// This can wait until end of 2019 at latest
@@ -564,16 +563,15 @@ fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>
 }
 
 /// returns the median timestamp from last 6 mined blocks
-pub fn timestamp_median<T>(header_ts: u64, prev_algo: PoWType, cursor: T) ->  u64
+pub fn timestamp_median<T>(header_ts: u64, prev_algo: PoWType, cursor: T) -> u64
 where
 	T: IntoIterator<Item = HeaderInfo>,
 {
-
 	let diff_data = match prev_algo.clone() {
 		PoWType::Cuckatoo => global::ts_data_to_vector(cursor, 6),
 		PoWType::Cuckaroo => global::ts_data_to_vector(cursor, 6),
-		PoWType::RandomX  => global::ts_data_to_vector(cursor, 6),
-		PoWType::ProgPow  => global::ts_data_to_vector(cursor, 6),
+		PoWType::RandomX => global::ts_data_to_vector(cursor, 6),
+		PoWType::ProgPow => global::ts_data_to_vector(cursor, 6),
 	};
 
 	let mut ts: Vec<u64> = vec![];
@@ -585,14 +583,13 @@ where
 	ts.sort();
 
 	let half = ts.len() / 2;
-	let median_ts:u64 = if (ts.len() % 2) == 0 {
+	let median_ts: u64 = if (ts.len() % 2) == 0 {
 		ts[half]
-	}else{
+	} else {
 		(ts[half - 1] + ts[half]) / 2
 	};
 
 	median_ts
-
 }
 
 /// changes the header info with new difficulty era1 for the block to mine
@@ -625,11 +622,10 @@ where
 			);
 		}
 		PoWType::RandomX => {
-				diff.insert(
-					PoWType::RandomX,
-					next_randomx_difficulty_era1(PoWType::RandomX, &diff_data),
-				);
-
+			diff.insert(
+				PoWType::RandomX,
+				next_randomx_difficulty_era1(PoWType::RandomX, &diff_data),
+			);
 		}
 		PoWType::ProgPow => {
 			diff.insert(
@@ -644,11 +640,13 @@ where
 
 /// calculates the next difficulty level for progpow
 fn next_progpow_difficulty_era1(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
-
 	// Get the timestamp delta across the window
-	let mut ts_delta:u64 = 0;
+	let mut ts_delta: u64 = 0;
 	for i in 1..diff_data.len() {
-		ts_delta += diff_data[i - 1].timestamp - diff_data[i - 1].timestamp.saturating_sub(diff_data[i - 1].prev_timespan);
+		ts_delta += diff_data[i - 1].timestamp
+			- diff_data[i - 1]
+				.timestamp
+				.saturating_sub(diff_data[i - 1].prev_timespan);
 	}
 
 	// Get the difficulty sum of the last DIFFICULTY_ADJUST_WINDOW elements
@@ -671,11 +669,13 @@ fn next_progpow_difficulty_era1(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u6
 
 /// calculates the next difficulty level for randomx
 fn next_randomx_difficulty_era1(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
-
 	// Get the timestamp delta across the window
-	let mut ts_delta:u64 = 0;
+	let mut ts_delta: u64 = 0;
 	for i in 1..diff_data.len() {
-		ts_delta += diff_data[i - 1].timestamp - diff_data[i - 1].timestamp.saturating_sub(diff_data[i - 1].prev_timespan);
+		ts_delta += diff_data[i - 1].timestamp
+			- diff_data[i - 1]
+				.timestamp
+				.saturating_sub(diff_data[i - 1].prev_timespan);
 	}
 
 	// Get the difficulty sum of the last DIFFICULTY_ADJUST_WINDOW elements
@@ -698,11 +698,13 @@ fn next_randomx_difficulty_era1(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u6
 
 /// calculates the next difficulty era1 level for cuckoo
 fn next_cuckoo_difficulty_era1(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
-
 	// Get the timestamp delta across the window
-	let mut ts_delta:u64 = 0;
+	let mut ts_delta: u64 = 0;
 	for i in 1..diff_data.len() {
-		ts_delta += diff_data[i - 1].timestamp - diff_data[i - 1].timestamp.saturating_sub(diff_data[i - 1].prev_timespan);
+		ts_delta += diff_data[i - 1].timestamp
+			- diff_data[i - 1]
+				.timestamp
+				.saturating_sub(diff_data[i - 1].prev_timespan);
 	}
 
 	// Get the difficulty sum of the last DIFFICULTY_ADJUST_WINDOW elements
@@ -794,15 +796,12 @@ mod test {
 
 	#[test]
 	fn test_difficulty_defaults() {
-
 		global::set_mining_mode(global::ChainTypes::Floonet);
 		assert_eq!(difficultyfix_height(), FLOONET_DIFFICULTY_ERA);
 
 		global::set_mining_mode(global::ChainTypes::Mainnet);
 		assert_eq!(difficultyfix_height(), MAINNET_DIFFICULTY_ERA);
-
 	}
-
 
 	#[test]
 	fn test_graph_weight() {
