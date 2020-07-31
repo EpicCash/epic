@@ -259,13 +259,19 @@ impl GlobalConfig {
 		// 		.clone(),
 		// );
 		// foundation_path.push("foundation.json");
-		let mut foundation_path = epic_home.clone();
-		foundation_path.push("foundation.json");
+		let foundation_path = if cfg!(windows) {
+			let mut exec_path = std::env::current_exe().expect("Filesystem failure");
+			exec_path.pop();
+			exec_path.push("foundation.json");
+			exec_path.to_str().expect("Invalid unicode path").to_owned()
+		} else {
+			"/usr/share/epic/foundation.json".to_owned()
+		};
 
 		// self.members.as_mut().unwrap().server.foundation_path =
 		// 	foundation_path.to_str().unwrap().to_owned();
 
-		self.members.as_mut().unwrap().server.foundation_path = foundation_path.to_str().unwrap().to_owned();
+		self.members.as_mut().unwrap().server.foundation_path = foundation_path;
 		let mut log_path = epic_home.clone();
 		log_path.push(SERVER_LOG_FILE_NAME);
 		self.members

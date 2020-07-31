@@ -1,3 +1,8 @@
+epic (2.11.1-1) bionic; urgency=high
+  [ Yuri Albuquerque ]
+  * Fixing the foundation.json path
+ -- Ubuntu <ubuntu@ip-172-31-26-231.ec2.internal>  Fri, 31 Jul 2020 11:13:00 +0000
+
 epic (2.11.0-2) bionic; urgency=high
   [ Yuri Albuquerque ]
   * Bumping the compiler version
