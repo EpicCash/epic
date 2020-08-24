@@ -1,3 +1,8 @@
+epic (2.11.1-2) bionic; urgency=high
+  [ Aron Castro ]
+  * Remove .crates2
+ -- Ubuntu <aroncds@aroncds>  Mon, 24 Aug 2020 11:13:00 +0000
+
 epic (2.11.1-1) bionic; urgency=high
   [ Yuri Albuquerque ]
   * Fixing the foundation.json path
