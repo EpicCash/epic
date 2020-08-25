@@ -96,10 +96,10 @@ pub const CURRENT_HEADER_VERSION: u16 = 6;
 
 #[cfg(target_family = "unix")]
 pub const FOUNDATION_JSON_SHA256: &str =
-	"752873b3c78dc7daf9c32f79b47bd90375f57ad2453858223ac754be8d72e296";
+	"2613717d04128587b8c3fa24db873b2c4b33232cffe1849b4b5e1ff6d39cd12d";
 #[cfg(target_family = "windows")]
 pub const FOUNDATION_JSON_SHA256: &str =
-	"55f10688839856ccddd2a5972b7fe38b674c2cc563f1203de6eaece98270caba";
+	"83a34d98302044043334a3a924de536bbb2b262c5ff84210c2b5cf20078c7210";
 
 /// Types of chain a server can run with, dictates the genesis block and
 /// and mining parameters used.

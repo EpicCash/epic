@@ -1,3 +1,8 @@
+epic (2.12.0-1) bionic; urgency=high
+  [ Yuri Albuquerque ]
+  * Adding more entries to foundation.json
+ -- Ubuntu <ubuntu@ip-172-31-26-231.ec2.internal>  Tue, 25 Aug 2020 10:29:00 +0000
+
 epic (2.11.1-2) bionic; urgency=high
   [ Aron Castro ]
   * Remove .crates2
