@@ -312,7 +312,7 @@ pub const BLOCK_KERNEL_WEIGHT: usize = 3;
 pub const MAX_BLOCK_WEIGHT: usize = 40_000;
 
 /// Mainnet first hard fork height, set to happen around 2020-04-29
-pub const MAINNET_FIRST_HARD_FORK: u64 = 388800;
+pub const MAINNET_FIRST_HARD_FORK: u64 = 700000;
 
 /// Floonet first hard fork height
 pub const FLOONET_FIRST_HARD_FORK: u64 = 2880;
@@ -346,6 +346,13 @@ pub fn valid_header_version(height: u64, version: HeaderVersion) -> bool {
 	version == header_version(height)
 }
 
+///defines the block height at wich the difficulty adjustment era changes for testing
+pub const TESTING_DIFFICULTY_ERA: u64 = 50;
+///defines the block height at wich the difficulty adjustment era changes for floonet
+pub const FLOONET_DIFFICULTY_ERA: u64 = 200;
+///defines the block height at wich the difficulty adjustment era changes
+pub const MAINNET_DIFFICULTY_ERA: u64 = 501100;
+
 /// Number of blocks used to calculate difficulty adjustments
 pub const DIFFICULTY_ADJUST_WINDOW: u64 = HOUR_HEIGHT;
 
@@ -361,6 +368,17 @@ pub const DIFFICULTY_DAMP_FACTOR: u64 = 3;
 
 /// Dampening factor to use for AR scale calculation.
 pub const AR_SCALE_DAMP_FACTOR: u64 = 13;
+
+/// Get the height where the difficulty patch will be added.
+pub fn difficultyfix_height() -> u64 {
+	let param_ref = global::CHAIN_TYPE.read();
+	match *param_ref {
+		global::ChainTypes::AutomatedTesting => TESTING_DIFFICULTY_ERA,
+		global::ChainTypes::UserTesting => TESTING_DIFFICULTY_ERA,
+		global::ChainTypes::Floonet => FLOONET_DIFFICULTY_ERA,
+		_ => MAINNET_DIFFICULTY_ERA,
+	}
+}
 
 /// Compute weight of a graph as number of siphash bits defining the graph
 /// Must be made dependent on height to phase out smaller size over the years
@@ -391,10 +409,14 @@ pub fn graph_weight(height: u64, edge_bits: u8) -> u64 {
 pub const MIN_DIFFICULTY: u64 = DIFFICULTY_DAMP_FACTOR;
 
 /// RandomX Minimum difficulty (used for saturation)
-pub const MIN_DIFFICULTY_RANDOMX: u64 = 5000;
+pub const MIN_DIFFICULTY_RANDOMX: u64 = 4000;
+/// RandomX Minimum difficulty until fork (used for saturation)
+pub const OLD_MIN_DIFFICULTY_RANDOMX: u64 = 5000;
 
 /// Progpow Minimum difficulty (used for saturation)
-pub const MIN_DIFFICULTY_PROGPOW: u64 = 100000;
+pub const MIN_DIFFICULTY_PROGPOW: u64 = 200000;
+/// Progpow Minimum difficulty until fork (used for saturation)
+pub const OLD_MIN_DIFFICULTY_PROGPOW: u64 = 100000;
 
 /// RandomX Minimum difficulty (used for saturation)
 pub const BLOCK_DIFF_FACTOR_RANDOMX: u64 = 64;
@@ -405,6 +427,20 @@ pub const BLOCK_DIFF_FACTOR_PROGPOW: u64 = 64;
 /// Minimum scaling factor for AR pow, enforced in diff retargetting
 /// avoids getting stuck when trying to increase ar_scale subject to dampening
 pub const MIN_AR_SCALE: u64 = AR_SCALE_DAMP_FACTOR;
+
+/// Clamp factor to use for difficulty adjustment
+/// Limit value to within this factor of goal
+pub const RX_CLAMP_FACTOR: u64 = 2;
+
+/// Dampening factor to use for difficulty adjustment
+pub const RX_DIFFICULTY_DAMP_FACTOR: u64 = 3;
+
+/// Clamp factor to use for difficulty adjustment
+/// Limit value to within this factor of goal
+pub const PP_CLAMP_FACTOR: u64 = 2;
+
+/// Dampening factor to use for difficulty adjustment
+pub const PP_DIFFICULTY_DAMP_FACTOR: u64 = 3;
 
 /// unit difficulty, equal to graph_weight(SECOND_POW_EDGE_BITS)
 pub const UNIT_DIFFICULTY: u64 =
@@ -522,6 +558,7 @@ macro_rules! error_invalid_pow {
 ///
 /// The secondary proof-of-work factor is calculated along the same lines, as
 /// an adjustment on the deviation against the ideal value.
+/// changes the header info with new difficulty for the block to mine
 pub fn next_difficulty<T>(height: u64, prev_algo: PoWType, cursor: T) -> HeaderInfo
 where
 	T: IntoIterator<Item = HeaderInfo>,
@@ -553,13 +590,13 @@ where
 		PoWType::RandomX => {
 			diff.insert(
 				PoWType::RandomX,
-				next_hash_difficulty(height, PoWType::RandomX, &diff_data),
+				next_hash_difficulty(PoWType::RandomX, &diff_data),
 			);
 		}
 		PoWType::ProgPow => {
 			diff.insert(
 				PoWType::ProgPow,
-				next_hash_difficulty(height, PoWType::ProgPow, &diff_data),
+				next_hash_difficulty(PoWType::ProgPow, &diff_data),
 			);
 		}
 	};
@@ -567,6 +604,7 @@ where
 	HeaderInfo::from_diff_scaling(Difficulty::from_dic_number(diff), sec_pow_scaling)
 }
 
+/// calculates the next difficulty level for cuckoo
 fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	// Get the timestamp delta across the window
 
@@ -591,19 +629,178 @@ fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>
 	max(MIN_DIFFICULTY, diff_sum * BLOCK_TIME_SEC / adj_ts)
 }
 
-pub fn next_hash_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
-	// Desired time per block
-	let diff_adjustment_cutoff = match header_version(height) {
-		HeaderVersion(6) => 60,
-		HeaderVersion(7) => 50,
-		HeaderVersion(_) => 0,
+/// returns the median timestamp from last 6 mined blocks
+pub fn timestamp_median<T>(header_ts: u64, prev_algo: PoWType, cursor: T) -> u64
+where
+	T: IntoIterator<Item = HeaderInfo>,
+{
+	let diff_data = match prev_algo.clone() {
+		PoWType::Cuckatoo => global::ts_data_to_vector(cursor, 6),
+		PoWType::Cuckaroo => global::ts_data_to_vector(cursor, 6),
+		PoWType::RandomX => global::ts_data_to_vector(cursor, 6),
+		PoWType::ProgPow => global::ts_data_to_vector(cursor, 6),
 	};
+
+	let mut ts: Vec<u64> = vec![];
+
+	for i in 0..diff_data.len() {
+		ts.push(diff_data[i].timestamp);
+	}
+	ts.push(header_ts);
+	ts.sort();
+
+	let half = ts.len() / 2;
+	let median_ts: u64 = if (ts.len() % 2) == 0 {
+		ts[half]
+	} else {
+		(ts[half - 1] + ts[half]) / 2
+	};
+
+	median_ts
+}
+
+/// changes the header info with new difficulty era1 for the block to mine
+pub fn next_difficulty_era1<T>(height: u64, prev_algo: PoWType, cursor: T) -> HeaderInfo
+where
+	T: IntoIterator<Item = HeaderInfo>,
+{
+	let diff_data = match prev_algo.clone() {
+		PoWType::Cuckatoo => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
+		PoWType::Cuckaroo => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
+		PoWType::RandomX => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
+		PoWType::ProgPow => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
+	};
+
+	// First, get the ratio of secondary PoW vs primary, skipping initial header
+	let sec_pow_scaling = secondary_pow_scaling(height, &diff_data[1..]);
+	let mut diff = diff_data.last().unwrap().difficulty.num.clone();
+
+	match prev_algo {
+		PoWType::Cuckatoo => {
+			diff.insert(
+				PoWType::Cuckatoo,
+				next_cuckoo_difficulty_era1(PoWType::Cuckatoo, &diff_data),
+			);
+		}
+		PoWType::Cuckaroo => {
+			diff.insert(
+				PoWType::Cuckaroo,
+				next_cuckoo_difficulty_era1(PoWType::Cuckaroo, &diff_data),
+			);
+		}
+		PoWType::RandomX => {
+			diff.insert(
+				PoWType::RandomX,
+				next_randomx_difficulty_era1(PoWType::RandomX, &diff_data),
+			);
+		}
+		PoWType::ProgPow => {
+			diff.insert(
+				PoWType::ProgPow,
+				next_progpow_difficulty_era1(PoWType::ProgPow, &diff_data),
+			);
+		}
+	};
+
+	HeaderInfo::from_diff_scaling(Difficulty::from_dic_number(diff), sec_pow_scaling)
+}
+
+/// calculates the next difficulty level for progpow
+fn next_progpow_difficulty_era1(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
+	// Get the timestamp delta across the window
+	let mut ts_delta: u64 = 0;
+	for i in 1..diff_data.len() {
+		ts_delta += diff_data[i - 1].timestamp
+			- diff_data[i - 1]
+				.timestamp
+				.saturating_sub(diff_data[i - 1].prev_timespan);
+	}
+
+	// Get the difficulty sum of the last DIFFICULTY_ADJUST_WINDOW elements
+	let diff_sum: u64 = diff_data
+		.iter()
+		.skip(1)
+		.map(|dd| dd.difficulty.to_num(pow))
+		.sum();
+
+	// adjust time delta toward goal subject to dampening and clamping
+	let adj_ts = clamp(
+		damp(ts_delta, BLOCK_TIME_WINDOW, PP_DIFFICULTY_DAMP_FACTOR),
+		BLOCK_TIME_WINDOW,
+		PP_CLAMP_FACTOR,
+	);
+
+	// minimum difficulty avoids getting stuck due to dampening
+	max(MIN_DIFFICULTY_PROGPOW, diff_sum * BLOCK_TIME_SEC / adj_ts)
+}
+
+/// calculates the next difficulty level for randomx
+fn next_randomx_difficulty_era1(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
+	// Get the timestamp delta across the window
+	let mut ts_delta: u64 = 0;
+	for i in 1..diff_data.len() {
+		ts_delta += diff_data[i - 1].timestamp
+			- diff_data[i - 1]
+				.timestamp
+				.saturating_sub(diff_data[i - 1].prev_timespan);
+	}
+
+	// Get the difficulty sum of the last DIFFICULTY_ADJUST_WINDOW elements
+	let diff_sum: u64 = diff_data
+		.iter()
+		.skip(1)
+		.map(|dd| dd.difficulty.to_num(pow))
+		.sum();
+
+	// adjust time delta toward goal subject to dampening and clamping
+	let adj_ts = clamp(
+		damp(ts_delta, BLOCK_TIME_WINDOW, RX_DIFFICULTY_DAMP_FACTOR),
+		BLOCK_TIME_WINDOW,
+		RX_CLAMP_FACTOR,
+	);
+
+	// minimum difficulty avoids getting stuck due to dampening
+	max(MIN_DIFFICULTY_RANDOMX, diff_sum * BLOCK_TIME_SEC / adj_ts)
+}
+
+/// calculates the next difficulty era1 level for cuckoo
+fn next_cuckoo_difficulty_era1(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
+	// Get the timestamp delta across the window
+	let mut ts_delta: u64 = 0;
+	for i in 1..diff_data.len() {
+		ts_delta += diff_data[i - 1].timestamp
+			- diff_data[i - 1]
+				.timestamp
+				.saturating_sub(diff_data[i - 1].prev_timespan);
+	}
+
+	// Get the difficulty sum of the last DIFFICULTY_ADJUST_WINDOW elements
+	let diff_sum: u64 = diff_data
+		.iter()
+		.skip(1)
+		.map(|dd| dd.difficulty.to_num(pow))
+		.sum();
+
+	let adj_ts = clamp(
+		damp(ts_delta, BLOCK_TIME_WINDOW, DIFFICULTY_DAMP_FACTOR),
+		BLOCK_TIME_WINDOW,
+		CLAMP_FACTOR,
+	);
+
+	// minimum difficulty avoids getting stuck due to dampening
+	max(MIN_DIFFICULTY, diff_sum * BLOCK_TIME_SEC / adj_ts)
+}
+
+/// calculates the next difficulty level for progpow and randomx
+pub fn next_hash_difficulty(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
+	// Desired time per block
+	let diff_adjustment_cutoff = 60;
 
 	// Constant used to divide the previous difficulty.
 	let block_diff_factor = match pow {
 		PoWType::RandomX => BLOCK_DIFF_FACTOR_RANDOMX,
 		PoWType::ProgPow => BLOCK_DIFF_FACTOR_PROGPOW,
-		_ => error_invalid_pow!(pow),
+		_ => panic!("The function next_hash_difficulty is only used by Progpow and RandomX, but it got a {:?}", pow),
 	};
 
 	let current_diff = diff_data[1].difficulty.to_num(pow);
@@ -611,9 +808,9 @@ pub fn next_hash_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInf
 	let prev_timestamp = diff_data[0].timestamp;
 
 	let min_diff = match pow {
-		PoWType::RandomX => MIN_DIFFICULTY_RANDOMX,
-		PoWType::ProgPow => MIN_DIFFICULTY_PROGPOW,
-		_ => error_invalid_pow!(pow),
+		PoWType::RandomX => OLD_MIN_DIFFICULTY_RANDOMX,
+		PoWType::ProgPow => OLD_MIN_DIFFICULTY_PROGPOW,
+		_ => panic!("The function next_hash_difficulty is only used by Progpow and RandomX, but it got a {:?}", pow),
 	};
 
 	// Get the timestamp delta across the window

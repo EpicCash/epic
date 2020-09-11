@@ -452,8 +452,11 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		// (during testnet1 we use _block_ difficulty here)
 		let child_batch = ctx.batch.child()?;
 		let diff_iter = store::DifficultyIter::from_batch(prev.hash(), child_batch);
-		let next_header_info =
-			consensus::next_difficulty(header.height, (&prev.pow.proof).into(), diff_iter);
+		let next_header_info = if header.height < consensus::difficultyfix_height() {
+			consensus::next_difficulty(header.height, (&prev.pow.proof).into(), diff_iter)
+		} else {
+			consensus::next_difficulty_era1(header.height, (&prev.pow.proof).into(), diff_iter)
+		};
 
 		if target_difficulty != next_header_info.difficulty {
 			info!(
