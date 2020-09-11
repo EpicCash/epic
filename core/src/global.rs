@@ -108,7 +108,7 @@ pub const CURRENT_HEADER_VERSION: u16 = 7;
 
 #[cfg(target_family = "unix")]
 pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
-	"ddf5ad515d3200d1c9fe2a566b9eb81cff0835690ce7f6f3b2a89ee52636ada0";
+	"2613717d04128587b8c3fa24db873b2c4b33232cffe1849b4b5e1ff6d39cd12d";
 #[cfg(target_family = "windows")]
 pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
 	"4d01ca4134959d19ae1b76058c8d11040b63bd1bd112401b80b36185e7faf94a";
@@ -270,11 +270,6 @@ pub fn get_foundation_path() -> Option<String> {
 pub fn set_policy_config(policy: PolicyConfig) {
 	let mut policy_config = POLICY_CONFIG.write();
 	*policy_config = policy;
-}
-
-pub fn set_emitted_policy(emitted: u8) {
-	let mut policy_config = POLICY_CONFIG.write();
-	policy_config.emitted_policy = emitted;
 }
 
 pub fn add_allowed_policy(height: u64, value: u64) {

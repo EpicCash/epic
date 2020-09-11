@@ -79,7 +79,6 @@ impl FuzzySearch for AllowedPolicy {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PolicyConfig {
 	pub allowed_policies: AllowedPolicy,
-	pub emitted_policy: u8,
 	pub policies: Vec<Policy>,
 }
 
@@ -96,9 +95,9 @@ impl Default for PolicyConfig {
 		};
 
 		let mut policy_era2 = get_bottles_default();
-		policy_era2.insert(PoWType::RandomX, 30);
-		policy_era2.insert(PoWType::ProgPow, 65);
-		policy_era2.insert(PoWType::Cuckatoo, 5);
+		policy_era2.insert(PoWType::RandomX, 60);
+		policy_era2.insert(PoWType::ProgPow, 38);
+		policy_era2.insert(PoWType::Cuckatoo, 2);
 		policy_era2.insert(PoWType::Cuckaroo, 0);
 		let allowed_policy_era2 = AllowPolicy {
 			height: consensus::BLOCK_ERA_1 + 1,
@@ -154,7 +153,6 @@ impl Default for PolicyConfig {
 				allowed_policy_era5,
 				allowed_policy_era6,
 			],
-			emitted_policy: 0,
 			policies: vec![
 				policy_era1,
 				policy_era2,
