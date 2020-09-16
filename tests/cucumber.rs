@@ -62,8 +62,7 @@ mod mine_chain {
 		TxKernel,
 	};
 	use epic_core::global::{
-		add_allowed_policy, get_emitted_policy, get_policies, set_emitted_policy,
-		set_policy_config, ChainTypes,
+		add_allowed_policy, get_emitted_policy, get_policies, set_policy_config, ChainTypes,
 	};
 	use epic_core::libtx::proof::LegacyProofBuilder;
 	use epic_core::libtx::ProofBuilder;
@@ -135,7 +134,7 @@ mod mine_chain {
 				"cuckaroo" => PoWType::Cuckaroo,
 				"md5" => PoWType::MD5,
 				"randomx" => PoWType::RandomX,
-				
+
 				"progpow" => PoWType::ProgPow,
 				_ => panic!("Non supported PoW Type"),
 			};
@@ -159,7 +158,7 @@ mod mine_chain {
 			let hash = chain.header_pmmr().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1)).unwrap();
 			let mut block = prepare_block_with_coinbase(&prev, 2, vec![], reward, foundation, hash);
 			chain.set_txhashset_roots(&mut block).unwrap();
-			let emitted_policy = get_emitted_policy();
+			let emitted_policy = get_emitted_policy(block.header.height);
 			let policy = get_policies(emitted_policy).unwrap();
 			// Mining
 			let algo = Deterministic::choose_algo(&policy, &prev.bottles);
@@ -630,14 +629,15 @@ mod mine_chain {
 			let chain = world.chain.as_ref().unwrap();
 			let prev = chain.head_header().unwrap();
 			let algo = get_fw_type(matches[1].as_str());
-			let emitted_policy = get_emitted_policy();
+			let emitted_policy = get_emitted_policy(prev.height + 1);
 			let policy = get_policies(emitted_policy).unwrap();
 			assert_eq!(Deterministic::choose_algo(&policy, &prev.bottles), algo);
 		};
 
-		then regex "Check the next algorithm <([a-zA-Z0-9]+)>" |world, matches, _step| {
+		then regex "Check the next algorithm <([a-zA-Z0-9]+)> on the height <([0-9]+)>" |world, matches, _step| {
 			let algo = get_fw_type(matches[1].as_str());
-			let emitted_policy = get_emitted_policy();
+			let height = matches[2].parse().unwrap();
+			let emitted_policy = get_emitted_policy(height);
 			let policy = get_policies(emitted_policy).unwrap();
 			assert_eq!(Deterministic::choose_algo(&policy, &world.bottles), algo);
 		};
@@ -750,18 +750,19 @@ mod mine_chain {
 			let kc = world.keychain.as_ref().unwrap();
 
 			let prev = chain.head_header().unwrap();
-			let diff = prev.height + 1;
+			let height = prev.height + 1;
+			let diff = height;
 			let transactions: Vec<&Transaction>  = vec![];
 			let key_id = epic_keychain::ExtKeychainPath::new(3, 0, 0, diff as u32, 0).to_identifier();
 			let fees = transactions.iter().map(|tx| tx.fee()).sum();
-			let mining_reward = libtx::reward::output(kc, &ProofBuilder::new(kc), &key_id, fees, false, prev.height+1).unwrap();
-			let foundation_reward = load_foundation_output(prev.height + 1);
+			let mining_reward = libtx::reward::output(kc, &ProofBuilder::new(kc), &key_id, fees, false, height).unwrap();
+			let foundation_reward = load_foundation_output(height);
 			// Creating the block
 			let hash = chain.header_pmmr().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1)).unwrap();
 			let mut block = prepare_block_with_coinbase(&prev, diff, transactions, mining_reward, (foundation_reward.output, foundation_reward.kernel), hash);
 			chain.set_txhashset_roots(&mut block).unwrap();
 			// Mining
-			let emitted_policy = get_emitted_policy();
+			let emitted_policy = get_emitted_policy(height);
 			let policy = get_policies(emitted_policy).unwrap();
 			let algo = Deterministic::choose_algo(&policy, &prev.bottles);
 			block.header.bottles = next_block_bottles(algo, &prev.bottles);
@@ -839,10 +840,6 @@ mod mine_chain {
 					4593601..=6696000=> {
 						(0.15625, 0.0, 0.15625)
 					}
-					// May 22, 2032 to May 20, 2036
-					6696001..=8798400=> {
-						(0.078125, 0.0, 0.078125)
-					}
 					_ => break,
 
 				};
@@ -862,7 +859,7 @@ mod mine_chain {
 			let deadline_levy = 4377600;
 			// iterating 20 years of blocks
 			for height in 1..1440*365*20 {
-			    // We have some value of foundation levy until we reach the deadline_levy height
+				// We have some value of foundation levy until we reach the deadline_levy height
 				let foundation_levy = if height <= deadline_levy {
 					1
 				} else {
@@ -1084,7 +1081,7 @@ mod mine_chain {
 			let num_completed: usize = matches[3].parse().unwrap();
 			let chain = world.chain.as_ref().unwrap();
 			let head = chain.head_header().unwrap();
-		    let diff_iter = chain.difficulty_iter().unwrap();
+			let diff_iter = chain.difficulty_iter().unwrap();
 			// creates the buff vector
 			let data_vector = global::difficulty_data_to_vector(diff_iter, window_size);
 			let head_info = data_vector.last().unwrap().clone();
@@ -1153,7 +1150,8 @@ mod mine_chain {
 		then "I check if the bottle matches the policy" |world, _step| {
 			let chain = world.chain.as_ref().unwrap();
 			let bottles = chain.head_header().unwrap().bottles;
-			let emitted_policy = get_emitted_policy();
+			let head = chain.head_header().unwrap();
+			let emitted_policy = get_emitted_policy(head.height + 1);
 			let policy = get_policies(emitted_policy).unwrap();
 			assert_eq!(bottles, policy);
 		};
@@ -1805,7 +1803,7 @@ mod mine_chain {
 
 // Declares a before handler function named `a_before_fn`
 before!(a_before_fn => |_scenario| {
-    println!("Test 1");
+	println!("Test 1");
 
 });
 

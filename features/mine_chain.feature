@@ -151,24 +151,24 @@ Scenario: check a policy sequence of cuckatoo using feijoada deterministic
   And I have the policy <0> with <randomx> equals <0>
   And I have the policy <0> with <cuckatoo> equals <100>
   And I setup all the policies
-  Then Check the next algorithm <cuckatoo>
+  Then Check the next algorithm <cuckatoo> on the height <1>
   Then Increase bottles <cuckatoo>
-  Then Check the next algorithm <cuckatoo>
+  Then Check the next algorithm <cuckatoo> on the height <2>
   Then Increase bottles <cuckatoo>
-  Then Check the next algorithm <cuckatoo>
+  Then Check the next algorithm <cuckatoo> on the height <3>
 
 Scenario: check a policy sequence of cuckatoo and randomx using feijoada deterministic
   Given I have the policy <0> with <cuckaroo> equals <0>
   And I have the policy <0> with <randomx> equals <50>
   And I have the policy <0> with <cuckatoo> equals <50>
   And I setup all the policies
-  Then Check the next algorithm <randomx>
+  Then Check the next algorithm <randomx> on the height <1>
   Then Increase bottles <randomx>
-  Then Check the next algorithm <cuckatoo>
+  Then Check the next algorithm <cuckatoo> on the height <2>
   Then Increase bottles <cuckatoo>
-  Then Check the next algorithm <randomx>
+  Then Check the next algorithm <randomx> on the height <3>
   Then Increase bottles <randomx>
-  Then Check the next algorithm <cuckatoo>
+  Then Check the next algorithm <cuckatoo> on the height <4>
 
 Scenario: check if blocks added in a blockchain match the policy
   Given I have the policy <0> with <cuckaroo> equals <33>
