@@ -41,6 +41,8 @@ impl std::default::Default for EdnaWorld {
 }
 
 mod mine_chain {
+	use std::path::Path;
+
 	use cucumber_rust::steps;
 	use epic_chain as chain;
 	use epic_core as core;
@@ -54,6 +56,7 @@ mod mine_chain {
 		count_beans, get_bottles_default, next_block_bottles, Deterministic, Feijoada, Policy,
 		PolicyConfig,
 	};
+	use epic_core::core::foundation;
 	use epic_core::core::foundation::load_foundation_output;
 	use epic_core::core::hash::{Hash, Hashed};
 	use epic_core::core::verifier_cache::LruVerifierCache;
@@ -148,12 +151,13 @@ mod mine_chain {
 
 			then "Refuse a foundation commit invalid" |world, _step| {
 				let chain = world.chain.as_ref().unwrap();
-				let kc = world.keychain.as_ref().unwrap();
 				let prev = chain.head_header().unwrap();
 
+				let kc = world.keychain.as_ref().unwrap();
 				let key_id = epic_keychain::ExtKeychain::derive_key_id(1, 3, 0, 0, 0);
-				let reward = reward::output(kc, &ProofBuilder::new(kc), &key_id, 0, false, prev.height+1).unwrap();
 				let foundation = libtx::reward::output_foundation(kc, &ProofBuilder::new(kc), &key_id, true, prev.height+1).unwrap();
+
+				let reward = reward::output(kc, &ProofBuilder::new(kc), &key_id, 0, false, prev.height+1).unwrap();
 
 				let hash = chain.header_pmmr().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1)).unwrap();
 				let mut block = prepare_block_with_coinbase(&prev, 2, vec![], reward, foundation, hash);
@@ -1219,6 +1223,31 @@ mod mine_chain {
 				let hash = global::get_file_sha256("./debian/foundation_floonet.json");
 				println!("Foundation_floonet.json Hash: {}", hash);
 				assert_eq!(hash.as_str(), global::foundation_json_sha256());
+			};
+
+			given "I generate new foundation's transactions" |world, step| {
+				let kc = world.keychain.as_ref().unwrap();
+				let mut foundations = vec![];
+
+				for x in (0..100) {
+					if (x != 0 && x % consensus::foundation_height() == 0) {
+						let key_id = epic_keychain::ExtKeychain::derive_key_id(1, x as u32, 0, 0, 0);
+						let (output, kernel) = libtx::reward::output_foundation(
+							kc, &ProofBuilder::new(kc), &key_id, true, x).unwrap();
+
+						foundations.push(
+							foundation::CbData{
+								output,
+								kernel,
+								key_id: Some(key_id),
+							}
+						);
+					}
+				}
+
+				let serialized = foundation::serialize_foundation(foundations);
+				foundation::save_in_disk(serialized, &Path::new("./tests/assets"));
+				global::set_foundation_path("./tests/assets/foundation/foundation.json".to_string());
 			};
 		});
 

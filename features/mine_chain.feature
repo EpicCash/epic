@@ -1,5 +1,10 @@
 Feature: Mine a simple chain
 
+Scenario: test 
+  Given I have a <testing> chain
+  Given I setup a chain
+  Given I generate new foundation's transactions
+
 Scenario: test if the foundation_floonet.json is valid
   Given I have a <floonet> chain
   Given I test the sha256 checksum of the foundation_floonet.json
