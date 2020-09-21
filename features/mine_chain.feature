@@ -1,14 +1,15 @@
 Feature: Mine a simple chain
 
-Scenario: test 
+Scenario: Test if the foundation's transaction is being spend after of fork
   Given I have the policy <0> with <cuckaroo> equals <0>
   And I have the policy <0> with <randomx> equals <0>
   And I have the policy <0> with <cuckatoo> equals <100>
   And I setup all the policies
-  Given I have a <testing> chain
-  Given I setup a chain
-  Given I generate new foundation's transactions
-  Given I make <10> blocks
+  And I have a <testing> chain
+  And I setup a chain
+  And I add foundation wallet pubkeys
+  And I generate new foundation's transactions
+  And I make <10> blocks
   Then I spend the foundation's transaction on the height <5>
 
 Scenario: test if the foundation_floonet.json is valid
