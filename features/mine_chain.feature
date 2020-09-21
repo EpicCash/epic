@@ -1,9 +1,15 @@
 Feature: Mine a simple chain
 
 Scenario: test 
+  Given I have the policy <0> with <cuckaroo> equals <0>
+  And I have the policy <0> with <randomx> equals <0>
+  And I have the policy <0> with <cuckatoo> equals <100>
+  And I setup all the policies
   Given I have a <testing> chain
   Given I setup a chain
   Given I generate new foundation's transactions
+  Given I make <10> blocks
+  Then I spend the foundation's transaction on the height <5>
 
 Scenario: test if the foundation_floonet.json is valid
   Given I have a <floonet> chain
