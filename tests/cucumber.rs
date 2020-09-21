@@ -1226,7 +1226,7 @@ mod mine_chain {
 			};
 
 			given "I generate new foundation's transactions" |world, step| {
-				let kc = world.keychain.as_ref().unwrap();
+				let kc = world.keychain_foundation.as_ref().unwrap();
 				let mut foundations = vec![];
 
 				for x in (0..100) {
@@ -1250,6 +1250,7 @@ mod mine_chain {
 
 			then regex "I spend the foundation's transaction on the height <([0-9]+)>" |world, matches, step| {
 				let kc = world.keychain.as_ref().unwrap();
+				let kc_foundation = world.keychain_foundation.as_ref().unwrap();
 				let chain = world.chain.as_ref().unwrap();
 				let prev_header = chain.head_header().unwrap();
 				let height: u64 = matches[1].parse().unwrap();
@@ -1257,20 +1258,30 @@ mod mine_chain {
 				let keyid_dest = epic_keychain::ExtKeychainPath::new(1, 2, 0, 0, 0).to_identifier();
 				let cbdata_foundation = load_foundation_output(height);
 
-				let pb = ProofBuilder::new(kc);
+				let pb = ProofBuilder::new(kc_foundation);
+				let foundation_reward = consensus::add_reward_foundation(height);
 
 				let tx1 = build::transaction(
 					KernelFeatures::Plain { fee: 20000 },
 					vec![
-						build::coinbase_input(consensus::reward_at_height(height), cbdata_foundation.key_id.unwrap()),
-						build::output(consensus::reward_at_height(height) - 20000, keyid_dest.clone()),
+						build::coinbase_input(foundation_reward, cbdata_foundation.key_id.unwrap()),
+						build::output(foundation_reward - 20000, keyid_dest.clone()),
 					],
-					kc,
+					kc_foundation,
 					&pb,
 				)
 				.unwrap();
 
-				let next = prepare_block_tx(kc, &prev_header, &chain, 7, vec![&tx1]);
+				let block = prepare_block_tx(kc, &prev_header, &chain, 7, vec![&tx1]);
+				chain.process_block(block, chain::Options::SKIP_POW).unwrap();
+
+				assert!(chain
+					.is_unspent(&OutputIdentifier::from_output(&cbdata_foundation.output))
+					.is_err());
+
+				assert!(chain
+					.is_unspent(&OutputIdentifier::from_output(&tx1.outputs()[0]))
+					.is_ok());
 			};
 		});
 
