@@ -1232,9 +1232,7 @@ mod mine_chain {
 				for x in (0..100) {
 					if (x != 0 && x % consensus::foundation_height() == 0) {
 						let key_id = epic_keychain::ExtKeychain::derive_key_id(1, x as u32, 0, 0, 0);
-						let (output, kernel) = libtx::reward::output_foundation(
-							kc, &ProofBuilder::new(kc), &key_id, true, x).unwrap();
-
+						let (output, kernel) = libtx::reward::output_foundation_proof(kc, &key_id, true, x).unwrap();
 						foundations.push(
 							foundation::CbData{
 								output,
@@ -1248,6 +1246,31 @@ mod mine_chain {
 				let serialized = foundation::serialize_foundation(foundations);
 				foundation::save_in_disk(serialized, &Path::new("./tests/assets"));
 				global::set_foundation_path("./tests/assets/foundation/foundation.json".to_string());
+			};
+
+			then regex "I spend the foundation's transaction on the height <([0-9]+)>" |world, matches, step| {
+				let kc = world.keychain.as_ref().unwrap();
+				let chain = world.chain.as_ref().unwrap();
+				let prev_header = chain.head_header().unwrap();
+				let height: u64 = matches[1].parse().unwrap();
+
+				let keyid_dest = epic_keychain::ExtKeychainPath::new(1, 2, 0, 0, 0).to_identifier();
+				let cbdata_foundation = load_foundation_output(height);
+
+				let pb = ProofBuilder::new(kc);
+
+				let tx1 = build::transaction(
+					KernelFeatures::Plain { fee: 20000 },
+					vec![
+						build::coinbase_input(consensus::reward_at_height(height), cbdata_foundation.key_id.unwrap()),
+						build::output(consensus::reward_at_height(height) - 20000, keyid_dest.clone()),
+					],
+					kc,
+					&pb,
+				)
+				.unwrap();
+
+				let next = prepare_block_tx(kc, &prev_header, &chain, 7, vec![&tx1]);
 			};
 		});
 
@@ -1797,7 +1820,7 @@ mod mine_chain {
 // Declares a before handler function named `a_before_fn`
 before!(a_before_fn => |_scenario| {
 	println!("Test 1");
-
+	global::set_foundation_path("./tests/assets/foundation.json".to_string());
 });
 
 // Declares an after handler function named `an_after_fn`
@@ -1843,8 +1866,6 @@ fn setup() {
 	});
 
 	util::init_test_logger();
-
-	global::set_foundation_path("./tests/assets/foundation.json".to_string());
 }
 
 cucumber! {
