@@ -22,9 +22,7 @@ pub struct CbData {
 }
 
 /// Size in bytes of each foundation coinbase (Output + Kernel)
-pub const FOUNDATION_COINBASE_SIZE_1: usize = 1803;
-/// Size in bytes of each foundation coinbase (Output + Kernel) after the first hardfork
-pub const FOUNDATION_COINBASE_SIZE_2: usize = 1775;
+pub const FOUNDATION_COINBASE_SIZE_1: usize = 1775;
 
 // TODO-FOUNDATION : Create a function to verify if the file exists if the height is different form 0 in the CLI
 
@@ -58,27 +56,12 @@ pub fn save_in_disk(serialization: String, path: &Path) {
 
 fn get_foundation_tx_version_size(version: HeaderVersion) -> usize {
 	match version {
-		HeaderVersion(6) => FOUNDATION_COINBASE_SIZE_1,
-		HeaderVersion(7) => FOUNDATION_COINBASE_SIZE_2,
-		HeaderVersion(_) => panic!("YOU NEED TO UPDATE YOUR NODE!"),
+		HeaderVersion(_) => FOUNDATION_COINBASE_SIZE_1,
 	}
 }
 
 fn get_foundation_tx_offset(index: u64, version: HeaderVersion) -> u64 {
-	let size = match version {
-		HeaderVersion(6) => index * (FOUNDATION_COINBASE_SIZE_1 as u64),
-		HeaderVersion(7) => {
-			let fork_height = first_fork_height();
-			let fork_index = foundation_index(fork_height);
-			let new_index = index.saturating_sub(fork_index);
-
-			let size_1 = fork_index * (FOUNDATION_COINBASE_SIZE_1 as u64);
-			let size_2 = new_index * (FOUNDATION_COINBASE_SIZE_2 as u64);
-
-			size_1 + size_2
-		}
-		HeaderVersion(_) => panic!("YOU NEED TO UPDATE YOUR NODE!"),
-	};
+	let size = index * (FOUNDATION_COINBASE_SIZE_1 as u64);
 
 	if cfg!(windows) {
 		size + index

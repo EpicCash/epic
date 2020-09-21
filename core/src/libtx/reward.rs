@@ -14,12 +14,13 @@
 
 //! Builds the blinded output and related signature proof for the block
 //! reward.
-use crate::consensus::{cumulative_reward_foundation, reward};
+use crate::consensus::{cumulative_reward_foundation, header_version, reward};
+use crate::core::block::HeaderVersion;
 use crate::core::{KernelFeatures, Output, OutputFeatures, TxKernel};
 use crate::libtx::error::Error;
 use crate::libtx::{
 	aggsig,
-	proof::{self, ProofBuild},
+	proof::{self, LegacyProofBuilder, ProofBuild, ProofBuilder},
 };
 use keychain::{Identifier, Keychain, SwitchCommitmentType};
 use util::{secp, static_secp_instance};
@@ -145,4 +146,32 @@ where
 		excess_sig: sig,
 	};
 	Ok((output, proof))
+}
+
+pub fn output_foundation_proof<K>(
+	keychain: &K,
+	key_id: &Identifier,
+	test_mode: bool,
+	height: u64,
+) -> Result<(Output, TxKernel), Error>
+where
+	K: Keychain,
+{
+	match header_version(height) {
+		HeaderVersion(6) => output_foundation(
+			keychain,
+			&LegacyProofBuilder::new(keychain),
+			&key_id,
+			test_mode,
+			height,
+		),
+		HeaderVersion(7) => output_foundation(
+			keychain,
+			&ProofBuilder::new(keychain),
+			&key_id,
+			test_mode,
+			height,
+		),
+		_ => panic!("Proof version not found!"),
+	}
 }
