@@ -437,7 +437,7 @@ mod mine_chain {
 				)
 				.unwrap();
 
-				let next = prepare_block_tx(kc, &fork_head, &chain, 7, vec![&tx1]);
+				let next = prepare_block_tx(kc, &fork_head, &chain, 7, vec![&tx1]).unwrap();
 				let prev_main = next.header.clone();
 				chain
 					.process_block(next.clone(), chain::Options::SKIP_POW)
@@ -455,7 +455,7 @@ mod mine_chain {
 				)
 				.unwrap();
 
-				let next = prepare_block_tx(kc, &prev_main, &chain, 9, vec![&tx2]);
+				let next = prepare_block_tx(kc, &prev_main, &chain, 9, vec![&tx2]).unwrap();
 				let prev_main = next.header.clone();
 				chain.process_block(next, chain::Options::SKIP_POW).unwrap();
 
@@ -1229,8 +1229,8 @@ mod mine_chain {
 				let kc = world.keychain_foundation.as_ref().unwrap();
 				let mut foundations = vec![];
 
-				for x in (0..100) {
-					if (x != 0 && x % consensus::foundation_height() == 0) {
+				for x in 0..100 {
+					if x != 0 && x % consensus::foundation_height() == 0 {
 						let key_id = epic_keychain::ExtKeychain::derive_key_id(1, x as u32, 0, 0, 0);
 						let (output, kernel) = libtx::reward::output_foundation_proof(kc, &key_id, true, x).unwrap();
 						foundations.push(
@@ -1248,18 +1248,20 @@ mod mine_chain {
 				global::set_foundation_path("./tests/assets/foundation/foundation.json".to_string());
 			};
 
-			then regex "I spend the foundation's transaction on the height <([0-9]+)>" |world, matches, step| {
-				let kc = world.keychain.as_ref().unwrap();
+		then regex "I try to spend the foundation's transaction on the height <([0-9]+)> plus <([0-9]+)>, should be <([A-Za-z]+)>" |world, matches, step| {
+			  let kc = world.keychain.as_ref().unwrap();
 				let kc_foundation = world.keychain_foundation.as_ref().unwrap();
 				let chain = world.chain.as_ref().unwrap();
 				let prev_header = chain.head_header().unwrap();
 				let height: u64 = matches[1].parse().unwrap();
+				let plus: u64 = matches[2].parse().unwrap();
+			  let expected: String = matches[3].parse().unwrap();
 
 				let keyid_dest = epic_keychain::ExtKeychainPath::new(1, 2, 0, 0, 0).to_identifier();
 				let cbdata_foundation = load_foundation_output(height);
 
 				let pb = ProofBuilder::new(kc_foundation);
-				let foundation_reward = consensus::add_reward_foundation(height);
+				let foundation_reward = consensus::add_reward_foundation(height) + plus;
 
 				let tx1 = build::transaction(
 					KernelFeatures::Plain { fee: 20000 },
@@ -1272,16 +1274,34 @@ mod mine_chain {
 				)
 				.unwrap();
 
-				let block = prepare_block_tx(kc, &prev_header, &chain, 7, vec![&tx1]);
-				chain.process_block(block, chain::Options::SKIP_POW).unwrap();
+				let result_block = prepare_block_tx(kc, &prev_header, &chain, 7, vec![&tx1]);
 
-				assert!(chain
-					.is_unspent(&OutputIdentifier::from_output(&cbdata_foundation.output))
-					.is_err());
+				match result_block {
+					Ok(block) => {
+						let result_process = chain.process_block(block, chain::Options::SKIP_POW);
 
-				assert!(chain
-					.is_unspent(&OutputIdentifier::from_output(&tx1.outputs()[0]))
-					.is_ok());
+						match result_process {
+							Err(e) => {
+								assert_eq!(expected, "Err");
+								assert!(format!("{:?}", e).contains("Attempt to spend immature coinbase"));
+							},
+							Ok(_tip) => {
+								assert_eq!(expected, "Ok");
+								assert!(chain
+												.is_unspent(&OutputIdentifier::from_output(&cbdata_foundation.output))
+												.is_err());
+
+								assert!(chain
+												.is_unspent(&OutputIdentifier::from_output(&tx1.outputs()[0]))
+												.is_ok());
+							}
+						};
+					},
+					Err(e) => {
+						assert_eq!(expected, "Err");
+						assert!(format!("{:?}", e).contains("Already Spent"));
+					}
+				};
 			};
 		});
 
@@ -1590,7 +1610,7 @@ mod mine_chain {
 		chain: &Chain,
 		diff: u64,
 		txs: Vec<&Transaction>,
-	) -> Block
+	) -> Result<Block, epic_chain::Error>
 	where
 		K: Keychain,
 	{
@@ -1600,8 +1620,9 @@ mod mine_chain {
 			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 			.unwrap();
 		let mut b = prepare_block_nosum(kc, prev, Difficulty::from_num(diff), txs, hash);
-		chain.set_txhashset_roots(&mut b).unwrap();
-		b
+		// chain.set_txhashset_roots(&mut b).unwrap();
+		chain.set_txhashset_roots(&mut b)?;
+		Ok(b)
 	}
 
 	fn prepare_fork_block_tx<K>(

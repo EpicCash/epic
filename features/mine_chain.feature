@@ -1,6 +1,18 @@
 Feature: Mine a simple chain
 
-Scenario: Test if the foundation's transaction is being spend after of fork
+Scenario: Test if I can spend immature foundation's coin
+  Given I have the policy <0> with <cuckaroo> equals <0>
+  And I have the policy <0> with <randomx> equals <0>
+  And I have the policy <0> with <cuckatoo> equals <100>
+  And I setup all the policies
+  And I have a <testing> chain
+  And I setup a chain
+  And I add foundation wallet pubkeys
+  And I generate new foundation's transactions
+  And I make <6> blocks
+  Then I try to spend the foundation's transaction on the height <5> plus <0>, should be <Err>
+
+Scenario: Test if I can spend more foundation's coin than I have
   Given I have the policy <0> with <cuckaroo> equals <0>
   And I have the policy <0> with <randomx> equals <0>
   And I have the policy <0> with <cuckatoo> equals <100>
@@ -10,7 +22,31 @@ Scenario: Test if the foundation's transaction is being spend after of fork
   And I add foundation wallet pubkeys
   And I generate new foundation's transactions
   And I make <10> blocks
-  Then I spend the foundation's transaction on the height <5>
+  Then I try to spend the foundation's transaction on the height <5> plus <10>, should be <Err>
+
+Scenario: Test if I can spend foundation's transaction made before of fork
+  Given I have the policy <0> with <cuckaroo> equals <0>
+  And I have the policy <0> with <randomx> equals <0>
+  And I have the policy <0> with <cuckatoo> equals <100>
+  And I setup all the policies
+  And I have a <testing> chain
+  And I setup a chain
+  And I add foundation wallet pubkeys
+  And I generate new foundation's transactions
+  And I make <10> blocks
+  Then I try to spend the foundation's transaction on the height <5> plus <0>, should be <Ok>
+
+Scenario: Test if I can spend foundation's transaction made after of fork
+  Given I have the policy <0> with <cuckaroo> equals <0>
+  And I have the policy <0> with <randomx> equals <0>
+  And I have the policy <0> with <cuckatoo> equals <100>
+  And I setup all the policies
+  And I have a <testing> chain
+  And I setup a chain
+  And I add foundation wallet pubkeys
+  And I generate new foundation's transactions
+  And I make <25> blocks
+  Then I try to spend the foundation's transaction on the height <20> plus <0>, should be <Ok>
 
 Scenario: test if the foundation_floonet.json is valid
   Given I have a <floonet> chain
