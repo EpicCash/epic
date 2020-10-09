@@ -115,7 +115,7 @@ pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
 
 #[cfg(target_family = "unix")]
 pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
-	"a72a6172fcdfb3478eb9eb0a7011410458e89a438817a290d39c4ba94e94d91d";
+	"b4c2e178bf696eaaa35ed3f4eeecd50ebe4d45c9d3ca8f4081168b01deec1899";
 #[cfg(target_family = "windows")]
 pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
 	"c91a3866341c2a68bca56680ad33616e8d21f8770fca49d0539f1abbfd061916";
