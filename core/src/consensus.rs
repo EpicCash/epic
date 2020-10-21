@@ -170,9 +170,10 @@ pub const FOUNDATION_LEVY_ERA_1: u64 = DAY_HEIGHT * 120;
 /// After the first foundation levy era, we decrease the foundation levy each year
 pub const FOUNDATION_LEVY_ERA_2_ONWARDS: u64 = DAY_HEIGHT * 365;
 /// The foundation levy in each era
-pub const FOUNDATION_LEVY: [f64; 9] = [
-	0.0888, 0.0777, 0.0666, 0.0555, 0.0444, 0.0333, 0.0222, 0.0111, 0.0111,
-];
+
+pub const FOUNDATION_LEVY_RATIO: u64 = 10000;
+pub const FOUNDATION_LEVY: [u64; 8] = [888, 777, 666, 555, 444, 333, 111, 111];
+
 
 /// Compute the foundation levy for each block.
 pub fn reward_foundation_at_height(height: u64) -> u64 {
@@ -180,7 +181,7 @@ pub fn reward_foundation_at_height(height: u64) -> u64 {
 		return 0;
 	} else if height <= FOUNDATION_LEVY_ERA_1 {
 		let block_total_reward = block_total_reward_at_height(height);
-		return (block_total_reward as f64 * FOUNDATION_LEVY[0]) as u64;
+		return (block_total_reward * FOUNDATION_LEVY[0]) / FOUNDATION_LEVY_RATIO;
 	} else {
 		// We subtract 1 to include the last block of an era.
 		let height_with_offset = height - FOUNDATION_LEVY_ERA_1 - 1;
@@ -194,7 +195,7 @@ pub fn reward_foundation_at_height(height: u64) -> u64 {
 		// After the year of 2028 the foundation levy will be zero
 		if index < FOUNDATION_LEVY.len() {
 			let block_total_reward = block_total_reward_at_height(height);
-			return (block_total_reward as f64 * FOUNDATION_LEVY[index]) as u64;
+			return (block_total_reward * FOUNDATION_LEVY[index]) / FOUNDATION_LEVY_RATIO;
 		} else {
 			return 0;
 		}
