@@ -155,7 +155,7 @@ mod mine_chain {
 
 				let kc = world.keychain.as_ref().unwrap();
 				let key_id = epic_keychain::ExtKeychain::derive_key_id(1, 3, 0, 0, 0);
-				let foundation = libtx::reward::output_foundation(kc, &ProofBuilder::new(kc), &key_id, true, prev.height+1).unwrap();
+				let foundation = libtx::reward::output_foundation(kc, &ProofBuilder::new(kc), &key_id, true, 1440).unwrap();
 
 				let reward = reward::output(kc, &ProofBuilder::new(kc), &key_id, 0, false, prev.height+1).unwrap();
 
@@ -1220,7 +1220,7 @@ mod mine_chain {
 			};
 
 			given "I test the sha256 checksum of the foundation_floonet.json" |_world, _step| {
-				let hash = global::get_file_sha256("./debian/foundation_floonet.json");
+				let hash = global::get_file_sha256("./tests/assets/foundation/foundation.json");
 				println!("Foundation_floonet.json Hash: {}", hash);
 				assert_eq!(hash.as_str(), global::foundation_json_sha256());
 			};
@@ -1852,7 +1852,7 @@ mod mine_chain {
 // Declares a before handler function named `a_before_fn`
 before!(a_before_fn => |_scenario| {
 	println!("Test 1");
-	global::set_foundation_path("./tests/assets/foundation.json".to_string());
+	global::set_foundation_path("./tests/assets/foundation/foundation.json".to_string());
 });
 
 // Declares an after handler function named `an_after_fn`

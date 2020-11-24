@@ -37,7 +37,7 @@ where
 	B: ProofBuild,
 {
 	let value: u64 = cumulative_reward_foundation(height);
-	let switch = &SwitchCommitmentType::Regular;
+	let switch = SwitchCommitmentType::Regular;
 	let commit = keychain.commit(value, key_id, switch)?;
 
 	trace!("Block Foundation reward - Pedersen Commit is: {:?}", commit,);
@@ -100,7 +100,7 @@ where
 {
 	let value = reward(fees, height);
 	// TODO: proper support for different switch commitment schemes
-	let switch = &SwitchCommitmentType::Regular;
+	let switch = SwitchCommitmentType::Regular;
 	let commit = keychain.commit(value, key_id, switch)?;
 
 	trace!("Block reward - Pedersen Commit is: {:?}", commit,);

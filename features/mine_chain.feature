@@ -57,17 +57,17 @@ Scenario: test if the foundation.json is valid
   Given I test the sha256 checksum of the foundation.json
 
 Scenario: test load output from foundation file
-  Given The file foundation <./tests/assets/foundation.json>
-  Then I try to load the foundation on the height <1440> with commit <096b43c9245a1181bd81b7765df868ad9f4c8512f67f5c48f6518dcd150ef072bc>
-  Then I try to load the foundation on the height <2880> with commit <08a4d252df54161f98941ad7e35019eba87f536acc69ec9f7df5ec6e46453ff48c>
-  Then I try to load the foundation on the height <4320> with commit <0805ec16b2278f8f833fd4f3ab9b095a069d38f17db14fb0b85d57e602d23c6c32>
+  Given The file foundation <./debian/foundation.json>
+  Then I try to load the foundation on the height <1440> with commit <09fdf530a85a7670d19806e0551bb30d7ef727ddb2d757da87fbb5c09c865751a9>
+  Then I try to load the foundation on the height <2880> with commit <091b15eff5e6007e9ac6d6079d0c2febeac2a46ef5d04f76b0707c30678a509eb6>
+  Then I try to load the foundation on the height <4320> with commit <08a83b1eaa759b6b8d12663a72a71371e3f73e5075aaf1e0bd1ba9e0b34f097ccf>
 
 Scenario: test if the chain is selecting correct fork
   Given I have the policy <0> with <cuckaroo> equals <0>
   And I have the policy <0> with <randomx> equals <0>
   And I have the policy <0> with <cuckatoo> equals <100>
   And I setup all the policies
-  Given I have a <testing> chain
+  Given I have a <floonet> chain
   And I define my output dir as <.epic-coinbase>
   And I add foundation wallet pubkeys
   And I add a genesis block with coinbase and mined with <cuckatoo>
@@ -83,7 +83,7 @@ Scenario: test the creation of buffers of blocks for the difficulty adjustment
   And I have the policy <0> with <randomx> equals <60>
   And I have the policy <0> with <cuckatoo> equals <2>
   And I setup all the policies
-  Given I have a <testing> chain
+  Given I have a <floonet> chain
   And I create the genesis block with initial timestamp of <1566241802> and mined with <cuckatoo>
   And I create a chain and add the genesis block
   And I define my output dir as <.epicdifficulty>
@@ -112,13 +112,13 @@ Scenario: test the creation of buffers of blocks for the difficulty adjustment
   And I create a buffer of <10> <progpow> that I had to complete <4> blocks
   And I create a buffer of <6> <progpow> that I had to complete <0> blocks
   And I create a buffer of <5> <progpow> that I had to complete <0> blocks
-  
+
 Scenario: test the multi difficulty adjustment with custom timestamps
   Given I have the policy <0> with <progpow> equals <38>
   Given I have the policy <0> with <randomx> equals <60>
   Given I have the policy <0> with <cuckatoo> equals <2>
   Given I setup all the policies
-  Given I have a <testing> chain
+  Given I have a <floonet> chain
   And I create the genesis block with initial timestamp of <1566241802> and mined with <cuckatoo>
   And I create a chain and add the genesis block
   And I define my output dir as <.epicdifficulty2>
@@ -176,6 +176,7 @@ Scenario: add coinbase to each mined block
   Given I have a <testing> chain
   And I define my output dir as <.epic-coinbase>
   And I add foundation wallet pubkeys
+  And I generate new foundation's transactions
   And I add a genesis block with coinbase and mined with <cuckatoo>
   And I setup the chain for coinbase test
   Then I add <4> blocks following the policy <0>
@@ -223,7 +224,7 @@ Scenario: check if blocks added in a blockchain match the policy
   And I have the policy <0> with <randomx> equals <33>
   And I have the policy <0> with <cuckatoo> equals <34>
   And I setup all the policies
-  Given I have a <testing> chain
+  Given I have a <floonet> chain
   And I setup a chain with genesis block mined with <randomx>
   And I define my output dir as <.epicpolicy>
   Then I add <99> blocks following the policy <0>
@@ -235,7 +236,7 @@ Scenario: check if blocks added in a blockchain match the policy
 
 Scenario: check if accept multi policies
   Given I set default policy config
-  Given I have a <testing> chain
+  Given I have a <floonet> chain
   Given I set the allowed policy on the height <5> with value <3>
   And I setup a chain with genesis block mined with <randomx>
   And I define my output dir as <.epicpolicy>
@@ -249,7 +250,7 @@ Scenario: refuse blocks that were not mined with a desired algorithm
   And I have the policy <0> with <randomx> equals <33>
   And I have the policy <0> with <cuckatoo> equals <34>
   And I setup all the policies
-  Given I have a <testing> chain
+  Given I have a <floonet> chain
   And I setup a chain with genesis block mined with <randomx>
   And I define my output dir as <.epicpolicy>
   Then I add <5> blocks mined with <randomx> and accept <0>
@@ -312,7 +313,7 @@ Scenario: mine losing forks
   And I have the policy <0> with <randomx> equals <0>
   And I have the policy <0> with <cuckatoo> equals <100>
   And I setup all the policies
-  Given I have a <testing> chain
+  Given I have a <floonet> chain
   And I define my output dir as <.epic3>
   And I setup a chain
   And I make <2> blocks
@@ -323,7 +324,7 @@ Scenario: longer fork
   And I have the policy <0> with <randomx> equals <0>
   And I have the policy <0> with <cuckatoo> equals <100>
   And I setup all the policies
-  Given I have a <testing> chain
+  Given I have a <floonet> chain
   And I define my output dir as <.epic4>
   And I setup a chain
   And I make <10> blocks
@@ -335,7 +336,7 @@ Scenario: spend in fork and compact
   And I have the policy <0> with <randomx> equals <0>
   And I have the policy <0> with <cuckatoo> equals <100>
   And I setup all the policies
-  Given I have a <testing> chain
+  Given I have a <floonet> chain
   And I define my output dir as <.epic5>
   And I setup a chain
   Then I spend in different forks
@@ -345,7 +346,7 @@ Scenario: output header mappings
   And I have the policy <0> with <randomx> equals <0>
   And I have the policy <0> with <cuckatoo> equals <100>
   And I setup all the policies
-  Given I have a <testing> chain
+  Given I have a <floonet> chain
   And I define my output dir as <.epic_header_for_output>
   And I setup a chain
   Then I check outputs in the header

@@ -264,7 +264,7 @@ pub fn sign_from_key_id<K>(
 where
 	K: Keychain,
 {
-	let skey = k.derive_key(value, key_id, &SwitchCommitmentType::Regular)?; // TODO: proper support for different switch commitment schemes
+	let skey = k.derive_key(value, key_id, SwitchCommitmentType::Regular)?; // TODO: proper support for different switch commitment schemes
 	let sig = aggsig::sign_single(secp, &msg, &skey, s_nonce, None, None, blind_sum, None)?;
 	Ok(sig)
 }

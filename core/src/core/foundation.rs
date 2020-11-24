@@ -9,7 +9,7 @@ use std::fs::{create_dir, File};
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::path::Path;
-
+use crate::global;
 /// Response to build a coinbase output.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CbData {
@@ -22,7 +22,19 @@ pub struct CbData {
 }
 
 /// Size in bytes of each foundation coinbase (Output + Kernel)
-pub const FOUNDATION_COINBASE_SIZE_1: usize = 1775;
+pub const FOUNDATION_COINBASE_SIZE_1: usize = 1803;
+/// Size in bytes of each foundation coinbase (Output + Kernel) after the first hardfork
+pub const FOUNDATION_COINBASE_SIZE_2: usize = 1775;
+
+/// Size in bytes of each foundation coinbase (Output + Kernel)
+pub const FLOONET_FOUNDATION_COINBASE_SIZE_1: usize = 1803;
+/// Size in bytes of each foundation coinbase (Output + Kernel) after the first hardfork
+pub const FLOONET_FOUNDATION_COINBASE_SIZE_2: usize = 1775;
+
+/// Size in bytes of each foundation coinbase (Output + Kernel)
+pub const TESTING_FOUNDATION_COINBASE_SIZE_1: usize = 1775;
+/// Size in bytes of each foundation coinbase (Output + Kernel) after the first hardfork
+pub const TESTING_FOUNDATION_COINBASE_SIZE_2: usize = 1775;
 
 // TODO-FOUNDATION : Create a function to verify if the file exists if the height is different form 0 in the CLI
 
@@ -55,13 +67,119 @@ pub fn save_in_disk(serialization: String, path: &Path) {
 }
 
 fn get_foundation_tx_version_size(version: HeaderVersion) -> usize {
-	match version {
-		HeaderVersion(_) => FOUNDATION_COINBASE_SIZE_1,
+
+	let param_ref = global::CHAIN_TYPE.read();
+	match *param_ref {
+		global::ChainTypes::AutomatedTesting => {
+			match version {
+				HeaderVersion(6) => TESTING_FOUNDATION_COINBASE_SIZE_1,
+				HeaderVersion(7) => TESTING_FOUNDATION_COINBASE_SIZE_2,
+				HeaderVersion(_) => panic!("YOU NEED TO UPDATE YOUR NODE!"),
+			}
+		},
+		global::ChainTypes::UserTesting => {
+			match version {
+				HeaderVersion(6) => FLOONET_FOUNDATION_COINBASE_SIZE_1,
+				HeaderVersion(7) => FLOONET_FOUNDATION_COINBASE_SIZE_2,
+				HeaderVersion(_) => panic!("YOU NEED TO UPDATE YOUR NODE!"),
+			}
+		},
+		global::ChainTypes::Floonet => {
+			match version {
+				HeaderVersion(6) => FLOONET_FOUNDATION_COINBASE_SIZE_1,
+				HeaderVersion(7) => FLOONET_FOUNDATION_COINBASE_SIZE_2,
+				HeaderVersion(_) => panic!("YOU NEED TO UPDATE YOUR NODE!"),
+			}
+		},
+		_ => {
+			match version {
+				HeaderVersion(6) => FOUNDATION_COINBASE_SIZE_1,
+				HeaderVersion(7) => FOUNDATION_COINBASE_SIZE_2,
+				HeaderVersion(_) => panic!("YOU NEED TO UPDATE YOUR NODE!"),
+			}
+		},
 	}
+
+
+
 }
 
+
 fn get_foundation_tx_offset(index: u64, version: HeaderVersion) -> u64 {
-	let size = index * (FOUNDATION_COINBASE_SIZE_1 as u64);
+
+	let param_ref = global::CHAIN_TYPE.read();
+	let size = match *param_ref {
+
+		global::ChainTypes::AutomatedTesting => {
+			match version {
+				HeaderVersion(6) => index * (TESTING_FOUNDATION_COINBASE_SIZE_1 as u64),
+				HeaderVersion(7) => {
+					let fork_height = first_fork_height();
+					let fork_index = foundation_index(fork_height);
+					let new_index = index.saturating_sub(fork_index);
+
+					let size_1 = fork_index * (TESTING_FOUNDATION_COINBASE_SIZE_1 as u64);
+					let size_2 = new_index * (TESTING_FOUNDATION_COINBASE_SIZE_2 as u64);
+
+					size_1 + size_2
+				}
+				HeaderVersion(_) => panic!("YOU NEED TO UPDATE YOUR NODE!"),
+			}
+		},
+		global::ChainTypes::UserTesting => {
+			match version {
+				HeaderVersion(6) => index * (FLOONET_FOUNDATION_COINBASE_SIZE_1 as u64),
+				HeaderVersion(7) => {
+					let fork_height = first_fork_height();
+					let fork_index = foundation_index(fork_height);
+					let new_index = index.saturating_sub(fork_index);
+
+					let size_1 = fork_index * (FLOONET_FOUNDATION_COINBASE_SIZE_1 as u64);
+					let size_2 = new_index * (FLOONET_FOUNDATION_COINBASE_SIZE_2 as u64);
+
+					size_1 + size_2
+				}
+				HeaderVersion(_) => panic!("YOU NEED TO UPDATE YOUR NODE!"),
+			}
+		},
+		global::ChainTypes::Floonet => {
+			match version {
+				HeaderVersion(6) => index * (FLOONET_FOUNDATION_COINBASE_SIZE_1 as u64),
+				HeaderVersion(7) => {
+					let fork_height = first_fork_height();
+					let fork_index = foundation_index(fork_height);
+					let new_index = index.saturating_sub(fork_index);
+
+					let size_1 = fork_index * (FLOONET_FOUNDATION_COINBASE_SIZE_1 as u64);
+					let size_2 = new_index * (FLOONET_FOUNDATION_COINBASE_SIZE_2 as u64);
+
+					size_1 + size_2
+				}
+				HeaderVersion(_) => panic!("YOU NEED TO UPDATE YOUR NODE!"),
+			}
+		},
+		_ => {
+			match version {
+				HeaderVersion(6) => index * (FOUNDATION_COINBASE_SIZE_1 as u64),
+				HeaderVersion(7) => {
+					let fork_height = first_fork_height();
+					let fork_index = foundation_index(fork_height);
+					let new_index = index.saturating_sub(fork_index);
+
+					let size_1 = fork_index * (FOUNDATION_COINBASE_SIZE_1 as u64);
+					let size_2 = new_index * (FOUNDATION_COINBASE_SIZE_2 as u64);
+
+					size_1 + size_2
+				}
+				HeaderVersion(_) => panic!("YOU NEED TO UPDATE YOUR NODE!"),
+			}
+
+		},
+
+
+	};
+
+
 
 	if cfg!(windows) {
 		size + index
@@ -70,6 +188,7 @@ fn get_foundation_tx_offset(index: u64, version: HeaderVersion) -> u64 {
 	}
 }
 
+
 /// Load the foundation coinbase relative to the height of the chain
 pub fn load_foundation_output(height: u64) -> CbData {
 	let height_version = header_version(height);
@@ -77,7 +196,7 @@ pub fn load_foundation_output(height: u64) -> CbData {
 
 	let path_str = get_foundation_path()
 		.unwrap_or_else(|| panic!("No path to the foundation.json was provided!"));
-
+println!("path_str: {:?}", path_str);
 	let path = Path::new(&path_str);
 	let mut file = match File::open(&path) {
 		Err(why) => panic!(
@@ -99,8 +218,11 @@ pub fn load_foundation_output(height: u64) -> CbData {
 	};
 
 	let mut buffer = vec![0 as u8; get_foundation_tx_version_size(height_version)];
+
+
 	file.seek(SeekFrom::Start(offset)).unwrap();
 	file.read_exact(&mut buffer).unwrap();
 	let buffer_str = String::from_utf8(buffer).unwrap();
+
 	serde_json::from_str(&buffer_str).unwrap()
 }

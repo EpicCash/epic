@@ -30,7 +30,7 @@ pub fn create<K, B>(
 	b: &B,
 	amount: u64,
 	key_id: &Identifier,
-	switch: &SwitchCommitmentType,
+	switch: SwitchCommitmentType,
 	_commit: Commitment,
 	extra_data: Option<Vec<u8>>,
 ) -> Result<RangeProof, Error>
@@ -112,7 +112,7 @@ pub trait ProofBuild {
 		&self,
 		secp: &Secp256k1,
 		id: &Identifier,
-		switch: &SwitchCommitmentType,
+		switch: SwitchCommitmentType,
 	) -> Result<ProofMessage, Error>;
 
 	/// Check if the output belongs to this keychain
@@ -142,7 +142,7 @@ where
 	/// Creates a new instance of this proof builder
 	pub fn new(keychain: &'a K) -> Self {
 		let private_root_key = keychain
-			.derive_key(0, &K::root_key_id(), &SwitchCommitmentType::None)
+			.derive_key(0, &K::root_key_id(), SwitchCommitmentType::None)
 			.unwrap();
 
 		let private_hash = blake2b(32, &[], &private_root_key.0).as_bytes().to_vec();
@@ -194,7 +194,7 @@ where
 		&self,
 		_secp: &Secp256k1,
 		id: &Identifier,
-		switch: &SwitchCommitmentType,
+		switch: SwitchCommitmentType,
 	) -> Result<ProofMessage, Error> {
 		let mut msg = [0; 20];
 		msg[2] = u8::from(switch);
@@ -227,7 +227,7 @@ where
 		let depth = u8::min(msg[3], 4);
 		let id = Identifier::from_serialized_path(depth, &msg[4..]);
 
-		let commit_exp = self.keychain.commit(amount, &id, &switch)?;
+		let commit_exp = self.keychain.commit(amount, &id, switch)?;
 		match commit == &commit_exp {
 			true => Ok(Some((id, switch))),
 			false => Ok(None),
@@ -272,7 +272,7 @@ where
 		Self {
 			keychain,
 			root_hash: keychain
-				.derive_key(0, &K::root_key_id(), &SwitchCommitmentType::Regular)
+				.derive_key(0, &K::root_key_id(), SwitchCommitmentType::Regular)
 				.unwrap()
 				.0
 				.to_vec(),
@@ -307,7 +307,7 @@ where
 		&self,
 		_secp: &Secp256k1,
 		id: &Identifier,
-		_switch: &SwitchCommitmentType,
+		_switch: SwitchCommitmentType,
 	) -> Result<ProofMessage, Error> {
 		let mut msg = [0; 20];
 		let id_ser = id.serialize_path();
@@ -337,7 +337,7 @@ where
 
 		let commit_exp = self
 			.keychain
-			.commit(amount, &id, &SwitchCommitmentType::Regular)?;
+			.commit(amount, &id, SwitchCommitmentType::Regular)?;
 		match commit == &commit_exp {
 			true => Ok(Some((id, SwitchCommitmentType::Regular))),
 			false => Ok(None),
@@ -379,7 +379,7 @@ impl ProofBuild for ViewKey {
 		&self,
 		_secp: &Secp256k1,
 		_id: &Identifier,
-		_switch: &SwitchCommitmentType,
+		_switch: SwitchCommitmentType,
 	) -> Result<ProofMessage, Error> {
 		unimplemented!();
 	}

@@ -388,11 +388,11 @@ impl OwnerRpc for Owner {
 #[macro_export]
 macro_rules! doctest_helper_json_rpc_owner_assert_response {
 	($request:expr, $expected_response:expr) => {
-		// create temporary grin server, run jsonrpc request on node api, delete server, return
+		// create temporary epic server, run jsonrpc request on node api, delete server, return
 		// json response.
 
 			{
-			/*use epic_servers::test_framework::framework::run_doctest;
+			use epic_servers::test_framework::framework::run_doctest;
 			use epic_util as util;
 			use serde_json;
 			use serde_json::Value;
@@ -424,7 +424,7 @@ macro_rules! doctest_helper_json_rpc_owner_assert_response {
 					serde_json::to_string_pretty(&response).unwrap(),
 					serde_json::to_string_pretty(&expected_response).unwrap()
 				);
-				}*/
+				}
 			}
 	};
 }

@@ -273,6 +273,8 @@ impl TxHashSet {
 			.get_last_n_insertions(distance)
 	}
 
+	
+
 	/// Convenience function to query the db for a header by its hash.
 	pub fn get_block_header(&self, hash: &Hash) -> Result<BlockHeader, Error> {
 		Ok(self.commit_index.get_block_header(&hash)?)
