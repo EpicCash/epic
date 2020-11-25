@@ -44,13 +44,12 @@ epic_chain = { path = "./chain", version = "3.0.0" }
 
 
 
-[target.'cfg(windows)'.dependencies]
+
 cursive = { version = "0.15", default-features = false, features = ["pancurses-backend"] }
 [target.'cfg(windows)'.dependencies.pancurses]
 version = "0.16.1"
 features = ["win32"]
-[target.'cfg(unix)'.dependencies]
-cursive = "0.15"
+
 
 
 [[test]]
