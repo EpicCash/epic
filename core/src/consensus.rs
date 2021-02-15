@@ -174,7 +174,6 @@ pub const FOUNDATION_LEVY_ERA_2_ONWARDS: u64 = DAY_HEIGHT * 365;
 pub const FOUNDATION_LEVY_RATIO: u64 = 10000;
 pub const FOUNDATION_LEVY: [u64; 9] = [888, 777, 666, 555, 444, 333, 222, 111, 111];
 
-
 /// Compute the foundation levy for each block.
 pub fn reward_foundation_at_height(height: u64) -> u64 {
 	if height == 0 {
