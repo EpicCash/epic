@@ -172,7 +172,7 @@ pub const FOUNDATION_LEVY_ERA_2_ONWARDS: u64 = DAY_HEIGHT * 365;
 /// The foundation levy in each era
 
 pub const FOUNDATION_LEVY_RATIO: u64 = 10000;
-pub const FOUNDATION_LEVY: [u64; 8] = [888, 777, 666, 555, 444, 333, 111, 111];
+pub const FOUNDATION_LEVY: [u64; 9] = [888, 777, 666, 555, 444, 333, 222, 111, 111];
 
 
 /// Compute the foundation levy for each block.
