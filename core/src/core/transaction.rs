@@ -718,22 +718,22 @@ impl TransactionBody {
 		self.validate_read(weighting)?;
 
 		// Now batch verify all those unverified rangeproofs
-		debug!("Verifying rangeproofs");
+		debug!("transaction: verifying rangeproofs");
 		if !self.outputs.is_empty() {
 			for x in &self.outputs {
 				match x.verify_proof() {
-					Ok(_) => warn!("Passed: {:?}", x),
-					Err(e) => error!("Failed: {:?}, {:?}", x, e),
+					Ok(e) => warn!("transaction: passed: {:?}, {:?}", x, e),
+					Err(e) => error!("transaction: failed: {:?}, {:?}", x, e),
 				}
 			}
 		}
 
 		// Verify the tx kernels.
-		debug!("Verifying tx kernels");
+		warn!("transaction: verifying tx kernels");
 		for x in &self.kernels {
 			match x.verify() {
-				Ok(_) => warn!("Passed: {:?}", x),
-				Err(e) => error!("Failed: {:?}, {:?}", x, e),
+				Ok(_) => warn!("transaction: passed: {:?}", x),
+				Err(e) => error!("transaction: failed: {:?}, {:?}", x, e),
 			}
 		}
 		Ok(())
