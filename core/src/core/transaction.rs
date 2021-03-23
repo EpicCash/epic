@@ -25,7 +25,7 @@ use crate::ser::{
 };
 use crate::util;
 use crate::util::secp;
-use crate::util::secp::pedersen::{Commitment, RangeProof};
+use crate::util::secp::pedersen::{Commitment, ProofRange, RangeProof};
 use crate::util::static_secp_instance;
 use crate::util::RwLock;
 use crate::{consensus, global};
@@ -1328,11 +1328,22 @@ impl Output {
 	}
 
 	/// Validates the range proof using the commitment
-	pub fn verify_proof(&self) -> Result<(), Error> {
+	pub fn verify_proof(&self) -> Result<ProofRange, Error> {
 		let secp = static_secp_instance();
-		secp.lock()
+		let e = secp.lock()
 			.verify_bullet_proof(self.commit, self.proof, None)?;
-		Ok(())
+		Ok(e)
+	}
+
+	/// Validates the range proof using the commitment
+	pub fn verify_proof_single(
+		commit: &Commitment,
+		proof: &RangeProof,
+	) -> Result<ProofRange, Error> {
+		let secp = static_secp_instance();
+		let e = secp.lock()
+			.verify_bullet_proof(commit.clone(), proof.clone(), None)?;
+		Ok(e)
 	}
 
 	/// Batch validates the range proofs using the commitments
