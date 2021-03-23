@@ -1330,7 +1330,8 @@ impl Output {
 	/// Validates the range proof using the commitment
 	pub fn verify_proof(&self) -> Result<ProofRange, Error> {
 		let secp = static_secp_instance();
-		let e = secp.lock()
+		let e = secp
+			.lock()
 			.verify_bullet_proof(self.commit, self.proof, None)?;
 		Ok(e)
 	}
@@ -1341,7 +1342,8 @@ impl Output {
 		proof: &RangeProof,
 	) -> Result<ProofRange, Error> {
 		let secp = static_secp_instance();
-		let e = secp.lock()
+		let e = secp
+			.lock()
 			.verify_bullet_proof(commit.clone(), proof.clone(), None)?;
 		Ok(e)
 	}
