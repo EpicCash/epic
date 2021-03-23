@@ -1359,8 +1359,7 @@ impl<'a> Extension<'a> {
 	fn verify_rangeproofs(&self, status: &dyn TxHashsetWriteStatus) -> Result<(), Error> {
 		let now = Instant::now();
 
-		let mut commits: Vec<Commitment> = vec![];
-		let mut proofs: Vec<RangeProof> = vec![];
+		warn!("txhashset: verifying rangeproofs");
 
 		let mut proof_count = 0;
 		let total_rproofs = pmmr::n_leaves(self.output_pmmr.unpruned_size());
@@ -1374,37 +1373,24 @@ impl<'a> Extension<'a> {
 				(None, _) => return Err(ErrorKind::OutputNotFound.into()),
 				(_, None) => return Err(ErrorKind::RangeproofNotFound.into()),
 				(Some(output), Some(proof)) => {
-					commits.push(output.commit);
-					proofs.push(proof);
+					match Output::verify_proof_single(&output.commit, &proof) {
+						Ok(x) => warn!(
+							"txhashset: passed: {:?}, {:?}, {:?}",
+							&output.commit, &proof, x
+						),
+						Err(x) => error!(
+							"txhashset: failed: {:?}, {:?}, {:?}",
+							&output.commit, &proof, x
+						),
+					}
 				}
 			}
 
 			proof_count += 1;
 
-			if proofs.len() >= 1_000 {
-				Output::batch_verify_proofs(&commits, &proofs)?;
-				commits.clear();
-				proofs.clear();
-				debug!(
-					"txhashset: verify_rangeproofs: verified {} rangeproofs",
-					proof_count,
-				);
-			}
-
 			if proof_count % 20 == 0 {
 				status.on_validation(0, 0, proof_count, total_rproofs);
 			}
-		}
-
-		// remaining part which not full of 1000 range proofs
-		if proofs.len() > 0 {
-			Output::batch_verify_proofs(&commits, &proofs)?;
-			commits.clear();
-			proofs.clear();
-			debug!(
-				"txhashset: verify_rangeproofs: verified {} rangeproofs",
-				proof_count,
-			);
 		}
 
 		debug!(
