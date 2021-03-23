@@ -342,10 +342,6 @@ impl serde::ser::Serialize for OutputPrintable {
 		state.serialize_field("proof_hash", &self.proof_hash)?;
 		state.serialize_field("block_height", &self.block_height)?;
 
-		let hex_merkle_proof = &self.merkle_proof.clone().map(|x| x.to_hex());
-		state.serialize_field("merkle_proof", &hex_merkle_proof)?;
-		state.serialize_field("mmr_index", &self.mmr_index)?;
-
 		state.end()
 	}
 }
