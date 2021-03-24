@@ -27,8 +27,8 @@ fn test_commit_verification() {
 	println!("verifying...");
 	for x in &data.outputs {
 		match Output::verify_proof_single(&x.commit, &x.proof) {
-			Ok(e) => println!("OK: {:?}, {:?}, {:?}", &x.commit, &x.proof, e),
-			Err(e) => println!("ERR: {:?}, {:?}, {:?}", &x.commit, &x.proof, e),
+			Ok(e) => println!("OK: {:?}, {:?}", &x.commit, e),
+			Err(e) => println!("ERR: {:?}, {:?}", &x.commit, e),
 		};
 	}
 }
