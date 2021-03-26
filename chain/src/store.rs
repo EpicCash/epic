@@ -241,6 +241,12 @@ impl<'a> Batch<'a> {
 		Ok(())
 	}
 
+	/// Delete a block header.
+	pub fn delete_block_header(&self, h: &Hash) -> Result<(), Error> {
+		self.db
+			.delete(&to_key(BLOCK_HEADER_PREFIX, &mut h.to_vec())[..])
+	}
+
 	/// Save block header to db.
 	pub fn save_block_header(&self, header: &BlockHeader) -> Result<(), Error> {
 		let hash = header.hash();

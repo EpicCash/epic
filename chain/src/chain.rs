@@ -173,9 +173,8 @@ impl Chain {
 		let mut txhashset = txhashset::TxHashSet::open(db_root.clone(), store.clone(), None)?;
 
 		setup_head(&genesis, &store, &mut txhashset)?;
-		Chain::log_heads(&store)?;
 
-		Ok(Chain {
+		let chain = Chain {
 			db_root,
 			store,
 			adapter,
@@ -185,7 +184,16 @@ impl Chain {
 			verifier_cache,
 			archive_mode,
 			genesis: genesis.header.clone(),
-		})
+		};
+
+		chain.rewind_bad_block()?;
+
+		let header_head = chain.header_head()?;
+		chain.rebuild_sync_mmr(&header_head)?;
+
+		chain.log_heads()?;
+
+		Ok(chain)
 	}
 
 	/// Return our shared txhashset instance.
@@ -198,24 +206,107 @@ impl Chain {
 		self.store.clone()
 	}
 
-	fn log_heads(store: &store::ChainStore) -> Result<(), Error> {
-		let head = store.head()?;
+	fn log_heads(&self) -> Result<(), Error> {
+		let head = self.store.head()?;
 		debug!(
 			"init: head: {:?} @ {} [{}]",
 			head.total_difficulty.num, head.height, head.last_block_h,
 		);
 
-		let header_head = store.header_head()?;
+		let header_head = self.store.header_head()?;
 		debug!(
 			"init: header_head: {:?} @ {} [{}]",
 			header_head.total_difficulty.num, header_head.height, header_head.last_block_h,
 		);
 
-		let sync_head = store.get_sync_head()?;
+		let sync_head = self.store.get_sync_head()?;
 		debug!(
 			"init: sync_head: {:?} @ {} [{}]",
 			sync_head.total_difficulty.num, sync_head.height, sync_head.last_block_h,
 		);
+
+		Ok(())
+	}
+
+	/// Known bad block that we must rewind prior to if seen on "current chain".
+	/// Ported from: https://github.com/mimblewimble/grin/issues/3605
+	fn rewind_bad_block(&self) -> Result<(), Error> {
+		let hash =
+			Hash::from_hex("840cdf3ad968bd6895b07e4e3235ee704226f85c3163d2da2e6764c7e2b81ea2")
+				.unwrap();
+
+		if let Ok(header) = self.get_block_header(&hash) {
+			if self.is_on_current_chain(&header).is_ok() {
+				debug!(
+					"rewind_bad_block: found header: {} at {}",
+					header.hash(),
+					header.height
+				);
+
+				let prev_header = self.get_previous_header(&header)?;
+				let new_head = Tip::from_header(&prev_header);
+
+				// Fix the (full) block chain.
+				if let Ok(block) = self.get_block(&hash) {
+					debug!(
+						"rewind_bad_block: found block: {} at {}",
+						block.header.hash(),
+						block.header.height
+					);
+
+					debug!(
+						"rewind_bad_block: rewinding to prev: {} at {}",
+						prev_header.hash(),
+						prev_header.height
+					);
+
+					let mut txhashset = self.txhashset.write();
+					let mut batch = self.store.batch()?;
+
+					let old_head = batch.head()?;
+
+					txhashset::extending(&mut txhashset, &mut batch, |extension| {
+						pipe::rewind_and_apply_fork(&block, extension)?;
+
+						// Reset chain head.
+						extension.batch.save_body_head(&new_head)?;
+						extension.batch.save_header_head(&new_head)?;
+
+						Ok(())
+					})?;
+
+					// Cleanup all subsequent bad blocks (back from old head).
+					let mut current = batch.get_block_header(&old_head.hash())?;
+					while current.height > new_head.height {
+						let _ = batch.delete_block(&current.hash());
+						current = batch.get_previous_header(&current)?;
+					}
+
+					batch.commit()?;
+				}
+
+				{
+					let mut batch = self.store.batch()?;
+					let mut txhashset = self.txhashset.write();
+					let old_header_head = batch.header_head()?;
+
+					txhashset::header_extending(&mut txhashset, &mut batch, |extension| {
+						pipe::rewind_and_apply_header_fork(&header, extension)?;
+						extension.batch.save_header_head(&new_head)?;
+						Ok(())
+					})?;
+
+					// cleanup all subsequent bad headers (back from old header_head).
+					let mut current = batch.get_block_header(&old_header_head.hash())?;
+					while current.height > new_head.height {
+						let _ = batch.delete_block_header(&current.hash());
+						current = batch.get_previous_header(&current)?;
+					}
+
+					batch.commit()?;
+				}
+			}
+		}
 
 		Ok(())
 	}
