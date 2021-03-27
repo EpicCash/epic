@@ -17,10 +17,9 @@ For Debian-based distributions (Debian, Ubuntu, Mint, etc), all in one line (exc
 sudo apt install build-essential cmake git libgit2-dev clang libncurses5-dev libncursesw5-dev zlib1g-dev pkg-config libssl-dev llvm
 ```
 
-For Mac using [brew](https://brew.sh/):
+For Mac using [brew](https://brew.sh):
 
 ```sh
-install brew https://brew.sh/index_de
 brew install pkg-config
 brew install openssl
 brew install cmake
