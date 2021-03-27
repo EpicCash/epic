@@ -20,10 +20,10 @@ sudo apt install build-essential cmake git libgit2-dev clang libncurses5-dev lib
 For Mac using [brew](https://brew.sh/):
 
 ```sh
-xcode-select --install
-brew install --with-toolchain llvm
 brew install pkg-config
 brew install openssl
+brew install cmake
+brew install rustup
 ```
 
 ### Rust
