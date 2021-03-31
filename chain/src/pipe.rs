@@ -204,6 +204,10 @@ pub fn sync_block_headers(
 		}
 	};
 
+	for header in headers {
+		check_bad_header(header)?;
+	}
+
 	let all_known = if let Some(last_header) = headers.last() {
 		ctx.batch.get_block_header(&last_header.hash()).is_ok()
 	} else {
