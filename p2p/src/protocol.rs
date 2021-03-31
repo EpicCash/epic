@@ -216,7 +216,13 @@ impl MessageHandler for Protocol {
 						headers.push(header);
 						total_bytes_read += bytes_read;
 					}
-					adapter.headers_received(&headers, &self.peer_info)?;
+					if !adapter.headers_received(&headers, &self.peer_info)? {
+						debug!(
+							"headers_received returned false for peer {}",
+							&self.peer_info.addr
+						);
+						return Ok(None);
+					}
 				}
 
 				// Now check we read the correct total number of bytes off the stream.
