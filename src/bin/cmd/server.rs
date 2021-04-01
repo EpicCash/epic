@@ -19,6 +19,12 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
+use std::fs;
+use std::fs::File;
+use std::path::PathBuf;
+use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use clap::ArgMatches;
 use ctrlc;
 
@@ -27,9 +33,12 @@ use crate::core::global;
 use crate::p2p::{PeerAddr, Seeding};
 use crate::servers;
 use crate::tui::ui;
+use crate::util::zip;
 
 /// wrap below to allow UI to clean up on stop
 pub fn start_server(config: servers::ServerConfig) {
+	maybe_set_chain_to_snapshot(PathBuf::from(config.db_root.to_owned()));
+
 	start_server_tui(config);
 	// Just kill process for now, otherwise the process
 	// hangs around until sigint because the API server
@@ -38,6 +47,67 @@ pub fn start_server(config: servers::ServerConfig) {
 	thread::sleep(Duration::from_millis(1000));
 	warn!("Shutdown complete.");
 	exit(0);
+}
+
+fn maybe_set_chain_to_snapshot(chain_data_path: PathBuf) {
+	let root = chain_data_path
+		.parent()
+		.expect("Could not resolve root directory");
+	let flag_file = root.join("2-14-sync-flag");
+
+	if flag_file.exists() {
+		info!("flag file exists: {}", flag_file.display());
+		return;
+	} else {
+		warn!("replacing chain_data: {}", chain_data_path.display());
+	}
+
+	// FIXME add windows hash too
+	let payload_hash = "f1443086c2389e3dfe8ba8f559c3d5eeec817c4d4d85795e6ecda1484f06a9c8";
+	let payload_url = "https://epiccash.s3-sa-east-1.amazonaws.com/chain_data_synced_861141.zip";
+	let payload_path = root.join("chain_data_synced_861141.zip");
+
+	info!("curl {} -o {}", payload_url, payload_path.display());
+
+	if !payload_path.exists()
+		|| payload_hash != global::get_file_sha256(payload_path.to_str().unwrap()).as_str()
+	{
+		debug!("downloading... please wait");
+		let status = Command::new("curl")
+			.args(&[payload_url, "-o", payload_path.to_str().unwrap()])
+			.status()
+			.expect("Failed to download payload");
+		assert!(status.success());
+
+		if payload_hash != global::get_file_sha256(payload_path.to_str().unwrap()).as_str() {
+			error!("unexpected payload hash; aborting");
+			exit(1);
+		}
+	} else {
+		info!("reusing existing file");
+	}
+
+	if chain_data_path.exists() {
+		let timestamp = SystemTime::now()
+			.duration_since(UNIX_EPOCH)
+			.unwrap()
+			.as_secs();
+		let new_path = chain_data_path.with_file_name(format!("chain_data_original_{}", timestamp));
+		info!("backing up original chain_data to: {}", new_path.display());
+		fs::rename(&chain_data_path, new_path)
+			.expect("Failed to rename original chain_data folder");
+	} else {
+		info!("no chain_data to backup");
+	}
+
+	zip::decompress(
+		File::open(payload_path).expect("Could not open payload"),
+		&root,
+		|_| true,
+	)
+	.expect("Failed to unzip payload");
+
+	File::create(flag_file).expect("Failed to touch flag file");
 }
 
 fn start_server_tui(config: servers::ServerConfig) {
