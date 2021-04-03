@@ -173,9 +173,8 @@ impl Chain {
 		let mut txhashset = txhashset::TxHashSet::open(db_root.clone(), store.clone(), None)?;
 
 		setup_head(&genesis, &store, &mut txhashset)?;
-		Chain::log_heads(&store)?;
 
-		Ok(Chain {
+		let chain = Chain {
 			db_root,
 			store,
 			adapter,
@@ -185,7 +184,11 @@ impl Chain {
 			verifier_cache,
 			archive_mode,
 			genesis: genesis.header.clone(),
-		})
+		};
+
+		chain.log_heads()?;
+
+		Ok(chain)
 	}
 
 	/// Return our shared txhashset instance.
@@ -198,20 +201,20 @@ impl Chain {
 		self.store.clone()
 	}
 
-	fn log_heads(store: &store::ChainStore) -> Result<(), Error> {
-		let head = store.head()?;
+	fn log_heads(&self) -> Result<(), Error> {
+		let head = self.store.head()?;
 		debug!(
 			"init: head: {:?} @ {} [{}]",
 			head.total_difficulty.num, head.height, head.last_block_h,
 		);
 
-		let header_head = store.header_head()?;
+		let header_head = self.store.header_head()?;
 		debug!(
 			"init: header_head: {:?} @ {} [{}]",
 			header_head.total_difficulty.num, header_head.height, header_head.last_block_h,
 		);
 
-		let sync_head = store.get_sync_head()?;
+		let sync_head = self.store.get_sync_head()?;
 		debug!(
 			"init: sync_head: {:?} @ {} [{}]",
 			sync_head.total_difficulty.num, sync_head.height, sync_head.last_block_h,
