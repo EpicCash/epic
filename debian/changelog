@@ -1,3 +1,14 @@
+epic (2.14.0~beta5-1) bionic; urgency=high
+  [ Filipe Correia ]
+  * Include wallet tool
+  * Rollback chain data using canonical version
+  * Check for bad headers and ban peers who send them
+  * Avoid loading subsequent chunks if headers_received returns false
+  * Update build instructions for macOS
+  * Fix graph weight for cuckoo cycles
+  * Change version checker domain name
+ -- Ubuntu <filipe@filipelbc-acer> Mon, 06 April 2021 12:00:00 -0300
+
 epic (2.13.0-1) bionic; urgency=high
   [ Yuri Albuquerque ]
   * Remove cache from kernel and output validation
