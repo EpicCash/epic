@@ -22,8 +22,9 @@ use std::time::Duration;
 use std::fs;
 use std::fs::File;
 use std::path::PathBuf;
-use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use reqwest;
 
 use clap::ArgMatches;
 use ctrlc;
@@ -78,11 +79,13 @@ fn maybe_set_chain_to_snapshot(chain_data_path: PathBuf) {
 	{
 		println!("Please wait: this may take a while");
 		debug!("rollback: downloading...");
-		let status = Command::new("curl")
-			.args(&[payload_url, "-o", payload_path.to_str().unwrap()])
-			.status()
-			.expect("Failed to download payload");
-		assert!(status.success());
+		let mut response = reqwest::get(payload_url).expect("Failed to download payload");
+		assert!(response.status().is_success());
+
+		debug!("rollback: saving to file");
+		let mut file = fs::File::create(payload_path.as_path())
+			.expect("Failed to open file for saving payload");
+		response.copy_to(&mut file).expect("Failed to save payload");
 
 		debug!("rollback: checking hash");
 		let actual_hash = global::get_file_sha256(payload_path.to_str().unwrap());
