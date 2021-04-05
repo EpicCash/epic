@@ -1,6 +1,6 @@
 [package]
 name = "epic"
-version = "2.13.0"
+version = "2.15.0"
 authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
@@ -42,12 +42,10 @@ epic_p2p = { path = "./p2p", version = "1.0.0" }
 epic_servers = { path = "./servers", version = "1.0.0" }
 epic_util = { path = "./util", version = "1.0.0" }
 
-
 cursive = { version = "0.12", default-features = false, features = ["pancurses-backend"] }
 [target.'cfg(windows)'.dependencies.pancurses]
 version = "0.16.0"
 features = ["win32"]
-
 
 [[test]]
 name = "cucumber"

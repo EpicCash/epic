@@ -739,7 +739,7 @@ dependencies = [
 
 [[package]]
 name = "epic"
-version = "2.13.0"
+version = "2.15.0"
 dependencies = [
  "blake2-rfc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "built 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
