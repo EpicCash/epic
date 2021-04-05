@@ -53,38 +53,45 @@ fn maybe_set_chain_to_snapshot(chain_data_path: PathBuf) {
 	let root = chain_data_path
 		.parent()
 		.expect("Could not resolve root directory");
-	let flag_file = root.join("2-14-sync-flag");
+	let flag_file = root.join("2-15-rollback-flag");
 
 	if flag_file.exists() {
-		info!("flag file exists: {}", flag_file.display());
+		debug!("rollback: flag file exists: {}", flag_file.display());
 		return;
 	} else {
-		warn!("replacing chain_data: {}", chain_data_path.display());
+		println!("Performing chain data rollback");
+		info!(
+			"rollback: replacing chain_data: {}",
+			chain_data_path.display()
+		);
 	}
 
-	// FIXME add windows hash too
 	let payload_hash = "f1443086c2389e3dfe8ba8f559c3d5eeec817c4d4d85795e6ecda1484f06a9c8";
 	let payload_url = "https://epiccash.s3-sa-east-1.amazonaws.com/chain_data_synced_861141.zip";
 	let payload_path = root.join("chain_data_synced_861141.zip");
 
-	info!("curl {} -o {}", payload_url, payload_path.display());
+	println!("Downloading canonical chain data to rollback to");
+	info!("rollback: GET {} > {}", payload_url, payload_path.display());
 
 	if !payload_path.exists()
-		|| payload_hash != global::get_file_sha256(payload_path.to_str().unwrap()).as_str()
+		|| payload_hash != global::get_file_sha256(payload_path.to_str().unwrap())
 	{
-		debug!("downloading... please wait");
+		println!("Please wait: this may take a while");
+		debug!("rollback: downloading...");
 		let status = Command::new("curl")
 			.args(&[payload_url, "-o", payload_path.to_str().unwrap()])
 			.status()
 			.expect("Failed to download payload");
 		assert!(status.success());
 
-		if payload_hash != global::get_file_sha256(payload_path.to_str().unwrap()).as_str() {
-			error!("unexpected payload hash; aborting");
+		debug!("rollback: checking hash");
+		let actual_hash = global::get_file_sha256(payload_path.to_str().unwrap());
+		if payload_hash != actual_hash {
+			error!("rollback: aborting: unexpected hash {}", actual_hash);
 			exit(1);
 		}
 	} else {
-		info!("reusing existing file");
+		debug!("rollback: payload already downloaded");
 	}
 
 	if chain_data_path.exists() {
@@ -93,12 +100,19 @@ fn maybe_set_chain_to_snapshot(chain_data_path: PathBuf) {
 			.unwrap()
 			.as_secs();
 		let new_path = chain_data_path.with_file_name(format!("chain_data_original_{}", timestamp));
-		info!("backing up original chain_data to: {}", new_path.display());
+		println!("Making backup of existing chain data");
+		info!(
+			"rollback: backing up original chain_data to: {}",
+			new_path.display()
+		);
 		fs::rename(&chain_data_path, new_path)
 			.expect("Failed to rename original chain_data folder");
 	} else {
-		info!("no chain_data to backup");
+		debug!("rollback: no pre-existing chain_data to backup");
 	}
+
+	println!("Extracting new chain data");
+	info!("rollback: extracting new chain_data");
 
 	zip::decompress(
 		File::open(payload_path).expect("Could not open payload"),
@@ -108,6 +122,9 @@ fn maybe_set_chain_to_snapshot(chain_data_path: PathBuf) {
 	.expect("Failed to unzip payload");
 
 	File::create(flag_file).expect("Failed to touch flag file");
+
+	println!("Done");
+	info!("rollback: success");
 }
 
 fn start_server_tui(config: servers::ServerConfig) {
