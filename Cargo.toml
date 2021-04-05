@@ -32,6 +32,8 @@ term = "0.5"
 failure = "0.1"
 failure_derive = "0.1"
 
+reqwest = "0.9"
+
 epic_api = { path = "./api", version = "1.0.0" }
 epic_config = { path = "./config", version = "1.0.0" }
 epic_core = { path = "./core", version = "1.0.0" }
