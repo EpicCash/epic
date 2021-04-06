@@ -62,7 +62,7 @@ fn maybe_set_chain_to_snapshot(chain_data_path: PathBuf) {
 	} else {
 		println!("Performing chain data rollback");
 		info!(
-			"rollback: replacing chain_data: {}",
+			"rollback: replacing chain data: {}",
 			chain_data_path.display()
 		);
 	}
@@ -102,20 +102,24 @@ fn maybe_set_chain_to_snapshot(chain_data_path: PathBuf) {
 			.duration_since(UNIX_EPOCH)
 			.unwrap()
 			.as_secs();
-		let new_path = chain_data_path.with_file_name(format!("chain_data_original_{}", timestamp));
-		println!("Making backup of existing chain data");
-		info!(
-			"rollback: backing up original chain_data to: {}",
-			new_path.display()
+		let backup_path =
+			chain_data_path.with_file_name(format!("chain_data_original_{}", timestamp));
+		println!(
+			"Making backup of existing chain data to:\n  {}",
+			backup_path.display()
 		);
-		fs::rename(&chain_data_path, new_path)
-			.expect("Failed to rename original chain_data folder");
+		info!(
+			"rollback: backing up original chain data to: {}",
+			backup_path.display()
+		);
+		fs::rename(&chain_data_path, backup_path)
+			.expect("Failed to rename original chain data folder");
 	} else {
-		debug!("rollback: no pre-existing chain_data to backup");
+		debug!("rollback: no pre-existing chain data to backup");
 	}
 
 	println!("Extracting new chain data");
-	info!("rollback: extracting new chain_data");
+	info!("rollback: extracting new chain data");
 
 	zip::decompress(
 		File::open(payload_path).expect("Could not open payload"),
