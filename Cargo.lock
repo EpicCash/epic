@@ -795,7 +795,7 @@ dependencies = [
 
 [[package]]
 name = "epic"
-version = "3.0.0-alpha-4"
+version = "3.0.0-alpha-5"
 dependencies = [
  "blake2-rfc",
  "built",
