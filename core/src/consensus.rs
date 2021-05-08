@@ -391,17 +391,29 @@ pub fn graph_weight(height: u64, edge_bits: u8) -> u64 {
 		min_edge_bits += 12
 	}
 	let bits_over_min = edge_bits.saturating_sub(min_edge_bits);
-	let expiry_height = (1 << bits_over_min) * YEAR_HEIGHT;
+
+	// somebody slept through this and graph_weight becomes "0"
+	// to reactivate it we apply this quick fix by eccence.GbR
+	let expiry_height = if height > 880000 {
+		(1 << bits_over_min) * (YEAR_HEIGHT * 100)
+	} else {
+		(1 << bits_over_min) * (YEAR_HEIGHT)
+	};
+
+
 	if height >= expiry_height {
 		xpr_edge_bits = xpr_edge_bits.saturating_sub(1 + (height - expiry_height) / WEEK_HEIGHT);
 	}
 
-	(2 << (if edge_bits > global::base_edge_bits() {
-		edge_bits - global::base_edge_bits()
-	} else {
-		global::base_edge_bits() - edge_bits
-	}) as u64)
-		* xpr_edge_bits
+	let graph_weight: u64 =
+ 		(2 << (if edge_bits > global::base_edge_bits() {
+ 			edge_bits - global::base_edge_bits()
+ 		} else {
+ 			global::base_edge_bits() - edge_bits
+ 		}) as u64) * xpr_edge_bits;
+
+ 	debug!("graph_weight {:?}", graph_weight.clone());
+ 	graph_weight
 }
 
 /// Minimum difficulty, enforced in diff retargetting

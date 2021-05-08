@@ -32,6 +32,7 @@ use chrono::prelude::Utc;
 use chrono::Duration;
 use epic_store;
 use std::sync::Arc;
+use crate::core::core::block;
 
 /// Contextual information required to process a new block and either reject or
 /// accept it.
@@ -342,6 +343,8 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		// TODO add warning in p2p code if local time is too different from peers
 		return Err(ErrorKind::InvalidBlockTime.into());
 	}
+
+	check_bad_header(header)?;
 
 	if !ctx.opts.contains(Options::SKIP_POW) {
 		if !header.pow.is_primary() && !header.pow.is_secondary() {
@@ -665,3 +668,19 @@ fn validate_utxo(block: &Block, ext: &mut txhashset::ExtensionPair<'_>) -> Resul
 	let ref mut header_extension = ext.header_extension;
 	extension.utxo_view(header_extension).validate_block(block)
 }
+
+fn check_bad_header(header: &BlockHeader) -> Result<(), Error> {
+ 	let bad_hashes =
+ 		[
+ 			Hash::from_hex("840cdf3ad968bd6895b07e4e3235ee704226f85c3163d2da2e6764c7e2b81ea2")
+ 				.unwrap(),
+
+ 			Hash::from_hex("a98bbc899892d2553c52ef17cab6d708f9eaf7d575b3d62ca49bbf9d50ae55a7")
+ 				.unwrap(),
+ 		];
+ 	if bad_hashes.contains(&header.hash()) {
+ 		Err(ErrorKind::InvalidBlockProof(block::Error::Other("explicit bad header".into())).into())
+ 	} else {
+ 		Ok(())
+ 	}
+ }

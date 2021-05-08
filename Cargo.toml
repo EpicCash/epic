@@ -32,22 +32,22 @@ term = "0.5"
 failure = "0.1"
 failure_derive = "0.1"
 
-epic_api = { path = "./api", version = "2.0.0" }
-epic_config = { path = "./config", version = "2.0.0" }
-epic_core = { path = "./core", version = "2.0.0" }
-epic_keychain = { path = "./keychain", version = "2.0.0" }
-epic_p2p = { path = "./p2p", version = "2.0.0" }
-epic_servers = { path = "./servers", version = "2.0.0" }
-epic_util = { path = "./util", version = "2.0.0" }
-epic_chain = { path = "./chain", version = "2.0.0" }
+epic_api = { path = "./api", version = "3.0.0" }
+epic_config = { path = "./config", version = "3.0.0" }
+epic_core = { path = "./core", version = "3.0.0" }
+epic_keychain = { path = "./keychain", version = "3.0.0" }
+epic_p2p = { path = "./p2p", version = "3.0.0" }
+epic_servers = { path = "./servers", version = "3.0.0" }
+epic_util = { path = "./util", version = "3.0.0" }
+epic_chain = { path = "./chain", version = "3.0.0" }
 
 [target.'cfg(windows)'.dependencies]
-cursive = { version = "0.12", default-features = false, features = ["pancurses-backend"] }
+cursive = { version = "0.15", default-features = false, features = ["pancurses-backend"] }
 [target.'cfg(windows)'.dependencies.pancurses]
-version = "0.16.0"
+version = "0.16.1"
 features = ["win32"]
 [target.'cfg(unix)'.dependencies]
-cursive = "0.12"
+cursive = "0.15"
 
 [[test]]
 name = "cucumber"
@@ -57,5 +57,5 @@ harness = false
 built = "0.3"
 
 [dev-dependencies]
-epic_store = { path = "./store", version = "2.0.0" }
+epic_store = { path = "./store", version = "3.0.0" }
 cucumber_rust = { version = "^0.5.1", default-features = false }
