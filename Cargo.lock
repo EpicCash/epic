@@ -595,7 +595,6 @@ dependencies = [
  "libc",
  "log",
  "maplit",
- "ncurses",
  "pancurses",
  "signal-hook",
  "term_size",

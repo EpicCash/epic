@@ -104,21 +104,21 @@ pub const TESTING_TXHASHSET_ARCHIVE_INTERVAL: u64 = 10;
 /// Number of blocks to reuse a txhashset zip for.
 pub const TXHASHSET_ARCHIVE_INTERVAL: u64 = 12 * 60;
 
-pub const CURRENT_HEADER_VERSION: u16 = 7;
+pub const CURRENT_HEADER_VERSION: u16 = 6;
 
 #[cfg(target_family = "unix")]
 pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
 	"5a3a7584127dd31fba18eaeff1c551bfaa74b4e50e537a1e1904fe6730b17f5c";
 #[cfg(target_family = "windows")]
 pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
-	"4d01ca4134959d19ae1b76058c8d11040b63bd1bd112401b80b36185e7faf94a";
+	"5a3a7584127dd31fba18eaeff1c551bfaa74b4e50e537a1e1904fe6730b17f5c";
 
 #[cfg(target_family = "unix")]
 pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
-	"b4c2e178bf696eaaa35ed3f4eeecd50ebe4d45c9d3ca8f4081168b01deec1899";
+	"5a3a7584127dd31fba18eaeff1c551bfaa74b4e50e537a1e1904fe6730b17f5c";
 #[cfg(target_family = "windows")]
 pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
-	"c91a3866341c2a68bca56680ad33616e8d21f8770fca49d0539f1abbfd061916";
+	"5a3a7584127dd31fba18eaeff1c551bfaa74b4e50e537a1e1904fe6730b17f5c";
 
 /// Types of chain a server can run with, dictates the genesis block and
 /// and mining parameters used.
