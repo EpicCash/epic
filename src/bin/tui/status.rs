@@ -279,28 +279,28 @@ impl TUIStatusListener for TUIStatusView {
 		c.call_on_name("chain_timestamp", |t: &mut TextView| {
 			t.set_content(stats.chain_stats.latest_timestamp.to_string());
 		});
-		if let Some(header_stats) = &stats.header_stats {
-			let cuckoo_header_diff = header_stats.total_difficulty.to_num(PoWType::Cuckatoo);
-			let progpow_header_diff = header_stats.total_difficulty.to_num(PoWType::ProgPow);
-			let randomx_header_diff = header_stats.total_difficulty.to_num(PoWType::RandomX);
+
+			let cuckoo_header_diff = stats.header_stats.total_difficulty.to_num(PoWType::Cuckatoo);
+			let progpow_header_diff = stats.header_stats.total_difficulty.to_num(PoWType::ProgPow);
+			let randomx_header_diff = stats.header_stats.total_difficulty.to_num(PoWType::RandomX);
 			let header_total_difficulty = format!(
 				"Cuckatoo: {}, ProgPow: {}, RandomX: {}",
 				cuckoo_header_diff, progpow_header_diff, randomx_header_diff,
 			);
 
 			c.call_on_name("basic_header_tip_hash", |t: &mut TextView| {
-				t.set_content(header_stats.last_block_h.to_string() + "...");
+				t.set_content(stats.header_stats.last_block_h.to_string() + "...");
 			});
 			c.call_on_name("basic_header_chain_height", |t: &mut TextView| {
-				t.set_content(header_stats.height.to_string());
+				t.set_content(stats.header_stats.height.to_string());
 			});
 			c.call_on_name("basic_header_total_difficulty", |t: &mut TextView| {
 				t.set_content(header_total_difficulty);
 			});
 			c.call_on_name("basic_header_timestamp", |t: &mut TextView| {
-				t.set_content(header_stats.latest_timestamp.to_string());
+				t.set_content(stats.header_stats.latest_timestamp.to_string());
 			});
-		}
+		
 		if let Some(tx_stats) = &stats.tx_stats {
 			c.call_on_name("tx_pool_size", |t: &mut TextView| {
 				t.set_content(tx_stats.tx_pool_size.to_string());

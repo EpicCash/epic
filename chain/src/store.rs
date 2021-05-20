@@ -33,6 +33,7 @@ const BLOCK_HEADER_PREFIX: u8 = 'h' as u8;
 const BLOCK_PREFIX: u8 = 'b' as u8;
 const HEAD_PREFIX: u8 = 'H' as u8;
 const TAIL_PREFIX: u8 = 'T' as u8;
+const HEADER_HEAD_PREFIX: u8 = b'G';
 const COMMIT_POS_PREFIX: u8 = 'c' as u8;
 const COMMIT_POS_HGT_PREFIX: u8 = 'p' as u8;
 const BLOCK_INPUT_BITMAP_PREFIX: u8 = 'B' as u8;
@@ -66,6 +67,13 @@ impl ChainStore {
 	/// The current chain head.
 	pub fn head(&self) -> Result<Tip, Error> {
 		option_to_not_found(self.db.get_ser(&vec![HEAD_PREFIX]), || "HEAD".to_owned())
+	}
+
+	/// The current header head (may differ from chain head).
+	pub fn header_head(&self) -> Result<Tip, Error> {
+		option_to_not_found(self.db.get_ser(&[HEADER_HEAD_PREFIX]), || {
+			"HEADER_HEAD".to_owned()
+		})
 	}
 
 	/// The current chain "tail" (earliest block in the store).
@@ -173,6 +181,13 @@ impl<'a> Batch<'a> {
 		option_to_not_found(self.db.get_ser(&vec![HEAD_PREFIX]), || "HEAD".to_owned())
 	}
 
+	/// The current header head (may differ from chain head).
+	pub fn header_head(&self) -> Result<Tip, Error> {
+		option_to_not_found(self.db.get_ser(&[HEADER_HEAD_PREFIX]), || {
+			"HEADER_HEAD".to_owned()
+		})
+	}
+
 	/// The tail.
 	pub fn tail(&self) -> Result<Tip, Error> {
 		option_to_not_found(self.db.get_ser(&vec![TAIL_PREFIX]), || "TAIL".to_owned())
@@ -191,6 +206,11 @@ impl<'a> Batch<'a> {
 	/// Save body "tail" to db.
 	pub fn save_body_tail(&self, t: &Tip) -> Result<(), Error> {
 		self.db.put_ser(&vec![TAIL_PREFIX], t)
+	}
+
+	/// Save header head to db.
+	pub fn save_header_head(&self, t: &Tip) -> Result<(), Error> {
+		self.db.put_ser(&[HEADER_HEAD_PREFIX], t)
 	}
 
 	/// get block
