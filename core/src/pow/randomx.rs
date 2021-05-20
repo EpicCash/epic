@@ -1,4 +1,4 @@
-extern crate randomx;
+extern crate randomx_rs;
 
 use std::marker::PhantomData;
 
@@ -7,7 +7,7 @@ use crate::pow::error::{Error, ErrorKind};
 use crate::pow::{PoWContext, Proof};
 use crate::util::RwLock;
 
-use randomx::{slow_hash, RxState};
+use randomx_rs::{slow_hash, RxState};
 
 lazy_static! {
 	pub static ref RX_STATE: RwLock<RxState> = RwLock::new(RxState::new());

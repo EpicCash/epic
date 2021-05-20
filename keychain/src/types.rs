@@ -33,7 +33,7 @@ use crate::util::secp::key::{PublicKey, SecretKey};
 use crate::util::secp::pedersen::Commitment;
 use crate::util::secp::{self, Message, Secp256k1, Signature};
 use crate::util::static_secp_instance;
-use zeroize::Zeroize;
+
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
@@ -232,8 +232,7 @@ impl fmt::Display for Identifier {
 	}
 }
 
-#[derive(Default, Clone, PartialEq, Serialize, Deserialize, Zeroize)]
-#[zeroize(drop)]
+#[derive(Default, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BlindingFactor([u8; SECRET_KEY_SIZE]);
 
 // Dummy `Debug` implementation that prevents secret leakage.
