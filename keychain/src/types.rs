@@ -34,7 +34,6 @@ use crate::util::secp::pedersen::Commitment;
 use crate::util::secp::{self, Message, Secp256k1, Signature};
 use crate::util::static_secp_instance;
 
-
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 // Size of an identifier in bytes
