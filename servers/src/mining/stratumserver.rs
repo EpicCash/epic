@@ -60,8 +60,8 @@ type Tx = mpsc::UnboundedSender<String>;
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 enum Id {
-    Integer(i64),
-    String(String),
+	Integer(i64),
+	String(String),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -287,7 +287,7 @@ impl Handler {
 	}
 	fn handle_rpc_requests(&self, request: RpcRequest, worker_id: usize) -> String {
 		self.workers.last_seen(worker_id);
-info!("request: {:?}", request);
+		info!("request: {:?}", request);
 		// Call the handler function for requested method
 		let response = match request.method.as_str() {
 			"login" => self.handle_login(request.params, worker_id),
@@ -813,7 +813,7 @@ fn accept_connections(listen_addr: SocketAddr, handler: Arc<Handler>) {
 				.for_each(move |line| {
 					let request = serde_json::from_str(&line)?;
 					let resp = h.handle_rpc_requests(request, worker_id);
-                    info!("Worker resp {:?}", resp);
+					info!("Worker resp {:?}", resp);
 					workers.send_to(worker_id, resp);
 					Ok(())
 				})

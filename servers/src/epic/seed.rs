@@ -37,9 +37,7 @@ const MAINNET_DNS_SEEDS: &'static [&'static str] = &[
 	"ec2-54-233-177-64.sa-east-1.compute.amazonaws.com",
 	"ec2-3-218-126-145.compute-1.amazonaws.com",
 ];
-const FLOONET_DNS_SEEDS: &'static [&'static str] = &[
-	"95.217.197.180",
-];
+const FLOONET_DNS_SEEDS: &'static [&'static str] = &["95.217.197.180"];
 pub fn connect_and_monitor(
 	p2p_server: Arc<p2p::Server>,
 	capabilities: p2p::Capabilities,
