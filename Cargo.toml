@@ -19,6 +19,16 @@ exclude = ["etc/gen_gen"]
 name = "epic"
 path = "src/bin/epic.rs"
 
+
+[target.'cfg(windows)'.dependencies]
+cursive = { version = "0.14", default-features = false, features = ["pancurses-backend"] }
+[target.'cfg(windows)'.dependencies.pancurses]
+version = "0.16.0"
+features = ["win32"]
+[target.'cfg(unix)'.dependencies]
+cursive = "0.12"
+
+
 [dependencies]
 blake2-rfc = "0.2"
 chrono = "0.4.4"
@@ -40,12 +50,6 @@ epic_p2p = { path = "./p2p", version = "3.0.0" }
 epic_servers = { path = "./servers", version = "3.0.0" }
 epic_util = { path = "./util", version = "3.0.0" }
 epic_chain = { path = "./chain", version = "3.0.0" }
-
-
-cursive = { version = "0.15", default-features = false, features = ["pancurses-backend"] }
-[target.'cfg(windows)'.dependencies.pancurses]
-version = "0.16.1"
-features = ["win32"]
 
 
 [[test]]

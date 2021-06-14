@@ -57,10 +57,16 @@ type Tx = mpsc::UnboundedSender<String>;
 // ----------------------------------------
 // http://www.jsonrpc.org/specification
 // RPC Methods
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(untagged)]
+enum Id {
+    Integer(i64),
+    String(String),
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct RpcRequest {
-	id: String,
+	id: Id,
 	jsonrpc: String,
 	method: String,
 	params: Option<Value>,
@@ -68,7 +74,7 @@ struct RpcRequest {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct RpcResponse {
-	id: String,
+	id: Id,
 	jsonrpc: String,
 	method: String,
 	result: Option<Value>,
@@ -281,7 +287,7 @@ impl Handler {
 	}
 	fn handle_rpc_requests(&self, request: RpcRequest, worker_id: usize) -> String {
 		self.workers.last_seen(worker_id);
-
+info!("request: {:?}", request);
 		// Call the handler function for requested method
 		let response = match request.method.as_str() {
 			"login" => self.handle_login(request.params, worker_id),
@@ -647,7 +653,7 @@ impl Handler {
 		// Issue #1159 - use a serde_json Value type to avoid extra quoting
 		let job_template_value: Value = serde_json::from_str(&job_template_json).unwrap();
 		let job_request = RpcRequest {
-			id: String::from("Stratum"),
+			id: Id::String(String::from("Stratum")),
 			jsonrpc: String::from("2.0"),
 			method: String::from("job"),
 			params: Some(job_template_value),
@@ -807,6 +813,7 @@ fn accept_connections(listen_addr: SocketAddr, handler: Arc<Handler>) {
 				.for_each(move |line| {
 					let request = serde_json::from_str(&line)?;
 					let resp = h.handle_rpc_requests(request, worker_id);
+                    info!("Worker resp {:?}", resp);
 					workers.send_to(worker_id, resp);
 					Ok(())
 				})
