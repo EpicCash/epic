@@ -82,7 +82,6 @@ pub fn load_foundation_output(height: u64) -> CbData {
 	);
 	let offset = height * (FOUNDATION_COINBASE_SIZE as u64);
 
-
 	if offset >= file_len {
 		// TODO: What should we do when the foundations blocks ends ?
 		panic!("Not implemented yet!");

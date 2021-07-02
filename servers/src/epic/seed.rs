@@ -33,10 +33,11 @@ use crate::p2p::ChainAdapter;
 use crate::util::StopState;
 
 // DNS Seeds with contact email associated
-const MAINNET_DNS_SEEDS: &'static [&'static str] =
-	&["ec2-54-233-177-64.sa-east-1.compute.amazonaws.com", "ec2-3-218-126-145.compute-1.amazonaws.com"];
-const FLOONET_DNS_SEEDS: &'static [&'static str] =
-	&["95.217.197.180"];
+const MAINNET_DNS_SEEDS: &'static [&'static str] = &[
+	"ec2-54-233-177-64.sa-east-1.compute.amazonaws.com",
+	"ec2-3-218-126-145.compute-1.amazonaws.com",
+];
+const FLOONET_DNS_SEEDS: &'static [&'static str] = &["95.217.197.180"];
 
 pub fn connect_and_monitor(
 	p2p_server: Arc<p2p::Server>,
@@ -176,7 +177,6 @@ fn monitor_peers(
 	// maintenance step first, clean up p2p server peers
 	peers.clean_peers(config.peer_max_count() as usize);
 
-
 	if peers.healthy_peers_mix() {
 		return;
 	}
@@ -204,15 +204,13 @@ fn monitor_peers(
 		ts.sort();
 
 		let half = ts.len() / 2;
-		let median_ts:i64 = if (ts.len() % 2) == 0 {
+		let median_ts: i64 = if (ts.len() % 2) == 0 {
 			ts[half]
-		}else{
+		} else {
 			(ts[half - 1] + ts[half]) / 2
 		};
 		global::set_network_adjusted_time(median_ts);
 	}
-
-
 
 	// Attempt to connect to preferred peers if there is some
 	if let Some(preferred_peers) = preferred_peers_list {
@@ -318,9 +316,11 @@ fn listen_for_addrs(
 		let now = Utc::now();
 
 		if let Some(last_connect_time) = connecting_history.get(&addr) {
-
 			info!("peer utc now {:?}", now);
-			info!("Duration::seconds(connect_min_interval) {:?}", *last_connect_time + Duration::seconds(connect_min_interval));
+			info!(
+				"Duration::seconds(connect_min_interval) {:?}",
+				*last_connect_time + Duration::seconds(connect_min_interval)
+			);
 
 			if *last_connect_time + Duration::seconds(connect_min_interval) > now {
 				debug!(
