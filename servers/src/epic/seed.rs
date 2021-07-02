@@ -36,7 +36,7 @@ use crate::util::StopState;
 const MAINNET_DNS_SEEDS: &'static [&'static str] =
 	&["ec2-54-233-177-64.sa-east-1.compute.amazonaws.com", "ec2-3-218-126-145.compute-1.amazonaws.com"];
 const FLOONET_DNS_SEEDS: &'static [&'static str] =
-	&["ec2-18-228-59-100.sa-east-1.compute.amazonaws.com", "ec2-54-167-215-66.compute-1.amazonaws.com"];
+	&["95.217.197.180"];
 
 pub fn connect_and_monitor(
 	p2p_server: Arc<p2p::Server>,
@@ -316,7 +316,12 @@ fn listen_for_addrs(
 	for addr in addrs.into_iter().take(p2p.config.peer_max_count() as usize) {
 		// ignore the duplicate connecting to same peer within 30 seconds
 		let now = Utc::now();
+
 		if let Some(last_connect_time) = connecting_history.get(&addr) {
+
+			info!("peer utc now {:?}", now);
+			info!("Duration::seconds(connect_min_interval) {:?}", *last_connect_time + Duration::seconds(connect_min_interval));
+
 			if *last_connect_time + Duration::seconds(connect_min_interval) > now {
 				debug!(
 					"peer_connect: ignore a duplicate request to {}. previous connecting time: {}",
