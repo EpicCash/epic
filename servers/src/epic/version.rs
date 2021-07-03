@@ -1,12 +1,26 @@
 use crate::core::global::Version;
+use crate::core::global;
 use std::io::{self, Error, ErrorKind};
 use std::str;
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::Resolver;
 
+const MAINNET_DNS_VERSION: &str = "epicversion.epic.tech.";
+
+const FLOONET_DNS_VERSION: &str = "epicversion.51pool.online.";
+
+
 pub fn get_dns_version() -> io::Result<Version> {
 	let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default())?;
-	let response = resolver.txt_lookup("epicversion.epic.tech.")?;
+
+	let txt_lookup = if global::is_floonet() {
+		FLOONET_DNS_VERSION
+	} else {
+		MAINNET_DNS_VERSION
+	};
+	info!("txt_lookup {:?}", txt_lookup);
+	let response = resolver.txt_lookup(txt_lookup)?;
+
 	let response_next = response.iter().next().ok_or(Error::new(
 		ErrorKind::Other,
 		"Invalid response when checking the node version!",

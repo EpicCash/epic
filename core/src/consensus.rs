@@ -315,7 +315,7 @@ pub const MAX_BLOCK_WEIGHT: usize = 40_000;
 pub const MAINNET_FIRST_HARD_FORK: u64 = 700000;
 
 /// Floonet first hard fork height
-pub const FLOONET_FIRST_HARD_FORK: u64 = 5760;
+pub const FLOONET_FIRST_HARD_FORK: u64 = 5800;
 
 /// AutomatedTesting and UserTesting first hard fork height.
 pub const TESTING_FIRST_HARD_FORK: u64 = 6;
