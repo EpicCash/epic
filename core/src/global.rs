@@ -104,7 +104,7 @@ pub const TESTING_TXHASHSET_ARCHIVE_INTERVAL: u64 = 10;
 /// Number of blocks to reuse a txhashset zip for.
 pub const TXHASHSET_ARCHIVE_INTERVAL: u64 = 12 * 60;
 
-pub const CURRENT_HEADER_VERSION: u16 = 7;
+pub const CURRENT_HEADER_VERSION: u16 = 6;
 
 #[cfg(target_family = "unix")]
 pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
