@@ -81,6 +81,10 @@ impl PMMRHandle<BlockHeader> {
 	pub fn get_header_hash_by_height(&self, height: u64) -> Result<Hash, Error> {
 		let pos = pmmr::insertion_to_pmmr_index(height + 1);
 		let header_pmmr = ReadonlyPMMR::at(&self.backend, self.last_pos);
+
+		info!("######### self.last_pos {:?}", self.last_pos);
+		info!("######### header_pmmr {:?}", header_pmmr.get_data(pos));
+
 		if let Some(entry) = header_pmmr.get_data(pos) {
 			Ok(entry.hash())
 		} else {

@@ -1186,9 +1186,18 @@ impl Chain {
 			None => self.head_header()?.height,
 		};
 		// Return headers at the given heights
+
+		info!("################ start_block_height {:?}", start_block_height);
+		info!("################ end_block_height {:?}", end_block_height);
+
 		let prev_to_start_header =
 			self.get_header_by_height(start_block_height.saturating_sub(1))?;
 		let end_header = self.get_header_by_height(end_block_height)?;
+
+
+		info!("################ prev_to_start_header {:?}", prev_to_start_header);
+		info!("################ end_header {:?}", end_header);
+
 		Ok((
 			prev_to_start_header.output_mmr_size + 1,
 			end_header.output_mmr_size,
@@ -1259,12 +1268,18 @@ impl Chain {
 	/// Note: Takes a read lock on the header_pmmr.
 	pub fn get_header_by_height(&self, height: u64) -> Result<BlockHeader, Error> {
 		let hash = self.get_header_hash_by_height(height)?;
+
 		self.get_block_header(&hash)
 	}
 
 	/// Gets the header hash at the provided height.
 	/// Note: Takes a read lock on the header_pmmr.
 	fn get_header_hash_by_height(&self, height: u64) -> Result<Hash, Error> {
+
+		info!("######### get_header_hash_by_height{:?}", height);
+
+
+
 		self.header_pmmr.read().get_header_hash_by_height(height)
 	}
 
@@ -1575,7 +1590,7 @@ fn setup_head(
 
 			// Save the genesis header with a "zero" header_root.
 			// We will update this later once we have the correct header_root.
-			
+
 			batch.save_block(&genesis)?;
 			batch.save_body_head(&Tip::from_header(&genesis.header))?;
 
