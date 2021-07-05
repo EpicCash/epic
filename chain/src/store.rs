@@ -20,11 +20,12 @@ use crate::core::core::hash::{Hash, Hashed};
 use crate::core::core::{Block, BlockHeader, BlockSums};
 use crate::core::pow::{Difficulty, PoWType};
 use crate::core::ser::ProtocolVersion;
-use crate::types::Tip;
+use crate::types::{CommitPos, Tip};
 use crate::util::secp::pedersen::Commitment;
 use croaring::Bitmap;
 use epic_store as store;
 use epic_store::{option_to_not_found, to_key, Error, SerIterator};
+use std::convert::TryInto;
 use std::sync::Arc;
 
 const STORE_SUBPATH: &'static str = "chain";
@@ -33,11 +34,13 @@ const BLOCK_HEADER_PREFIX: u8 = 'h' as u8;
 const BLOCK_PREFIX: u8 = 'b' as u8;
 const HEAD_PREFIX: u8 = 'H' as u8;
 const TAIL_PREFIX: u8 = 'T' as u8;
+const OUTPUT_POS_PREFIX: u8 = b'p';
 const HEADER_HEAD_PREFIX: u8 = b'G';
 const COMMIT_POS_PREFIX: u8 = 'c' as u8;
 const COMMIT_POS_HGT_PREFIX: u8 = 'p' as u8;
 const BLOCK_INPUT_BITMAP_PREFIX: u8 = 'B' as u8;
 const BLOCK_SUMS_PREFIX: u8 = 'M' as u8;
+const BLOCK_SPENT_PREFIX: u8 = b'S';
 
 /// All chain-related database operations
 pub struct ChainStore {
@@ -181,16 +184,16 @@ impl<'a> Batch<'a> {
 		option_to_not_found(self.db.get_ser(&vec![HEAD_PREFIX]), || "HEAD".to_owned())
 	}
 
+	/// The tail.
+	pub fn tail(&self) -> Result<Tip, Error> {
+		option_to_not_found(self.db.get_ser(&vec![TAIL_PREFIX]), || "TAIL".to_owned())
+	}
+
 	/// The current header head (may differ from chain head).
 	pub fn header_head(&self) -> Result<Tip, Error> {
 		option_to_not_found(self.db.get_ser(&[HEADER_HEAD_PREFIX]), || {
 			"HEADER_HEAD".to_owned()
 		})
-	}
-
-	/// The tail.
-	pub fn tail(&self) -> Result<Tip, Error> {
-		option_to_not_found(self.db.get_ser(&vec![TAIL_PREFIX]), || "TAIL".to_owned())
 	}
 
 	/// Header of the block at the head of the block chain (not the same thing as header_head).
@@ -226,16 +229,19 @@ impl<'a> Batch<'a> {
 		self.db.exists(&to_key(BLOCK_PREFIX, &mut h.to_vec()))
 	}
 
-	/// Save the block and the associated input bitmap.
+	/// Save the block to the db.
 	/// Note: the block header is not saved to the db here, assumes this has already been done.
 	pub fn save_block(&self, b: &Block) -> Result<(), Error> {
-		// Build the "input bitmap" for this new block and store it in the db.
-		self.build_and_store_block_input_bitmap(&b)?;
-
-		// Save the block itself to the db.
 		self.db
 			.put_ser(&to_key(BLOCK_PREFIX, &mut b.hash().to_vec())[..], b)?;
+		Ok(())
+	}
 
+	/// We maintain a "spent" index for each full block to allow the output_pos
+	/// to be easily reverted during rewind.
+	pub fn save_spent_index(&self, h: &Hash, spent: &Vec<CommitPos>) -> Result<(), Error> {
+		self.db
+			.put_ser(&to_key(BLOCK_SPENT_PREFIX, &mut h.to_vec())[..], spent)?;
 		Ok(())
 	}
 
@@ -288,6 +294,26 @@ impl<'a> Batch<'a> {
 			&to_key(COMMIT_POS_HGT_PREFIX, &mut commit.as_ref().to_vec())[..],
 			&(pos, height),
 		)
+	}
+
+	/// Delete the output_pos index entry for a spent output.
+	pub fn delete_output_pos_height(&self, commit: &Commitment) -> Result<(), Error> {
+		self.db
+			.delete(&to_key(OUTPUT_POS_PREFIX, &mut commit.as_ref().to_vec()))
+	}
+
+	/// When using the output_pos iterator we have access to the index keys but not the
+	/// original commitment that the key is constructed from. So we need a way of comparing
+	/// a key with another commitment without reconstructing the commitment from the key bytes.
+	pub fn is_match_output_pos_key(&self, key: &[u8], commit: &Commitment) -> bool {
+		let commit_key = to_key(OUTPUT_POS_PREFIX, &mut commit.as_ref().to_vec());
+		commit_key == key
+	}
+
+	/// Iterator over the output_pos index.
+	pub fn output_pos_iter(&self) -> Result<SerIterator<(u64, u64)>, Error> {
+		let key = to_key(OUTPUT_POS_PREFIX, &mut "".to_string().into_bytes());
+		self.db.iter(&key)
 	}
 
 	/// Get output_pos from index.
@@ -352,6 +378,17 @@ impl<'a> Batch<'a> {
 		)
 	}
 
+	/// Delete the block spent index.
+	fn delete_spent_index(&self, bh: &Hash) -> Result<(), Error> {
+		// Clean up the legacy input bitmap as well.
+		let _ = self
+			.db
+			.delete(&to_key(BLOCK_INPUT_BITMAP_PREFIX, &mut bh.to_vec()));
+
+		self.db
+			.delete(&to_key(BLOCK_SPENT_PREFIX, &mut bh.to_vec()))
+	}
+
 	/// Save the input bitmap for the block.
 	fn save_block_input_bitmap(&self, bh: &Hash, bm: &Bitmap) -> Result<(), Error> {
 		self.db.put(
@@ -385,45 +422,39 @@ impl<'a> Batch<'a> {
 		self.db.delete(&to_key(BLOCK_SUMS_PREFIX, &mut bh.to_vec()))
 	}
 
-	/// Build the input bitmap for the given block.
-	fn build_block_input_bitmap(&self, block: &Block) -> Result<Bitmap, Error> {
-		let bitmap = block
-			.inputs()
-			.iter()
-			.filter_map(|x| self.get_output_pos(&x.commitment()).ok())
-			.map(|x| x as u32)
-			.collect();
-		Ok(bitmap)
-	}
-
-	/// Build and store the input bitmap for the given block.
-	fn build_and_store_block_input_bitmap(&self, block: &Block) -> Result<Bitmap, Error> {
-		// Build the bitmap.
-		let bitmap = self.build_block_input_bitmap(block)?;
-
-		// Save the bitmap to the db (via the batch).
-		self.save_block_input_bitmap(&block.hash(), &bitmap)?;
-
-		Ok(bitmap)
-	}
-
-	/// Get the block input bitmap from the db or build the bitmap from
-	/// the full block from the db (if the block is found).
+	/// Get the block input bitmap based on our spent index.
+	/// Fallback to legacy block input bitmap from the db.
 	pub fn get_block_input_bitmap(&self, bh: &Hash) -> Result<Bitmap, Error> {
+		if let Ok(spent) = self.get_spent_index(bh) {
+			let bitmap = spent
+				.into_iter()
+				.map(|x| x.pos.try_into().unwrap())
+				.collect();
+			Ok(bitmap)
+		} else {
+			self.get_legacy_input_bitmap(bh)
+		}
+	}
+
+	fn get_legacy_input_bitmap(&self, bh: &Hash) -> Result<Bitmap, Error> {
 		if let Ok(Some(bytes)) = self
 			.db
 			.get(&to_key(BLOCK_INPUT_BITMAP_PREFIX, &mut bh.to_vec()))
 		{
 			Ok(Bitmap::deserialize(&bytes))
 		} else {
-			match self.get_block(bh) {
-				Ok(block) => {
-					let bitmap = self.build_and_store_block_input_bitmap(&block)?;
-					Ok(bitmap)
-				}
-				Err(e) => Err(e),
-			}
+			Err(Error::NotFoundErr("legacy block input bitmap".to_string()).into())
 		}
+	}
+
+	/// Get the "spent index" from the db for the specified block.
+	/// If we need to rewind a block then we use this to "unspend" the spent outputs.
+	pub fn get_spent_index(&self, bh: &Hash) -> Result<Vec<CommitPos>, Error> {
+		option_to_not_found(
+			self.db
+				.get_ser(&to_key(BLOCK_SPENT_PREFIX, &mut bh.to_vec())),
+			|| format!("spent index: {}", bh),
+		)
 	}
 
 	/// Commits this batch. If it's a child batch, it will be merged with the
