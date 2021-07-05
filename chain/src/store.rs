@@ -30,16 +30,14 @@ use std::sync::Arc;
 
 const STORE_SUBPATH: &'static str = "chain";
 
-const BLOCK_HEADER_PREFIX: u8 = 'h' as u8;
-const BLOCK_PREFIX: u8 = 'b' as u8;
-const HEAD_PREFIX: u8 = 'H' as u8;
-const TAIL_PREFIX: u8 = 'T' as u8;
-const OUTPUT_POS_PREFIX: u8 = b'p';
+const BLOCK_HEADER_PREFIX: u8 = b'h';
+const BLOCK_PREFIX: u8 = b'b';
+const HEAD_PREFIX: u8 = b'H';
+const TAIL_PREFIX: u8 = b'T';
 const HEADER_HEAD_PREFIX: u8 = b'G';
-const COMMIT_POS_PREFIX: u8 = 'c' as u8;
-const COMMIT_POS_HGT_PREFIX: u8 = 'p' as u8;
-const BLOCK_INPUT_BITMAP_PREFIX: u8 = 'B' as u8;
-const BLOCK_SUMS_PREFIX: u8 = 'M' as u8;
+const OUTPUT_POS_PREFIX: u8 = b'p';
+const BLOCK_INPUT_BITMAP_PREFIX: u8 = b'B';
+const BLOCK_SUMS_PREFIX: u8 = b'M';
 const BLOCK_SPENT_PREFIX: u8 = b'S';
 
 /// All chain-related database operations
