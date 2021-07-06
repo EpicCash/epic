@@ -26,7 +26,7 @@ use crate::error::{Error, ErrorKind};
 use crate::store;
 use crate::store::BottleIter;
 use crate::txhashset;
-use crate::types::{Options, Tip};
+use crate::types::{CommitPos, Options, Tip};
 use crate::util::RwLock;
 use chrono::prelude::Utc;
 use chrono::Duration;
@@ -163,10 +163,10 @@ pub fn process_block(b: &Block, ctx: &mut BlockContext<'_>) -> Result<Option<Tip
 		Ok((block_sums, spent))
 	})?;
 
-	// Add the validated block to the db.
+	// Add the validated block to the db along with the corresponding block_sums.
 	// We do this even if we have not increased the total cumulative work
 	// so we can maintain multiple (in progress) forks.
-	add_block(b, &ctx.batch)?;
+	add_block(b, &block_sums, &spent, &ctx.batch)?;
 
 	// If we have no "tail" then set it now.
 	if ctx.batch.tail().is_err() {
@@ -182,8 +182,8 @@ pub fn process_block(b: &Block, ctx: &mut BlockContext<'_>) -> Result<Option<Tip
 	}
 }
 
-/// Process the block header.
-/// This is only ever used during sync and uses a context based on sync_head.
+/// Sync a chunk of block headers.
+/// This is only used during header sync.
 pub fn sync_block_headers(
 	headers: &[BlockHeader],
 	ctx: &mut BlockContext<'_>,
@@ -226,6 +226,7 @@ pub fn sync_block_headers(
 	if has_more_work(last_header, &header_head) {
 		update_header_head(&Tip::from_header(last_header), &mut ctx.batch)?;
 	}
+
 	Ok(())
 }
 
@@ -306,9 +307,8 @@ fn check_known_store(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result
 			// Not yet processed this block, we can proceed.
 			Ok(())
 		}
-		Err(e) => {
-			return Err(ErrorKind::StoreErr(e, "pipe get this block".to_owned()).into());
-		}
+		Err(e) => Err(ErrorKind::StoreErr(e, "pipe get this block".to_owned()).into()),
+
 	}
 }
 
@@ -495,7 +495,7 @@ fn validate_block(block: &Block, ctx: &mut BlockContext<'_>) -> Result<(), Error
 	let prev = ctx.batch.get_previous_header(&block.header)?;
 	block
 		.validate(&prev.total_kernel_offset, ctx.verifier_cache.clone())
-		.map_err(|e| ErrorKind::InvalidBlockProof(e))?;
+		.map_err(ErrorKind::InvalidBlockProof)?;
 	Ok(())
 }
 
@@ -541,17 +541,25 @@ fn apply_block_to_txhashset(
 	block: &Block,
 	ext: &mut txhashset::ExtensionPair<'_>,
 	batch: &store::Batch<'_>,
-) -> Result<(), Error> {
-	ext.extension.apply_block(block, batch)?;
+) -> Result<Vec<CommitPos>, Error> {
+	let spent = ext.extension.apply_block(block, batch)?;
 	ext.extension.validate_roots(&block.header)?;
 	ext.extension.validate_sizes(&block.header)?;
-	Ok(())
+	Ok(spent)
 }
 
 /// Officially adds the block to our chain (possibly on a losing fork).
+/// Adds the associated block_sums and spent_index as well.
 /// Header must be added separately (assume this has been done previously).
-fn add_block(b: &Block, batch: &store::Batch<'_>) -> Result<(), Error> {
+fn add_block(
+	b: &Block,
+	block_sums: &BlockSums,
+	spent: &Vec<CommitPos>,
+	batch: &store::Batch<'_>,
+) -> Result<(), Error> {
 	batch.save_block(b)?;
+	batch.save_block_sums(&b.hash(), block_sums)?;
+	batch.save_spent_index(&b.hash(), spent)?;
 	Ok(())
 }
 

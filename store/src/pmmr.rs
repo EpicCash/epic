@@ -19,7 +19,7 @@ use std::{io, time};
 use crate::core::core::hash::{Hash, Hashed};
 use crate::core::core::pmmr::{self, family, Backend};
 use crate::core::core::BlockHeader;
-use crate::core::ser::{FixedLength, PMMRable, ProtocolVersion};
+use crate::core::ser::{PMMRable, ProtocolVersion};
 use crate::leaf_set::LeafSet;
 use crate::prune_list::PruneList;
 use crate::types::{AppendOnlyFile, DataFile, SizeEntry, SizeInfo};
@@ -111,7 +111,7 @@ impl<T: PMMRable> Backend<T> for PMMRBackend<T> {
 	/// Get the hash at pos.
 	/// Return None if pos is a leaf and it has been removed (or pruned or
 	/// compacted).
-	fn get_hash(&self, pos: u64) -> Option<(Hash)> {
+	fn get_hash(&self, pos: u64) -> Option<Hash> {
 		if self.prunable && pmmr::is_leaf(pos) && !self.leaf_set.includes(pos) {
 			return None;
 		}
@@ -120,7 +120,7 @@ impl<T: PMMRable> Backend<T> for PMMRBackend<T> {
 
 	/// Get the data at pos.
 	/// Return None if it has been removed or if pos is not a leaf node.
-	fn get_data(&self, pos: u64) -> Option<(T::E)> {
+	fn get_data(&self, pos: u64) -> Option<T::E> {
 		if !pmmr::is_leaf(pos) {
 			return None;
 		}
@@ -174,7 +174,7 @@ impl<T: PMMRable> Backend<T> for PMMRBackend<T> {
 	fn data_as_temp_file(&self) -> Result<File, String> {
 		self.data_file
 			.as_temp_file()
-			.map_err(|_| format!("Failed to build temp data file"))
+			.map_err(|_| "Failed to build temp data file".to_string())
 	}
 
 	/// Rewind the PMMR backend to the given position.
@@ -230,6 +230,7 @@ impl<T: PMMRable> Backend<T> for PMMRBackend<T> {
 
 impl<T: PMMRable> PMMRBackend<T> {
 	/// Instantiates a new PMMR backend.
+	/// If optional size is provided then treat as "fixed" size otherwise "variable" size backend.
 	/// Use the provided dir to store its files.
 	pub fn new<P: AsRef<Path>>(
 		data_dir: P,

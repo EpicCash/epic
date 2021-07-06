@@ -28,7 +28,7 @@ use epic_store::{option_to_not_found, to_key, Error, SerIterator};
 use std::convert::TryInto;
 use std::sync::Arc;
 
-const STORE_SUBPATH: &'static str = "chain";
+const STORE_SUBPATH: &str = "chain";
 
 const BLOCK_HEADER_PREFIX: u8 = b'h';
 const BLOCK_PREFIX: u8 = b'b';
