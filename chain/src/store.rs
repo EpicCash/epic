@@ -243,7 +243,7 @@ impl<'a> Batch<'a> {
 		// Not an error if these fail.
 		{
 			let _ = self.delete_block_sums(bh);
-			let _ = self.delete_block_input_bitmap(bh);
+			let _ = self.delete_spent_index(bh);
 		}
 
 		Ok(())
@@ -330,20 +330,6 @@ impl<'a> Batch<'a> {
 
 		self.db
 			.delete(&to_key(BLOCK_SPENT_PREFIX, &mut bh.to_vec()))
-	}
-
-	/// Save the input bitmap for the block.
-	fn save_block_input_bitmap(&self, bh: &Hash, bm: &Bitmap) -> Result<(), Error> {
-		self.db.put(
-			&to_key(BLOCK_INPUT_BITMAP_PREFIX, &mut bh.to_vec())[..],
-			&bm.serialize(),
-		)
-	}
-
-	/// Delete the block input bitmap.
-	fn delete_block_input_bitmap(&self, bh: &Hash) -> Result<(), Error> {
-		self.db
-			.delete(&to_key(BLOCK_INPUT_BITMAP_PREFIX, &mut bh.to_vec()))
 	}
 
 	/// Save block_sums for the block.

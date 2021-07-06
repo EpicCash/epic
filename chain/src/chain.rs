@@ -335,7 +335,7 @@ impl Chain {
 						added: Instant::now(),
 					};
 
-					&self.orphans.add(orphan);
+					self.orphans.add(orphan);
 
 					debug!(
 						"process_block: orphan: {:?}, # orphans {}{}",
@@ -365,7 +365,7 @@ impl Chain {
 						b.header.height,
 						e
 					);
-					Err(ErrorKind::Other(format!("{:?}", e).to_owned()).into())
+					Err(ErrorKind::Other(format!("{:?}", e)).into())
 				}
 			},
 		}
