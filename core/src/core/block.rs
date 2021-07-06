@@ -23,6 +23,7 @@ use chrono::Duration;
 use keccak_hash::keccak_256;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::convert::TryInto;
 use std::fmt;
 use std::iter::FromIterator;
 use std::sync::Arc;
@@ -285,6 +286,12 @@ impl PMMRable for BlockHeader {
 			secondary_scaling: self.pow.secondary_scaling,
 			is_secondary: self.pow.is_secondary(),
 		}
+	}
+
+	// Size is hash + u64 + difficulty + u32 + u8.
+	fn elmt_size() -> Option<u16> {
+		const LEN: usize = Hash::LEN + 8 + Difficulty::LEN + 4 + 1;
+		Some(LEN.try_into().unwrap())
 	}
 }
 

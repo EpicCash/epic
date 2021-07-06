@@ -27,6 +27,7 @@ use enum_primitive::FromPrimitive;
 use keychain::{self, BlindingFactor};
 use std::cmp::Ordering;
 use std::cmp::{max, min};
+use std::convert::TryInto;
 use std::sync::Arc;
 use std::{error, fmt};
 use util;
@@ -345,12 +346,16 @@ impl Readable for TxKernel {
 }
 
 /// We store kernels in the kernel MMR.
-/// Note: These are "variable size" to support different kernel featuere variants.
+/// Note: These are "variable size" to support different kernel feature variants.
 impl PMMRable for TxKernel {
 	type E = Self;
 
 	fn as_elmt(&self) -> Self::E {
 		self.clone()
+	}
+
+	fn elmt_size() -> Option<u16> {
+		None
 	}
 }
 
@@ -1416,6 +1421,14 @@ impl PMMRable for Output {
 
 	fn as_elmt(&self) -> OutputIdentifier {
 		OutputIdentifier::from_output(self)
+	}
+
+	fn elmt_size() -> Option<u16> {
+		Some(
+			(1 + secp::constants::PEDERSEN_COMMITMENT_SIZE)
+				.try_into()
+				.unwrap(),
+		)
 	}
 }
 

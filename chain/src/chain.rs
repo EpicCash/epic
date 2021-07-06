@@ -180,7 +180,6 @@ impl Chain {
 			"header",
 			"header_head",
 			false,
-			true,
 			ProtocolVersion(1),
 			None,
 		)?;
@@ -189,7 +188,6 @@ impl Chain {
 			"header",
 			"sync_head",
 			false,
-			true,
 			ProtocolVersion(1),
 			None,
 		)?;
@@ -311,7 +309,7 @@ impl Chain {
 			// but not yet committed the batch.
 			// A node shutdown at this point can be catastrophic...
 			// We prevent this via the stop_lock (see above).
-			if let Ok(_) = maybe_new_head {
+			if maybe_new_head.is_ok() {
 				ctx.batch.commit()?;
 			}
 
@@ -1269,7 +1267,6 @@ impl Chain {
 	/// Note: Takes a read lock on the header_pmmr.
 	pub fn get_header_by_height(&self, height: u64) -> Result<BlockHeader, Error> {
 		let hash = self.get_header_hash_by_height(height)?;
-
 		self.get_block_header(&hash)
 	}
 
