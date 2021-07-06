@@ -48,7 +48,7 @@ pub struct ChainStore {
 impl ChainStore {
 	/// Create new chain store
 	pub fn new(db_root: &str) -> Result<ChainStore, Error> {
-		let db = store::Store::new(db_root, None, Some(STORE_SUBPATH.clone()), None)?;
+		let db = store::Store::new(db_root, None, Some(STORE_SUBPATH), None)?;
 		Ok(ChainStore { db })
 	}
 
@@ -67,7 +67,7 @@ impl ChainStore {
 impl ChainStore {
 	/// The current chain head.
 	pub fn head(&self) -> Result<Tip, Error> {
-		option_to_not_found(self.db.get_ser(&vec![HEAD_PREFIX]), || "HEAD".to_owned())
+		option_to_not_found(self.db.get_ser(&[HEAD_PREFIX]), || "HEAD".to_owned())
 	}
 
 	/// The current header head (may differ from chain head).
@@ -79,7 +79,7 @@ impl ChainStore {
 
 	/// The current chain "tail" (earliest block in the store).
 	pub fn tail(&self) -> Result<Tip, Error> {
-		option_to_not_found(self.db.get_ser(&vec![TAIL_PREFIX]), || "TAIL".to_owned())
+		option_to_not_found(self.db.get_ser(&[TAIL_PREFIX]), || "TAIL".to_owned())
 	}
 
 	/// Header of the block at the head of the block chain (not the same thing as header_head).
@@ -158,7 +158,7 @@ impl<'a> Batch<'a> {
 
 	/// The tail.
 	pub fn tail(&self) -> Result<Tip, Error> {
-		option_to_not_found(self.db.get_ser(&vec![TAIL_PREFIX]), || "TAIL".to_owned())
+		option_to_not_found(self.db.get_ser(&[TAIL_PREFIX]), || "TAIL".to_owned())
 	}
 
 	/// The current header head (may differ from chain head).
@@ -175,12 +175,12 @@ impl<'a> Batch<'a> {
 
 	/// Save body head to db.
 	pub fn save_body_head(&self, t: &Tip) -> Result<(), Error> {
-		self.db.put_ser(&vec![HEAD_PREFIX], t)
+		self.db.put_ser(&[HEAD_PREFIX], t)
 	}
 
 	/// Save body "tail" to db.
 	pub fn save_body_tail(&self, t: &Tip) -> Result<(), Error> {
-		self.db.put_ser(&vec![TAIL_PREFIX], t)
+		self.db.put_ser(&[TAIL_PREFIX], t)
 	}
 
 	/// Save header head to db.
@@ -527,6 +527,7 @@ impl<'a> Iterator for DifficultyIter<'a> {
 			self.prev_header = prev_head_iter;
 
 			Some(HeaderInfo::new(
+				header.hash(),
 				header.timestamp.timestamp() as u64,
 				difficulty,
 				scaling,
@@ -633,6 +634,7 @@ impl<'a> Iterator for DifficultyIterAll<'a> {
 			let scaling = header.pow.secondary_scaling;
 
 			Some(HeaderInfo::new(
+				header.hash(),
 				header.timestamp.timestamp() as u64,
 				difficulty,
 				scaling,
