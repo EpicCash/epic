@@ -643,7 +643,7 @@ impl Chain {
 	/// Provides a reading view into the current kernel state.
 	pub fn kernel_data_read(&self) -> Result<File, Error> {
 		let txhashset = self.txhashset.read();
-		txhashset::rewindable_kernel_view(&txhashset, |view| view.kernel_data_read())
+		txhashset::rewindable_kernel_view(&txhashset, |view, _| view.kernel_data_read())
 	}
 
 	/// Writes kernels provided to us (via a kernel data download).
@@ -720,11 +720,11 @@ impl Chain {
 
 		let mut count = 0;
 		let mut current = header.clone();
-		txhashset::rewindable_kernel_view(&txhashset, |view| {
+		txhashset::rewindable_kernel_view(&txhashset, |view, batch| {
 			while current.height > 0 {
 				view.rewind(&current)?;
 				view.validate_root()?;
-				current = view.batch().get_previous_header(&current)?;
+				current = batch.get_previous_header(&current)?;
 				count += 1;
 			}
 			Ok(())

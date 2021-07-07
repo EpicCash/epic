@@ -225,6 +225,7 @@ pub fn sync_block_headers(
 
 	let header_head = ctx.batch.header_head()?;
 	if has_more_work(last_header, &header_head) {
+		info!("################ sync_block_headers update header head ##################");
 		update_header_head(&Tip::from_header(last_header), &mut ctx.batch)?;
 	}
 
@@ -272,6 +273,7 @@ pub fn process_block_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) ->
 	add_block_header(header, &ctx.batch)?;
 
 	if has_more_work(header, &header_head) {
+		info!("################ process_block_header update header head ##################");
 		update_header_head(&Tip::from_header(header), &mut ctx.batch)?;
 	}
 

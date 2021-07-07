@@ -19,7 +19,7 @@ use crate::core::verifier_cache::VerifierCache;
 use crate::core::{committed, Committed};
 use crate::libtx::secp_ser;
 use crate::ser::{
-	self, read_multi, FixedLength, PMMRable, ProtocolVersion, Readable, Reader,
+	self, read_multi, PMMRable, ProtocolVersion, Readable, Reader,
 	VerifySortedAndUnique, Writeable, Writer,
 };
 use crate::{consensus, global};
@@ -359,12 +359,6 @@ impl PMMRable for TxKernel {
 	}
 }
 
-/// Kernels are "variable size" but we need to implement FixedLength for legacy reasons.
-/// At some point we will refactor the MMR backend so this is no longer required.
-impl FixedLength for TxKernel {
-	const LEN: usize = 0;
-}
-
 impl KernelFeatures {
 	/// Is this a coinbase kernel?
 	pub fn is_coinbase(&self) -> bool {
@@ -631,37 +625,33 @@ impl TransactionBody {
 		Ok(body)
 	}
 
+
 	/// Builds a new body with the provided inputs added. Existing
 	/// inputs, if any, are kept intact.
 	/// Sort order is maintained.
 	pub fn with_input(mut self, input: Input) -> TransactionBody {
-		self.inputs
-			.binary_search(&input)
-			.err()
-			.map(|e| self.inputs.insert(e, input));
-		self
+	if let Err(e) = self.inputs.binary_search(&input) {
+		self.inputs.insert(e, input)
+	};
+	self
 	}
-
 	/// Builds a new TransactionBody with the provided output added. Existing
 	/// outputs, if any, are kept intact.
 	/// Sort order is maintained.
 	pub fn with_output(mut self, output: Output) -> TransactionBody {
-		self.outputs
-			.binary_search(&output)
-			.err()
-			.map(|e| self.outputs.insert(e, output));
-		self
+	if let Err(e) = self.outputs.binary_search(&output) {
+		self.outputs.insert(e, output)
+	};
+	self
 	}
-
 	/// Builds a new TransactionBody with the provided kernel added. Existing
 	/// kernels, if any, are kept intact.
 	/// Sort order is maintained.
 	pub fn with_kernel(mut self, kernel: TxKernel) -> TransactionBody {
-		self.kernels
-			.binary_search(&kernel)
-			.err()
-			.map(|e| self.kernels.insert(e, kernel));
-		self
+	if let Err(e) = self.kernels.binary_search(&kernel) {
+		self.kernels.insert(e, kernel)
+	};
+	self
 	}
 
 	/// Builds a new TransactionBody replacing any existing kernels with the provided kernel.
@@ -1434,13 +1424,12 @@ impl PMMRable for Output {
 
 impl OutputFeatures {
 	/// Is this a coinbase output?
-	pub fn is_coinbase(&self) -> bool {
-		*self == OutputFeatures::Coinbase
+	pub fn is_coinbase(self) -> bool {
+		self == OutputFeatures::Coinbase
 	}
-
 	/// Is this a plain output?
-	pub fn is_plain(&self) -> bool {
-		*self == OutputFeatures::Plain
+	pub fn is_plain(self) -> bool {
+		self == OutputFeatures::Plain
 	}
 }
 
@@ -1549,9 +1538,6 @@ impl OutputIdentifier {
 	}
 }
 
-impl FixedLength for OutputIdentifier {
-	const LEN: usize = 1 + secp::constants::PEDERSEN_COMMITMENT_SIZE;
-}
 
 impl Writeable for OutputIdentifier {
 	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
@@ -1592,7 +1578,7 @@ mod test {
 		let keychain = ExtKeychain::from_random_seed(false).unwrap();
 		let key_id = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 		let commit = keychain
-			.commit(5, &key_id, &SwitchCommitmentType::Regular)
+			.commit(5, &key_id, SwitchCommitmentType::Regular)
 			.unwrap();
 
 		// just some bytes for testing ser/deser
@@ -1641,12 +1627,12 @@ mod test {
 		let key_id = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 
 		let commit = keychain
-			.commit(1003, &key_id, &SwitchCommitmentType::Regular)
+			.commit(1003, &key_id, SwitchCommitmentType::Regular)
 			.unwrap();
 		let key_id = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 
 		let commit_2 = keychain
-			.commit(1003, &key_id, &SwitchCommitmentType::Regular)
+			.commit(1003, &key_id, SwitchCommitmentType::Regular)
 			.unwrap();
 
 		assert!(commit == commit_2);
@@ -1657,7 +1643,7 @@ mod test {
 		let keychain = ExtKeychain::from_seed(&[0; 32], false).unwrap();
 		let key_id = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 		let commit = keychain
-			.commit(5, &key_id, &SwitchCommitmentType::Regular)
+			.commit(5, &key_id, SwitchCommitmentType::Regular)
 			.unwrap();
 
 		let input = Input {
