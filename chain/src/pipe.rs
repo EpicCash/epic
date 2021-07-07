@@ -211,6 +211,7 @@ pub fn sync_block_headers(
 	// Validate each header in the chunk and add to our db.
 	// Note: This batch may be rolled back later if the MMR does not validate successfully.
 	for header in headers {
+		check_bad_header(header)?;
 		validate_header(header, ctx)?;
 		add_block_header(header, &ctx.batch)?;
 	}
@@ -606,6 +607,8 @@ fn update_head(head: &Tip, batch: &mut store::Batch<'_>) -> Result<(), Error> {
 
 // Whether the provided block totals more work than the chain tip
 fn has_more_work(header: &BlockHeader, head: &Tip) -> bool {
+	info!("has more work header.total_difficulty() {:?}", header.total_difficulty());
+	info!("has more work head.total_difficulty {:?}", head.total_difficulty);
 	header.total_difficulty() > head.total_difficulty
 }
 
