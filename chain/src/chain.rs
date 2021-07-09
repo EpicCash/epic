@@ -200,6 +200,15 @@ impl Chain {
 			&mut txhashset,
 		)?;
 
+		// Initialize the output_pos index based on UTXO set.
+		// This is fast as we only look for stale and missing entries
+		// and do not need to rebuild the entire index.
+		{
+			let batch = store.batch()?;
+			txhashset.init_output_pos_index(&header_pmmr, &batch)?;
+			batch.commit()?;
+		}
+
 		let chain = Chain {
 			db_root,
 			store,
