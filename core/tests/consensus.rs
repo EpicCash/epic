@@ -20,6 +20,7 @@ use self::core::global;
 use self::core::pow::{Difficulty, PoWType};
 use chrono::prelude::Utc;
 use std::fmt::{self, Display};
+use self::core::core::hash::ZERO_HASH;
 
 /// Last n blocks for difficulty calculation purposes
 /// (copied from stats in server crate)
@@ -86,6 +87,7 @@ fn repeat(interval: u64, diff: HeaderInfo, len: u64, cur_time: Option<u64>) -> V
 	pairs
 		.map(|(t, d)| {
 			HeaderInfo::new(
+				ZERO_HASH,
 				cur_time + t as u64,
 				d.clone(),
 				diff.secondary_scaling,

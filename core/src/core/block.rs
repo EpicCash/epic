@@ -44,7 +44,7 @@ use crate::core::{
 use crate::global;
 use crate::keychain::{self, BlindingFactor};
 use crate::pow::{verify_size, Difficulty, Proof, ProofOfWork};
-use crate::ser::{self, FixedLength, PMMRable, Readable, Reader, Writeable, Writer};
+use crate::ser::{self, PMMRable, Readable, Reader, Writeable, Writer};
 use crate::util::{secp, static_secp_instance};
 
 use crate::core::foundation::load_foundation_output;
@@ -171,9 +171,6 @@ impl Writeable for HeaderEntry {
 	}
 }
 
-impl FixedLength for HeaderEntry {
-	const LEN: usize = Hash::LEN + 8 + Difficulty::LEN + 4 + 1;
-}
 
 impl Hashed for HeaderEntry {
 	/// The hash of the underlying block.
@@ -598,7 +595,6 @@ impl Block {
 			let proof_size = global::proofsize();
 			block.header.pow.proof = Proof::random(proof_size);
 		}
-
 		Ok(block)
 	}
 

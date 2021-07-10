@@ -215,6 +215,7 @@ fn build_block(
 	};
 
 	// making sure we're not spending time mining a useless block
+	
 	b.validate(&head.total_kernel_offset, verifier_cache)?;
 
 	let mut seed_u8 = [0u8; 32];

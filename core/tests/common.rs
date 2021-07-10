@@ -144,6 +144,10 @@ impl PMMRable for TestElem {
 	fn as_elmt(&self) -> Self::E {
 		self.clone()
 	}
+	/// Size of each element if "fixed" size. Elements are "variable" size if None.
+	fn elmt_size() -> Option<u16> {
+		Some(4)
+	}
 }
 
 impl Writeable for TestElem {
