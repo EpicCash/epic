@@ -196,11 +196,7 @@ pub fn sync_block_headers(
 	// Check if we know about all these headers. If so we can accept them quickly.
 	// If they *do not* increase total work on the sync chain we are done.
 	// If they *do* increase total work then we should process them to update sync_head.
-	let sync_head = {
-		let hash = ctx.header_pmmr.head_hash()?;
-		let header = ctx.batch.get_block_header(&hash)?;
-		Tip::from_header(&header)
-	};
+	let sync_head = ctx.batch.get_sync_head()?;
 
 	if let Ok(existing) = ctx.batch.get_block_header(&last_header.hash()) {
 		if !has_more_work(&existing, &sync_head) {
@@ -218,15 +214,14 @@ pub fn sync_block_headers(
 
 
 	// Now apply this entire chunk of headers to the sync MMR (ctx is sync MMR specific).
-	txhashset::header_extending(&mut ctx.header_pmmr, &mut ctx.batch, |ext, batch| {
+	txhashset::header_extending(&mut ctx.header_pmmr, &sync_head, &mut ctx.batch, |ext, batch| {
 		rewind_and_apply_header_fork(&last_header, ext, batch)?;
 		Ok(())
 	})?;
 
-	let header_head = ctx.batch.header_head()?;
-	if has_more_work(last_header, &header_head) {
-		info!("################ sync_block_headers update header head ##################");
-		update_header_head(&Tip::from_header(last_header), &mut ctx.batch)?;
+
+	if has_more_work(&last_header, &sync_head) {
+		update_sync_head(&Tip::from_header(&last_header), &mut ctx.batch)?;
 	}
 
 	Ok(())
@@ -259,7 +254,7 @@ pub fn process_block_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) ->
 
 
 
-	txhashset::header_extending(&mut ctx.header_pmmr, &mut ctx.batch, |ext, batch| {
+	txhashset::header_extending(&mut ctx.header_pmmr, &header_head, &mut ctx.batch, |ext, batch| {
 		rewind_and_apply_header_fork(&prev_header, ext, batch)?;
 		ext.validate_root(header)?;
 		ext.apply_header(header)?;
@@ -273,7 +268,6 @@ pub fn process_block_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) ->
 	add_block_header(header, &ctx.batch)?;
 
 	if has_more_work(header, &header_head) {
-		info!("################ process_block_header update header head ##################");
 		update_header_head(&Tip::from_header(header), &mut ctx.batch)?;
 	}
 
@@ -581,6 +575,18 @@ fn add_block_header(bh: &BlockHeader, batch: &store::Batch<'_>) -> Result<(), Er
 	batch
 		.save_block_header(bh)
 		.map_err(|e| ErrorKind::StoreErr(e, "pipe save header".to_owned()))?;
+	Ok(())
+}
+
+/// Update the sync head so we can keep syncing from where we left off.
+fn update_sync_head(head: &Tip, batch: &mut store::Batch<'_>) -> Result<(), Error> {
+	batch
+		.save_sync_head(&head)
+		.map_err(|e| ErrorKind::StoreErr(e, "pipe save sync head".to_owned()))?;
+	debug!(
+		"sync_head updated to {} at {}",
+		head.last_block_h, head.height
+	);
 	Ok(())
 }
 

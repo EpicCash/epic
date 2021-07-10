@@ -79,9 +79,6 @@ impl PMMRHandle<BlockHeader> {
 		let pos = pmmr::insertion_to_pmmr_index(height + 1);
 		let header_pmmr = ReadonlyPMMR::at(&self.backend, self.last_pos);
 
-		info!("######### self.last_pos {:?}", self.last_pos);
-		info!("######### header_pmmr {:?}", header_pmmr.get_data(pos));
-
 		if let Some(entry) = header_pmmr.get_data(pos) {
 			Ok(entry.hash())
 		} else {
@@ -89,20 +86,6 @@ impl PMMRHandle<BlockHeader> {
 		}
 	}
 
-	/// Get the header hash for the head of the header chain based on current MMR state.
-	/// Find the last leaf pos based on MMR size and return its header hash.
-	pub fn head_hash(&self) -> Result<Hash, Error> {
-		if self.last_pos == 0 {
-			return Err(ErrorKind::Other(format!("MMR empty, no head")).into());
-		}
-		let header_pmmr = ReadonlyPMMR::at(&self.backend, self.last_pos);
-		let leaf_pos = pmmr::bintree_rightmost(self.last_pos);
-		if let Some(entry) = header_pmmr.get_data(leaf_pos) {
-			Ok(entry.hash())
-		} else {
-			Err(ErrorKind::Other(format!("failed to find head hash")).into())
-		}
-	}
 }
 
 /// An easy to manipulate structure holding the 3 sum trees necessary to
@@ -487,13 +470,8 @@ where
 	trace!("Starting new txhashset (readonly) extension.");
 
 	let head = batch.head()?;
+	let header_head = batch.header_head()?;
 
-	// Find header head based on current header MMR (the rightmost leaf node in the MMR).
-	let header_head = {
-		let hash = handle.head_hash()?;
-		let header = batch.get_block_header(&hash)?;
-		Tip::from_header(&header)
-	};
 
 	let res = {
 		let header_pmmr = PMMR::at(&mut handle.backend, handle.last_pos);
@@ -593,13 +571,7 @@ where
 	let bitmap_accumulator: BitmapAccumulator;
 
 	let head = batch.head()?;
-
-	// Find header head based on current header MMR (the rightmost leaf node in the MMR).
-	let header_head = {
-		let hash = header_pmmr.head_hash()?;
-		let header = batch.get_block_header(&hash)?;
-		Tip::from_header(&header)
-	};
+	let header_head = batch.header_head()?;
 
 	// create a child transaction so if the state is rolled back by itself, all
 	// index saving can be undone
@@ -664,6 +636,7 @@ where
 /// to allow headers to be validated before we receive the full block data.
 pub fn header_extending<'a, F, T>(
 	handle: &'a mut PMMRHandle<BlockHeader>,
+	head: &Tip,
 	batch: &'a mut Batch<'_>,
 	inner: F,
 ) -> Result<T, Error>
@@ -679,17 +652,17 @@ where
 	let child_batch = batch.child()?;
 
 	// Find chain head based on current MMR (the rightmost leaf node in the MMR).
-	let head = match handle.head_hash() {
+	/*let head = match handle.head_hash() {
 		Ok(hash) => {
 			let header = child_batch.get_block_header(&hash)?;
 			Tip::from_header(&header)
 		}
 		Err(_) => Tip::default(),
-	};
+	};*/
 
 	{
 		let pmmr = PMMR::at(&mut handle.backend, handle.last_pos);
-		let mut extension = HeaderExtension::new(pmmr, head);
+		let mut extension = HeaderExtension::new(pmmr, head.clone());
 		res = inner(&mut extension, &child_batch);
 
 		rollback = extension.rollback;

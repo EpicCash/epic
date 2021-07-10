@@ -34,11 +34,13 @@ const BLOCK_HEADER_PREFIX: u8 = b'h';
 const BLOCK_PREFIX: u8 = b'b';
 const HEAD_PREFIX: u8 = b'H';
 const TAIL_PREFIX: u8 = b'T';
-const HEADER_HEAD_PREFIX: u8 = b'G';
+const SYNC_HEAD_PREFIX: u8 = b's';
+const HEADER_HEAD_PREFIX: u8 = b'I';
 const OUTPUT_POS_PREFIX: u8 = b'p';
 const BLOCK_INPUT_BITMAP_PREFIX: u8 = b'B';
 const BLOCK_SUMS_PREFIX: u8 = b'M';
 const BLOCK_SPENT_PREFIX: u8 = b'S';
+
 
 /// All chain-related database operations
 pub struct ChainStore {
@@ -74,6 +76,13 @@ impl ChainStore {
 	pub fn header_head(&self) -> Result<Tip, Error> {
 		option_to_not_found(self.db.get_ser(&[HEADER_HEAD_PREFIX]), || {
 			"HEADER_HEAD".to_owned()
+		})
+	}
+
+	/// The "sync" head.
+	pub fn get_sync_head(&self) -> Result<Tip, Error> {
+		option_to_not_found(self.db.get_ser(&[SYNC_HEAD_PREFIX]), || {
+			"SYNC_HEAD".to_owned()
 		})
 	}
 
@@ -168,6 +177,13 @@ impl<'a> Batch<'a> {
 		})
 	}
 
+	/// Get "sync" head.
+	pub fn get_sync_head(&self) -> Result<Tip, Error> {
+		option_to_not_found(self.db.get_ser(&[SYNC_HEAD_PREFIX]), || {
+			"SYNC_HEAD".to_owned()
+		})
+	}
+
 	/// Header of the block at the head of the block chain (not the same thing as header_head).
 	pub fn head_header(&self) -> Result<BlockHeader, Error> {
 		self.get_block_header(&self.head()?.last_block_h)
@@ -186,6 +202,23 @@ impl<'a> Batch<'a> {
 	/// Save header head to db.
 	pub fn save_header_head(&self, t: &Tip) -> Result<(), Error> {
 		self.db.put_ser(&[HEADER_HEAD_PREFIX], t)
+	}
+
+	/// Reset sync_head to the current head of the header chain.
+	pub fn reset_sync_head(&self) -> Result<(), Error> {
+		let head = self.header_head()?;
+		self.save_sync_head(&head)
+	}
+
+	/// Reset header_head to the current head of the body chain.
+	pub fn reset_header_head(&self) -> Result<(), Error> {
+		let tip = self.head()?;
+		self.save_header_head(&tip)
+	}
+
+	/// Save "sync" head to db.
+	pub fn save_sync_head(&self, t: &Tip) -> Result<(), Error> {
+		self.db.put_ser(&[SYNC_HEAD_PREFIX], t)
 	}
 
 	/// get block
