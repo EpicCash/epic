@@ -41,7 +41,6 @@ const BLOCK_INPUT_BITMAP_PREFIX: u8 = b'B';
 const BLOCK_SUMS_PREFIX: u8 = b'M';
 const BLOCK_SPENT_PREFIX: u8 = b'S';
 
-
 /// All chain-related database operations
 pub struct ChainStore {
 	db: store::Store,

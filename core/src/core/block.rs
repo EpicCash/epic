@@ -915,9 +915,9 @@ impl Block {
 				secp.commit_value(reward_foundation(self.total_fees(), self.header.height))?;
 
 			let out_adjust_sum =
-				secp.commit_sum(map_vec!(cb_outs, |x| x.commitment() ), vec![over_commit])?;
+				secp.commit_sum(map_vec!(cb_outs, |x| x.commitment()), vec![over_commit])?;
 
-			let kerns_sum = secp.commit_sum(cb_kerns.iter().map(|x| x.excess ).collect(), vec![])?;
+			let kerns_sum = secp.commit_sum(cb_kerns.iter().map(|x| x.excess).collect(), vec![])?;
 
 			// Verify the kernel sum equals the output sum accounting for block fees.
 			if kerns_sum != out_adjust_sum {

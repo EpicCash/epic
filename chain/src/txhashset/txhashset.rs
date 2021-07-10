@@ -36,7 +36,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
-
 const TXHASHSET_SUBDIR: &str = "txhashset";
 const OUTPUT_SUBDIR: &str = "output";
 const RANGE_PROOF_SUBDIR: &str = "rangeproof";
@@ -85,7 +84,6 @@ impl PMMRHandle<BlockHeader> {
 			Err(ErrorKind::Other(format!("get header hash by height")).into())
 		}
 	}
-
 }
 
 /// An easy to manipulate structure holding the 3 sum trees necessary to
@@ -445,10 +443,7 @@ impl TxHashSet {
 		);
 		Ok(())
 	}
-
 }
-
-
 
 /// Starts a new unit of work to extend (or rewind) the chain with additional
 /// blocks. Accepts a closure that will operate within that unit of work.
@@ -471,7 +466,6 @@ where
 
 	let head = batch.head()?;
 	let header_head = batch.header_head()?;
-
 
 	let res = {
 		let header_pmmr = PMMR::at(&mut handle.backend, handle.last_pos);
@@ -544,7 +538,6 @@ where
 		let header = batch.head_header()?;
 		let mut view = RewindableKernelView::new(kernel_pmmr, header);
 		res = inner(&mut view, &batch);
-
 	}
 	res
 }
@@ -696,7 +689,6 @@ pub struct HeaderExtension<'a> {
 
 	/// Rollback flag.
 	rollback: bool,
-
 }
 
 impl<'a> HeaderExtension<'a> {

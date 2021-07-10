@@ -15,6 +15,7 @@
 //! Implementation of the chain block acceptance (or refusal) pipeline.
 
 use crate::core::consensus;
+use crate::core::core::block;
 use crate::core::core::feijoada::{is_allowed_policy, PoWType};
 use crate::core::core::hash::{Hash, Hashed};
 use crate::core::core::verifier_cache::VerifierCache;
@@ -32,7 +33,6 @@ use chrono::prelude::Utc;
 use chrono::Duration;
 use epic_store;
 use std::sync::Arc;
-use crate::core::core::block;
 
 /// Contextual information required to process a new block and either reject or
 /// accept it.
@@ -212,13 +212,16 @@ pub fn sync_block_headers(
 		add_block_header(header, &ctx.batch)?;
 	}
 
-
 	// Now apply this entire chunk of headers to the sync MMR (ctx is sync MMR specific).
-	txhashset::header_extending(&mut ctx.header_pmmr, &sync_head, &mut ctx.batch, |ext, batch| {
-		rewind_and_apply_header_fork(&last_header, ext, batch)?;
-		Ok(())
-	})?;
-
+	txhashset::header_extending(
+		&mut ctx.header_pmmr,
+		&sync_head,
+		&mut ctx.batch,
+		|ext, batch| {
+			rewind_and_apply_header_fork(&last_header, ext, batch)?;
+			Ok(())
+		},
+	)?;
 
 	if has_more_work(&last_header, &sync_head) {
 		update_sync_head(&Tip::from_header(&last_header), &mut ctx.batch)?;
@@ -252,17 +255,20 @@ pub fn process_block_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) ->
 		}
 	}
 
-
-
-	txhashset::header_extending(&mut ctx.header_pmmr, &header_head, &mut ctx.batch, |ext, batch| {
-		rewind_and_apply_header_fork(&prev_header, ext, batch)?;
-		ext.validate_root(header)?;
-		ext.apply_header(header)?;
-		if !has_more_work(&header, &header_head) {
-			ext.force_rollback();
-		}
-		Ok(())
-	})?;
+	txhashset::header_extending(
+		&mut ctx.header_pmmr,
+		&header_head,
+		&mut ctx.batch,
+		|ext, batch| {
+			rewind_and_apply_header_fork(&prev_header, ext, batch)?;
+			ext.validate_root(header)?;
+			ext.apply_header(header)?;
+			if !has_more_work(&header, &header_head) {
+				ext.force_rollback();
+			}
+			Ok(())
+		},
+	)?;
 
 	validate_header(header, ctx)?;
 	add_block_header(header, &ctx.batch)?;
@@ -305,7 +311,6 @@ fn check_known_store(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result
 			Ok(())
 		}
 		Err(e) => Err(ErrorKind::StoreErr(e, "pipe get this block".to_owned()).into()),
-
 	}
 }
 
@@ -615,8 +620,14 @@ fn update_head(head: &Tip, batch: &mut store::Batch<'_>) -> Result<(), Error> {
 
 // Whether the provided block totals more work than the chain tip
 fn has_more_work(header: &BlockHeader, head: &Tip) -> bool {
-	info!("has more work header.total_difficulty() {:?}", header.total_difficulty());
-	info!("has more work head.total_difficulty {:?}", head.total_difficulty);
+	info!(
+		"has more work header.total_difficulty() {:?}",
+		header.total_difficulty()
+	);
+	info!(
+		"has more work head.total_difficulty {:?}",
+		head.total_difficulty
+	);
 	header.total_difficulty() > head.total_difficulty
 }
 
@@ -708,17 +719,13 @@ fn validate_utxo(
 }
 
 fn check_bad_header(header: &BlockHeader) -> Result<(), Error> {
- 	let bad_hashes =
- 		[
- 			Hash::from_hex("840cdf3ad968bd6895b07e4e3235ee704226f85c3163d2da2e6764c7e2b81ea2")
- 				.unwrap(),
-
- 			Hash::from_hex("a98bbc899892d2553c52ef17cab6d708f9eaf7d575b3d62ca49bbf9d50ae55a7")
- 				.unwrap(),
- 		];
- 	if bad_hashes.contains(&header.hash()) {
- 		Err(ErrorKind::InvalidBlockProof(block::Error::Other("explicit bad header".into())).into())
- 	} else {
- 		Ok(())
- 	}
- }
+	let bad_hashes = [
+		Hash::from_hex("840cdf3ad968bd6895b07e4e3235ee704226f85c3163d2da2e6764c7e2b81ea2").unwrap(),
+		Hash::from_hex("a98bbc899892d2553c52ef17cab6d708f9eaf7d575b3d62ca49bbf9d50ae55a7").unwrap(),
+	];
+	if bad_hashes.contains(&header.hash()) {
+		Err(ErrorKind::InvalidBlockProof(block::Error::Other("explicit bad header".into())).into())
+	} else {
+		Ok(())
+	}
+}

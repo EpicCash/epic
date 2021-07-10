@@ -31,7 +31,7 @@ use crate::store;
 use crate::txhashset;
 use crate::txhashset::{PMMRHandle, TxHashSet};
 use crate::types::{
-	BlockStatus, ChainAdapter, NoStatus, CommitPos, Options, Tip, TxHashsetWriteStatus,
+	BlockStatus, ChainAdapter, CommitPos, NoStatus, Options, Tip, TxHashsetWriteStatus,
 };
 use crate::util::secp::pedersen::{Commitment, RangeProof};
 use crate::util::RwLock;
@@ -227,7 +227,6 @@ impl Chain {
 		{
 			// Migrate full blocks to protocol version v2.
 			chain.migrate_db_v1_v2()?;
-
 		}
 
 		chain.log_heads()?;
@@ -1209,11 +1208,9 @@ impl Chain {
 		};
 		// Return headers at the given heights
 
-
 		let prev_to_start_header =
 			self.get_header_by_height(start_block_height.saturating_sub(1))?;
 		let end_header = self.get_header_by_height(end_block_height)?;
-
 
 		Ok((
 			prev_to_start_header.output_mmr_size + 1,
@@ -1554,7 +1551,7 @@ fn setup_head(
 				ext.extension.apply_block(&genesis, batch)
 			})?;
 
-						// Save the block_sums to the db for use later.
+			// Save the block_sums to the db for use later.
 			batch.save_block_sums(&genesis.hash(), &sums)?;
 
 			info!("init: saved genesis: {:?}", genesis.hash());
