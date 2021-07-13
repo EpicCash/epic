@@ -23,6 +23,7 @@ use chrono::Duration;
 use keccak_hash::keccak_256;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::convert::TryInto;
 use std::fmt;
 use std::iter::FromIterator;
 use std::sync::Arc;
@@ -43,7 +44,7 @@ use crate::core::{
 use crate::global;
 use crate::keychain::{self, BlindingFactor};
 use crate::pow::{verify_size, Difficulty, Proof, ProofOfWork};
-use crate::ser::{self, FixedLength, PMMRable, Readable, Reader, Writeable, Writer};
+use crate::ser::{self, PMMRable, Readable, Reader, Writeable, Writer};
 use crate::util::{secp, static_secp_instance};
 
 use crate::core::foundation::load_foundation_output;
@@ -170,9 +171,6 @@ impl Writeable for HeaderEntry {
 	}
 }
 
-impl FixedLength for HeaderEntry {
-	const LEN: usize = Hash::LEN + 8 + Difficulty::LEN + 4 + 1;
-}
 
 impl Hashed for HeaderEntry {
 	/// The hash of the underlying block.
@@ -285,6 +283,12 @@ impl PMMRable for BlockHeader {
 			secondary_scaling: self.pow.secondary_scaling,
 			is_secondary: self.pow.is_secondary(),
 		}
+	}
+
+	// Size is hash + u64 + difficulty + u32 + u8.
+	fn elmt_size() -> Option<u16> {
+		const LEN: usize = Hash::LEN + 8 + Difficulty::LEN + 4 + 1;
+		Some(LEN.try_into().unwrap())
 	}
 }
 
@@ -591,7 +595,6 @@ impl Block {
 			let proof_size = global::proofsize();
 			block.header.pow.proof = Proof::random(proof_size);
 		}
-
 		Ok(block)
 	}
 

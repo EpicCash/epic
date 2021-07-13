@@ -64,7 +64,7 @@ fn get_foundation_tx_offset(index: u64, version: HeaderVersion) -> u64 {
 	let size = index * (FOUNDATION_COINBASE_SIZE_1 as u64);
 
 	if cfg!(windows) {
-		size + index
+		size
 	} else {
 		size
 	}

@@ -336,8 +336,9 @@ impl Readable for Difficulty {
 	}
 }
 
-impl FixedLength for Difficulty {
-	const LEN: usize = 8 + ALGORITHM_COUNTS * 9;
+impl Difficulty {
+	/// Difficulty is 8 bytes.
+	pub const LEN: usize = 8 + ALGORITHM_COUNTS * 9;
 }
 
 impl Serialize for Difficulty {

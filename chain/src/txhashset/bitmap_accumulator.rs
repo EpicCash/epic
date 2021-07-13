@@ -215,6 +215,10 @@ impl PMMRable for BitmapChunk {
 	fn as_elmt(&self) -> Self::E {
 		self.clone()
 	}
+
+	fn elmt_size() -> Option<u16> {
+		Some(Self::LEN_BYTES as u16)
+	}
 }
 
 impl FixedLength for BitmapChunk {

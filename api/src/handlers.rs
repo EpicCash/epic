@@ -124,11 +124,11 @@ pub fn node_apis(
 	router.add_route("/v2/foreign", Arc::new(api_handler_v2))?;
 
 	let mut apis = ApiServer::new();
-	warn!("Starting HTTP Node APIs server at {}.", addr);
+	info!("Starting HTTP Node APIs server at {}.", addr);
 	let socket_addr: SocketAddr = addr.parse().expect("unable to parse socket address");
 	let api_thread = apis.start(socket_addr, router, tls_config);
 
-	warn!("HTTP Node listener started.");
+	info!("HTTP Node listener started.");
 
 	match api_thread {
 		Ok(_) => Ok(()),

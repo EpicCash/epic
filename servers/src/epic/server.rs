@@ -28,7 +28,7 @@ use std::{
 
 use fs2::FileExt;
 use walkdir::WalkDir;
-
+use clokwerk::{ScheduleHandle, Scheduler, TimeUnits};
 use crate::api;
 use crate::api::TLSConfig;
 use crate::chain::{self, SyncState, SyncStatus};
@@ -46,7 +46,7 @@ use crate::core::core::verifier_cache::{LruVerifierCache, VerifierCache};
 use crate::core::pow::{PoWType, Proof};
 use crate::core::ser::ProtocolVersion;
 use crate::core::{consensus, genesis, global, pow};
-use crate::epic::{dandelion_monitor, seed, sync};
+use crate::epic::{dandelion_monitor, seed, sync, version};
 use crate::mining::stratumserver;
 use crate::mining::test_miner::Miner;
 use crate::p2p;
@@ -342,6 +342,31 @@ impl Server {
 			stop_state.clone(),
 		)?;
 
+		info!("Starting the version checker monitor!");
+		let mut scheduler = Scheduler::new();
+		scheduler.every(15.minutes()).run(|| {
+			if let Ok(dns_version) = version::get_dns_version() {
+				if let Some(our_version) = global::get_epic_version() {
+					if !version::is_version_valid(our_version.clone(), dns_version.clone()) {
+						error!(
+							"Your current epic node version {}.{}.X.X is outdated! Please consider updating your code to the newest version {}.{}.X.X!",
+							our_version.version_major,
+							our_version.version_minor,
+							dns_version.version_major,
+							dns_version.version_minor,
+						);
+						error!("Closing the application!");
+						std::process::exit(1);
+					}
+				} else {
+					error!("Failed to retrieve information about the this application's version!");
+				}
+			} else {
+				error!("Unable to get the allowed versions from the dns server!");
+			}
+		});
+		let version_checker_thread = scheduler.watch_thread(Duration::from_millis(100));
+
 		warn!("Epic server started.");
 		Ok(Server {
 			config,
@@ -581,16 +606,13 @@ impl Server {
 			total_difficulty: head.total_difficulty(),
 		};
 
-		let header_stats = match self.chain.try_header_head(read_timeout)? {
-			Some(head) => self.chain.get_block_header(&head.hash()).map(|header| {
-				Some(ChainStats {
-					latest_timestamp: header.timestamp,
-					height: header.height,
-					last_block_h: header.prev_hash,
-					total_difficulty: header.total_difficulty(),
-				})
-			})?,
-			_ => None,
+		let header_head = self.chain.header_head()?;
+		let header = self.chain.get_block_header(&header_head.hash())?;
+		let header_stats = ChainStats {
+			latest_timestamp: header.timestamp,
+			height: header.height,
+			last_block_h: header.prev_hash,
+			total_difficulty: header.total_difficulty(),
 		};
 
 		let disk_usage_bytes = WalkDir::new(&self.config.db_root)

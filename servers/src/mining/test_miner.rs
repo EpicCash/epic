@@ -80,6 +80,7 @@ impl Miner {
 	) -> bool {
 		// look for a pow for at most 2 sec on the same block (to give a chance to new
 		// transactions) and as long as the head hasn't changed
+
 		let deadline = Utc::now().timestamp() + attempt_time_per_block as i64;
 
 		debug!(
