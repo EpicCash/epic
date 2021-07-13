@@ -1043,7 +1043,7 @@ impl StratumServer {
 			stratum_stats.edge_bits = edge_bits as u16;
 		}
 
-		warn!(
+		info!(
 			"Stratum server started on {}",
 			self.config.stratum_server_addr.clone().unwrap()
 		);

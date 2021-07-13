@@ -620,14 +620,6 @@ fn update_head(head: &Tip, batch: &mut store::Batch<'_>) -> Result<(), Error> {
 
 // Whether the provided block totals more work than the chain tip
 fn has_more_work(header: &BlockHeader, head: &Tip) -> bool {
-	info!(
-		"has more work header.total_difficulty() {:?}",
-		header.total_difficulty()
-	);
-	info!(
-		"has more work head.total_difficulty {:?}",
-		head.total_difficulty
-	);
 	header.total_difficulty() > head.total_difficulty
 }
 

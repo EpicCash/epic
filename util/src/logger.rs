@@ -48,7 +48,7 @@ lazy_static! {
 }
 
 const LOGGING_PATTERN: &str = "{d(%Y%m%d %H:%M:%S%.3f)} {h({l})} {M} - {m}{n}";
-
+const STDOUT_PATTERN: &str = "{d(%Y-%m-%d %H:%M:%S%.3f)} {h({l})} {m}{n}";
 /// 32 log files to rotate over by default
 const DEFAULT_ROTATE_LOG_FILES: u32 = 32 as u32;
 
@@ -166,7 +166,7 @@ pub fn init_logger(config: Option<LoggingConfig>, logs_tx: Option<mpsc::SyncSend
 
 		// Start logger
 		let stdout = ConsoleAppender::builder()
-			.encoder(Box::new(PatternEncoder::new(&LOGGING_PATTERN)))
+			.encoder(Box::new(PatternEncoder::new(&STDOUT_PATTERN)))
 			.build();
 
 		let mut root = Root::builder();

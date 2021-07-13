@@ -233,7 +233,7 @@ impl SyncRunner {
 		let peer_info = if let Some(p) = peer {
 			p.info.clone()
 		} else {
-			warn!("sync: no peers available, disabling sync");
+			warn!("No peers available, can not sync");
 			return Ok((false, 0));
 		};
 
@@ -243,7 +243,7 @@ impl SyncRunner {
 			if peer_info.total_difficulty() <= local_diff {
 				let ch = self.chain.head()?;
 				info!(
-					"synchronized at {} @ {} [{}]",
+					"Node synchronized at {} @ {} [{}]",
 					local_diff, ch.height, ch.last_block_h
 				);
 				is_syncing = false;

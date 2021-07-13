@@ -162,8 +162,8 @@ fn monitor_peers(
 		}
 	}
 
-	debug!(
-		"monitor_peers: on {}:{}, {} connected ({} most_work). \
+	info!(
+		"Monitor peers on {}:{}, {} connected ({} most_work). \
 		 all {} = {} healthy + {} banned + {} defunct",
 		config.host,
 		config.port,
