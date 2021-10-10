@@ -18,15 +18,15 @@
 //! enough, consensus-relevant constants and short functions should be kept
 //! here.
 
-use std::cmp::{max, min};
-use std::collections::HashMap;
-use crate::core::hash::{Hash, ZERO_HASH};
 use crate::core::block::feijoada::{
 	get_bottles_default, next_block_bottles, Deterministic, Feijoada, Policy,
 };
 use crate::core::block::HeaderVersion;
+use crate::core::hash::{Hash, ZERO_HASH};
 use crate::global;
 use crate::pow::{Difficulty, DifficultyNumber, PoWType};
+use std::cmp::{max, min};
+use std::collections::HashMap;
 
 /// A epic is divisible to 10^8 like bitcoin
 pub const EPIC_BASE: u64 = 100_000_000;
@@ -43,11 +43,11 @@ pub const FREEMAN: u64 = 1;
 /// (adjusting the reward accordingly).
 pub const BLOCK_TIME_SEC: u64 = 60;
 
-/// Height of the first epic block emission era
+/// Height of the first epic block emission era (1440*334) = 480.960
 pub const BLOCK_ERA_1: u64 = DAY_HEIGHT * 334;
-/// Height of the second epic block emission era
+/// Height of the second epic block emission era (480960 + (1440*470)) = 1.157.760
 pub const BLOCK_ERA_2: u64 = BLOCK_ERA_1 + (DAY_HEIGHT * 470);
-/// Height of the third epic block emission era
+/// Height of the third epic block emission era (1157760 + (1440*601)) = 2.023.200
 pub const BLOCK_ERA_3: u64 = BLOCK_ERA_2 + (DAY_HEIGHT * 601);
 /// Height of the fourth epic block emission era
 pub const BLOCK_ERA_4: u64 = BLOCK_ERA_3 + (DAY_HEIGHT * 800);
@@ -312,7 +312,7 @@ pub const BLOCK_KERNEL_WEIGHT: usize = 3;
 pub const MAX_BLOCK_WEIGHT: usize = 40_000;
 
 /// Mainnet first hard fork height, set to happen around 2020-04-29
-pub const MAINNET_FIRST_HARD_FORK: u64 = 700000;
+pub const MAINNET_FIRST_HARD_FORK: u64 = 1700000;
 
 /// Floonet first hard fork height
 pub const FLOONET_FIRST_HARD_FORK: u64 = 5800;
@@ -400,20 +400,19 @@ pub fn graph_weight(height: u64, edge_bits: u8) -> u64 {
 		(1 << bits_over_min) * (YEAR_HEIGHT)
 	};
 
-
 	if height >= expiry_height {
 		xpr_edge_bits = xpr_edge_bits.saturating_sub(1 + (height - expiry_height) / WEEK_HEIGHT);
 	}
 
 	let graph_weight: u64 =
- 		(2 << (if edge_bits > global::base_edge_bits() {
- 			edge_bits - global::base_edge_bits()
- 		} else {
- 			global::base_edge_bits() - edge_bits
- 		}) as u64) * xpr_edge_bits;
+		(2 << (if edge_bits > global::base_edge_bits() {
+			edge_bits - global::base_edge_bits()
+		} else {
+			global::base_edge_bits() - edge_bits
+		}) as u64) * xpr_edge_bits;
 
- 	debug!("graph_weight {:?}", graph_weight.clone());
- 	graph_weight
+	debug!("graph_weight {:?}", graph_weight.clone());
+	graph_weight
 }
 
 /// Minimum difficulty, enforced in diff retargetting
