@@ -1,3 +1,9 @@
+epic (2.17.0-1) bionic; urgency=high
+  [ Johannes Hahn ]
+  * Change algo mix for policy era 3
+  * Remove windows sha foundation.serde_json
+  * Remove cfg! windows foundation height
+ -- Ubuntu <ubuntu@ip-172-31-26-231.ec2.internal> Fry, 15 October 2021 10:00:00 -0300
 epic (2.15.0-1) bionic; urgency=high
   [ Filipe Correia ]
   * Add wallet tool to facilitate wallet restoration

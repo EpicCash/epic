@@ -72,18 +72,16 @@ pub fn load_foundation_output(height: u64) -> CbData {
 
 	// Checks if the file has its size multiple of 1 json
 	// Each json has to have a fixed size in bytes (FOUNDATION_COINBASE_SIZE) for the reading occurs successfully.
-	let offset = if cfg!(windows) {
-		height * (FOUNDATION_COINBASE_SIZE as u64) + height
-	} else {
-		assert_eq!(
-			file_len % (FOUNDATION_COINBASE_SIZE as u64),
-			0,
-			"The file {} has an invalid size! The size should be multiple of {}",
-			path.display(),
-			FOUNDATION_COINBASE_SIZE
-		);
-		height * (FOUNDATION_COINBASE_SIZE as u64)
-	};
+	let offset = height * (FOUNDATION_COINBASE_SIZE as u64);
+	assert_eq!(
+		file_len % (FOUNDATION_COINBASE_SIZE as u64),
+		0,
+		"The file {} has an invalid size! The size should be multiple of {}",
+		path.display(),
+		FOUNDATION_COINBASE_SIZE
+	);
+
+
 
 	if offset >= file_len {
 		// TODO: What should we do when the foundations blocks ends ?
