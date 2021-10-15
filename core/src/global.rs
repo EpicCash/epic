@@ -94,7 +94,8 @@ pub const COMPACTION_CHECK: u64 = DAY_HEIGHT;
 
 pub const CURRENT_HEADER_VERSION: u16 = 6;
 
-pub const FOUNDATION_JSON_SHA256: &str = "2613717d04128587b8c3fa24db873b2c4b33232cffe1849b4b5e1ff6d39cd12d";
+pub const FOUNDATION_JSON_SHA256: &str =
+	"2613717d04128587b8c3fa24db873b2c4b33232cffe1849b4b5e1ff6d39cd12d";
 
 /// Types of chain a server can run with, dictates the genesis block and
 /// and mining parameters used.
