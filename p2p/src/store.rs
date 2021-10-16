@@ -56,6 +56,8 @@ pub struct PeerData {
 	pub ban_reason: ReasonForBan,
 	/// Time when we last connected to this peer.
 	pub last_connected: i64,
+	/// Local utc from peer
+	pub local_timestamp: i64,
 }
 
 impl Writeable for PeerData {
@@ -68,7 +70,8 @@ impl Writeable for PeerData {
 			[write_u8, self.flags as u8],
 			[write_i64, self.last_banned],
 			[write_i32, self.ban_reason as i32],
-			[write_i64, self.last_connected]
+			[write_i64, self.last_connected],
+			[write_i64, self.local_timestamp]
 		);
 		Ok(())
 	}
@@ -89,6 +92,12 @@ impl Readable for PeerData {
 			Ok(lc) => lc,
 		};
 
+		let lt = reader.read_i64();
+		let local_timestamp = match lt {
+			Err(_) => Utc::now().timestamp(),
+			Ok(lt) => lt,
+		};
+
 		let user_agent = String::from_utf8(ua).map_err(|_| ser::Error::CorruptedData)?;
 		let capabilities = Capabilities::from_bits_truncate(capab);
 		let ban_reason = ReasonForBan::from_i32(br).ok_or(ser::Error::CorruptedData)?;
@@ -102,6 +111,7 @@ impl Readable for PeerData {
 				last_banned: lb,
 				ban_reason,
 				last_connected,
+				local_timestamp
 			}),
 			None => Err(ser::Error::CorruptedData),
 		}

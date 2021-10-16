@@ -241,10 +241,12 @@ impl Peer {
 
 	/// Send a ping to the remote peer, providing our local difficulty and
 	/// height
-	pub fn send_ping(&self, total_difficulty: Difficulty, height: u64) -> Result<(), Error> {
+	pub fn send_ping(&self, total_difficulty: Difficulty, height: u64, local_timestamp: i64) -> Result<(), Error> {
 		let ping_msg = Ping {
 			total_difficulty,
 			height,
+			local_timestamp
+
 		};
 		self.send(ping_msg, msg::Type::Ping)
 	}
@@ -609,8 +611,8 @@ impl NetAdapter for TrackingAdapter {
 		self.adapter.peer_addrs_received(addrs)
 	}
 
-	fn peer_difficulty(&self, addr: PeerAddr, diff: Difficulty, height: u64) {
-		self.adapter.peer_difficulty(addr, diff, height)
+	fn peer_difficulty(&self, addr: PeerAddr, diff: Difficulty, height: u64, local_timestamp: i64) {
+		self.adapter.peer_difficulty(addr, diff, height, local_timestamp)
 	}
 
 	fn is_banned(&self, addr: PeerAddr) -> bool {

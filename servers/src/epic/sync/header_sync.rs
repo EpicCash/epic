@@ -127,25 +127,38 @@ impl HeaderSync {
 				header_head.height,
 			);
 
-			// save the stalling start time
-			if stalling {
-				if self.stalling_ts.is_none() {
-					self.stalling_ts = Some(now);
-				}
-			} else {
-				self.stalling_ts = None;
-			}
-
 			if all_headers_received {
 				// reset the stalling start time if syncing goes well
 				self.stalling_ts = None;
+				if let Some(ref peer) = self.syncing_peer {
+					debug!(
+						"sync_state: all_headers_received {}",
+						peer.info.addr,
+					);
+
+				}
+				self.syncing_peer = None;
+
 			} else {
-				if let Some(ref stalling_ts) = self.stalling_ts {
+
 					if let Some(ref peer) = self.syncing_peer {
 						match self.sync_state.status() {
 							SyncStatus::HeaderSync { .. } | SyncStatus::BodySync { .. } => {
+
+								let peer_live_info = peer.info.live_info.read();
+								let test = peer_live_info.stuck_detector + Duration::seconds(1800);
+								if let Some(ref peer) = self.syncing_peer {
+									debug!(
+										"sync_state: in ban loop {}, now {}, stuck max {}",
+										peer.info.addr,
+										now,
+										test
+									);
+
+								}
+
 								// Ban this fraud peer which claims a higher work but can't send us the real headers
-								if now > *stalling_ts + Duration::seconds(120)
+								if now > peer_live_info.stuck_detector + Duration::seconds(1800)
 									&& header_head.total_difficulty < peer.info.total_difficulty()
 								{
 									if let Err(e) = self
@@ -155,7 +168,7 @@ impl HeaderSync {
 										error!("failed to ban peer {}: {:?}", peer.info.addr, e);
 									}
 									info!(
-										"sync: ban a fraud peer: {}, claimed height: {}, total difficulty: {}",
+										"sync_state: ban a fraud peer: {}, claimed height: {}, total difficulty: {}",
 										peer.info.addr,
 										peer.info.height(),
 										peer.info.total_difficulty(),
@@ -165,15 +178,15 @@ impl HeaderSync {
 							_ => (),
 						}
 					}
-				}
+
 			}
-			self.syncing_peer = None;
+
 			true
 		} else {
 			// resetting the timeout as long as we progress
 			if header_head.height > latest_height {
 				self.prev_header_sync =
-					(now + Duration::seconds(2), header_head.height, prev_height);
+					(now + Duration::seconds(10), header_head.height, prev_height);
 			}
 			false
 		}

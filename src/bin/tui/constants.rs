@@ -39,28 +39,28 @@ pub const MAIN_MENU: &str = "main_menu";
 pub const ROOT_STACK: &str = "root_stack";
 
 // Logo (not final, to be used somewhere eventually
-pub const _WELCOME_LOGO: &str = "                 GGGGG                      GGGGGGG         
-               GGGGGGG                      GGGGGGGGG      
-             GGGGGGGGG         GGGG         GGGGGGGGGG     
-           GGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGG    
-          GGGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGGG   
-         GGGGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGGGG  
-        GGGGGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGGGGG 
-        GGGGGGGGGGGGGG       GGGGGGGGGGGGGGGGGGGGGGGGGGGGG 
+pub const _WELCOME_LOGO: &str = "                 GGGGG                      GGGGGGG
+               GGGGGGG                      GGGGGGGGG
+             GGGGGGGGG         GGGG         GGGGGGGGGG
+           GGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGG
+          GGGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGGG
+         GGGGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGGGG
+        GGGGGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGGGGG
+        GGGGGGGGGGGGGG       GGGGGGGGGGGGGGGGGGGGGGGGGGGGG
        GGGGGGGGGGGGGGG       GGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
        GGGGGGGGGGGGGGG       GGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
-                             GGGGGG                        
-                             GGGGGGG                       
-                             GGGGGGGG                      
+                             GGGGGG
+                             GGGGGGG
+                             GGGGGGGG
        GGGGGGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGGGGGG
        GGGGGGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGGGGGG
         GGGGGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGGGGGG
-         GGGGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGGGGG 
-          GGGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGGGG  
-           GGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGGG   
-            GGGGGGGGGG       GGGGGGGG       GGGGGGGGGGG    
-              GGGGGGGG       GGGGGGGG       GGGGGGGGG      
-               GGGGGGG       GGGGGGGG       GGGGGGG        
-                  GGGG       GGGGGGGG       GGGG           
-                    GG       GGGGGGGG       GG             
+         GGGGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGGGGG
+          GGGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGGGG
+           GGGGGGGGGGG       GGGGGGGG       GGGGGGGGGGGG
+            GGGGGGGGGG       GGGGGGGG       GGGGGGGGGGG
+              GGGGGGGG       GGGGGGGG       GGGGGGGGG
+               GGGGGGG       GGGGGGGG       GGGGGGG
+                  GGGG       GGGGGGGG       GGGG
+                    GG       GGGGGGGG       GG
                              GGGGGGGG                       ";

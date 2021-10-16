@@ -182,9 +182,14 @@ impl TUIStatusListener for TUIPeerView {
 		let _ = c.call_on_name(
 			TABLE_PEER_STATUS,
 			|t: &mut TableView<PeerStats, PeerColumn>| {
-				let current_row:usize = t.row().unwrap_or(0);
+				//let current_row:usize = t.row().unwrap_or(0);
 				t.set_items(stats.peer_stats.clone());
-				t.set_selected_row(current_row);
+				//t.set_selected_row(t.len()-1);
+				/*if current_row <= t.len()-1{
+					t.set_selected_row(current_row);
+				}else{
+					t.set_selected_row(t.len()-1);
+				}*/
 			},
 		);
 		let _ = c.call_on_name("peers_total", |t: &mut TextView| {

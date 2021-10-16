@@ -50,7 +50,7 @@ const BAN_WINDOW: i64 = 10800;
 const PEER_MAX_INBOUND_COUNT: u32 = 128;
 
 /// The max outbound peer count
-const PEER_MAX_OUTBOUND_COUNT: u32 = 8;
+const PEER_MAX_OUTBOUND_COUNT: u32 = 128;
 
 /// The min preferred outbound peer count
 const PEER_MIN_PREFERRED_OUTBOUND_COUNT: u32 = 8;
@@ -387,6 +387,7 @@ pub struct PeerLiveInfo {
 	pub last_seen: DateTime<Utc>,
 	pub stuck_detector: DateTime<Utc>,
 	pub first_seen: DateTime<Utc>,
+	pub local_timestamp: i64,
 }
 
 /// General information about a connected peer that's useful to other modules.
@@ -407,6 +408,7 @@ impl PeerLiveInfo {
 			height: 0,
 			first_seen: Utc::now(),
 			last_seen: Utc::now(),
+			local_timestamp: 0,
 			stuck_detector: Utc::now(),
 		}
 	}
@@ -441,16 +443,26 @@ impl PeerInfo {
 		self.live_info.read().first_seen
 	}
 
+	/// Local Time of this peer.
+	pub fn local_timestamp(&self) -> i64 {
+		self.live_info.read().local_timestamp
+	}
+
 	/// Update the total_difficulty, height and last_seen of the peer.
 	/// Takes a write lock on the live_info.
-	pub fn update(&self, height: u64, total_difficulty: Difficulty) {
+	pub fn update(&self, height: u64, total_difficulty: Difficulty, local_timestamp: i64) {
 		let mut live_info = self.live_info.write();
+
+		//debug!("update peer stuck live_info: {:?}, total_difficulty {:?}", live_info.clone(), total_difficulty);
+
 		if total_difficulty != live_info.total_difficulty {
+
 			live_info.stuck_detector = Utc::now();
 		}
 		live_info.height = height;
 		live_info.total_difficulty = total_difficulty;
-		live_info.last_seen = Utc::now()
+		live_info.last_seen = Utc::now();
+		live_info.local_timestamp = local_timestamp;
 	}
 }
 
@@ -610,7 +622,7 @@ pub trait NetAdapter: ChainAdapter {
 	fn peer_addrs_received(&self, _: Vec<PeerAddr>);
 
 	/// Heard total_difficulty from a connected peer (via ping/pong).
-	fn peer_difficulty(&self, _: PeerAddr, _: Difficulty, _: u64);
+	fn peer_difficulty(&self, _: PeerAddr, _: Difficulty, _: u64, _: i64);
 
 	/// Is this peer currently banned?
 	fn is_banned(&self, addr: PeerAddr) -> bool;
