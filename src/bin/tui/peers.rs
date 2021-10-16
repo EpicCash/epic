@@ -25,7 +25,7 @@ use cursive::direction::Orientation;
 use cursive::event::Key;
 use cursive::traits::{Boxable, Identifiable};
 use cursive::view::View;
-use cursive::views::{ResizedView, Dialog, LinearLayout, OnEventView, TextView};
+use cursive::views::{Dialog, LinearLayout, OnEventView, ResizedView, TextView};
 use cursive::Cursive;
 
 use crate::tui::constants::{MAIN_MENU, TABLE_PEER_STATUS, VIEW_PEER_SYNC};

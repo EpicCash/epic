@@ -456,7 +456,6 @@ impl PeerInfo {
 		//debug!("update peer stuck live_info: {:?}, total_difficulty {:?}", live_info.clone(), total_difficulty);
 
 		if total_difficulty != live_info.total_difficulty {
-
 			live_info.stuck_detector = Utc::now();
 		}
 		live_info.height = height;

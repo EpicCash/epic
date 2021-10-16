@@ -26,7 +26,7 @@ use cursive::theme::{BaseColor, BorderStyle, Color, Theme};
 use cursive::traits::Boxable;
 use cursive::traits::Identifiable;
 use cursive::utils::markup::StyledString;
-use cursive::views::{CircularFocus, Dialog, LinearLayout, Panel, StackView, TextView, BoxedView};
+use cursive::views::{BoxedView, CircularFocus, Dialog, LinearLayout, Panel, StackView, TextView};
 use cursive::Cursive;
 use std::sync::mpsc;
 

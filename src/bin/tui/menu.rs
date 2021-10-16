@@ -20,7 +20,7 @@ use cursive::event::{EventResult, Key};
 use cursive::view::Identifiable;
 use cursive::view::View;
 use cursive::views::{
-	ResizedView, LinearLayout, OnEventView, SelectView, StackView, TextView, ViewRef,
+	LinearLayout, OnEventView, ResizedView, SelectView, StackView, TextView, ViewRef,
 };
 use cursive::Cursive;
 

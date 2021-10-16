@@ -18,7 +18,7 @@ use chrono::prelude::Utc;
 use cursive::direction::Orientation;
 use cursive::traits::Identifiable;
 use cursive::view::View;
-use cursive::views::{ResizedView, LinearLayout, TextView};
+use cursive::views::{LinearLayout, ResizedView, TextView};
 use cursive::Cursive;
 
 use crate::tui::constants::VIEW_BASIC_STATUS;
@@ -280,27 +280,30 @@ impl TUIStatusListener for TUIStatusView {
 			t.set_content(stats.chain_stats.latest_timestamp.to_string());
 		});
 
-			let cuckoo_header_diff = stats.header_stats.total_difficulty.to_num(PoWType::Cuckatoo);
-			let progpow_header_diff = stats.header_stats.total_difficulty.to_num(PoWType::ProgPow);
-			let randomx_header_diff = stats.header_stats.total_difficulty.to_num(PoWType::RandomX);
-			let header_total_difficulty = format!(
-				"Cuckatoo: {}, ProgPow: {}, RandomX: {}",
-				cuckoo_header_diff, progpow_header_diff, randomx_header_diff,
-			);
+		let cuckoo_header_diff = stats
+			.header_stats
+			.total_difficulty
+			.to_num(PoWType::Cuckatoo);
+		let progpow_header_diff = stats.header_stats.total_difficulty.to_num(PoWType::ProgPow);
+		let randomx_header_diff = stats.header_stats.total_difficulty.to_num(PoWType::RandomX);
+		let header_total_difficulty = format!(
+			"Cuckatoo: {}, ProgPow: {}, RandomX: {}",
+			cuckoo_header_diff, progpow_header_diff, randomx_header_diff,
+		);
 
-			c.call_on_name("basic_header_tip_hash", |t: &mut TextView| {
-				t.set_content(stats.header_stats.last_block_h.to_string() + "...");
-			});
-			c.call_on_name("basic_header_chain_height", |t: &mut TextView| {
-				t.set_content(stats.header_stats.height.to_string());
-			});
-			c.call_on_name("basic_header_total_difficulty", |t: &mut TextView| {
-				t.set_content(header_total_difficulty);
-			});
-			c.call_on_name("basic_header_timestamp", |t: &mut TextView| {
-				t.set_content(stats.header_stats.latest_timestamp.to_string());
-			});
-		
+		c.call_on_name("basic_header_tip_hash", |t: &mut TextView| {
+			t.set_content(stats.header_stats.last_block_h.to_string() + "...");
+		});
+		c.call_on_name("basic_header_chain_height", |t: &mut TextView| {
+			t.set_content(stats.header_stats.height.to_string());
+		});
+		c.call_on_name("basic_header_total_difficulty", |t: &mut TextView| {
+			t.set_content(header_total_difficulty);
+		});
+		c.call_on_name("basic_header_timestamp", |t: &mut TextView| {
+			t.set_content(stats.header_stats.latest_timestamp.to_string());
+		});
+
 		if let Some(tx_stats) = &stats.tx_stats {
 			c.call_on_name("tx_pool_size", |t: &mut TextView| {
 				t.set_content(tx_stats.tx_pool_size.to_string());

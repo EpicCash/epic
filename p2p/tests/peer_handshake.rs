@@ -86,7 +86,8 @@ fn peer_handshake() {
 
 	thread::sleep(time::Duration::from_secs(1));
 
-	peer.send_ping(Difficulty::min(), 0, Utc::now().timestamp()).unwrap();
+	peer.send_ping(Difficulty::min(), 0, Utc::now().timestamp())
+		.unwrap();
 	thread::sleep(time::Duration::from_secs(1));
 
 	let server_peer = server.peers.get_connected_peer(my_addr).unwrap();

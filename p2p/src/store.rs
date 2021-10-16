@@ -111,7 +111,7 @@ impl Readable for PeerData {
 				last_banned: lb,
 				ban_reason,
 				last_connected,
-				local_timestamp
+				local_timestamp,
 			}),
 			None => Err(ser::Error::CorruptedData),
 		}

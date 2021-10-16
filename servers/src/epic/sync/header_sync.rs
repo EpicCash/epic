@@ -131,54 +131,43 @@ impl HeaderSync {
 				// reset the stalling start time if syncing goes well
 				self.stalling_ts = None;
 				if let Some(ref peer) = self.syncing_peer {
-					debug!(
-						"sync_state: all_headers_received {}",
-						peer.info.addr,
-					);
-
+					debug!("sync_state: all_headers_received {}", peer.info.addr,);
 				}
 				self.syncing_peer = None;
-
 			} else {
+				if let Some(ref peer) = self.syncing_peer {
+					match self.sync_state.status() {
+						SyncStatus::HeaderSync { .. } | SyncStatus::BodySync { .. } => {
+							let peer_live_info = peer.info.live_info.read();
+							let test = peer_live_info.stuck_detector + Duration::seconds(1800);
+							if let Some(ref peer) = self.syncing_peer {
+								debug!(
+									"sync_state: in ban loop {}, now {}, stuck max {}",
+									peer.info.addr, now, test
+								);
+							}
 
-					if let Some(ref peer) = self.syncing_peer {
-						match self.sync_state.status() {
-							SyncStatus::HeaderSync { .. } | SyncStatus::BodySync { .. } => {
-
-								let peer_live_info = peer.info.live_info.read();
-								let test = peer_live_info.stuck_detector + Duration::seconds(1800);
-								if let Some(ref peer) = self.syncing_peer {
-									debug!(
-										"sync_state: in ban loop {}, now {}, stuck max {}",
-										peer.info.addr,
-										now,
-										test
-									);
-
-								}
-
-								// Ban this fraud peer which claims a higher work but can't send us the real headers
-								if now > peer_live_info.stuck_detector + Duration::seconds(1800)
-									&& header_head.total_difficulty < peer.info.total_difficulty()
+							// Ban this fraud peer which claims a higher work but can't send us the real headers
+							if now > peer_live_info.stuck_detector + Duration::seconds(1800)
+								&& header_head.total_difficulty < peer.info.total_difficulty()
+							{
+								if let Err(e) = self
+									.peers
+									.ban_peer(peer.info.addr, ReasonForBan::FraudHeight)
 								{
-									if let Err(e) = self
-										.peers
-										.ban_peer(peer.info.addr, ReasonForBan::FraudHeight)
-									{
-										error!("failed to ban peer {}: {:?}", peer.info.addr, e);
-									}
-									info!(
+									error!("failed to ban peer {}: {:?}", peer.info.addr, e);
+								}
+								info!(
 										"sync_state: ban a fraud peer: {}, claimed height: {}, total difficulty: {}",
 										peer.info.addr,
 										peer.info.height(),
 										peer.info.total_difficulty(),
 									);
-								}
 							}
-							_ => (),
 						}
+						_ => (),
 					}
-
+				}
 			}
 
 			true

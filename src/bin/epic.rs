@@ -82,14 +82,14 @@ fn real_main() -> i32 {
 		.get_matches();
 	let node_config;
 
-    let chain_type = if args.is_present("floonet") {
-	 	global::ChainTypes::Floonet
+	let chain_type = if args.is_present("floonet") {
+		global::ChainTypes::Floonet
 	} else if args.is_present("usernet") {
-	 	global::ChainTypes::UserTesting
+		global::ChainTypes::UserTesting
 	} else {
-	 	global::ChainTypes::Mainnet
+		global::ChainTypes::Mainnet
 	};
-	
+
 	if let ("taxes", Some(taxes_args)) = args.subcommand() {
 		global::set_mining_mode(chain_type.clone());
 		let generate: u64 = taxes_args
