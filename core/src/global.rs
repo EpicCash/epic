@@ -106,11 +106,20 @@ pub const TXHASHSET_ARCHIVE_INTERVAL: u64 = 12 * 60;
 
 pub const CURRENT_HEADER_VERSION: u16 = 6;
 
+#[cfg(target_family = "unix")]
+pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
+	"5a3a7584127dd31fba18eaeff1c551bfaa74b4e50e537a1e1904fe6730b17f5c";
+#[cfg(target_family = "windows")]
 pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
 	"8ef0a84b35ec04576e583b7ed2f8a0d1becf4ee6ce67f9f3608deff8ad2ad103";
 
+#[cfg(target_family = "unix")]
 pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
 	"5a3a7584127dd31fba18eaeff1c551bfaa74b4e50e537a1e1904fe6730b17f5c";
+#[cfg(target_family = "windows")]
+pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
+	"8ef0a84b35ec04576e583b7ed2f8a0d1becf4ee6ce67f9f3608deff8ad2ad103";
+
 
 /// Types of chain a server can run with, dictates the genesis block and
 /// and mining parameters used.
