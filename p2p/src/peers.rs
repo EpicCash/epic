@@ -271,6 +271,26 @@ impl Peers {
 		}
 	}
 
+	/// Ban a peer, disconnecting it if we're currently connected
+	pub fn disconnect_peer(&self, peer_addr: PeerAddr) -> Result<(), Error> {
+
+
+		match self.get_connected_peer(peer_addr) {
+			Some(peer) => {
+				debug!("Disconnect peer {}", peer_addr);
+				// setting peer status will get it removed at the next clean_peer
+				peer.stop();
+				let mut peers = self.peers.try_write_for(LOCK_TIMEOUT).ok_or_else(|| {
+					error!("disconnect_peer: failed to get peers lock");
+					Error::PeerException
+				})?;
+				peers.remove(&peer.info.addr);
+				Ok(())
+			}
+			None => return Err(Error::PeerNotFound),
+		}
+	}
+
 	/// Unban a peer, checks if it exists and banned then unban
 	pub fn unban_peer(&self, peer_addr: PeerAddr) -> Result<(), Error> {
 		debug!("unban_peer: peer {}", peer_addr);

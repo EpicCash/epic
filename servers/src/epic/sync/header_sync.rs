@@ -127,6 +127,92 @@ impl HeaderSync {
 				header_head.height,
 			);
 
+			// save the stalling start time
+			if stalling {
+				if self.stalling_ts.is_none() {
+					self.stalling_ts = Some(now);
+				}
+			} else {
+				self.stalling_ts = None;
+			}
+
+			if all_headers_received {
+				// reset the stalling start time if syncing goes well
+				self.stalling_ts = None;
+			} else if let Some(ref stalling_ts) = self.stalling_ts {
+				if let Some(ref peer) = self.syncing_peer {
+					match self.sync_state.status() {
+						SyncStatus::HeaderSync { .. } | SyncStatus::BodySync { .. } => {
+
+							let peer_live_info = peer.info.live_info.read();
+							let test = peer_live_info.stuck_detector + Duration::seconds(300);
+							if let Some(ref peer) = self.syncing_peer {
+								debug!(
+									"sync_state: in ban loop {}, now {}, stuck max {}",
+									peer.info.addr,
+									now,
+									test
+								);
+
+							}
+							// Ban this fraud peer which claims a higher work but can't send us the real headers
+							if now > peer_live_info.stuck_detector + Duration::seconds(300)
+								&& header_head.total_difficulty < peer.info.total_difficulty()
+							{
+								if let Err(e) = self
+									.peers
+									.ban_peer(peer.info.addr, ReasonForBan::FraudHeight)
+								{
+									error!("failed to ban peer {}: {:?}", peer.info.addr, e);
+								}
+								info!(
+										"sync: ban a fraud peer: {}, claimed height: {}, total difficulty: {}",
+										peer.info.addr,
+										peer.info.height(),
+										peer.info.total_difficulty(),
+									);
+							}
+						}
+						_ => (),
+					}
+				}
+			}
+			self.syncing_peer = None;
+			true
+		} else {
+			// resetting the timeout as long as we progress
+			if header_head.height > latest_height {
+				self.prev_header_sync =
+					(now + Duration::seconds(2), header_head.height, prev_height);
+			}
+			false
+		}
+	}
+	/*
+
+	fn header_sync_due(&mut self, header_head: &chain::Tip) -> bool {
+		let now = Utc::now();
+		let (timeout, latest_height, prev_height) = self.prev_header_sync;
+
+		// received all necessary headers, can ask for more
+		let all_headers_received =
+			header_head.height >= prev_height + (p2p::MAX_BLOCK_HEADERS as u64) - 4;
+		// no headers processed and we're past timeout, need to ask for more
+		let stalling = header_head.height <= latest_height && now > timeout;
+
+		// always enable header sync on initial state transition from NoSync / Initial
+		let force_sync = match self.sync_state.status() {
+			SyncStatus::NoSync | SyncStatus::Initial | SyncStatus::AwaitingPeers(_) => true,
+			_ => false,
+		};
+
+		if force_sync || all_headers_received || stalling {
+			self.prev_header_sync = (
+				now + Duration::seconds(2),
+				header_head.height,
+				header_head.height,
+			);
+
 			if all_headers_received {
 				// reset the stalling start time if syncing goes well
 				self.stalling_ts = None;
@@ -141,10 +227,19 @@ impl HeaderSync {
 							let peer_live_info = peer.info.live_info.read();
 							let test = peer_live_info.stuck_detector + Duration::seconds(1800);
 							if let Some(ref peer) = self.syncing_peer {
+
+								if let Err(e) = self
+									.peers
+									.disconnect_peer(peer.info.addr)
+								{
+									error!("failed to ban peer {}: {:?}", peer.info.addr, e);
+								}
+
 								debug!(
 									"sync_state: in ban loop {}, now {}, stuck max {}",
 									peer.info.addr, now, test
 								);
+
 							}
 
 							// Ban this fraud peer which claims a higher work but can't send us the real headers
@@ -180,6 +275,7 @@ impl HeaderSync {
 			false
 		}
 	}
+	*/
 
 	fn header_sync(&mut self) -> Option<Arc<Peer>> {
 		if let Ok(header_head) = self.chain.header_head() {
