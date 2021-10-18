@@ -18,7 +18,6 @@ use crate::core::consensus;
 use crate::core::core::block;
 use crate::core::core::feijoada::{is_allowed_policy, PoWType};
 use crate::core::core::hash::{Hash, Hashed};
-use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::Committed;
 use crate::core::core::{Block, BlockHeader, BlockSums};
 use crate::core::global;
@@ -47,8 +46,7 @@ pub struct BlockContext<'a> {
 	pub header_pmmr: &'a mut txhashset::PMMRHandle<BlockHeader>,
 	/// The active batch to use for block processing.
 	pub batch: store::Batch<'a>,
-	/// The verifier cache (caching verifier for rangeproofs and kernel signatures)
-	pub verifier_cache: Arc<RwLock<dyn VerifierCache>>,
+
 }
 
 // Check if we already know about this block for various reasons
@@ -496,7 +494,7 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 fn validate_block(block: &Block, ctx: &mut BlockContext<'_>) -> Result<(), Error> {
 	let prev = ctx.batch.get_previous_header(&block.header)?;
 	block
-		.validate(&prev.total_kernel_offset, ctx.verifier_cache.clone())
+		.validate(&prev.total_kernel_offset)
 		.map_err(ErrorKind::InvalidBlockProof)?;
 	Ok(())
 }

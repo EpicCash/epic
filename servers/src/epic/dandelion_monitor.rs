@@ -21,7 +21,6 @@ use std::time::{Duration, Instant};
 use crate::common::adapters::DandelionAdapter;
 use crate::core::core::hash::Hashed;
 use crate::core::core::transaction;
-use crate::core::core::verifier_cache::VerifierCache;
 use crate::pool::{DandelionConfig, Pool, PoolEntry, PoolError, TransactionPool, TxSource};
 use crate::util::{RwLock, StopState};
 
@@ -37,7 +36,6 @@ pub fn monitor_transactions(
 	dandelion_config: DandelionConfig,
 	tx_pool: Arc<RwLock<TransactionPool>>,
 	adapter: Arc<dyn DandelionAdapter>,
-	verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	stop_state: Arc<StopState>,
 ) -> std::io::Result<thread::JoinHandle<()>> {
 	debug!("Started Dandelion transaction monitor.");
@@ -57,15 +55,11 @@ pub fn monitor_transactions(
 
 				if last_run.elapsed() > run_interval {
 					if !adapter.is_stem() {
-						let _ = process_fluff_phase(
-							&dandelion_config,
-							&tx_pool,
-							&adapter,
-							&verifier_cache,
-						)
-						.map_err(|e| {
-							error!("dand_mon: Problem processing fluff phase. {:?}", e);
-						});
+						let _ = process_fluff_phase(&dandelion_config, &tx_pool, &adapter).map_err(
+							|e| {
+								error!("dand_mon: Problem processing fluff phase. {:?}", e);
+							},
+						);
 					}
 
 					// Now find all expired entries based on embargo timer.
@@ -103,7 +97,6 @@ fn process_fluff_phase(
 	dandelion_config: &DandelionConfig,
 	tx_pool: &Arc<RwLock<TransactionPool>>,
 	adapter: &Arc<dyn DandelionAdapter>,
-	verifier_cache: &Arc<RwLock<dyn VerifierCache>>,
 ) -> Result<(), PoolError> {
 	// Take a write lock on the txpool for the duration of this processing.
 	let mut tx_pool = tx_pool.write();
@@ -142,10 +135,7 @@ fn process_fluff_phase(
 	);
 
 	let agg_tx = transaction::aggregate(fluffable_txs)?;
-	agg_tx.validate(
-		transaction::Weighting::AsTransaction,
-		verifier_cache.clone(),
-	)?;
+	agg_tx.validate(transaction::Weighting::AsTransaction)?;
 
 	tx_pool.add_to_pool(TxSource::Fluff, agg_tx, false, &header)?;
 	Ok(())

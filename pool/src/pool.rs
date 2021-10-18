@@ -18,7 +18,6 @@
 use self::core::core::hash::{Hash, Hashed};
 use self::core::core::id::{ShortId, ShortIdentifiable};
 use self::core::core::transaction;
-use self::core::core::verifier_cache::VerifierCache;
 use self::core::core::{
 	Block, BlockHeader, BlockSums, Committed, Transaction, TxKernel, Weighting,
 };
@@ -35,20 +34,17 @@ pub struct Pool {
 	pub entries: Vec<PoolEntry>,
 	/// The blockchain
 	pub blockchain: Arc<dyn BlockChain>,
-	pub verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	pub name: String,
 }
 
 impl Pool {
 	pub fn new(
 		chain: Arc<dyn BlockChain>,
-		verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 		name: String,
 	) -> Pool {
 		Pool {
 			entries: vec![],
 			blockchain: chain,
-			verifier_cache,
 			name,
 		}
 	}
@@ -155,7 +151,7 @@ impl Pool {
 		let tx = transaction::aggregate(txs)?;
 
 		// Validate the single aggregate transaction "as pool", not subject to tx weight limits.
-		tx.validate(Weighting::NoLimit, self.verifier_cache.clone())?;
+		tx.validate(Weighting::NoLimit)?;
 
 		Ok(Some(tx))
 	}
@@ -222,7 +218,7 @@ impl Pool {
 	) -> Result<BlockSums, PoolError> {
 		// Validate the tx, conditionally checking against weight limits,
 		// based on weight verification type.
-		tx.validate(weighting, self.verifier_cache.clone())?;
+		tx.validate(weighting)?;
 
 		// Validate the tx against current chain state.
 		// Check all inputs are in the current UTXO set.
@@ -366,7 +362,6 @@ impl Pool {
 					if let Ok(new_bucket) = bucket.aggregate_with_tx(
 						entry.tx.clone(),
 						weighting,
-						self.verifier_cache.clone(),
 					) {
 						if new_bucket.fee_to_weight >= bucket.fee_to_weight {
 							// Only aggregate if it would not reduce the fee_to_weight ratio.
@@ -481,12 +476,11 @@ impl Bucket {
 		&self,
 		new_tx: Transaction,
 		weighting: Weighting,
-		verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	) -> Result<Bucket, PoolError> {
 		let mut raw_txs = self.raw_txs.clone();
 		raw_txs.push(new_tx);
 		let agg_tx = transaction::aggregate(raw_txs.clone())?;
-		agg_tx.validate(weighting, verifier_cache)?;
+		agg_tx.validate(weighting)?;
 		Ok(Bucket {
 			fee_to_weight: agg_tx.fee_to_weight(),
 			raw_txs: raw_txs,

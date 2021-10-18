@@ -251,13 +251,8 @@ mod test {
 
 	use super::*;
 	use crate::core::transaction::Weighting;
-	use crate::core::verifier_cache::{LruVerifierCache, VerifierCache};
 	use crate::libtx::ProofBuilder;
 	use keychain::{ExtKeychain, ExtKeychainPath};
-
-	fn verifier_cache() -> Arc<RwLock<dyn VerifierCache>> {
-		Arc::new(RwLock::new(LruVerifierCache::new()))
-	}
 
 	#[test]
 	fn blind_simple_tx() {
@@ -267,8 +262,6 @@ mod test {
 		let key_id2 = ExtKeychainPath::new(1, 2, 0, 0, 0).to_identifier();
 		let key_id3 = ExtKeychainPath::new(1, 3, 0, 0, 0).to_identifier();
 
-		let vc = verifier_cache();
-
 		let tx = transaction(
 			KernelFeatures::Plain { fee: 2 },
 			vec![input(10, key_id1), input(12, key_id2), output(20, key_id3)],
@@ -277,7 +270,7 @@ mod test {
 		)
 		.unwrap();
 
-		tx.validate(Weighting::AsTransaction, vc.clone()).unwrap();
+		tx.validate(Weighting::AsTransaction).unwrap();
 	}
 
 	#[test]
@@ -288,8 +281,6 @@ mod test {
 		let key_id2 = ExtKeychainPath::new(1, 2, 0, 0, 0).to_identifier();
 		let key_id3 = ExtKeychainPath::new(1, 3, 0, 0, 0).to_identifier();
 
-		let vc = verifier_cache();
-
 		let tx = transaction(
 			KernelFeatures::Plain { fee: 2 },
 			vec![input(10, key_id1), input(12, key_id2), output(20, key_id3)],
@@ -298,7 +289,7 @@ mod test {
 		)
 		.unwrap();
 
-		tx.validate(Weighting::AsTransaction, vc.clone()).unwrap();
+		tx.validate(Weighting::AsTransaction).unwrap();
 	}
 
 	#[test]
@@ -308,8 +299,6 @@ mod test {
 		let key_id1 = ExtKeychainPath::new(1, 1, 0, 0, 0).to_identifier();
 		let key_id2 = ExtKeychainPath::new(1, 2, 0, 0, 0).to_identifier();
 
-		let vc = verifier_cache();
-
 		let tx = transaction(
 			KernelFeatures::Plain { fee: 4 },
 			vec![input(6, key_id1), output(2, key_id2)],
@@ -318,6 +307,6 @@ mod test {
 		)
 		.unwrap();
 
-		tx.validate(Weighting::AsTransaction, vc.clone()).unwrap();
+		tx.validate(Weighting::AsTransaction).unwrap();
 	}
 }

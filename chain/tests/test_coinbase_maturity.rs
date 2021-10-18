@@ -14,7 +14,6 @@
 
 use self::chain::types::NoopAdapter;
 use self::chain::ErrorKind;
-use self::core::core::verifier_cache::LruVerifierCache;
 use self::core::core::KernelFeatures;
 use self::core::global::{self, ChainTypes};
 use self::core::libtx::{self, build, ProofBuilder};
@@ -44,7 +43,7 @@ fn test_coinbase_maturity() {
 
 	let genesis_block = pow::mine_genesis_block().unwrap();
 
-	let verifier_cache = Arc::new(RwLock::new(LruVerifierCache::new()));
+
 
 	{
 		let chain = chain::Chain::init(
@@ -52,7 +51,6 @@ fn test_coinbase_maturity() {
 			Arc::new(NoopAdapter {}),
 			genesis_block,
 			pow::verify_size,
-			verifier_cache,
 			false,
 		)
 		.unwrap();

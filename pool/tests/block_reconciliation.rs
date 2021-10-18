@@ -15,7 +15,6 @@
 pub mod common;
 
 use self::core::core::hash::Hashed;
-use self::core::core::verifier_cache::LruVerifierCache;
 use self::core::core::{Block, BlockHeader};
 use self::core::libtx;
 use self::core::pow::Difficulty;
@@ -37,10 +36,8 @@ fn test_transaction_pool_block_reconciliation() {
 	{
 		let chain = Arc::new(ChainAdapter::init(db_root.clone()).unwrap());
 
-		let verifier_cache = Arc::new(RwLock::new(LruVerifierCache::new()));
-
 		// Initialize a new pool with our chain adapter.
-		let pool = RwLock::new(test_setup(chain.clone(), verifier_cache.clone()));
+		let pool = RwLock::new(test_setup(chain.clone()));
 
 		let header = {
 			let height = 1;

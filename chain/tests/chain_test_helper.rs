@@ -16,7 +16,6 @@ use self::chain::types::NoopAdapter;
 use self::chain::types::Options;
 use self::chain::Chain;
 use self::core::core::hash::Hashed;
-use self::core::core::verifier_cache::LruVerifierCache;
 use self::core::core::Block;
 use self::core::genesis;
 use self::core::global::ChainTypes;
@@ -38,13 +37,12 @@ pub fn clean_output_dir(dir_name: &str) {
 }
 
 pub fn init_chain(dir_name: &str, genesis: Block) -> Chain {
-	let verifier_cache = Arc::new(RwLock::new(LruVerifierCache::new()));
+
 	Chain::init(
 		dir_name.to_string(),
 		Arc::new(NoopAdapter {}),
 		genesis,
 		pow::verify_size,
-		verifier_cache,
 		false,
 	)
 	.unwrap()

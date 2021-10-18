@@ -28,7 +28,6 @@ use crate::common::hooks::{ChainEvents, NetEvents};
 use crate::common::types::{ChainValidationMode, DandelionEpoch, ServerConfig};
 use crate::core::core::hash::{Hash, Hashed};
 use crate::core::core::transaction::Transaction;
-use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::{BlockHeader, BlockSums, CompactBlock};
 use crate::core::pow::Difficulty;
 use crate::core::{core, global};
@@ -47,7 +46,6 @@ pub struct NetToChainAdapter {
 	sync_state: Arc<SyncState>,
 	chain: Weak<chain::Chain>,
 	tx_pool: Arc<RwLock<pool::TransactionPool>>,
-	verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	peers: OneTime<Weak<p2p::Peers>>,
 	config: ServerConfig,
 	hooks: Vec<Box<dyn NetEvents + Send + Sync>>,
@@ -216,10 +214,7 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 			};
 
 			if let Ok(prev) = self.chain().get_previous_header(&cb.header) {
-				if block
-					.validate(&prev.total_kernel_offset, self.verifier_cache.clone())
-					.is_ok()
-				{
+				if block.validate(&prev.total_kernel_offset).is_ok() {
 					debug!("successfully hydrated block from tx pool!");
 					self.process_block(block, peer_info, chain::Options::NONE)
 				} else {
@@ -473,7 +468,6 @@ impl NetToChainAdapter {
 		sync_state: Arc<SyncState>,
 		chain: Arc<chain::Chain>,
 		tx_pool: Arc<RwLock<pool::TransactionPool>>,
-		verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 		config: ServerConfig,
 		hooks: Vec<Box<dyn NetEvents + Send + Sync>>,
 	) -> NetToChainAdapter {
@@ -481,7 +475,6 @@ impl NetToChainAdapter {
 			sync_state,
 			chain: Arc::downgrade(&chain),
 			tx_pool,
-			verifier_cache,
 			peers: OneTime::new(),
 			config,
 			hooks,

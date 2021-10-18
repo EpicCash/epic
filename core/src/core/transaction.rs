@@ -15,7 +15,6 @@
 //! Transactions
 
 use crate::core::hash::{DefaultHashable, Hashed};
-use crate::core::verifier_cache::VerifierCache;
 use crate::core::{committed, Committed};
 use crate::libtx::secp_ser;
 use crate::ser::{
@@ -825,7 +824,6 @@ impl TransactionBody {
 	pub fn validate(
 		&self,
 		weighting: Weighting,
-		_verifier: Arc<RwLock<dyn VerifierCache>>,
 	) -> Result<(), Error> {
 		self.validate_read(weighting)?;
 
@@ -1056,9 +1054,8 @@ impl Transaction {
 	pub fn validate(
 		&self,
 		weighting: Weighting,
-		verifier: Arc<RwLock<dyn VerifierCache>>,
 	) -> Result<(), Error> {
-		self.body.validate(weighting, verifier)?;
+		self.body.validate(weighting)?;
 		self.body.verify_features()?;
 		self.verify_kernel_sums(self.overage(), self.offset.clone())?;
 		Ok(())

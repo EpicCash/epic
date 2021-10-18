@@ -37,7 +37,6 @@ use crate::common::stats::{StratumStats, WorkerStats};
 use crate::common::types::StratumServerConfig;
 use crate::core::core::block::feijoada::{next_block_bottles, Deterministic};
 use crate::core::core::hash::Hashed;
-use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::Block;
 use crate::core::pow::{DifficultyNumber, PoWType};
 use crate::core::{pow, ser};
@@ -666,12 +665,7 @@ impl Handler {
 		self.workers.broadcast(job_request_json.clone());
 	}
 
-	pub fn run(
-		&self,
-		config: &StratumServerConfig,
-		tx_pool: &Arc<RwLock<pool::TransactionPool>>,
-		verifier_cache: Arc<RwLock<dyn VerifierCache>>,
-	) {
+	pub fn run(&self, config: &StratumServerConfig, tx_pool: &Arc<RwLock<pool::TransactionPool>>) {
 		debug!("Run main loop");
 		let mut deadline: i64 = 0;
 		let mut head = self.chain.head().unwrap();
@@ -702,7 +696,6 @@ impl Handler {
 					let (new_block, block_fees, pow_type) = mine_block::get_block(
 						&self.chain,
 						tx_pool,
-						verifier_cache.clone(),
 						state.current_key_id.clone(),
 						wallet_listener_url,
 					);
@@ -983,7 +976,6 @@ pub struct StratumServer {
 	config: StratumServerConfig,
 	chain: Arc<chain::Chain>,
 	tx_pool: Arc<RwLock<pool::TransactionPool>>,
-	verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	sync_state: Arc<SyncState>,
 	stratum_stats: Arc<RwLock<StratumStats>>,
 }
@@ -994,7 +986,6 @@ impl StratumServer {
 		config: StratumServerConfig,
 		chain: Arc<chain::Chain>,
 		tx_pool: Arc<RwLock<pool::TransactionPool>>,
-		verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 		stratum_stats: Arc<RwLock<StratumStats>>,
 	) -> StratumServer {
 		StratumServer {
@@ -1002,7 +993,6 @@ impl StratumServer {
 			config,
 			chain,
 			tx_pool,
-			verifier_cache,
 			sync_state: Arc::new(SyncState::new()),
 			stratum_stats: stratum_stats,
 		}
@@ -1053,7 +1043,7 @@ impl StratumServer {
 			thread::sleep(Duration::from_millis(50));
 		}
 
-		handler.run(&self.config, &self.tx_pool, self.verifier_cache.clone());
+		handler.run(&self.config, &self.tx_pool);
 	} // fn run_loop()
 } // StratumServer
 

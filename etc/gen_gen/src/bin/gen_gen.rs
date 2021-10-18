@@ -33,7 +33,6 @@ use epic_util as util;
 use epic_wallet as wallet;
 
 use epic_core::core::hash::Hashed;
-use epic_core::core::verifier_cache::LruVerifierCache;
 use epic_keychain::{BlindingFactor, ExtKeychain, Keychain};
 
 static BCHAIN_INFO_URL: &str = "https://blockchain.info/latestblock";
@@ -142,8 +141,7 @@ fn main() {
 	println!("Built genesis:\n{:?}", gen);
 	core::pow::verify_size(&gen.header).unwrap();
 	gen.validate(
-		&BlindingFactor::zero(),
-		Arc::new(util::RwLock::new(LruVerifierCache::new())),
+		&BlindingFactor::zero()
 	)
 	.unwrap();
 
@@ -269,9 +267,7 @@ fn update_genesis_rs(gen: &core::core::Block) {
 fn setup_chain(dir_name: &str, genesis: core::core::Block) -> chain::Chain {
 	util::init_test_logger();
 	let _ = fs::remove_dir_all(dir_name);
-	let verifier_cache = Arc::new(util::RwLock::new(
-		core::core::verifier_cache::LruVerifierCache::new(),
-	));
+
 	let db_env = Arc::new(store::new_env(dir_name.to_string()));
 	chain::Chain::init(
 		dir_name.to_string(),
@@ -279,7 +275,6 @@ fn setup_chain(dir_name: &str, genesis: core::core::Block) -> chain::Chain {
 		Arc::new(chain::types::NoopAdapter {}),
 		genesis,
 		core::pow::verify_size,
-		verifier_cache,
 		false,
 		Arc::new(util::StopState::new()),
 	)

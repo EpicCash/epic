@@ -36,7 +36,6 @@ use crate::core::block::feijoada::{get_bottles_default, Policy};
 use crate::core::committed::{self, Committed};
 use crate::core::compact_block::{CompactBlock, CompactBlockBody};
 use crate::core::hash::{DefaultHashable, Hash, Hashed, ZERO_HASH};
-use crate::core::verifier_cache::VerifierCache;
 use crate::core::{
 	transaction, Commitment, Input, KernelFeatures, Output, Transaction, TransactionBody, TxKernel,
 	Weighting,
@@ -857,9 +856,8 @@ impl Block {
 	pub fn validate(
 		&self,
 		prev_kernel_offset: &BlindingFactor,
-		verifier: Arc<RwLock<dyn VerifierCache>>,
 	) -> Result<Commitment, Error> {
-		self.body.validate(Weighting::AsBlock, verifier)?;
+		self.body.validate(Weighting::AsBlock)?;
 
 		self.verify_kernel_lock_heights()?;
 

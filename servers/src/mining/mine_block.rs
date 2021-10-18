@@ -31,7 +31,6 @@ use crate::core::core::block::feijoada::{next_block_bottles, Deterministic, Feij
 use crate::core::core::foundation::load_foundation_output;
 pub use crate::core::core::foundation::CbData;
 use crate::core::core::hash::{Hash, Hashed};
-use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::{Output, TxKernel};
 use crate::core::global::{get_emitted_policy, get_policies};
 use crate::core::libtx::secp_ser;
@@ -79,19 +78,12 @@ pub struct CbData {
 pub fn get_block(
 	chain: &Arc<chain::Chain>,
 	tx_pool: &Arc<RwLock<pool::TransactionPool>>,
-	verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	key_id: Option<Identifier>,
 	wallet_listener_url: Option<String>,
 ) -> (core::Block, BlockFees, PoWType) {
 	let wallet_retry_interval = 5;
 	// get the latest chain state and build a block on top of it
-	let mut result = build_block(
-		chain,
-		tx_pool,
-		verifier_cache.clone(),
-		key_id.clone(),
-		wallet_listener_url.clone(),
-	);
+	let mut result = build_block(chain, tx_pool, key_id.clone(), wallet_listener_url.clone());
 	while let Err(e) = result {
 		let mut new_key_id = key_id.to_owned();
 		match e {
@@ -125,13 +117,7 @@ pub fn get_block(
 			thread::sleep(Duration::from_millis(100));
 		}
 
-		result = build_block(
-			chain,
-			tx_pool,
-			verifier_cache.clone(),
-			new_key_id,
-			wallet_listener_url.clone(),
-		);
+		result = build_block(chain, tx_pool, new_key_id, wallet_listener_url.clone());
 	}
 	return result.unwrap();
 }
@@ -141,7 +127,6 @@ pub fn get_block(
 fn build_block(
 	chain: &Arc<chain::Chain>,
 	tx_pool: &Arc<RwLock<pool::TransactionPool>>,
-	verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	key_id: Option<Identifier>,
 	wallet_listener_url: Option<String>,
 ) -> Result<(core::Block, BlockFees, PoWType), Error> {
@@ -215,8 +200,8 @@ fn build_block(
 	};
 
 	// making sure we're not spending time mining a useless block
-	
-	b.validate(&head.total_kernel_offset, verifier_cache)?;
+
+	b.validate(&head.total_kernel_offset)?;
 
 	let mut seed_u8 = [0u8; 32];
 	seed_u8.copy_from_slice(&seed.as_bytes()[0..32]);

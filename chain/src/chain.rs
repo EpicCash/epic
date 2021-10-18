@@ -17,7 +17,6 @@
 
 use crate::core::core::hash::{Hash, Hashed, ZERO_HASH};
 use crate::core::core::merkle_proof::MerkleProof;
-use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::{
 	Block, BlockHeader, BlockSums, Committed, Output, OutputIdentifier, Transaction, TxKernel,
 };
@@ -151,7 +150,6 @@ pub struct Chain {
 	txhashset: Arc<RwLock<txhashset::TxHashSet>>,
 	header_pmmr: Arc<RwLock<txhashset::PMMRHandle<BlockHeader>>>,
 	sync_pmmr: Arc<RwLock<txhashset::PMMRHandle<BlockHeader>>>,
-	verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	// POW verification function
 	pow_verifier: fn(&BlockHeader) -> Result<(), pow::Error>,
 	archive_mode: bool,
@@ -167,7 +165,6 @@ impl Chain {
 		adapter: Arc<dyn ChainAdapter + Send + Sync>,
 		genesis: Block,
 		pow_verifier: fn(&BlockHeader) -> Result<(), pow::Error>,
-		verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 		archive_mode: bool,
 	) -> Result<Chain, Error> {
 		let store = Arc::new(store::ChainStore::new(&db_root)?);
@@ -218,7 +215,6 @@ impl Chain {
 			header_pmmr: Arc::new(RwLock::new(header_pmmr)),
 			sync_pmmr: Arc::new(RwLock::new(sync_pmmr)),
 			pow_verifier,
-			verifier_cache,
 			archive_mode,
 			genesis: genesis.header.clone(),
 		};
@@ -441,7 +437,6 @@ impl Chain {
 		Ok(pipe::BlockContext {
 			opts,
 			pow_verifier: self.pow_verifier,
-			verifier_cache: self.verifier_cache.clone(),
 			header_pmmr,
 			txhashset,
 			batch,

@@ -24,7 +24,6 @@ pub mod id;
 pub mod merkle_proof;
 pub mod pmmr;
 pub mod transaction;
-pub mod verifier_cache;
 
 use crate::consensus::EPIC_BASE;
 
