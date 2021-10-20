@@ -93,10 +93,6 @@ impl HeaderSync {
 		};
 
 		if enable_header_sync {
-			/*info!(
-				"########## enable_header_sync ############# {:?}",
-				self.syncing_peer
-			);*/
 			self.sync_state.update(SyncStatus::HeaderSync {
 				current_height: header_head.height,
 				highest_height: highest_height,
@@ -109,7 +105,7 @@ impl HeaderSync {
 
 			return Ok(true);
 		}
-		Ok(false) 
+		Ok(false)
 	}
 
 	fn header_sync_due(&mut self, header_head: &chain::Tip) -> bool {
