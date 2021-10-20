@@ -64,7 +64,7 @@ fn get_foundation_tx_offset(index: u64, version: HeaderVersion) -> u64 {
 	let size = index * (FOUNDATION_COINBASE_SIZE_1 as u64);
 
 	if cfg!(windows) {
-		size
+		size + index
 	} else {
 		size
 	}
@@ -102,5 +102,6 @@ pub fn load_foundation_output(height: u64) -> CbData {
 	file.seek(SeekFrom::Start(offset)).unwrap();
 	file.read_exact(&mut buffer).unwrap();
 	let buffer_str = String::from_utf8(buffer).unwrap();
+	
 	serde_json::from_str(&buffer_str).unwrap()
 }
