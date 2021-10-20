@@ -99,7 +99,12 @@ impl HeaderSync {
 				highest_height: highest_height,
 			});
 
-			self.syncing_peer = self.header_sync();
+
+			let most_working_peer = self.header_sync();
+			if self.syncing_peer.is_none() {
+				self.syncing_peer = most_working_peer;
+			}
+
 			return Ok(true);
 		}
 		Ok(false)
@@ -138,6 +143,11 @@ impl HeaderSync {
 			}
 
 			if all_headers_received {
+				if let Some(ref peer) = self.syncing_peer {
+					info!("all headers received from {:?}", peer.info.addr);
+				}
+
+				self.syncing_peer = None;
 				// reset the stalling start time if syncing goes well
 				self.stalling_ts = None;
 			} else {
@@ -164,10 +174,16 @@ impl HeaderSync {
 							}
 							_ => (),
 						}
+						if now > *stalling_ts + Duration::seconds(120)
+						&& header_head.total_difficulty < peer.info.total_difficulty()
+						{
+							self.stalling_ts = None;
+							self.syncing_peer = None;
+						}
 					}
 				}
 			}
-			self.syncing_peer = None;
+			
 			true
 		} else {
 			// resetting the timeout as long as we progress
