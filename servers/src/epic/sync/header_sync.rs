@@ -109,7 +109,7 @@ impl HeaderSync {
 
 			return Ok(true);
 		}
-		Ok(false)
+		Ok(false) 
 	}
 
 	fn header_sync_due(&mut self, header_head: &chain::Tip) -> bool {
