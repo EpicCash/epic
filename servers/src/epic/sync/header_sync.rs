@@ -169,17 +169,13 @@ impl HeaderSync {
 										peer.info.height(),
 										peer.info.total_difficulty(),
 								);
+								self.stalling_ts = None;
+								self.syncing_peer = None;
 							}
 						}
 						_ => (),
 					}
 
-					if now > *stalling_ts + Duration::seconds(120)
-						&& header_head.total_difficulty < peer.info.total_difficulty()
-					{
-						self.stalling_ts = None;
-						self.syncing_peer = None;
-					}
 				}
 			}
 
