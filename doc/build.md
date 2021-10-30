@@ -2,7 +2,7 @@
 
 ## Requirements
 
-* rust 1.35
+* rust 1.44
 * clang
 * ncurses and libs (ncurses, ncursesw5)
 * zlib libs (zlib1g-dev or zlib-devel)
