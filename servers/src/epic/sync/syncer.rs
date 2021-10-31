@@ -152,6 +152,7 @@ impl SyncRunner {
 
 			// check whether syncing is generally needed, when we compare our state with others
 			let (needs_syncing, most_work_height) = unwrap_or_restart_loop!(self.needs_syncing());
+
 			if most_work_height > 0 {
 				// we can occasionally get a most work height of 0 if read locks fail
 				highest_height = most_work_height;

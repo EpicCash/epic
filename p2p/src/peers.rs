@@ -273,8 +273,6 @@ impl Peers {
 
 	/// Ban a peer, disconnecting it if we're currently connected
 	pub fn disconnect_peer(&self, peer_addr: PeerAddr) -> Result<(), Error> {
-
-
 		match self.get_connected_peer(peer_addr) {
 			Some(peer) => {
 				debug!("Disconnect peer {}", peer_addr);

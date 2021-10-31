@@ -59,7 +59,7 @@ impl HeaderSync {
 			return Ok(false);
 		}
 
-		let enable_header_sync = match self.sync_state.status() {
+		match self.sync_state.status() {
 			SyncStatus::BodySync { .. }
 			| SyncStatus::HeaderSync { .. }
 			| SyncStatus::TxHashsetDone => true,
@@ -81,6 +81,7 @@ impl HeaderSync {
 				// correctly, so reset any previous (and potentially stale) sync_head to match
 				// our last known "good" header_head.
 				//
+
 				self.chain.reset_sync_head()?;
 
 				// Rebuild the sync MMR to match our updated sync_head.
@@ -92,19 +93,14 @@ impl HeaderSync {
 			_ => false,
 		};
 
-		if enable_header_sync {
+		if self.syncing_peer.is_none() {
 			self.sync_state.update(SyncStatus::HeaderSync {
 				current_height: header_head.height,
 				highest_height: highest_height,
 			});
-
-			let most_working_peer = self.header_sync();
-			if self.syncing_peer.is_none() {
-				self.syncing_peer = most_working_peer;
-			}
-
-			return Ok(true);
+			self.syncing_peer = self.header_sync();
 		}
+
 		Ok(false)
 	}
 
@@ -115,7 +111,6 @@ impl HeaderSync {
 		// received all necessary headers, can ask for more
 		let all_headers_received =
 			header_head.height >= prev_height + (p2p::MAX_BLOCK_HEADERS as u64) - 4;
-
 		// no headers processed and we're past timeout, need to ask for more
 		let stalling = header_head.height <= latest_height && now > timeout;
 
@@ -126,12 +121,6 @@ impl HeaderSync {
 		};
 
 		if force_sync || all_headers_received || stalling {
-			self.prev_header_sync = (
-				now + Duration::seconds(2),
-				header_head.height,
-				header_head.height,
-			);
-
 			// save the stalling start time
 			if stalling {
 				if self.stalling_ts.is_none() {
@@ -149,6 +138,12 @@ impl HeaderSync {
 				self.syncing_peer = None;
 				// reset the stalling start time if syncing goes well
 				self.stalling_ts = None;
+
+				self.prev_header_sync = (
+					now + Duration::seconds(2),
+					header_head.height,
+					header_head.height,
+				);
 			} else if let Some(ref stalling_ts) = self.stalling_ts {
 				if let Some(ref peer) = self.syncing_peer {
 					match self.sync_state.status() {
@@ -175,7 +170,6 @@ impl HeaderSync {
 						}
 						_ => (),
 					}
-
 				}
 			}
 

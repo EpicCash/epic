@@ -411,7 +411,6 @@ pub fn graph_weight(height: u64, edge_bits: u8) -> u64 {
 			global::base_edge_bits() - edge_bits
 		}) as u64) * xpr_edge_bits;
 
-	debug!("graph_weight {:?}", graph_weight.clone());
 	graph_weight
 }
 

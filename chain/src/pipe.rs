@@ -46,7 +46,6 @@ pub struct BlockContext<'a> {
 	pub header_pmmr: &'a mut txhashset::PMMRHandle<BlockHeader>,
 	/// The active batch to use for block processing.
 	pub batch: store::Batch<'a>,
-
 }
 
 // Check if we already know about this block for various reasons
@@ -205,7 +204,6 @@ pub fn sync_block_headers(
 	// Validate each header in the chunk and add to our db.
 	// Note: This batch may be rolled back later if the MMR does not validate successfully.
 	for header in headers {
-		check_bad_header(header)?;
 		validate_header(header, ctx)?;
 		add_block_header(header, &ctx.batch)?;
 	}
