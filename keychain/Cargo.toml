@@ -25,6 +25,6 @@ digest = "0.7"
 hmac = "0.6"
 ripemd160 = "0.7"
 sha2 = "0.7"
-pbkdf2 = "0.2"
+pbkdf2 = "0.8"
 
 epic_util = { path = "../util", version = "3.0.0" }
