@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["get_progpow_value",""],["new_progpow_ctx",""]],"struct":[["PP_CPU",""],["ProgPowContext",""]]});

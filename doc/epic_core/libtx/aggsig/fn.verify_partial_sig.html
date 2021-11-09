@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Verifies a partial signature from a public key. All nonce and public key sum values must be identical to those provided in the call to `calculate_partial_sig`. Returns `Result::Ok` if the signature is valid, or a Signature ErrorKind otherwise"><meta name="keywords" content="rust, rustlang, rust-lang, verify_partial_sig"><title>verify_partial_sig in epic_core::libtx::aggsig - Rust</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../epic_core/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a><div class="sidebar-elems"><h2 class="location">Other items in<br><a href="../../index.html">epic_core</a>::<wbr><a href="../index.html">libtx</a>::<wbr><a href="index.html">aggsig</a></h2><div id="sidebar-vars" data-name="verify_partial_sig" data-ty="fn" data-relpath=""></div><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="in-band">Function <a href="../../index.html">epic_core</a>::<wbr><a href="../index.html">libtx</a>::<wbr><a href="index.html">aggsig</a>::<wbr><a class="fn" href="#">verify_partial_sig</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../../../src/epic_core/libtx/aggsig.rs.html#178-200" title="goto source code">[src]</a></span></h1><pre class="rust fn"><code>pub fn verify_partial_sig(<br>&nbsp;&nbsp;&nbsp;&nbsp;secp: &amp;Secp256k1, <br>&nbsp;&nbsp;&nbsp;&nbsp;sig: &amp;Signature, <br>&nbsp;&nbsp;&nbsp;&nbsp;pub_nonce_sum: &amp;PublicKey, <br>&nbsp;&nbsp;&nbsp;&nbsp;pubkey: &amp;PublicKey, <br>&nbsp;&nbsp;&nbsp;&nbsp;pubkey_sum: <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;PublicKey&gt;, <br>&nbsp;&nbsp;&nbsp;&nbsp;msg: &amp;Message<br>) -&gt; <a class="enum" href="../../ser/enum.Result.html" title="enum epic_core::ser::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.56.1/std/primitive.unit.html">()</a>, <a class="struct" href="../struct.Error.html" title="struct epic_core::libtx::Error">Error</a>&gt;</code></pre><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Verifies a partial signature from a public key. All nonce and public
+key sum values must be identical to those provided in the call to
+<a href="fn.calculate_partial_sig.html"><code>calculate_partial_sig</code></a>. Returns
+<code>Result::Ok</code> if the signature is valid, or a Signature
+<a href="../enum.ErrorKind.html">ErrorKind</a> otherwise</p>
+<h1 id="arguments" class="section-header"><a href="#arguments">Arguments</a></h1>
+<ul>
+<li><code>secp</code> - A Secp256k1 Context initialized for Validation</li>
+<li><code>sig</code> - The signature to validate, created via a call to
+<a href="fn.calculate_partial_sig.html"><code>calculate_partial_sig</code></a></li>
+<li><code>pub_nonce_sum</code> - The sum of the public nonces of all signers participating
+in the full signature. This value is encoded in e.</li>
+<li><code>pubkey</code> - Corresponding Public Key of the private key used to sign the message.</li>
+<li><code>pubkey_sum</code> - (Optional) The sum of the public keys of all signers participating
+in the full signature. If included, this value is encoded in e.</li>
+<li><code>msg</code> - The message to verify.</li>
+</ul>
+<h1 id="example" class="section-header"><a href="#example">Example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">rand::thread_rng</span>;
+<span class="kw">use</span> <span class="ident">core::libtx::aggsig</span>;
+<span class="kw">use</span> <span class="ident">util::secp::key</span>::{<span class="ident">PublicKey</span>, <span class="ident">SecretKey</span>};
+<span class="kw">use</span> <span class="ident">util::secp</span>::{<span class="ident">ContextFlag</span>, <span class="ident">Secp256k1</span>, <span class="ident">Message</span>};
+
+<span class="kw">let</span> <span class="ident">secp</span> <span class="op">=</span> <span class="ident">Secp256k1::with_caps</span>(<span class="ident">ContextFlag::Full</span>);
+<span class="kw">let</span> <span class="ident">secret_nonce</span> <span class="op">=</span> <span class="ident">aggsig::create_secnonce</span>(<span class="kw-2">&amp;</span><span class="ident">secp</span>).<span class="ident">unwrap</span>();
+<span class="kw">let</span> <span class="ident">secret_key</span> <span class="op">=</span> <span class="ident">SecretKey::new</span>(<span class="kw-2">&amp;</span><span class="ident">secp</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">thread_rng</span>());
+<span class="kw">let</span> <span class="ident">pub_nonce_sum</span> <span class="op">=</span> <span class="ident">PublicKey::from_secret_key</span>(<span class="kw-2">&amp;</span><span class="ident">secp</span>, <span class="kw-2">&amp;</span><span class="ident">secret_nonce</span>).<span class="ident">unwrap</span>();
+<span class="comment">// ... Add all other participating nonces</span>
+<span class="kw">let</span> <span class="ident">pub_key_sum</span> <span class="op">=</span> <span class="ident">PublicKey::from_secret_key</span>(<span class="kw-2">&amp;</span><span class="ident">secp</span>, <span class="kw-2">&amp;</span><span class="ident">secret_key</span>).<span class="ident">unwrap</span>();
+<span class="comment">// ... Add all other participating keys</span>
+<span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">msg_bytes</span> <span class="op">=</span> [<span class="number">0</span>; <span class="number">32</span>];
+<span class="comment">// ... Encode message</span>
+<span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="ident">Message::from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">msg_bytes</span>).<span class="ident">unwrap</span>();
+<span class="kw">let</span> <span class="ident">sig_part</span> <span class="op">=</span> <span class="ident">aggsig::calculate_partial_sig</span>(
+   	<span class="kw-2">&amp;</span><span class="ident">secp</span>,
+   	<span class="kw-2">&amp;</span><span class="ident">secret_key</span>,
+   	<span class="kw-2">&amp;</span><span class="ident">secret_nonce</span>,
+   	<span class="kw-2">&amp;</span><span class="ident">pub_nonce_sum</span>,
+   	<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="ident">pub_key_sum</span>),
+   	<span class="kw-2">&amp;</span><span class="ident">message</span>,
+).<span class="ident">unwrap</span>();
+
+<span class="comment">// Now verify the signature, ensuring the same values used to create</span>
+<span class="comment">// the signature are provided:</span>
+<span class="kw">let</span> <span class="ident">public_key</span> <span class="op">=</span> <span class="ident">PublicKey::from_secret_key</span>(<span class="kw-2">&amp;</span><span class="ident">secp</span>, <span class="kw-2">&amp;</span><span class="ident">secret_key</span>).<span class="ident">unwrap</span>();
+
+<span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">aggsig::verify_partial_sig</span>(
+   	<span class="kw-2">&amp;</span><span class="ident">secp</span>,
+   	<span class="kw-2">&amp;</span><span class="ident">sig_part</span>,
+   	<span class="kw-2">&amp;</span><span class="ident">pub_nonce_sum</span>,
+   	<span class="kw-2">&amp;</span><span class="ident">public_key</span>,
+   	<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="ident">pub_key_sum</span>),
+   	<span class="kw-2">&amp;</span><span class="ident">message</span>,
+);</code></pre></div>
+</div></details></section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="epic_core" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
+    <script src="../../../main.js"></script>
+</body></html>

@@ -30,7 +30,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::sync::Arc;
 
-/// Grin's user agent with current version
+/// Epic's user agent with current version
 pub const USER_AGENT: &'static str = concat!("MW/Epic ", env!("CARGO_PKG_VERSION"));
 
 /// Magic numbers expected in the header of every message

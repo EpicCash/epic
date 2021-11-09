@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Utility functions to build Grin transactions. Handles the blinding of
+//! Utility functions to build Epic transactions. Handles the blinding of
 //! inputs and outputs, maintaining the sum of blinding factors, producing
 //! the excess signature, etc.
 //!

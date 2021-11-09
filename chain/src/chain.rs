@@ -872,8 +872,8 @@ impl Chain {
 	}
 
 	/// Specific tmp dir.
-	/// Normally it's ~/.grin/main/tmp for mainnet
-	/// or ~/.grin/floo/tmp for floonet
+	/// Normally it's ~/.epic/main/tmp for mainnet
+	/// or ~/.epic/floo/tmp for floonet
 	pub fn get_tmp_dir(&self) -> PathBuf {
 		let mut tmp_dir = PathBuf::from(self.db_root.clone());
 		tmp_dir = tmp_dir
@@ -930,7 +930,7 @@ impl Chain {
 			}
 		};
 
-		// Write txhashset to sandbox (in the Grin specific tmp dir)
+		// Write txhashset to sandbox (in the Epic specific tmp dir)
 		let sandbox_dir = self.get_tmp_dir();
 		txhashset::clean_txhashset_folder(&sandbox_dir);
 		txhashset::zip_write(sandbox_dir.clone(), txhashset_data.try_clone()?, &header)?;

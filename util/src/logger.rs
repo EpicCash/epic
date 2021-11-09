@@ -100,8 +100,8 @@ impl Default for LoggingConfig {
 	}
 }
 
-/// This filter is rejecting messages that doesn't start with "grin"
-/// in order to save log space for only Grin-related records
+/// This filter is rejecting messages that doesn't start with "epic"
+/// in order to save log space for only Epic-related records
 #[derive(Debug)]
 struct EpicFilter;
 

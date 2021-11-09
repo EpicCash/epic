@@ -71,7 +71,7 @@ pub struct Server {
 	state_info: ServerStateInfo,
 	/// Stop flag
 	pub stop_state: Arc<StopState>,
-	/// Maintain a lock_file so we do not run multiple Grin nodes from same dir.
+	/// Maintain a lock_file so we do not run multiple Epic nodes from same dir.
 	lock_file: Arc<File>,
 	connect_thread: Option<JoinHandle<()>>,
 	sync_thread: JoinHandle<()>,

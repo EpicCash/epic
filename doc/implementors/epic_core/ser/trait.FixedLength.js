@@ -1,0 +1,5 @@
+(function() {var implementors = {};
+implementors["epic_chain"] = [{"text":"impl <a class=\"trait\" href=\"epic_core/ser/trait.FixedLength.html\" title=\"trait epic_core::ser::FixedLength\">FixedLength</a> for <a class=\"struct\" href=\"epic_chain/txhashset/struct.BitmapChunk.html\" title=\"struct epic_chain::txhashset::BitmapChunk\">BitmapChunk</a>","synthetic":false,"types":["epic_chain::txhashset::bitmap_accumulator::BitmapChunk"]}];
+implementors["epic_core"] = [];
+implementors["epic_p2p"] = [{"text":"impl <a class=\"trait\" href=\"epic_core/ser/trait.FixedLength.html\" title=\"trait epic_core::ser::FixedLength\">FixedLength</a> for <a class=\"struct\" href=\"epic_p2p/msg/struct.MsgHeader.html\" title=\"struct epic_p2p::msg::MsgHeader\">MsgHeader</a>","synthetic":false,"types":["epic_p2p::msg::MsgHeader"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

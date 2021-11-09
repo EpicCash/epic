@@ -266,7 +266,7 @@ impl Default for P2PConfig {
 }
 
 /// Note certain fields are options just so they don't have to be
-/// included in grin-server.toml, but we don't want them to ever return none
+/// included in epic-server.toml, but we don't want them to ever return none
 impl P2PConfig {
 	/// return ban window
 	pub fn ban_window(&self) -> i64 {
@@ -602,7 +602,7 @@ pub trait ChainAdapter: Sync + Send {
 		peer_peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error>;
 
-	/// Get the Grin specific tmp dir
+	/// Get the Epic specific tmp dir
 	fn get_tmp_dir(&self) -> PathBuf;
 
 	/// Get a tmp file path in above specific tmp dir (create tmp dir if not exist)

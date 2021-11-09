@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Main for building the binary of a Grin peer-to-peer node.
+//! Main for building the binary of a Epic peer-to-peer node.
 
 #[macro_use]
 extern crate clap;
@@ -145,9 +145,7 @@ fn real_main() -> i32 {
 		("wallet", _) => {
 			println!();
 			println!("As of v1.1.0, the wallet has been split into a separate executable.");
-			println!(
-				"Please visit https://github.com/mimblewimble/grin-wallet/releases to download"
-			);
+			println!("Please visit https://epic.tech/downloads/ to download");
 			println!();
 			return 0;
 		}

@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Handshake","Handles the handshake negotiation when two peers connect and decides on protocol."]]});

@@ -1,0 +1,241 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Public definition used to generate Node jsonrpc api."><meta name="keywords" content="rust, rustlang, rust-lang, OwnerRpc"><title>OwnerRpc in epic_api - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../ayu.css" disabled ><script id="default-settings" ></script><script src="../storage.js"></script><script src="../crates.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../favicon.svg"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../epic_api/index.html'><div class='logo-container rust-logo'><img src='../rust-logo.png' alt='logo'></div></a><h2 class="location">Trait OwnerRpc</h2><div class="sidebar-elems"><div class="block items"><h3 class="sidebar-title"><a href="#required-methods">Required Methods</a></h3><div class="sidebar-links"><a href="#tymethod.ban_peer">ban_peer</a><a href="#tymethod.compact_chain">compact_chain</a><a href="#tymethod.get_connected_peers">get_connected_peers</a><a href="#tymethod.get_peers">get_peers</a><a href="#tymethod.get_status">get_status</a><a href="#tymethod.unban_peer">unban_peer</a><a href="#tymethod.validate_chain">validate_chain</a></div><h3 class="sidebar-title"><a href="#trait-implementations">Trait Implementations</a></h3><div class="sidebar-links"><a href="#impl-Handler">Handler</a></div><h3 class="sidebar-title"><a href="#implementors">Implementors</a></h3></div><h2 class="location">Other items in<br><a href="index.html">epic_api</a></h2><div id="sidebar-vars" data-name="OwnerRpc" data-ty="trait" data-relpath=""></div><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../wheel.svg"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="in-band">Trait <a href="index.html">epic_api</a>::<wbr><a class="trait" href="#">OwnerRpc</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../src/epic_api/owner_rpc.rs.html#29-355" title="goto source code">[src]</a></span></h1><div class="docblock type-decl"><pre class="rust trait"><code>pub trait OwnerRpc: <a class="trait" href="https://doc.rust-lang.org/1.56.1/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + <a class="trait" href="https://doc.rust-lang.org/1.56.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> {
+    fn <a href="#tymethod.get_status" class="fnname">get_status</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.Status.html" title="struct epic_api::Status">Status</a>, <a class="enum" href="enum.ErrorKind.html" title="enum epic_api::ErrorKind">ErrorKind</a>&gt;;
+<div class="item-spacer"></div>    fn <a href="#tymethod.validate_chain" class="fnname">validate_chain</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.56.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ErrorKind.html" title="enum epic_api::ErrorKind">ErrorKind</a>&gt;;
+<div class="item-spacer"></div>    fn <a href="#tymethod.compact_chain" class="fnname">compact_chain</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.56.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ErrorKind.html" title="enum epic_api::ErrorKind">ErrorKind</a>&gt;;
+<div class="item-spacer"></div>    fn <a href="#tymethod.get_peers" class="fnname">get_peers</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;peer_addr: <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.56.1/std/net/addr/enum.SocketAddr.html" title="enum std::net::addr::SocketAddr">SocketAddr</a>&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.56.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../epic_p2p/store/struct.PeerData.html" title="struct epic_p2p::store::PeerData">PeerData</a>&gt;, <a class="enum" href="enum.ErrorKind.html" title="enum epic_api::ErrorKind">ErrorKind</a>&gt;;
+<div class="item-spacer"></div>    fn <a href="#tymethod.get_connected_peers" class="fnname">get_connected_peers</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.56.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../epic_p2p/types/struct.PeerInfoDisplay.html" title="struct epic_p2p::types::PeerInfoDisplay">PeerInfoDisplay</a>&gt;, <a class="enum" href="enum.ErrorKind.html" title="enum epic_api::ErrorKind">ErrorKind</a>&gt;;
+<div class="item-spacer"></div>    fn <a href="#tymethod.ban_peer" class="fnname">ban_peer</a>(&amp;self, peer_addr: <a class="enum" href="https://doc.rust-lang.org/1.56.1/std/net/addr/enum.SocketAddr.html" title="enum std::net::addr::SocketAddr">SocketAddr</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.56.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ErrorKind.html" title="enum epic_api::ErrorKind">ErrorKind</a>&gt;;
+<div class="item-spacer"></div>    fn <a href="#tymethod.unban_peer" class="fnname">unban_peer</a>(&amp;self, peer_addr: <a class="enum" href="https://doc.rust-lang.org/1.56.1/std/net/addr/enum.SocketAddr.html" title="enum std::net::addr::SocketAddr">SocketAddr</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.56.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ErrorKind.html" title="enum epic_api::ErrorKind">ErrorKind</a>&gt;;
+}</code></pre></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Public definition used to generate Node jsonrpc api.</p>
+<ul>
+<li>When running <code>epic</code> with defaults, the V2 api is available at
+<code>localhost:3413/v2/owner</code></li>
+<li>The endpoint only supports POST operations, with the json-rpc request as the body</li>
+</ul>
+</div></details><h2 id="required-methods" class="small-section-header">Required methods<a href="#required-methods" class="anchor"></a></h2><div class="methods"><details class="rustdoc-toggle" open><summary><div id="tymethod.get_status" class="method has-srclink"><div class="rightside"><a class="srclink" href="../src/epic_api/owner_rpc.rs.html#73" title="goto source code">[src]</a></div><h4 class="code-header">fn <a href="#tymethod.get_status" class="fnname">get_status</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.Status.html" title="struct epic_api::Status">Status</a>, <a class="enum" href="enum.ErrorKind.html" title="enum epic_api::ErrorKind">ErrorKind</a>&gt;</h4></div></summary><div class="docblock"><p>Networked version of <a href="struct.Node.html#method.get_status">Owner::get_status</a>.</p>
+<h1 id="json-rpc-example" class="section-header"><a href="#json-rpc-example">Json rpc example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>{
+	<span class="string">&quot;jsonrpc&quot;</span>: <span class="string">&quot;2.0&quot;</span>,
+	<span class="string">&quot;method&quot;</span>: <span class="string">&quot;get_status&quot;</span>,
+	<span class="string">&quot;params&quot;</span>: [],
+	<span class="string">&quot;id&quot;</span>: <span class="number">1</span>
+}
+{
+	<span class="string">&quot;id&quot;</span>: <span class="number">1</span>,
+	<span class="string">&quot;jsonrpc&quot;</span>: <span class="string">&quot;2.0&quot;</span>,
+	<span class="string">&quot;result&quot;</span>: {
+		<span class="string">&quot;Ok&quot;</span>: {
+		<span class="string">&quot;protocol_version&quot;</span>: <span class="string">&quot;2&quot;</span>,
+		<span class="string">&quot;user_agent&quot;</span>: <span class="string">&quot;MW/Epic 2.x.x&quot;</span>,
+		<span class="string">&quot;connections&quot;</span>: <span class="string">&quot;8&quot;</span>,
+		<span class="string">&quot;tip&quot;</span>: {
+			<span class="string">&quot;height&quot;</span>: <span class="number">371553</span>,
+			<span class="string">&quot;last_block_pushed&quot;</span>: <span class="string">&quot;00001d1623db988d7ed10c5b6319360a52f20c89b4710474145806ba0e8455ec&quot;</span>,
+			<span class="string">&quot;prev_block_to_last&quot;</span>: <span class="string">&quot;0000029f51bacee81c49a27b4bc9c6c446e03183867c922890f90bb17108d89f&quot;</span>,
+			<span class="string">&quot;total_difficulty&quot;</span>: <span class="number">1127628411943045</span>
+		},
+		<span class="string">&quot;sync_status&quot;</span>: <span class="string">&quot;header_sync&quot;</span>,
+		<span class="string">&quot;sync_info&quot;</span>: {
+			<span class="string">&quot;current_height&quot;</span>: <span class="number">371553</span>,
+			<span class="string">&quot;highest_height&quot;</span>: <span class="number">0</span>
+		}
+		}
+	}
+}</code></pre></div>
+</div></details><details class="rustdoc-toggle" open><summary><div id="tymethod.validate_chain" class="method has-srclink"><div class="rightside"><a class="srclink" href="../src/epic_api/owner_rpc.rs.html#103" title="goto source code">[src]</a></div><h4 class="code-header">fn <a href="#tymethod.validate_chain" class="fnname">validate_chain</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.56.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ErrorKind.html" title="enum epic_api::ErrorKind">ErrorKind</a>&gt;</h4></div></summary><div class="docblock"><p>Networked version of <a href="struct.Node.html#method.validate_chain">Owner::validate_chain</a>.</p>
+<h1 id="json-rpc-example-1" class="section-header"><a href="#json-rpc-example-1">Json rpc example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>{
+	<span class="string">&quot;jsonrpc&quot;</span>: <span class="string">&quot;2.0&quot;</span>,
+	<span class="string">&quot;method&quot;</span>: <span class="string">&quot;validate_chain&quot;</span>,
+	<span class="string">&quot;params&quot;</span>: [],
+	<span class="string">&quot;id&quot;</span>: <span class="number">1</span>
+}
+{
+	<span class="string">&quot;id&quot;</span>: <span class="number">1</span>,
+	<span class="string">&quot;jsonrpc&quot;</span>: <span class="string">&quot;2.0&quot;</span>,
+	<span class="string">&quot;result&quot;</span>: {
+		<span class="string">&quot;Ok&quot;</span>: <span class="ident">null</span>
+	}
+}</code></pre></div>
+</div></details><details class="rustdoc-toggle" open><summary><div id="tymethod.compact_chain" class="method has-srclink"><div class="rightside"><a class="srclink" href="../src/epic_api/owner_rpc.rs.html#133" title="goto source code">[src]</a></div><h4 class="code-header">fn <a href="#tymethod.compact_chain" class="fnname">compact_chain</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.56.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ErrorKind.html" title="enum epic_api::ErrorKind">ErrorKind</a>&gt;</h4></div></summary><div class="docblock"><p>Networked version of <a href="struct.Node.html#method.compact_chain">Owner::compact_chain</a>.</p>
+<h1 id="json-rpc-example-2" class="section-header"><a href="#json-rpc-example-2">Json rpc example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>{
+	<span class="string">&quot;jsonrpc&quot;</span>: <span class="string">&quot;2.0&quot;</span>,
+	<span class="string">&quot;method&quot;</span>: <span class="string">&quot;compact_chain&quot;</span>,
+	<span class="string">&quot;params&quot;</span>: [],
+	<span class="string">&quot;id&quot;</span>: <span class="number">1</span>
+}
+{
+	<span class="string">&quot;id&quot;</span>: <span class="number">1</span>,
+	<span class="string">&quot;jsonrpc&quot;</span>: <span class="string">&quot;2.0&quot;</span>,
+	<span class="string">&quot;result&quot;</span>: {
+		<span class="string">&quot;Ok&quot;</span>: <span class="ident">null</span>
+	}
+}</code></pre></div>
+</div></details><details class="rustdoc-toggle" open><summary><div id="tymethod.get_peers" class="method has-srclink"><div class="rightside"><a class="srclink" href="../src/epic_api/owner_rpc.rs.html#175" title="goto source code">[src]</a></div><h4 class="code-header">fn <a href="#tymethod.get_peers" class="fnname">get_peers</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;peer_addr: <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.56.1/std/net/addr/enum.SocketAddr.html" title="enum std::net::addr::SocketAddr">SocketAddr</a>&gt;<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.56.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../epic_p2p/store/struct.PeerData.html" title="struct epic_p2p::store::PeerData">PeerData</a>&gt;, <a class="enum" href="enum.ErrorKind.html" title="enum epic_api::ErrorKind">ErrorKind</a>&gt;</h4></div></summary><div class="docblock"><p>Networked version of <a href="struct.Node.html#method.get_peers">Owner::get_peers</a>.</p>
+<h1 id="json-rpc-example-3" class="section-header"><a href="#json-rpc-example-3">Json rpc example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>{
+	<span class="string">&quot;jsonrpc&quot;</span>: <span class="string">&quot;2.0&quot;</span>,
+	<span class="string">&quot;method&quot;</span>: <span class="string">&quot;get_peers&quot;</span>,
+	<span class="string">&quot;params&quot;</span>: [<span class="string">&quot;70.50.33.130:3414&quot;</span>],
+	<span class="string">&quot;id&quot;</span>: <span class="number">1</span>
+}
+{
+	<span class="string">&quot;id&quot;</span>: <span class="number">1</span>,
+	<span class="string">&quot;jsonrpc&quot;</span>: <span class="string">&quot;2.0&quot;</span>,
+	<span class="string">&quot;result&quot;</span>: {
+		<span class="string">&quot;Ok&quot;</span>: [
+		{
+			<span class="string">&quot;addr&quot;</span>: <span class="string">&quot;70.50.33.130:3414&quot;</span>,
+			<span class="string">&quot;ban_reason&quot;</span>: <span class="string">&quot;None&quot;</span>,
+			<span class="string">&quot;capabilities&quot;</span>: {
+			<span class="string">&quot;bits&quot;</span>: <span class="number">15</span>
+			},
+			<span class="string">&quot;flags&quot;</span>: <span class="string">&quot;Defunct&quot;</span>,
+			<span class="string">&quot;last_banned&quot;</span>: <span class="number">0</span>,
+			<span class="string">&quot;last_connected&quot;</span>: <span class="number">1570129317</span>,
+			<span class="string">&quot;user_agent&quot;</span>: <span class="string">&quot;MW/Epic 2.0.0&quot;</span>
+		}
+		]
+	}
+}</code></pre></div>
+</div></details><details class="rustdoc-toggle" open><summary><div id="tymethod.get_connected_peers" class="method has-srclink"><div class="rightside"><a class="srclink" href="../src/epic_api/owner_rpc.rs.html#294" title="goto source code">[src]</a></div><h4 class="code-header">fn <a href="#tymethod.get_connected_peers" class="fnname">get_connected_peers</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.56.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../epic_p2p/types/struct.PeerInfoDisplay.html" title="struct epic_p2p::types::PeerInfoDisplay">PeerInfoDisplay</a>&gt;, <a class="enum" href="enum.ErrorKind.html" title="enum epic_api::ErrorKind">ErrorKind</a>&gt;</h4></div></summary><div class="docblock"><p>Networked version of <a href="struct.Node.html#method.get_connected_peers">Owner::get_connected_peers</a>.</p>
+<h1 id="json-rpc-example-4" class="section-header"><a href="#json-rpc-example-4">Json rpc example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>{
+	<span class="string">&quot;jsonrpc&quot;</span>: <span class="string">&quot;2.0&quot;</span>,
+	<span class="string">&quot;method&quot;</span>: <span class="string">&quot;get_connected_peers&quot;</span>,
+	<span class="string">&quot;params&quot;</span>: [],
+	<span class="string">&quot;id&quot;</span>: <span class="number">1</span>
+}
+{
+	<span class="string">&quot;id&quot;</span>: <span class="number">1</span>,
+	<span class="string">&quot;jsonrpc&quot;</span>: <span class="string">&quot;2.0&quot;</span>,
+	<span class="string">&quot;result&quot;</span>: {
+		<span class="string">&quot;Ok&quot;</span>: [
+		{
+			<span class="string">&quot;addr&quot;</span>: <span class="string">&quot;35.176.195.242:3414&quot;</span>,
+			<span class="string">&quot;capabilities&quot;</span>: {
+			<span class="string">&quot;bits&quot;</span>: <span class="number">15</span>
+			},
+			<span class="string">&quot;direction&quot;</span>: <span class="string">&quot;Outbound&quot;</span>,
+			<span class="string">&quot;height&quot;</span>: <span class="number">374510</span>,
+			<span class="string">&quot;total_difficulty&quot;</span>: <span class="number">1133954621205750</span>,
+			<span class="string">&quot;user_agent&quot;</span>: <span class="string">&quot;MW/Epic 2.0.0&quot;</span>,
+			<span class="string">&quot;version&quot;</span>: <span class="number">1</span>
+		},
+		{
+			<span class="string">&quot;addr&quot;</span>: <span class="string">&quot;47.97.198.21:3414&quot;</span>,
+			<span class="string">&quot;capabilities&quot;</span>: {
+			<span class="string">&quot;bits&quot;</span>: <span class="number">15</span>
+			},
+			<span class="string">&quot;direction&quot;</span>: <span class="string">&quot;Outbound&quot;</span>,
+			<span class="string">&quot;height&quot;</span>: <span class="number">374510</span>,
+			<span class="string">&quot;total_difficulty&quot;</span>: <span class="number">1133954621205750</span>,
+			<span class="string">&quot;user_agent&quot;</span>: <span class="string">&quot;MW/Epic 2.0.0&quot;</span>,
+			<span class="string">&quot;version&quot;</span>: <span class="number">1</span>
+		},
+		{
+			<span class="string">&quot;addr&quot;</span>: <span class="string">&quot;148.251.16.13:3414&quot;</span>,
+			<span class="string">&quot;capabilities&quot;</span>: {
+			<span class="string">&quot;bits&quot;</span>: <span class="number">15</span>
+			},
+			<span class="string">&quot;direction&quot;</span>: <span class="string">&quot;Outbound&quot;</span>,
+			<span class="string">&quot;height&quot;</span>: <span class="number">374510</span>,
+			<span class="string">&quot;total_difficulty&quot;</span>: <span class="number">1133954621205750</span>,
+			<span class="string">&quot;user_agent&quot;</span>: <span class="string">&quot;MW/Epic 2.0.0&quot;</span>,
+			<span class="string">&quot;version&quot;</span>: <span class="number">1</span>
+		},
+		{
+			<span class="string">&quot;addr&quot;</span>: <span class="string">&quot;68.195.18.155:3414&quot;</span>,
+			<span class="string">&quot;capabilities&quot;</span>: {
+			<span class="string">&quot;bits&quot;</span>: <span class="number">15</span>
+			},
+			<span class="string">&quot;direction&quot;</span>: <span class="string">&quot;Outbound&quot;</span>,
+			<span class="string">&quot;height&quot;</span>: <span class="number">374510</span>,
+			<span class="string">&quot;total_difficulty&quot;</span>: <span class="number">1133954621205750</span>,
+			<span class="string">&quot;user_agent&quot;</span>: <span class="string">&quot;MW/Epic 2.0.0&quot;</span>,
+			<span class="string">&quot;version&quot;</span>: <span class="number">1</span>
+		},
+		{
+			<span class="string">&quot;addr&quot;</span>: <span class="string">&quot;52.53.221.15:3414&quot;</span>,
+			<span class="string">&quot;capabilities&quot;</span>: {
+			<span class="string">&quot;bits&quot;</span>: <span class="number">15</span>
+			},
+			<span class="string">&quot;direction&quot;</span>: <span class="string">&quot;Outbound&quot;</span>,
+			<span class="string">&quot;height&quot;</span>: <span class="number">0</span>,
+			<span class="string">&quot;total_difficulty&quot;</span>: <span class="number">1133954621205750</span>,
+			<span class="string">&quot;user_agent&quot;</span>: <span class="string">&quot;MW/Epic 2.0.0&quot;</span>,
+			<span class="string">&quot;version&quot;</span>: <span class="number">1</span>
+		},
+		{
+			<span class="string">&quot;addr&quot;</span>: <span class="string">&quot;109.74.202.16:3414&quot;</span>,
+			<span class="string">&quot;capabilities&quot;</span>: {
+			<span class="string">&quot;bits&quot;</span>: <span class="number">15</span>
+			},
+			<span class="string">&quot;direction&quot;</span>: <span class="string">&quot;Outbound&quot;</span>,
+			<span class="string">&quot;height&quot;</span>: <span class="number">374510</span>,
+			<span class="string">&quot;total_difficulty&quot;</span>: <span class="number">1133954621205750</span>,
+			<span class="string">&quot;user_agent&quot;</span>: <span class="string">&quot;MW/Epic 2.0.0&quot;</span>,
+			<span class="string">&quot;version&quot;</span>: <span class="number">1</span>
+		},
+		{
+			<span class="string">&quot;addr&quot;</span>: <span class="string">&quot;121.43.183.180:3414&quot;</span>,
+			<span class="string">&quot;capabilities&quot;</span>: {
+			<span class="string">&quot;bits&quot;</span>: <span class="number">15</span>
+			},
+			<span class="string">&quot;direction&quot;</span>: <span class="string">&quot;Outbound&quot;</span>,
+			<span class="string">&quot;height&quot;</span>: <span class="number">374510</span>,
+			<span class="string">&quot;total_difficulty&quot;</span>: <span class="number">1133954621205750</span>,
+			<span class="string">&quot;user_agent&quot;</span>: <span class="string">&quot;MW/Epic 2.0.0&quot;</span>,
+			<span class="string">&quot;version&quot;</span>: <span class="number">1</span>
+		},
+		{
+			<span class="string">&quot;addr&quot;</span>: <span class="string">&quot;35.157.247.209:23414&quot;</span>,
+			<span class="string">&quot;capabilities&quot;</span>: {
+			<span class="string">&quot;bits&quot;</span>: <span class="number">15</span>
+			},
+			<span class="string">&quot;direction&quot;</span>: <span class="string">&quot;Outbound&quot;</span>,
+			<span class="string">&quot;height&quot;</span>: <span class="number">374510</span>,
+			<span class="string">&quot;total_difficulty&quot;</span>: <span class="number">1133954621205750</span>,
+			<span class="string">&quot;user_agent&quot;</span>: <span class="string">&quot;MW/Epic 2.0.0&quot;</span>,
+			<span class="string">&quot;version&quot;</span>: <span class="number">1</span>
+		}
+		]
+	}
+}</code></pre></div>
+</div></details><details class="rustdoc-toggle" open><summary><div id="tymethod.ban_peer" class="method has-srclink"><div class="rightside"><a class="srclink" href="../src/epic_api/owner_rpc.rs.html#324" title="goto source code">[src]</a></div><h4 class="code-header">fn <a href="#tymethod.ban_peer" class="fnname">ban_peer</a>(&amp;self, peer_addr: <a class="enum" href="https://doc.rust-lang.org/1.56.1/std/net/addr/enum.SocketAddr.html" title="enum std::net::addr::SocketAddr">SocketAddr</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.56.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ErrorKind.html" title="enum epic_api::ErrorKind">ErrorKind</a>&gt;</h4></div></summary><div class="docblock"><p>Networked version of <a href="struct.Node.html#method.ban_peer">Owner::ban_peer</a>.</p>
+<h1 id="json-rpc-example-5" class="section-header"><a href="#json-rpc-example-5">Json rpc example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>{
+	<span class="string">&quot;jsonrpc&quot;</span>: <span class="string">&quot;2.0&quot;</span>,
+	<span class="string">&quot;method&quot;</span>: <span class="string">&quot;ban_peer&quot;</span>,
+	<span class="string">&quot;params&quot;</span>: [<span class="string">&quot;70.50.33.130:3414&quot;</span>],
+	<span class="string">&quot;id&quot;</span>: <span class="number">1</span>
+}
+{
+	<span class="string">&quot;id&quot;</span>: <span class="number">1</span>,
+	<span class="string">&quot;jsonrpc&quot;</span>: <span class="string">&quot;2.0&quot;</span>,
+	<span class="string">&quot;result&quot;</span>: {
+		<span class="string">&quot;Ok&quot;</span>: <span class="ident">null</span>
+	}
+}</code></pre></div>
+</div></details><details class="rustdoc-toggle" open><summary><div id="tymethod.unban_peer" class="method has-srclink"><div class="rightside"><a class="srclink" href="../src/epic_api/owner_rpc.rs.html#354" title="goto source code">[src]</a></div><h4 class="code-header">fn <a href="#tymethod.unban_peer" class="fnname">unban_peer</a>(&amp;self, peer_addr: <a class="enum" href="https://doc.rust-lang.org/1.56.1/std/net/addr/enum.SocketAddr.html" title="enum std::net::addr::SocketAddr">SocketAddr</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.56.1/std/primitive.unit.html">()</a>, <a class="enum" href="enum.ErrorKind.html" title="enum epic_api::ErrorKind">ErrorKind</a>&gt;</h4></div></summary><div class="docblock"><p>Networked version of <a href="struct.Node.html#method.unban_peer">Owner::unban_peer</a>.</p>
+<h1 id="json-rpc-example-6" class="section-header"><a href="#json-rpc-example-6">Json rpc example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>{
+	<span class="string">&quot;jsonrpc&quot;</span>: <span class="string">&quot;2.0&quot;</span>,
+	<span class="string">&quot;method&quot;</span>: <span class="string">&quot;unban_peer&quot;</span>,
+	<span class="string">&quot;params&quot;</span>: [<span class="string">&quot;70.50.33.130:3414&quot;</span>],
+	<span class="string">&quot;id&quot;</span>: <span class="number">1</span>
+}
+{
+	<span class="string">&quot;id&quot;</span>: <span class="number">1</span>,
+	<span class="string">&quot;jsonrpc&quot;</span>: <span class="string">&quot;2.0&quot;</span>,
+	<span class="string">&quot;result&quot;</span>: {
+		<span class="string">&quot;Ok&quot;</span>: <span class="ident">null</span>
+	}
+}</code></pre></div>
+</div></details></div><h2 id="trait-implementations" class="small-section-header">Trait Implementations<a href="#trait-implementations" class="anchor"></a></h2><div id="trait-implementations-list"><details class="rustdoc-toggle implementors-toggle" open><summary><div id="impl-Handler" class="impl has-srclink"><div class="rightside"><a class="srclink" href="../src/epic_api/owner_rpc.rs.html#28" title="goto source code">[src]</a></div><a href="#impl-Handler" class="anchor"></a><h3 class="code-header in-band">impl Handler for dyn <a class="trait" href="trait.OwnerRpc.html" title="trait epic_api::OwnerRpc">OwnerRpc</a></h3></div></summary><div class="impl-items"><details class="rustdoc-toggle method-toggle" open><summary><div id="method.handle" class="method trait-impl has-srclink"><div class="rightside"><a class="srclink" href="../src/epic_api/owner_rpc.rs.html#28" title="goto source code">[src]</a></div><a href="#method.handle" class="anchor"></a><h4 class="code-header">fn <a  class="fnname">handle</a>(&amp;self, method: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.56.1/std/primitive.str.html">str</a>, params: Params) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.56.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://docs.rs/serde_json/1.0.64/serde_json/value/enum.Value.html" title="enum serde_json::value::Value">Value</a>, Error&gt;</h4></div></summary><div class='docblock'><p>Type-check params and call method if method exists. This method is implemented automatically
+by the <a href="../easy_jsonrpc_proc_macro/attr.rpc.html">rpc</a> macro. <a href="#tymethod.handle">Read more</a></p>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><div id="method.handle_request" class="method trait-impl has-srclink"><div class="rightside"></div><a href="#method.handle_request" class="anchor"></a><h4 class="code-header">fn <a href="#method.handle_request" class="fnname">handle_request</a>(&amp;self, raw_request: <a class="enum" href="https://docs.rs/serde_json/1.0.64/serde_json/value/enum.Value.html" title="enum serde_json::value::Value">Value</a>) -&gt; MaybeReply</h4></div></summary><div class='docblock'><p>Parses raw_request as a jsonrpc request, handles request according to the jsonrpc spec.</p>
+</div></details></div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor"></a></h2><div class="item-list" id="implementors-list"><div id="impl-OwnerRpc" class="impl has-srclink"><div class="rightside"><a class="srclink" href="../src/epic_api/owner_rpc.rs.html#357-385" title="goto source code">[src]</a></div><a href="#impl-OwnerRpc" class="anchor"></a><h3 class="code-header in-band">impl <a class="trait" href="trait.OwnerRpc.html" title="trait epic_api::OwnerRpc">OwnerRpc</a> for <a class="struct" href="struct.Owner.html" title="struct epic_api::Owner">Owner</a></h3></div></div><script type="text/javascript" src="../implementors/epic_api/trait.OwnerRpc.js" async></script></section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../" data-current-crate="epic_api" data-search-index-js="../search-index.js" data-search-js="../search.js"></div>
+    <script src="../main.js"></script>
+</body></html>

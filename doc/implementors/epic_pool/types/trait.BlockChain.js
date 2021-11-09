@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["epic_servers"] = [{"text":"impl <a class=\"trait\" href=\"epic_pool/types/trait.BlockChain.html\" title=\"trait epic_pool::types::BlockChain\">BlockChain</a> for <a class=\"struct\" href=\"epic_servers/common/adapters/struct.PoolToChainAdapter.html\" title=\"struct epic_servers::common::adapters::PoolToChainAdapter\">PoolToChainAdapter</a>","synthetic":false,"types":["epic_servers::common::adapters::PoolToChainAdapter"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Error","Error type wrapping underlying module errors."]],"fn":[["ban_peer",""],["client_command",""],["get_status_from_node",""],["list_connected_peers",""],["show_status",""],["unban_peer",""]]});

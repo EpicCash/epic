@@ -1,0 +1,4 @@
+(function() {var implementors = {};
+implementors["epic_p2p"] = [];
+implementors["epic_servers"] = [{"text":"impl <a class=\"trait\" href=\"epic_p2p/types/trait.ChainAdapter.html\" title=\"trait epic_p2p::types::ChainAdapter\">ChainAdapter</a> for <a class=\"struct\" href=\"epic_servers/common/adapters/struct.NetToChainAdapter.html\" title=\"struct epic_servers::common::adapters::NetToChainAdapter\">NetToChainAdapter</a>","synthetic":false,"types":["epic_servers::common::adapters::NetToChainAdapter"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

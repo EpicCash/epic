@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Lean","Lean miner implementation aiming to be as short and simple as possible. As a consequence, it’s a little less than 10 times slower than John Tromp’s implementation, as it’s not optimized for performance and reuses croaring which is likely sub-optimal for this task."]]});

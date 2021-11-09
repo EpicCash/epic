@@ -27,7 +27,7 @@
 
 //! Implementation of BIP32 hierarchical deterministic wallets, as defined
 //! at https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
-//! Modified from above to integrate into grin and allow for different
+//! Modified from above to integrate into epic and allow for different
 //! hashing algorithms if desired
 
 #[cfg(feature = "serde")]
@@ -72,7 +72,7 @@ impl Default for Fingerprint {
 }
 
 /// Allow different implementations of hash functions used in BIP32 Derivations
-/// Grin uses blake2 everywhere but the spec calls for SHA512/Ripemd160, so allow
+/// Epic uses blake2 everywhere but the spec calls for SHA512/Ripemd160, so allow
 /// this in future and allow us to unit test against published BIP32 test vectors
 /// The function names refer to the place of the hash in the reference BIP32 spec,
 /// not what the actual implementation is

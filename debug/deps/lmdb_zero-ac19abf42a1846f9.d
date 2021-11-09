@@ -1,0 +1,17 @@
+/Users/johanneshahn/epic/2.14/epic/./debug/deps/lmdb_zero-ac19abf42a1846f9.rmeta: /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/lib.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/mdb_vals.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/ffi2.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/error.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/env.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/dbi.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/traits.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/unaligned.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/tx.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/cursor.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/iter.rs
+
+/Users/johanneshahn/epic/2.14/epic/./debug/deps/lmdb_zero-ac19abf42a1846f9.d: /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/lib.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/mdb_vals.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/ffi2.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/error.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/env.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/dbi.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/traits.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/unaligned.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/tx.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/cursor.rs /Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/iter.rs
+
+/Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/lib.rs:
+/Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/mdb_vals.rs:
+/Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/ffi2.rs:
+/Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/error.rs:
+/Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/env.rs:
+/Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/dbi.rs:
+/Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/traits.rs:
+/Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/unaligned.rs:
+/Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/tx.rs:
+/Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/cursor.rs:
+/Users/johanneshahn/.cargo/registry/src/github.com-1ecc6299db9ec823/lmdb-zero-0.4.4/src/iter.rs:
+
+# env-dep:CARGO_PKG_VERSION=0.4.4

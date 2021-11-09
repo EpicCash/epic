@@ -18,8 +18,8 @@ use crate::core::hash::{DefaultHashable, Hashed};
 use crate::core::{committed, Committed};
 use crate::libtx::secp_ser;
 use crate::ser::{
-	self, read_multi, PMMRable, ProtocolVersion, Readable, Reader,
-	VerifySortedAndUnique, Writeable, Writer,
+	self, read_multi, PMMRable, ProtocolVersion, Readable, Reader, VerifySortedAndUnique,
+	Writeable, Writer,
 };
 use crate::{consensus, global};
 use enum_primitive::FromPrimitive;
@@ -38,7 +38,7 @@ use util::RwLock;
 /// Various tx kernel variants.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum KernelFeatures {
-	/// Plain kernel (the default for Grin txs).
+	/// Plain kernel (the default for Epic txs).
 	Plain {
 		/// Plain kernels have fees.
 		fee: u64,
@@ -624,33 +624,32 @@ impl TransactionBody {
 		Ok(body)
 	}
 
-
 	/// Builds a new body with the provided inputs added. Existing
 	/// inputs, if any, are kept intact.
 	/// Sort order is maintained.
 	pub fn with_input(mut self, input: Input) -> TransactionBody {
-	if let Err(e) = self.inputs.binary_search(&input) {
-		self.inputs.insert(e, input)
-	};
-	self
+		if let Err(e) = self.inputs.binary_search(&input) {
+			self.inputs.insert(e, input)
+		};
+		self
 	}
 	/// Builds a new TransactionBody with the provided output added. Existing
 	/// outputs, if any, are kept intact.
 	/// Sort order is maintained.
 	pub fn with_output(mut self, output: Output) -> TransactionBody {
-	if let Err(e) = self.outputs.binary_search(&output) {
-		self.outputs.insert(e, output)
-	};
-	self
+		if let Err(e) = self.outputs.binary_search(&output) {
+			self.outputs.insert(e, output)
+		};
+		self
 	}
 	/// Builds a new TransactionBody with the provided kernel added. Existing
 	/// kernels, if any, are kept intact.
 	/// Sort order is maintained.
 	pub fn with_kernel(mut self, kernel: TxKernel) -> TransactionBody {
-	if let Err(e) = self.kernels.binary_search(&kernel) {
-		self.kernels.insert(e, kernel)
-	};
-	self
+		if let Err(e) = self.kernels.binary_search(&kernel) {
+			self.kernels.insert(e, kernel)
+		};
+		self
 	}
 
 	/// Builds a new TransactionBody replacing any existing kernels with the provided kernel.
@@ -821,13 +820,8 @@ impl TransactionBody {
 	/// Validates all relevant parts of a transaction body. Checks the
 	/// excess value against the signature as well as range proofs for each
 	/// output.
-	pub fn validate(
-		&self,
-		weighting: Weighting,
-	) -> Result<(), Error> {
+	pub fn validate(&self, weighting: Weighting) -> Result<(), Error> {
 		self.validate_read(weighting)?;
-
-
 
 		// Now batch verify all those unverified rangeproofs
 		if !self.outputs.is_empty() {
@@ -840,11 +834,8 @@ impl TransactionBody {
 			Output::batch_verify_proofs(&commits, &proofs)?;
 		}
 
-
-
 		// Verify the unverified tx kernels.
 		TxKernel::batch_sig_verify(&self.kernels)?;
-
 
 		Ok(())
 	}
@@ -1051,10 +1042,7 @@ impl Transaction {
 	/// Validates all relevant parts of a fully built transaction. Checks the
 	/// excess value against the signature as well as range proofs for each
 	/// output.
-	pub fn validate(
-		&self,
-		weighting: Weighting,
-	) -> Result<(), Error> {
+	pub fn validate(&self, weighting: Weighting) -> Result<(), Error> {
 		self.body.validate(weighting)?;
 		self.body.verify_features()?;
 		self.verify_kernel_sums(self.overage(), self.offset.clone())?;
@@ -1320,7 +1308,7 @@ enum_from_primitive! {
 	#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 	#[repr(u8)]
 	pub enum OutputFeatures {
-		/// Plain output (the default for Grin txs).
+		/// Plain output (the default for Epic txs).
 		Plain = 0,
 		/// A coinbase output.
 		Coinbase = 1,
@@ -1534,7 +1522,6 @@ impl OutputIdentifier {
 		)
 	}
 }
-
 
 impl Writeable for OutputIdentifier {
 	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {

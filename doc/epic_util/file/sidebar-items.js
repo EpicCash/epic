@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["copy_dir_to","Copy directory, create destination if needed"],["delete","Delete a directory or file"],["get_first_line","Retrieve first line from file"],["list_files","List directory"]]});

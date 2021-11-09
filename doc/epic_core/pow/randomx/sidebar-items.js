@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["SEEDHASH_EPOCH_BLOCKS",""],["SEEDHASH_EPOCH_LAG",""]],"fn":[["new_randomx_ctx",""],["rx_current_seed_height",""],["rx_epoch_end",""],["rx_epoch_start",""],["rx_next_seed_height",""]],"struct":[["RXContext",""],["RX_STATE",""]]});

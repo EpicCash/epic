@@ -1,0 +1,65 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Implementation of the MimbleWimble paper. https:&#x2F;&#x2F;download.wpsoftware.net&#x2F;bitcoin&#x2F;wizardry&#x2F;mimblewimble.txt"><meta name="keywords" content="rust, rustlang, rust-lang, epic_core"><title>epic_core - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../ayu.css" disabled ><script id="default-settings" ></script><script src="../storage.js"></script><script src="../crates.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../favicon.svg"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../epic_core/index.html'><div class='logo-container rust-logo'><img src='../rust-logo.png' alt='logo'></div></a><h2 class="location">Crate epic_core</h2><div class="block version"><div class="narrow-helper"></div><p>Version 3.0.0</p></div><div class="sidebar-elems"><a id="all-types" href="all.html"><p>See all epic_core's items</p></a><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li></ul></div><div id="sidebar-vars" data-name="epic_core" data-ty="mod" data-relpath=""></div><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../wheel.svg"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="in-band">Crate <a class="mod" href="#">epic_core</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../src/epic_core/lib.rs.html#15-50" title="goto source code">[src]</a></span></h1><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Implementation of the MimbleWimble paper.
+https://download.wpsoftware.net/bitcoin/wizardry/mimblewimble.txt</p>
+</div></details><h2 id="modules" class="section-header"><a href="#modules">Modules</a></h2>
+<div class="item-table"><div class="item-left module-item"><a class="mod" href="consensus/index.html" title="epic_core::consensus mod">consensus</a></div><div class="item-right docblock-short"><p>All the rules required for a cryptocurrency to have reach consensus across
+the whole network are complex and hard to completely isolate. Some can be
+simple parameters (like block reward), others complex algorithms (like
+Merkle sum trees or reorg rules). However, as long as they’re simple
+enough, consensus-relevant constants and short functions should be kept
+here.</p>
+</div><div class="item-left module-item"><a class="mod" href="core/index.html" title="epic_core::core mod">core</a></div><div class="item-right docblock-short"><p>Core types</p>
+</div><div class="item-left module-item"><a class="mod" href="genesis/index.html" title="epic_core::genesis mod">genesis</a></div><div class="item-right docblock-short"><p>Definition of the genesis block. Placeholder for now.
+#![allow(unused_imports)]</p>
+</div><div class="item-left module-item"><a class="mod" href="global/index.html" title="epic_core::global mod">global</a></div><div class="item-right docblock-short"><p>Values that should be shared across all modules, without necessarily
+having to pass them all over the place, but aren’t consensus values.
+should be used sparingly.</p>
+</div><div class="item-left module-item"><a class="mod" href="libtx/index.html" title="epic_core::libtx mod">libtx</a></div><div class="item-right docblock-short"><p>Library containing lower-level transaction building functions needed by
+all wallets.</p>
+</div><div class="item-left module-item"><a class="mod" href="macros/index.html" title="epic_core::macros mod">macros</a></div><div class="item-right docblock-short"><p>Generic macros used here and there to simplify and make code more
+readable.</p>
+</div><div class="item-left module-item"><a class="mod" href="pow/index.html" title="epic_core::pow mod">pow</a></div><div class="item-right docblock-short"><p>The proof of work needs to strike a balance between fast header
+verification to avoid DoS attacks and difficulty for block verifiers to
+build new blocks. In addition, mining new blocks should also be as
+difficult on high end custom-made hardware (ASICs) as on commodity hardware
+or smartphones. For this reason we use Cuckoo Cycle (see the cuckoo
+module for more information).</p>
+</div><div class="item-left module-item"><a class="mod" href="ser/index.html" title="epic_core::ser mod">ser</a></div><div class="item-right docblock-short"><p>Serialization and deserialization layer specialized for binary encoding.
+Ensures consistency and safety. Basically a minimal subset or
+rustc_serialize customized for our need.</p>
+</div></div><h2 id="macros" class="section-header"><a href="#macros">Macros</a></h2>
+<div class="item-table"><div class="item-left module-item"><a class="macro" href="macro.filter_map_vec.html" title="epic_core::filter_map_vec macro">filter_map_vec</a></div><div class="item-right docblock-short"><p>Eliminates some of the verbosity in having iter and collect
+around every filter_map call.</p>
+</div><div class="item-left module-item"><a class="macro" href="macro.map_vec.html" title="epic_core::map_vec macro">map_vec</a></div><div class="item-right docblock-short"><p>Eliminates some of the verbosity in having iter and collect
+around every map call.</p>
+</div><div class="item-left module-item"><a class="macro" href="macro.ser_multiread.html" title="epic_core::ser_multiread macro">ser_multiread</a></div><div class="item-right docblock-short"><p>Eliminate some of the boilerplate of deserialization (package ser) by
+passing just the list of reader function (with optional single param)
+Example before:
+let foo = try!(reader.read_u64());
+let bar = try!(reader.read_u32());
+let fixed_byte_var = try!(reader.read_fixed_bytes(64));
+Example after:
+let (foo, bar, fixed_byte_var) = ser_multiread!(reader, read_u64,
+read_u32,   read_fixed_bytes(64));</p>
+</div><div class="item-left module-item"><a class="macro" href="macro.ser_multiwrite.html" title="epic_core::ser_multiwrite macro">ser_multiwrite</a></div><div class="item-right docblock-short"><p>Eliminate some of the boilerplate of serialization (package ser) by
+passing directly pairs of writer function and data to write.
+Example before:
+try!(reader.write_u64(42));
+try!(reader.write_u32(100));
+Example after:
+ser_multiwrite!(writer, [write_u64, 42], [write_u32, 100]);</p>
+</div><div class="item-left module-item"><a class="macro" href="macro.tee.html" title="epic_core::tee macro">tee</a></div><div class="item-right docblock-short"><p>Allows the conversion of an expression that doesn’t return anything to one
+that returns the provided identifier.
+Example:
+let foo = vec![1,2,3]
+println!(tee!(foo, foo.append(vec![3,4,5]))</p>
+</div><div class="item-left module-item"><a class="macro" href="macro.to_edge.html" title="epic_core::to_edge macro">to_edge</a></div><div class="item-right docblock-short"><p>Macro to clean up casting to edge type
+TODO: this macro uses unhygenic data T</p>
+</div><div class="item-left module-item"><a class="macro" href="macro.to_u32.html" title="epic_core::to_u32 macro">to_u32</a></div><div class="item-right docblock-short"><p>Macro to clean up u64 unwrapping as u32</p>
+</div><div class="item-left module-item"><a class="macro" href="macro.to_u64.html" title="epic_core::to_u64 macro">to_u64</a></div><div class="item-right docblock-short"><p>Macro to clean up u64 unwrapping</p>
+</div><div class="item-left module-item"><a class="macro" href="macro.to_usize.html" title="epic_core::to_usize macro">to_usize</a></div><div class="item-right docblock-short"><p>Macro to clean up u64 unwrapping as usize</p>
+</div><div class="item-left module-item"><a class="macro" href="macro.try_iter_map_vec.html" title="epic_core::try_iter_map_vec macro">try_iter_map_vec</a></div><div class="item-right docblock-short"><p>Same as try_map_vec when thing is an iterator</p>
+</div><div class="item-left module-item"><a class="macro" href="macro.try_map_vec.html" title="epic_core::try_map_vec macro">try_map_vec</a></div><div class="item-right docblock-short"><p>Same as map_vec when the map closure returns Results. Makes sure the
+results are “pushed up” and wraps with a try.</p>
+</div></div></section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../" data-current-crate="epic_core" data-search-index-js="../search-index.js" data-search-js="../search.js"></div>
+    <script src="../main.js"></script>
+</body></html>

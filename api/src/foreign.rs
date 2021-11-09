@@ -124,7 +124,7 @@ impl Foreign {
 		block_handler.get_block(&hash, true, true)
 	}
 
-	/// Returns the node version and block header version (used by grin-wallet).
+	/// Returns the node version and block header version (used by epic-wallet).
 	///
 	/// # Returns
 	/// * Result Containing:
@@ -318,7 +318,7 @@ impl Foreign {
 	/// Push new transaction to our local transaction pool.
 	///
 	/// # Arguments
-	/// * `tx` - the Grin transaction to push.
+	/// * `tx` - the Epic transaction to push.
 	/// * `fluff` - boolean to bypass Dandelion relay.
 	///
 	/// # Returns

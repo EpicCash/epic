@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["epic_api"] = [{"text":"impl Handler for dyn <a class=\"trait\" href=\"epic_api/trait.ForeignRpc.html\" title=\"trait epic_api::ForeignRpc\">ForeignRpc</a>","synthetic":false,"types":[]},{"text":"impl Handler for dyn <a class=\"trait\" href=\"epic_api/trait.OwnerRpc.html\" title=\"trait epic_api::OwnerRpc\">OwnerRpc</a>","synthetic":false,"types":[]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

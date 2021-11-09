@@ -16,8 +16,9 @@ use self::chain::types::{NoopAdapter, Tip};
 use self::chain::Chain;
 use self::core::core::hash::Hashed;
 use self::core::core::{
- 	block, transaction, Block, BlockHeader, KernelFeatures, Output, OutputFeatures, Transaction, OutputIdentifier
- };
+	block, transaction, Block, BlockHeader, KernelFeatures, Output, OutputFeatures,
+	OutputIdentifier, Transaction,
+};
 use self::core::global::ChainTypes;
 
 use self::core::libtx::build::{self, Append};
@@ -26,8 +27,8 @@ use self::core::libtx::{self, Error, ProofBuilder};
 use self::core::pow::{Difficulty, PoWType};
 use self::core::{consensus, global, pow};
 use self::keychain::{
- 	BlindSum, ExtKeychain, ExtKeychainPath, Identifier, Keychain, SwitchCommitmentType,
- };
+	BlindSum, ExtKeychain, ExtKeychainPath, Identifier, Keychain, SwitchCommitmentType,
+};
 
 use self::util::RwLock;
 use chrono::Duration;
@@ -78,7 +79,7 @@ fn setup_with_status_adapter(dir_name: &str, genesis: Block, adapter: Arc<Status
 
 #[test]
 fn mine_empty_chain() {
-	let chain_dir = ".grin.empty";
+	let chain_dir = ".epic.empty";
 	clean_output_dir(chain_dir);
 	let chain = mine_chain(chain_dir, 1);
 	assert_eq!(chain.head().unwrap().height, 0);
@@ -87,7 +88,7 @@ fn mine_empty_chain() {
 
 #[test]
 fn mine_short_chain() {
-	let chain_dir = ".grin.genesis";
+	let chain_dir = ".epic.genesis";
 	clean_output_dir(chain_dir);
 	let chain = mine_chain(chain_dir, 4);
 	assert_eq!(chain.head().unwrap().height, 3);
@@ -122,7 +123,7 @@ fn process_block(chain: &Chain, block: &Block) {
 //
 #[test]
 fn test_block_a_block_b_block_b_fork_header_c_fork_block_c() {
-	let chain_dir = ".grin.block_a_block_b_block_b_fork_header_c_fork_block_c";
+	let chain_dir = ".epic.block_a_block_b_block_b_fork_header_c_fork_block_c";
 	clean_output_dir(chain_dir);
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
 	let kc = ExtKeychain::from_random_seed(false).unwrap();
@@ -174,7 +175,7 @@ fn test_block_a_block_b_block_b_fork_header_c_fork_block_c() {
 //
 #[test]
 fn test_block_a_block_b_block_b_fork_header_c_fork_block_c_fork() {
-	let chain_dir = ".grin.block_a_block_b_block_b_fork_header_c_fork_block_c_fork";
+	let chain_dir = ".epic.block_a_block_b_block_b_fork_header_c_fork_block_c_fork";
 	clean_output_dir(chain_dir);
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
 	let kc = ExtKeychain::from_random_seed(false).unwrap();
@@ -230,7 +231,7 @@ fn test_block_a_block_b_block_b_fork_header_c_fork_block_c_fork() {
 //
 #[test]
 fn test_block_a_header_b_header_b_fork_block_b_fork_block_b_block_c() {
-	let chain_dir = ".grin.test_block_a_header_b_header_b_fork_block_b_fork_block_b_block_c";
+	let chain_dir = ".epic.test_block_a_header_b_header_b_fork_block_b_fork_block_b_block_c";
 	clean_output_dir(chain_dir);
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
 	let kc = ExtKeychain::from_random_seed(false).unwrap();
@@ -286,7 +287,7 @@ fn test_block_a_header_b_header_b_fork_block_b_fork_block_b_block_c() {
 //
 #[test]
 fn test_block_a_header_b_header_b_fork_block_b_fork_block_b_block_c_fork() {
-	let chain_dir = ".grin.test_block_a_header_b_header_b_fork_block_b_fork_block_b_block_c_fork";
+	let chain_dir = ".epic.test_block_a_header_b_header_b_fork_block_b_fork_block_b_block_c_fork";
 	clean_output_dir(chain_dir);
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
 	let kc = ExtKeychain::from_random_seed(false).unwrap();
@@ -406,7 +407,7 @@ fn mine_reorg() {
 fn mine_forks() {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
 	{
-		let chain = init_chain(".grin2", pow::mine_genesis_block().unwrap());
+		let chain = init_chain(".epic2", pow::mine_genesis_block().unwrap());
 		let kc = ExtKeychain::from_random_seed(false).unwrap();
 
 		// add a first block to not fork genesis
@@ -446,7 +447,7 @@ fn mine_forks() {
 		}
 	}
 	// Cleanup chain directory
-	clean_output_dir(".grin2");
+	clean_output_dir(".epic2");
 }
 
 #[test]
@@ -454,7 +455,7 @@ fn mine_losing_fork() {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
 	let kc = ExtKeychain::from_random_seed(false).unwrap();
 	{
-		let chain = init_chain(".grin3", pow::mine_genesis_block().unwrap());
+		let chain = init_chain(".epic3", pow::mine_genesis_block().unwrap());
 
 		// add a first block we'll be forking from
 		let prev = chain.head_header().unwrap();
@@ -482,7 +483,7 @@ fn mine_losing_fork() {
 		assert_eq!(chain.head_header().unwrap().hash(), b3head.hash());
 	}
 	// Cleanup chain directory
-	clean_output_dir(".grin3");
+	clean_output_dir(".epic3");
 }
 
 #[test]
@@ -494,7 +495,7 @@ fn longer_fork() {
 	// then send back on the 1st
 	let genesis = pow::mine_genesis_block().unwrap();
 	{
-		let chain = init_chain(".grin4", genesis.clone());
+		let chain = init_chain(".epic4", genesis.clone());
 
 		// add blocks to both chains, 20 on the main one, only the first 5
 		// for the forked chain
@@ -526,7 +527,7 @@ fn longer_fork() {
 		assert_eq!(head.hash(), new_head.hash());
 	}
 	// Cleanup chain directory
-	clean_output_dir(".grin4");
+	clean_output_dir(".epic4");
 }
 
 #[test]
@@ -534,10 +535,10 @@ fn spend_in_fork_and_compact() {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
 	util::init_test_logger();
 	// Cleanup chain directory
-	clean_output_dir(".grin6");
+	clean_output_dir(".epic6");
 
 	{
-		let chain = init_chain(".grin6", pow::mine_genesis_block().unwrap());
+		let chain = init_chain(".epic6", pow::mine_genesis_block().unwrap());
 		let prev = chain.head_header().unwrap();
 		let kc = ExtKeychain::from_random_seed(false).unwrap();
 		let pb = ProofBuilder::new(&kc);
@@ -663,7 +664,7 @@ fn spend_in_fork_and_compact() {
 		}
 	}
 	// Cleanup chain directory
-	clean_output_dir(".grin6");
+	clean_output_dir(".epic6");
 }
 
 /// Test ability to retrieve block headers for a given output
@@ -753,39 +754,38 @@ fn output_header_mappings() {
 }
 
 /// Build a negative output. This function must not be used outside of tests.
- /// The commitment will be an inversion of the value passed in and the value is
- /// subtracted from the sum.
- fn build_output_negative<K, B>(value: u64, key_id: Identifier) -> Box<Append<K, B>>
- where
- 	K: Keychain,
- 	B: ProofBuild,
- {
- 	Box::new(
- 		move |build, acc| -> Result<(Transaction, BlindSum), Error> {
- 			let (tx, sum) = acc?;
+/// The commitment will be an inversion of the value passed in and the value is
+/// subtracted from the sum.
+fn build_output_negative<K, B>(value: u64, key_id: Identifier) -> Box<Append<K, B>>
+where
+	K: Keychain,
+	B: ProofBuild,
+{
+	Box::new(
+		move |build, acc| -> Result<(Transaction, BlindSum), Error> {
+			let (tx, sum) = acc?;
 
- 			// TODO: proper support for different switch commitment schemes
- 			let switch = SwitchCommitmentType::Regular;
+			// TODO: proper support for different switch commitment schemes
+			let switch = SwitchCommitmentType::Regular;
 
- 			let commit = build.keychain.commit(value, &key_id, &switch)?;
+			let commit = build.keychain.commit(value, &key_id, &switch)?;
 
- 			// invert commitment
- 			let commit = build.keychain.secp().commit_sum(vec![], vec![commit])?;
+			// invert commitment
+			let commit = build.keychain.secp().commit_sum(vec![], vec![commit])?;
 
- 			eprintln!("Building output: {}, {:?}", value, commit);
+			eprintln!("Building output: {}, {:?}", value, commit);
 
- 			// build a proof with a rangeproof of 0 as a placeholder
- 			// the test will replace this later
- 			let proof = proof::create(
- 				build.keychain,
- 				build.builder,
- 				0,
- 				&key_id,
- 				&switch,
- 				commit,
- 				None,
- 			)?;
-
+			// build a proof with a rangeproof of 0 as a placeholder
+			// the test will replace this later
+			let proof = proof::create(
+				build.keychain,
+				build.builder,
+				0,
+				&key_id,
+				&switch,
+				commit,
+				None,
+			)?;
 
 			let out = Output {
 				features: OutputFeatures::Plain,
@@ -793,118 +793,113 @@ fn output_header_mappings() {
 				proof: proof,
 			};
 
- 			// we return the output and the value is subtracted instead of added
- 			Ok((
- 				tx.with_output(out),
- 				sum.sub_key_id(key_id.to_value_path(value)),
- 			))
- 		},
- 	)
- }
+			// we return the output and the value is subtracted instead of added
+			Ok((
+				tx.with_output(out),
+				sum.sub_key_id(key_id.to_value_path(value)),
+			))
+		},
+	)
+}
 
- /// Test the duplicate rangeproof bug
- #[test]
- fn test_overflow_cached_rangeproof() {
- 	clean_output_dir(".grin_overflow");
- 	global::set_mining_mode(ChainTypes::AutomatedTesting);
+/// Test the duplicate rangeproof bug
+#[test]
+fn test_overflow_cached_rangeproof() {
+	clean_output_dir(".epic_overflow");
+	global::set_mining_mode(ChainTypes::AutomatedTesting);
 
- 	util::init_test_logger();
- 	{
+	util::init_test_logger();
+	{
+		let chain = init_chain(".epic_overflow", pow::mine_genesis_block().unwrap());
+		let prev = chain.head_header().unwrap();
+		let kc = ExtKeychain::from_random_seed(false).unwrap();
+		let pb = ProofBuilder::new(&kc);
 
+		let mut head = prev;
 
+		// mine the first block and keep track of the block_hash
+		// so we can spend the coinbase later
+		let b = prepare_block(&kc, &head, &chain, 2);
 
- 		let chain = init_chain(".grin_overflow", pow::mine_genesis_block().unwrap());
- 		let prev = chain.head_header().unwrap();
- 		let kc = ExtKeychain::from_random_seed(false).unwrap();
- 		let pb = ProofBuilder::new(&kc);
+		assert!(b.outputs()[0].is_coinbase());
+		head = b.header.clone();
+		chain
+			.process_block(b.clone(), chain::Options::SKIP_POW)
+			.unwrap();
 
- 		let mut head = prev;
+		// now mine three further blocks
+		for n in 3..6 {
+			let b = prepare_block(&kc, &head, &chain, n);
+			head = b.header.clone();
+			chain.process_block(b, chain::Options::SKIP_POW).unwrap();
+		}
 
- 		// mine the first block and keep track of the block_hash
- 		// so we can spend the coinbase later
- 		let b = prepare_block(&kc, &head, &chain, 2);
+		// create a few keys for use in txns
+		let key_id2 = ExtKeychainPath::new(1, 2, 0, 0, 0).to_identifier();
+		let key_id30 = ExtKeychainPath::new(1, 30, 0, 0, 0).to_identifier();
+		let key_id31 = ExtKeychainPath::new(1, 31, 0, 0, 0).to_identifier();
+		let key_id32 = ExtKeychainPath::new(1, 32, 0, 0, 0).to_identifier();
 
- 		assert!(b.outputs()[0].is_coinbase());
- 		head = b.header.clone();
- 		chain
- 			.process_block(b.clone(), chain::Options::SKIP_POW)
- 			.unwrap();
+		// build a regular transaction so we have a rangeproof to copy
+		let tx1 = build::transaction(
+			KernelFeatures::Plain { fee: 20000 },
+			vec![
+				build::coinbase_input(consensus::reward_at_height(1), key_id2.clone()),
+				build::output(consensus::reward_at_height(1) - 20000, key_id30.clone()),
+			],
+			&kc,
+			&pb,
+		)
+		.unwrap();
 
- 		// now mine three further blocks
- 		for n in 3..6 {
- 			let b = prepare_block(&kc, &head, &chain, n);
- 			head = b.header.clone();
- 			chain.process_block(b, chain::Options::SKIP_POW).unwrap();
- 		}
+		// mine block with tx1
+		let next = prepare_block_tx(&kc, &head, &chain, 7, vec![&tx1.clone()]);
+		let prev_main = next.header.clone();
+		chain
+			.process_block(next.clone(), chain::Options::SKIP_POW)
+			.unwrap();
+		chain.validate(false).unwrap();
 
- 		// create a few keys for use in txns
- 		let key_id2 = ExtKeychainPath::new(1, 2, 0, 0, 0).to_identifier();
- 		let key_id30 = ExtKeychainPath::new(1, 30, 0, 0, 0).to_identifier();
- 		let key_id31 = ExtKeychainPath::new(1, 31, 0, 0, 0).to_identifier();
- 		let key_id32 = ExtKeychainPath::new(1, 32, 0, 0, 0).to_identifier();
+		// create a second tx that contains a negative output
+		// and a positive output for 1m epic
+		let mut tx2 = build::transaction(
+			KernelFeatures::Plain { fee: 0 },
+			vec![
+				build::input(consensus::reward_at_height(1) - 20000, key_id30.clone()),
+				build::output(
+					consensus::reward_at_height(1) - 20000 + 1_000_000_000_000_000,
+					key_id31.clone(),
+				),
+				build_output_negative(1_000_000_000_000_000, key_id32.clone()),
+			],
+			&kc,
+			&pb,
+		)
+		.unwrap();
 
- 		// build a regular transaction so we have a rangeproof to copy
- 		let tx1 = build::transaction(
- 			KernelFeatures::Plain { fee: 20000 },
- 			vec![
- 				build::coinbase_input(consensus::reward_at_height(1), key_id2.clone()),
- 				build::output(consensus::reward_at_height(1) - 20000, key_id30.clone()),
- 			],
- 			&kc,
- 			&pb,
- 		)
- 		.unwrap();
+		// make sure tx1 only has one output as expected
+		assert_eq!(tx1.body.outputs.len(), 1);
+		let last_rp = tx1.body.outputs[0].proof;
 
- 		// mine block with tx1
- 		let next = prepare_block_tx(&kc, &head, &chain, 7, vec![&tx1.clone()]);
- 		let prev_main = next.header.clone();
- 		chain
- 			.process_block(next.clone(), chain::Options::SKIP_POW)
- 			.unwrap();
- 		chain.validate(false).unwrap();
+		// overwrite all our rangeproofs with the rangeproof from last block
+		for i in 0..tx2.body.outputs.len() {
+			tx2.body.outputs[i].proof = last_rp;
+		}
 
- 		// create a second tx that contains a negative output
- 		// and a positive output for 1m grin
- 		let mut tx2 = build::transaction(
- 			KernelFeatures::Plain { fee: 0 },
- 			vec![
- 				build::input(consensus::reward_at_height(1) - 20000, key_id30.clone()),
- 				build::output(
- 					consensus::reward_at_height(1) - 20000 + 1_000_000_000_000_000,
- 					key_id31.clone(),
- 				),
- 				build_output_negative(1_000_000_000_000_000, key_id32.clone()),
- 			],
- 			&kc,
- 			&pb,
- 		)
- 		.unwrap();
+		let next = prepare_block_tx(&kc, &prev_main, &chain, 8, vec![&tx2.clone()]);
+		// process_block fails with verifier_cache disabled or with correct verifier_cache
+		// implementations
+		let res = chain.process_block(next, chain::Options::SKIP_POW);
 
- 		// make sure tx1 only has one output as expected
- 		assert_eq!(tx1.body.outputs.len(), 1);
- 		let last_rp = tx1.body.outputs[0].proof;
-
- 		// overwrite all our rangeproofs with the rangeproof from last block
- 		for i in 0..tx2.body.outputs.len() {
- 			tx2.body.outputs[i].proof = last_rp;
- 		}
-
- 		let next = prepare_block_tx(&kc, &prev_main, &chain, 8, vec![&tx2.clone()]);
- 		// process_block fails with verifier_cache disabled or with correct verifier_cache
- 		// implementations
- 		let res = chain.process_block(next, chain::Options::SKIP_POW);
-
- 		assert_eq!(
- 			res.unwrap_err().kind(),
- 			chain::ErrorKind::InvalidBlockProof(block::Error::Transaction(
- 				transaction::Error::Secp(util::secp::Error::InvalidRangeProof)
- 			))
- 		);
- 	}
- 	clean_output_dir(".grin_overflow");
- }
-
-
+		assert_eq!(
+			res.unwrap_err().kind(),
+			chain::ErrorKind::InvalidBlockProof(block::Error::Transaction(
+				transaction::Error::Secp(util::secp::Error::InvalidRangeProof)
+			))
+		);
+	}
+	clean_output_dir(".epic_overflow");
+}
 
 fn prepare_block<K>(kc: &K, prev: &BlockHeader, chain: &Chain, diff: u64) -> Block
 where
@@ -962,7 +957,7 @@ fn actual_diff_iter_output() {
 	let genesis_block = pow::mine_genesis_block().unwrap();
 
 	let chain = chain::Chain::init(
-		"../.grin".to_string(),
+		"../.epic".to_string(),
 		Arc::new(NoopAdapter {}),
 		genesis_block,
 		pow::verify_size,

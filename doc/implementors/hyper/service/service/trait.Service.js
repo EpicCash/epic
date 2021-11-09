@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["epic_api"] = [{"text":"impl <a class=\"trait\" href=\"https://docs.rs/hyper/0.12.36/hyper/service/service/trait.Service.html\" title=\"trait hyper::service::service::Service\">Service</a> for <a class=\"struct\" href=\"epic_api/struct.Router.html\" title=\"struct epic_api::Router\">Router</a>","synthetic":false,"types":["epic_api::router::Router"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

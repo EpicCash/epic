@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["MerkleProofError","Merkle proof errors."]],"struct":[["MerkleProof","A Merkle proof that proves a particular element exists in the MMR."]]});

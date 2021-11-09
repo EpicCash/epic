@@ -146,7 +146,7 @@ fn build_request(
 	builder
 		.method(method)
 		.uri(uri)
-		.header(USER_AGENT, "grin-client")
+		.header(USER_AGENT, "epic-client")
 		.header(ACCEPT, "application/json")
 		.header(CONTENT_TYPE, "application/json")
 		.body(match body {

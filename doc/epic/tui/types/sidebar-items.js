@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["UIMessage","Main message struct to communicate between the UI and the main process"]],"trait":[["TUIStatusListener","Trait for a UI element that receives status update messages and updates itself"]]});

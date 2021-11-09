@@ -125,7 +125,7 @@ pub fn from_entropy(entropy: &Vec<u8>) -> Result<String, Error> {
 	let mut hash = [0; 32];
 	let mut sha2sum = Sha256::default();
 	sha2sum.update(entropy);
- 	hash.copy_from_slice(sha2sum.finalize().as_slice());
+	hash.copy_from_slice(sha2sum.finalize().as_slice());
 
 	let checksum = (hash[0] >> 8 - checksum_bits) & mask;
 

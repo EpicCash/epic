@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["LogLevel","Log level types"]],"struct":[["ZeroingString","Zeroing string, mainly useful for password"]]});
