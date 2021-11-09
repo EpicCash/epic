@@ -2,6 +2,7 @@
 .DS_Store
 .epic*
 node*
+debug/
 !node_clients
 !node_clients.rs
 target
