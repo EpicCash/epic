@@ -52,7 +52,7 @@ rustc 1.35.0 (3c235d560 2019-05-20)
 ## Build steps
 
 ```sh
-git clone https://gitlab.com/epiccash/epic
+git clone https://github.com/epiccash/epic
 cd epic
 git submodule update --init --recursive
 cargo build --release
@@ -110,7 +110,7 @@ The following steps describe how to execute epic from any location in **the curr
 ## Mining in Epic
 
 All mining functions for Epic are in a separate project called
-[epic-miner](https://gitlab.com/epiccash/epic-miner).
+[epic-miner](https://github.com/epiccash/epic-miner).
 
 <a id="testnet_reset"></a>
 ## Testnet Reset
@@ -144,10 +144,10 @@ Deb package is binary-based package manager. We have build scripts .deb packages
 In order to build one, you need to first clone the repos:
 
 ```sh
-git clone --recursive git@gitlab.com:epiccash/Epic.git
-git clone --recursive git@gitlab.com:epiccash/EpicWallet.git
-git clone --recursive git@gitlab.com:epiccash/epic-miner.git
-git clone --recursive git@gitlab.com:epiccash/randomx.git
+git clone --recursive git@github.com:epiccash/epic.git
+git clone --recursive git@github.com:epiccash/epic-wallet.git
+git clone --recursive git@github.com:epiccash/epic-miner.git
+git clone --recursive git@github.com:epiccash/randomx-rust.git
 ```
 
 Then install all the package listed under the `Build-Depends` section in the `debian/control` file of the respective repository. To be safe, these are all the needed packages in all the repositories:
