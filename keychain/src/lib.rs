@@ -25,6 +25,9 @@ extern crate serde_derive;
 #[macro_use]
 extern crate lazy_static;
 
+#[macro_use]
+extern crate zeroize;
+
 mod base58;
 pub mod extkey_bip32;
 pub mod mnemonic;

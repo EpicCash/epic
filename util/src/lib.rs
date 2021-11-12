@@ -27,6 +27,8 @@ extern crate log;
 extern crate lazy_static;
 #[macro_use]
 extern crate serde_derive;
+#[macro_use]
+extern crate zeroize;
 // Re-export so only has to be included once
 pub use parking_lot::Mutex;
 pub use parking_lot::{RwLock, RwLockReadGuard};
