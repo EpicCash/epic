@@ -36,6 +36,9 @@ pub fn start_server(config: servers::ServerConfig, logs_rx: Option<mpsc::Receive
 	// Just kill process for now, otherwise the process
 	// hangs around until sigint because the API server
 	// currently has no shutdown facility
+	warn!("Shutting down...");
+	thread::sleep(Duration::from_millis(1000));
+	warn!("Shutdown complete.");
 	exit(0);
 }
 
