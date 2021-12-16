@@ -22,7 +22,7 @@ use cursive::event::Key;
 use cursive::traits::{Boxable, Identifiable};
 use cursive::view::View;
 use cursive::views::{
-	ResizedView, Button, Dialog, LinearLayout, OnEventView, Panel, StackView, TextView,
+	Button, Dialog, LinearLayout, OnEventView, Panel, ResizedView, StackView, TextView,
 };
 use cursive::Cursive;
 use std::time;
@@ -326,9 +326,13 @@ impl TUIStatusListener for TUIMiningView {
 		let _ = c.call_on_name(
 			TABLE_MINING_DIFF_STATUS,
 			|t: &mut TableView<DiffBlock, DiffColumn>| {
-				let current_row:usize = t.row().unwrap_or(0);
+				let current_row: usize = t.row().unwrap_or(0);
 				t.set_items(diff_stats);
-				t.set_selected_row(current_row);
+				if current_row <= t.len() - 1 {
+					t.set_selected_row(current_row);
+				} else {
+					t.set_selected_row(t.len() - 1);
+				}
 			},
 		);
 		let stratum_stats = stats.stratum_stats.clone();
@@ -390,8 +394,8 @@ impl TUIStatusListener for TUIMiningView {
 		let _ = c.call_on_name(
 			TABLE_MINING_STATUS,
 			|t: &mut TableView<WorkerStats, StratumWorkerColumn>| {
-				let current_row:usize = t.row().unwrap_or(0);
 				t.set_items(worker_stats);
+				let current_row: usize = t.row().unwrap_or(0);
 				t.set_selected_row(current_row);
 			},
 		);

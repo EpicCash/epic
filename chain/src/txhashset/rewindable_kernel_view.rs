@@ -25,7 +25,6 @@ use epic_store::pmmr::PMMRBackend;
 /// Rewindable (but readonly) view of the kernel set (based on kernel MMR).
 pub struct RewindableKernelView<'a> {
 	pmmr: RewindablePMMR<'a, TxKernel, PMMRBackend<TxKernel>>,
-	batch: &'a Batch<'a>,
 	header: BlockHeader,
 }
 
@@ -33,21 +32,12 @@ impl<'a> RewindableKernelView<'a> {
 	/// Build a new readonly kernel view.
 	pub fn new(
 		pmmr: RewindablePMMR<'a, TxKernel, PMMRBackend<TxKernel>>,
-		batch: &'a Batch<'_>,
 		header: BlockHeader,
 	) -> RewindableKernelView<'a> {
 		RewindableKernelView {
 			pmmr,
-			batch,
 			header,
 		}
-	}
-
-	/// Accessor for the batch used in this view.
-	/// We will discard this batch (rollback) at the end, so be aware of this.
-	/// Nothing will get written to the db/index via this view.
-	pub fn batch(&self) -> &'a Batch<'_> {
-		self.batch
 	}
 
 	/// Rewind this readonly view to a previous block.

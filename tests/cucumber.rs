@@ -59,7 +59,6 @@ mod mine_chain {
 	use epic_core::core::foundation;
 	use epic_core::core::foundation::load_foundation_output;
 	use epic_core::core::hash::{Hash, Hashed};
-	use epic_core::core::verifier_cache::LruVerifierCache;
 	use epic_core::core::{
 		Block, BlockHeader, HeaderVersion, KernelFeatures, Output, OutputIdentifier, Transaction,
 		TxKernel,
@@ -1375,13 +1374,12 @@ mod mine_chain {
 	fn setup(dir_name: &str, genesis: Block) -> Chain {
 		util::init_test_logger();
 		clean_output_dir(dir_name);
-		let verifier_cache = Arc::new(RwLock::new(LruVerifierCache::new()));
+
 		chain::Chain::init(
 			dir_name.to_string(),
 			Arc::new(NoopAdapter {}),
 			genesis,
 			pow::verify_size,
-			verifier_cache,
 			false,
 			//Arc::new(Mutex::new(StopState::new())),
 		)

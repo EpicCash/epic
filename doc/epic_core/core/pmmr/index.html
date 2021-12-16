@@ -1,0 +1,80 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Persistent and prunable Merkle Mountain Range implementation. For a high level description of MMRs, see:"><meta name="keywords" content="rust, rustlang, rust-lang, pmmr"><title>epic_core::core::pmmr - Rust</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../epic_core/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a><h2 class="location">Module pmmr</h2><div class="sidebar-elems"><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li></ul></div><div id="sidebar-vars" data-name="pmmr" data-ty="mod" data-relpath="./"></div><script defer src="./sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="in-band">Module <a href="../../index.html">epic_core</a>::<wbr><a href="../index.html">core</a>::<wbr><a class="mod" href="#">pmmr</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../../../src/epic_core/core/pmmr.rs.html#15-49" title="goto source code">[src]</a></span></h1><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Persistent and prunable Merkle Mountain Range implementation. For a high
+level description of MMRs, see:</p>
+<p>https://github.
+com/opentimestamps/opentimestamps-server/blob/master/doc/merkle-mountain-range.
+md</p>
+<p>This implementation is built in two major parts:</p>
+<ol>
+<li>A set of low-level functions that allow navigation within an arbitrary
+sized binary tree traversed in postorder. To realize why this us useful,
+we start with the standard height sequence in a MMR: 0010012001… This is
+in fact identical to the postorder traversal (left-right-top) of a binary
+tree. In addition postorder traversal is independent of the height of the
+tree. This allows us, with a few primitive, to get the height of any node
+in the MMR from its position in the sequence, as well as calculate the
+position of siblings, parents, etc. As all those functions only rely on
+binary operations, they’re extremely fast.</li>
+<li>The implementation of a prunable MMR tree using the above. Each leaf
+is required to be Writeable (which implements Hashed). Tree roots can be
+trivially and efficiently calculated without materializing the full tree.
+The underlying Hashes are stored in a Backend implementation that can
+either be a simple Vec or a database.</li>
+</ol>
+</div></details><h2 id="structs" class="section-header"><a href="#structs">Structs</a></h2>
+<div class="item-table"><div class="item-left module-item"><a class="struct" href="struct.PMMR.html" title="epic_core::core::pmmr::PMMR struct">PMMR</a></div><div class="item-right docblock-short"><p>Prunable Merkle Mountain Range implementation. All positions within the tree
+start at 1 as they’re postorder tree traversal positions rather than array
+indices.</p>
+</div><div class="item-left module-item"><a class="struct" href="struct.ReadonlyPMMR.html" title="epic_core::core::pmmr::ReadonlyPMMR struct">ReadonlyPMMR</a></div><div class="item-right docblock-short"><p>Readonly view of a PMMR.</p>
+</div><div class="item-left module-item"><a class="struct" href="struct.RewindablePMMR.html" title="epic_core::core::pmmr::RewindablePMMR struct">RewindablePMMR</a></div><div class="item-right docblock-short"><p>Rewindable (but still readonly) view of a PMMR.</p>
+</div><div class="item-left module-item"><a class="struct" href="struct.VecBackend.html" title="epic_core::core::pmmr::VecBackend struct">VecBackend</a></div><div class="item-right docblock-short"><p>Simple/minimal/naive MMR backend implementation backed by Vec<T> and Vec<Hash>.
+Removed pos are maintained in a HashSet<u64>.</p>
+</div></div><h2 id="traits" class="section-header"><a href="#traits">Traits</a></h2>
+<div class="item-table"><div class="item-left module-item"><a class="trait" href="trait.Backend.html" title="epic_core::core::pmmr::Backend trait">Backend</a></div><div class="item-right docblock-short"><p>Storage backend for the MMR, just needs to be indexed by order of insertion.
+The PMMR itself does not need the Backend to be accurate on the existence
+of an element (i.e. remove could be a no-op) but layers above can
+depend on an accurate Backend to check existence.</p>
+</div></div><h2 id="functions" class="section-header"><a href="#functions">Functions</a></h2>
+<div class="item-table"><div class="item-left module-item"><a class="fn" href="fn.bintree_leftmost.html" title="epic_core::core::pmmr::bintree_leftmost fn">bintree_leftmost</a></div><div class="item-right docblock-short"><p>Gets the position of the rightmost node (i.e. leaf) beneath the provided subtree root.</p>
+</div><div class="item-left module-item"><a class="fn" href="fn.bintree_postorder_height.html" title="epic_core::core::pmmr::bintree_postorder_height fn">bintree_postorder_height</a></div><div class="item-right docblock-short"><p>The height of a node in a full binary tree from its postorder traversal
+index. This function is the base on which all others, as well as the MMR,
+are built.</p>
+</div><div class="item-left module-item"><a class="fn" href="fn.bintree_rightmost.html" title="epic_core::core::pmmr::bintree_rightmost fn">bintree_rightmost</a></div><div class="item-right docblock-short"><p>Gets the position of the rightmost node (i.e. leaf) beneath the provided subtree root.</p>
+</div><div class="item-left module-item"><a class="fn" href="fn.family.html" title="epic_core::core::pmmr::family fn">family</a></div><div class="item-right docblock-short"><p>Calculates the positions of the parent and sibling of the node at the
+provided position.</p>
+</div><div class="item-left module-item"><a class="fn" href="fn.family_branch.html" title="epic_core::core::pmmr::family_branch fn">family_branch</a></div><div class="item-right docblock-short"><p>For a given starting position calculate the parent and sibling positions
+for the branch/path from that position to the peak of the tree.
+We will use the sibling positions to generate the “path” of a Merkle proof.</p>
+</div><div class="item-left module-item"><a class="fn" href="fn.insertion_to_pmmr_index.html" title="epic_core::core::pmmr::insertion_to_pmmr_index fn">insertion_to_pmmr_index</a></div><div class="item-right docblock-short"><p>Returns the pmmr index of the nth inserted element</p>
+</div><div class="item-left module-item"><a class="fn" href="fn.is_leaf.html" title="epic_core::core::pmmr::is_leaf fn">is_leaf</a></div><div class="item-right docblock-short"><p>Is this position a leaf in the MMR?
+We know the positions of all leaves based on the postorder height of an MMR
+of any size (somewhat unintuitively but this is how the PMMR is “append
+only”).</p>
+</div><div class="item-left module-item"><a class="fn" href="fn.is_left_sibling.html" title="epic_core::core::pmmr::is_left_sibling fn">is_left_sibling</a></div><div class="item-right docblock-short"><p>Is the node at this pos the “left” sibling of its parent?</p>
+</div><div class="item-left module-item"><a class="fn" href="fn.n_leaves.html" title="epic_core::core::pmmr::n_leaves fn">n_leaves</a></div><div class="item-right docblock-short"><p>The number of leaves in a MMR of the provided size.</p>
+</div><div class="item-left module-item"><a class="fn" href="fn.path.html" title="epic_core::core::pmmr::path fn">path</a></div><div class="item-right docblock-short"><p>Returns the path from the specified position up to its
+corresponding peak in the MMR.
+The size (and therefore the set of peaks) of the MMR
+is defined by last_pos.</p>
+</div><div class="item-left module-item"><a class="fn" href="fn.peak_map_height.html" title="epic_core::core::pmmr::peak_map_height fn">peak_map_height</a></div><div class="item-right docblock-short"><p>return (peak_map, pos_height) of given 0-based node pos prior to its
+addition
+Example: on input 4 returns (0b11, 0) as mmr state before adding 4 was
+2
+/ <br />
+0   1   3
+with 0b11 indicating presence of peaks of height 0 and 1.
+NOTE:
+the peak map also encodes the path taken from the root to the added node
+since the path turns left (resp. right) if-and-only-if
+a peak at that height is absent (resp. present)</p>
+</div><div class="item-left module-item"><a class="fn" href="fn.peak_sizes_height.html" title="epic_core::core::pmmr::peak_sizes_height fn">peak_sizes_height</a></div><div class="item-right docblock-short"><p>sizes of peaks and height of next node in mmr of given size
+Example: on input 5 returns ([3,1], 1) as mmr state before adding 5 was
+2
+/ <br />
+0   1   3   4</p>
+</div><div class="item-left module-item"><a class="fn" href="fn.peaks.html" title="epic_core::core::pmmr::peaks fn">peaks</a></div><div class="item-right docblock-short"><p>Gets the postorder traversal index of all peaks in a MMR given its size.
+Starts with the top peak, which is always on the left
+side of the range, and navigates toward lower siblings toward the right
+of the range.</p>
+</div></div></section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="epic_core" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
+    <script src="../../../main.js"></script>
+</body></html>

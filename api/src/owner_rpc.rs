@@ -22,7 +22,7 @@ use crate::types::Status;
 use std::net::SocketAddr;
 
 /// Public definition used to generate Node jsonrpc api.
-/// * When running `grin` with defaults, the V2 api is available at
+/// * When running `epic` with defaults, the V2 api is available at
 /// `localhost:3413/v2/owner`
 /// * The endpoint only supports POST operations, with the json-rpc request as the body
 #[easy_jsonrpc_mw::rpc]
@@ -50,7 +50,7 @@ pub trait OwnerRpc: Sync + Send {
 		"result": {
 			"Ok": {
 			"protocol_version": "2",
-			"user_agent": "MW/Grin 2.x.x",
+			"user_agent": "MW/Epic 2.x.x",
 			"connections": "8",
 			"tip": {
 				"height": 371553,
@@ -163,7 +163,7 @@ pub trait OwnerRpc: Sync + Send {
 				"flags": "Defunct",
 				"last_banned": 0,
 				"last_connected": 1570129317,
-				"user_agent": "MW/Grin 2.0.0"
+				"user_agent": "MW/Epic 2.0.0"
 			}
 			]
 		}
@@ -204,7 +204,7 @@ pub trait OwnerRpc: Sync + Send {
 				"direction": "Outbound",
 				"height": 374510,
 				"total_difficulty": 1133954621205750,
-				"user_agent": "MW/Grin 2.0.0",
+				"user_agent": "MW/Epic 2.0.0",
 				"version": 1
 			},
 			{
@@ -215,7 +215,7 @@ pub trait OwnerRpc: Sync + Send {
 				"direction": "Outbound",
 				"height": 374510,
 				"total_difficulty": 1133954621205750,
-				"user_agent": "MW/Grin 2.0.0",
+				"user_agent": "MW/Epic 2.0.0",
 				"version": 1
 			},
 			{
@@ -226,7 +226,7 @@ pub trait OwnerRpc: Sync + Send {
 				"direction": "Outbound",
 				"height": 374510,
 				"total_difficulty": 1133954621205750,
-				"user_agent": "MW/Grin 2.0.0",
+				"user_agent": "MW/Epic 2.0.0",
 				"version": 1
 			},
 			{
@@ -237,7 +237,7 @@ pub trait OwnerRpc: Sync + Send {
 				"direction": "Outbound",
 				"height": 374510,
 				"total_difficulty": 1133954621205750,
-				"user_agent": "MW/Grin 2.0.0",
+				"user_agent": "MW/Epic 2.0.0",
 				"version": 1
 			},
 			{
@@ -248,7 +248,7 @@ pub trait OwnerRpc: Sync + Send {
 				"direction": "Outbound",
 				"height": 0,
 				"total_difficulty": 1133954621205750,
-				"user_agent": "MW/Grin 2.0.0",
+				"user_agent": "MW/Epic 2.0.0",
 				"version": 1
 			},
 			{
@@ -259,7 +259,7 @@ pub trait OwnerRpc: Sync + Send {
 				"direction": "Outbound",
 				"height": 374510,
 				"total_difficulty": 1133954621205750,
-				"user_agent": "MW/Grin 2.0.0",
+				"user_agent": "MW/Epic 2.0.0",
 				"version": 1
 			},
 			{
@@ -270,7 +270,7 @@ pub trait OwnerRpc: Sync + Send {
 				"direction": "Outbound",
 				"height": 374510,
 				"total_difficulty": 1133954621205750,
-				"user_agent": "MW/Grin 2.0.0",
+				"user_agent": "MW/Epic 2.0.0",
 				"version": 1
 			},
 			{
@@ -281,7 +281,7 @@ pub trait OwnerRpc: Sync + Send {
 				"direction": "Outbound",
 				"height": 374510,
 				"total_difficulty": 1133954621205750,
-				"user_agent": "MW/Grin 2.0.0",
+				"user_agent": "MW/Epic 2.0.0",
 				"version": 1
 			}
 			]
@@ -388,10 +388,10 @@ impl OwnerRpc for Owner {
 #[macro_export]
 macro_rules! doctest_helper_json_rpc_owner_assert_response {
 	($request:expr, $expected_response:expr) => {
-		// create temporary grin server, run jsonrpc request on node api, delete server, return
+		// create temporary epic server, run jsonrpc request on node api, delete server, return
 		// json response.
 
-			{
+		{
 			/*use epic_servers::test_framework::framework::run_doctest;
 			use epic_util as util;
 			use serde_json;
@@ -425,6 +425,6 @@ macro_rules! doctest_helper_json_rpc_owner_assert_response {
 					serde_json::to_string_pretty(&expected_response).unwrap()
 				);
 				}*/
-			}
+		}
 	};
 }

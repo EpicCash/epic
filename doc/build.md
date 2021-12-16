@@ -2,7 +2,7 @@
 
 ## Requirements
 
-* rust 1.35
+* rust 1.44
 * clang
 * ncurses and libs (ncurses, ncursesw5)
 * zlib libs (zlib1g-dev or zlib-devel)
@@ -34,7 +34,7 @@ During installation __rustup__ will attempt to configure the [__PATH__](https://
 After you have rust installed, execute the following command in the terminal:
 
 ```sh
-rustup default 1.35.0
+rustup default 1.44.0
 ```
 
 And then, check if you are using the correct version by typing the following command in the terminal:
@@ -46,7 +46,7 @@ rustc --version
 The output should be something like this:
 
 ```sh
-rustc 1.35.0 (3c235d560 2019-05-20)
+rustc 1.44.0 (xxxxx)
 ```
 
 ## Build steps

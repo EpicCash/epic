@@ -18,7 +18,7 @@
 //!
 
 use crate::ser::{
-	self, AsFixedBytes, Error, FixedLength, ProtocolVersion, Readable, Reader, Writeable, Writer,
+	self, AsFixedBytes, Error, ProtocolVersion, Readable, Reader, Writeable, Writer,
 };
 use blake2::blake2b::Blake2b;
 use byteorder::{BigEndian, ByteOrder};
@@ -64,12 +64,12 @@ impl fmt::Display for Hash {
 	}
 }
 
-impl FixedLength for Hash {
-	/// Size of a hash in bytes.
-	const LEN: usize = 32;
-}
 
 impl Hash {
+
+	/// A hash is 32 bytes.
+	pub const LEN: usize = 32;
+
 	/// Builds a Hash from a byte vector. If the vector is too short, it will be
 	/// completed by zeroes. If it's too long, it will be truncated.
 	pub fn from_vec(v: &[u8]) -> Hash {

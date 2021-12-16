@@ -26,7 +26,7 @@ use crate::types::{
 use crate::util;
 
 /// Public definition used to generate Node jsonrpc api.
-/// * When running `grin` with defaults, the V2 api is available at
+/// * When running `epic` with defaults, the V2 api is available at
 /// `localhost:3413/v2/foreign`
 /// * The endpoint only supports POST operations, with the json-rpc request as the body
 #[easy_jsonrpc_mw::rpc]
@@ -844,10 +844,10 @@ impl ForeignRpc for Foreign {
 #[macro_export]
 macro_rules! doctest_helper_json_rpc_foreign_assert_response {
 	($request:expr, $expected_response:expr) => {
-		// create temporary grin server, run jsonrpc request on node api, delete server, return
+		// create temporary epic server, run jsonrpc request on node api, delete server, return
 		// json response.
 
-			{
+		{
 			/*use epic_servers::test_framework::framework::run_doctest;
 			use epic_util as util;
 			use serde_json;
@@ -881,6 +881,6 @@ macro_rules! doctest_helper_json_rpc_foreign_assert_response {
 					serde_json::to_string_pretty(&expected_response).unwrap()
 				);
 				}*/
-			}
+		}
 	};
 }

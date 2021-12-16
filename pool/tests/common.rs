@@ -17,7 +17,6 @@
 use self::chain::store::ChainStore;
 use self::chain::types::Tip;
 use self::core::core::hash::{Hash, Hashed};
-use self::core::core::verifier_cache::VerifierCache;
 use self::core::core::{Block, BlockHeader, BlockSums, Committed, KernelFeatures, Transaction};
 use self::core::libtx;
 use self::keychain::{ExtKeychain, Keychain};
@@ -148,10 +147,7 @@ impl BlockChain for ChainAdapter {
 	}
 }
 
-pub fn test_setup(
-	chain: Arc<dyn BlockChain>,
-	verifier_cache: Arc<RwLock<dyn VerifierCache>>,
-) -> TransactionPool {
+pub fn test_setup(chain: Arc<dyn BlockChain>) -> TransactionPool {
 	TransactionPool::new(
 		PoolConfig {
 			accept_fee_base: 0,
@@ -160,7 +156,6 @@ pub fn test_setup(
 			mineable_max_weight: 10_000,
 		},
 		chain.clone(),
-		verifier_cache.clone(),
 		Arc::new(NoopAdapter {}),
 	)
 }

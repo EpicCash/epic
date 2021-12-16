@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["init_logger","Initialize the logger with the given configuration"],["init_test_logger","Initializes the logger for unit and integration tests"]],"struct":[["LogEntry","Log Entry"],["LoggingConfig","Logging config"]]});

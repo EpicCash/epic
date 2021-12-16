@@ -37,7 +37,6 @@ use crate::common::stats::{StratumStats, WorkerStats};
 use crate::common::types::StratumServerConfig;
 use crate::core::core::block::feijoada::{next_block_bottles, Deterministic};
 use crate::core::core::hash::Hashed;
-use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::Block;
 use crate::core::pow::{DifficultyNumber, PoWType};
 use crate::core::{pow, ser};
@@ -57,10 +56,16 @@ type Tx = mpsc::UnboundedSender<String>;
 // ----------------------------------------
 // http://www.jsonrpc.org/specification
 // RPC Methods
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(untagged)]
+enum Id {
+	Integer(i64),
+	String(String),
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct RpcRequest {
-	id: String,
+	id: Id,
 	jsonrpc: String,
 	method: String,
 	params: Option<Value>,
@@ -68,7 +73,7 @@ struct RpcRequest {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct RpcResponse {
-	id: String,
+	id: Id,
 	jsonrpc: String,
 	method: String,
 	result: Option<Value>,
@@ -281,7 +286,7 @@ impl Handler {
 	}
 	fn handle_rpc_requests(&self, request: RpcRequest, worker_id: usize) -> String {
 		self.workers.last_seen(worker_id);
-
+		info!("request: {:?}", request);
 		// Call the handler function for requested method
 		let response = match request.method.as_str() {
 			"login" => self.handle_login(request.params, worker_id),
@@ -647,7 +652,7 @@ impl Handler {
 		// Issue #1159 - use a serde_json Value type to avoid extra quoting
 		let job_template_value: Value = serde_json::from_str(&job_template_json).unwrap();
 		let job_request = RpcRequest {
-			id: String::from("Stratum"),
+			id: Id::String(String::from("Stratum")),
 			jsonrpc: String::from("2.0"),
 			method: String::from("job"),
 			params: Some(job_template_value),
@@ -660,12 +665,7 @@ impl Handler {
 		self.workers.broadcast(job_request_json.clone());
 	}
 
-	pub fn run(
-		&self,
-		config: &StratumServerConfig,
-		tx_pool: &Arc<RwLock<pool::TransactionPool>>,
-		verifier_cache: Arc<RwLock<dyn VerifierCache>>,
-	) {
+	pub fn run(&self, config: &StratumServerConfig, tx_pool: &Arc<RwLock<pool::TransactionPool>>) {
 		debug!("Run main loop");
 		let mut deadline: i64 = 0;
 		let mut head = self.chain.head().unwrap();
@@ -696,7 +696,6 @@ impl Handler {
 					let (new_block, block_fees, pow_type) = mine_block::get_block(
 						&self.chain,
 						tx_pool,
-						verifier_cache.clone(),
 						state.current_key_id.clone(),
 						wallet_listener_url,
 					);
@@ -807,6 +806,7 @@ fn accept_connections(listen_addr: SocketAddr, handler: Arc<Handler>) {
 				.for_each(move |line| {
 					let request = serde_json::from_str(&line)?;
 					let resp = h.handle_rpc_requests(request, worker_id);
+					info!("Worker resp {:?}", resp);
 					workers.send_to(worker_id, resp);
 					Ok(())
 				})
@@ -976,7 +976,6 @@ pub struct StratumServer {
 	config: StratumServerConfig,
 	chain: Arc<chain::Chain>,
 	tx_pool: Arc<RwLock<pool::TransactionPool>>,
-	verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	sync_state: Arc<SyncState>,
 	stratum_stats: Arc<RwLock<StratumStats>>,
 }
@@ -987,7 +986,6 @@ impl StratumServer {
 		config: StratumServerConfig,
 		chain: Arc<chain::Chain>,
 		tx_pool: Arc<RwLock<pool::TransactionPool>>,
-		verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 		stratum_stats: Arc<RwLock<StratumStats>>,
 	) -> StratumServer {
 		StratumServer {
@@ -995,7 +993,6 @@ impl StratumServer {
 			config,
 			chain,
 			tx_pool,
-			verifier_cache,
 			sync_state: Arc::new(SyncState::new()),
 			stratum_stats: stratum_stats,
 		}
@@ -1036,7 +1033,7 @@ impl StratumServer {
 			stratum_stats.edge_bits = edge_bits as u16;
 		}
 
-		warn!(
+		info!(
 			"Stratum server started on {}",
 			self.config.stratum_server_addr.clone().unwrap()
 		);
@@ -1046,7 +1043,7 @@ impl StratumServer {
 			thread::sleep(Duration::from_millis(50));
 		}
 
-		handler.run(&self.config, &self.tx_pool, self.verifier_cache.clone());
+		handler.run(&self.config, &self.tx_pool);
 	} // fn run_loop()
 } // StratumServer
 

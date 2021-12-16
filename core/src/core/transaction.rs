@@ -15,18 +15,18 @@
 //! Transactions
 
 use crate::core::hash::{DefaultHashable, Hashed};
-use crate::core::verifier_cache::VerifierCache;
 use crate::core::{committed, Committed};
 use crate::libtx::secp_ser;
 use crate::ser::{
-	self, read_multi, FixedLength, PMMRable, ProtocolVersion, Readable, Reader,
-	VerifySortedAndUnique, Writeable, Writer,
+	self, read_multi, PMMRable, ProtocolVersion, Readable, Reader, VerifySortedAndUnique,
+	Writeable, Writer,
 };
 use crate::{consensus, global};
 use enum_primitive::FromPrimitive;
 use keychain::{self, BlindingFactor};
 use std::cmp::Ordering;
 use std::cmp::{max, min};
+use std::convert::TryInto;
 use std::sync::Arc;
 use std::{error, fmt};
 use util;
@@ -38,7 +38,7 @@ use util::RwLock;
 /// Various tx kernel variants.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum KernelFeatures {
-	/// Plain kernel (the default for Grin txs).
+	/// Plain kernel (the default for Epic txs).
 	Plain {
 		/// Plain kernels have fees.
 		fee: u64,
@@ -345,19 +345,17 @@ impl Readable for TxKernel {
 }
 
 /// We store kernels in the kernel MMR.
-/// Note: These are "variable size" to support different kernel featuere variants.
+/// Note: These are "variable size" to support different kernel feature variants.
 impl PMMRable for TxKernel {
 	type E = Self;
 
 	fn as_elmt(&self) -> Self::E {
 		self.clone()
 	}
-}
 
-/// Kernels are "variable size" but we need to implement FixedLength for legacy reasons.
-/// At some point we will refactor the MMR backend so this is no longer required.
-impl FixedLength for TxKernel {
-	const LEN: usize = 0;
+	fn elmt_size() -> Option<u16> {
+		None
+	}
 }
 
 impl KernelFeatures {
@@ -630,32 +628,27 @@ impl TransactionBody {
 	/// inputs, if any, are kept intact.
 	/// Sort order is maintained.
 	pub fn with_input(mut self, input: Input) -> TransactionBody {
-		self.inputs
-			.binary_search(&input)
-			.err()
-			.map(|e| self.inputs.insert(e, input));
+		if let Err(e) = self.inputs.binary_search(&input) {
+			self.inputs.insert(e, input)
+		};
 		self
 	}
-
 	/// Builds a new TransactionBody with the provided output added. Existing
 	/// outputs, if any, are kept intact.
 	/// Sort order is maintained.
 	pub fn with_output(mut self, output: Output) -> TransactionBody {
-		self.outputs
-			.binary_search(&output)
-			.err()
-			.map(|e| self.outputs.insert(e, output));
+		if let Err(e) = self.outputs.binary_search(&output) {
+			self.outputs.insert(e, output)
+		};
 		self
 	}
-
 	/// Builds a new TransactionBody with the provided kernel added. Existing
 	/// kernels, if any, are kept intact.
 	/// Sort order is maintained.
 	pub fn with_kernel(mut self, kernel: TxKernel) -> TransactionBody {
-		self.kernels
-			.binary_search(&kernel)
-			.err()
-			.map(|e| self.kernels.insert(e, kernel));
+		if let Err(e) = self.kernels.binary_search(&kernel) {
+			self.kernels.insert(e, kernel)
+		};
 		self
 	}
 
@@ -827,14 +820,8 @@ impl TransactionBody {
 	/// Validates all relevant parts of a transaction body. Checks the
 	/// excess value against the signature as well as range proofs for each
 	/// output.
-	pub fn validate(
-		&self,
-		weighting: Weighting,
-		_verifier: Arc<RwLock<dyn VerifierCache>>,
-	) -> Result<(), Error> {
+	pub fn validate(&self, weighting: Weighting) -> Result<(), Error> {
 		self.validate_read(weighting)?;
-
-
 
 		// Now batch verify all those unverified rangeproofs
 		if !self.outputs.is_empty() {
@@ -847,11 +834,8 @@ impl TransactionBody {
 			Output::batch_verify_proofs(&commits, &proofs)?;
 		}
 
-
-
 		// Verify the unverified tx kernels.
 		TxKernel::batch_sig_verify(&self.kernels)?;
-
 
 		Ok(())
 	}
@@ -1058,12 +1042,8 @@ impl Transaction {
 	/// Validates all relevant parts of a fully built transaction. Checks the
 	/// excess value against the signature as well as range proofs for each
 	/// output.
-	pub fn validate(
-		&self,
-		weighting: Weighting,
-		verifier: Arc<RwLock<dyn VerifierCache>>,
-	) -> Result<(), Error> {
-		self.body.validate(weighting, verifier)?;
+	pub fn validate(&self, weighting: Weighting) -> Result<(), Error> {
+		self.body.validate(weighting)?;
 		self.body.verify_features()?;
 		self.verify_kernel_sums(self.overage(), self.offset.clone())?;
 		Ok(())
@@ -1328,7 +1308,7 @@ enum_from_primitive! {
 	#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 	#[repr(u8)]
 	pub enum OutputFeatures {
-		/// Plain output (the default for Grin txs).
+		/// Plain output (the default for Epic txs).
 		Plain = 0,
 		/// A coinbase output.
 		Coinbase = 1,
@@ -1417,17 +1397,24 @@ impl PMMRable for Output {
 	fn as_elmt(&self) -> OutputIdentifier {
 		OutputIdentifier::from_output(self)
 	}
+
+	fn elmt_size() -> Option<u16> {
+		Some(
+			(1 + secp::constants::PEDERSEN_COMMITMENT_SIZE)
+				.try_into()
+				.unwrap(),
+		)
+	}
 }
 
 impl OutputFeatures {
 	/// Is this a coinbase output?
-	pub fn is_coinbase(&self) -> bool {
-		*self == OutputFeatures::Coinbase
+	pub fn is_coinbase(self) -> bool {
+		self == OutputFeatures::Coinbase
 	}
-
 	/// Is this a plain output?
-	pub fn is_plain(&self) -> bool {
-		*self == OutputFeatures::Plain
+	pub fn is_plain(self) -> bool {
+		self == OutputFeatures::Plain
 	}
 }
 
@@ -1534,10 +1521,6 @@ impl OutputIdentifier {
 			util::to_hex(self.commit.0.to_vec()),
 		)
 	}
-}
-
-impl FixedLength for OutputIdentifier {
-	const LEN: usize = 1 + secp::constants::PEDERSEN_COMMITMENT_SIZE;
 }
 
 impl Writeable for OutputIdentifier {

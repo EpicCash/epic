@@ -14,7 +14,6 @@
 
 pub mod common;
 
-use self::core::core::verifier_cache::LruVerifierCache;
 use self::core::core::{transaction, Block, BlockHeader, Weighting};
 use self::core::libtx;
 use self::core::pow::Difficulty;
@@ -38,10 +37,8 @@ fn test_the_transaction_pool() {
 
 	let chain = Arc::new(ChainAdapter::init(db_root.clone()).unwrap());
 
-	let verifier_cache = Arc::new(RwLock::new(LruVerifierCache::new()));
-
 	// Initialize a new pool with our chain adapter.
-	let pool = RwLock::new(test_setup(chain.clone(), verifier_cache.clone()));
+	let pool = RwLock::new(test_setup(chain.clone()));
 
 	let header = {
 		let height = 1;
@@ -230,9 +227,7 @@ fn test_the_transaction_pool() {
 		// tx4 is the "new" part of this aggregated tx that we care about
 		let agg_tx = transaction::aggregate(vec![tx1.clone(), tx2.clone(), tx4]).unwrap();
 
-		agg_tx
-			.validate(Weighting::AsTransaction, verifier_cache.clone())
-			.unwrap();
+		agg_tx.validate(Weighting::AsTransaction).unwrap();
 
 		write_pool
 			.add_to_pool(test_source(), agg_tx, false, &header)
@@ -248,10 +243,8 @@ fn test_the_transaction_pool() {
 	{
 		let chain = Arc::new(ChainAdapter::init(db_root.clone()).unwrap());
 
-		let verifier_cache = Arc::new(RwLock::new(LruVerifierCache::new()));
-
 		// Initialize a new pool with our chain adapter.
-		let pool = RwLock::new(test_setup(chain.clone(), verifier_cache.clone()));
+		let pool = RwLock::new(test_setup(chain.clone()));
 
 		let header = {
 			let height = 1;
@@ -441,9 +434,7 @@ fn test_the_transaction_pool() {
 			// tx4 is the "new" part of this aggregated tx that we care about
 			let agg_tx = transaction::aggregate(vec![tx1.clone(), tx2.clone(), tx4]).unwrap();
 
-			agg_tx
-				.validate(Weighting::AsTransaction, verifier_cache.clone())
-				.unwrap();
+			agg_tx.validate(Weighting::AsTransaction).unwrap();
 
 			write_pool
 				.add_to_pool(test_source(), agg_tx, false, &header)

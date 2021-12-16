@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["BlockSums","The output_sum and kernel_sum for a given block. This is used to validate the next block being processed by applying the inputs, outputs, kernels and kernel_offset from the new block and checking everything sums correctly."]]});

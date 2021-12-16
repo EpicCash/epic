@@ -19,7 +19,6 @@
 
 use self::core::core::hash::{Hash, Hashed};
 use self::core::core::id::ShortId;
-use self::core::core::verifier_cache::VerifierCache;
 use self::core::core::{transaction, Block, BlockHeader, Transaction, Weighting};
 use self::util::RwLock;
 use crate::pool::Pool;
@@ -42,7 +41,6 @@ pub struct TransactionPool {
 	pub reorg_cache: Arc<RwLock<VecDeque<PoolEntry>>>,
 	/// The blockchain
 	pub blockchain: Arc<dyn BlockChain>,
-	pub verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	/// The pool adapter
 	pub adapter: Arc<dyn PoolAdapter>,
 }
@@ -52,20 +50,17 @@ impl TransactionPool {
 	pub fn new(
 		config: PoolConfig,
 		chain: Arc<dyn BlockChain>,
-		verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 		adapter: Arc<dyn PoolAdapter>,
 	) -> TransactionPool {
 		TransactionPool {
 			config,
-			txpool: Pool::new(chain.clone(), verifier_cache.clone(), "txpool".to_string()),
+			txpool: Pool::new(chain.clone(), "txpool".to_string()),
 			stempool: Pool::new(
 				chain.clone(),
-				verifier_cache.clone(),
 				"stempool".to_string(),
 			),
 			reorg_cache: Arc::new(RwLock::new(VecDeque::new())),
 			blockchain: chain,
-			verifier_cache,
 			adapter,
 		}
 	}
@@ -105,7 +100,7 @@ impl TransactionPool {
 				let tx = transaction::deaggregate(entry.tx, txs)?;
 
 				// Validate this deaggregated tx "as tx", subject to regular tx weight limits.
-				tx.validate(Weighting::AsTransaction, self.verifier_cache.clone())?;
+				tx.validate(Weighting::AsTransaction)?;
 
 				entry.tx = tx;
 				entry.src = TxSource::Deaggregate;
@@ -148,7 +143,7 @@ impl TransactionPool {
 
 		// Make sure the transaction is valid before anything else.
 		// Validate tx accounting for max tx weight.
-		tx.validate(Weighting::AsTransaction, self.verifier_cache.clone())
+		tx.validate(Weighting::AsTransaction)
 			.map_err(PoolError::InvalidTx)?;
 
 		// Check the tx lock_time is valid based on current chain state.

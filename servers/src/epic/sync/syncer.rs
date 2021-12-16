@@ -82,7 +82,7 @@ impl SyncRunner {
 			let wp = self.peers.more_or_same_work_peers()?;
 			// exit loop when:
 			// * we have more than MIN_PEERS more_or_same_work peers
-			// * we are synced already, e.g. grin was quickly restarted
+			// * we are synced already, e.g. epic was quickly restarted
 			// * timeout
 			if wp > MIN_PEERS
 				|| (wp == 0
@@ -152,6 +152,7 @@ impl SyncRunner {
 
 			// check whether syncing is generally needed, when we compare our state with others
 			let (needs_syncing, most_work_height) = unwrap_or_restart_loop!(self.needs_syncing());
+
 			if most_work_height > 0 {
 				// we can occasionally get a most work height of 0 if read locks fail
 				highest_height = most_work_height;
@@ -183,17 +184,7 @@ impl SyncRunner {
 			let head = unwrap_or_restart_loop!(self.chain.head());
 			let tail = self.chain.tail().unwrap_or_else(|_| head.clone());
 
-			// We still do not fully understand what is blocking this but if this blocks here after
-			// we download and validate the txhashet we do not reliably proceed to block_sync,
-			// potentially blocking for an extended period of time (> 10 mins).
-			// Does not appear to be deadlock as it does resolve itself eventually.
-			// So as a workaround we try_header_head with a relatively short timeout and simply
-			// retry the syncer loop.
-			let maybe_header_head =
-				unwrap_or_restart_loop!(self.chain.try_header_head(time::Duration::from_secs(1)));
-			let header_head = unwrap_or_restart_loop!(
-				maybe_header_head.ok_or("failed to obtain lock for try_header_head")
-			);
+			let header_head = unwrap_or_restart_loop!(self.chain.header_head());
 
 			// run each sync stage, each of them deciding whether they're needed
 			// except for state sync that only runs if body sync return true (means txhashset is needed)
@@ -243,7 +234,7 @@ impl SyncRunner {
 		let peer_info = if let Some(p) = peer {
 			p.info.clone()
 		} else {
-			warn!("sync: no peers available, disabling sync");
+			warn!("No peers available, can not sync");
 			return Ok((false, 0));
 		};
 
@@ -253,7 +244,7 @@ impl SyncRunner {
 			if peer_info.total_difficulty() <= local_diff {
 				let ch = self.chain.head()?;
 				info!(
-					"synchronized at {} @ {} [{}]",
+					"Node synchronized at {} @ {} [{}]",
 					local_diff, ch.height, ch.last_block_h
 				);
 				is_syncing = false;

@@ -15,7 +15,6 @@
 pub mod common;
 
 use self::core::core::hash::Hashed;
-use self::core::core::verifier_cache::LruVerifierCache;
 use self::core::core::{Block, BlockHeader, Transaction};
 use self::core::libtx;
 use self::core::pow::Difficulty;
@@ -38,7 +37,6 @@ fn test_transaction_pool_block_building() {
 	{
 		let mut chain = ChainAdapter::init(db_root.clone()).unwrap();
 
-		let verifier_cache = Arc::new(RwLock::new(LruVerifierCache::new()));
 
 		// Initialize the chain/txhashset with an initial block
 		// so we have a non-empty UTXO set.
@@ -78,7 +76,7 @@ fn test_transaction_pool_block_building() {
 		let header = block.header;
 
 		// Initialize a new pool with our chain adapter.
-		let pool = RwLock::new(test_setup(Arc::new(chain.clone()), verifier_cache));
+		let pool = RwLock::new(test_setup(Arc::new(chain.clone())));
 
 		let root_tx_1 = test_transaction(&keychain, vec![10, 20], vec![24]);
 		let root_tx_2 = test_transaction(&keychain, vec![30], vec![28]);

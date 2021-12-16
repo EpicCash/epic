@@ -17,7 +17,6 @@
 
 use crate::core::core::hash::{Hash, Hashed, ZERO_HASH};
 use crate::core::core::merkle_proof::MerkleProof;
-use crate::core::core::verifier_cache::VerifierCache;
 use crate::core::core::{
 	Block, BlockHeader, BlockSums, Committed, Output, OutputIdentifier, Transaction, TxKernel,
 };
@@ -31,7 +30,7 @@ use crate::store;
 use crate::txhashset;
 use crate::txhashset::{PMMRHandle, TxHashSet};
 use crate::types::{
-	BlockStatus, ChainAdapter, NoStatus, Options, OutputMMRPosition, Tip, TxHashsetWriteStatus,
+	BlockStatus, ChainAdapter, CommitPos, NoStatus, Options, Tip, TxHashsetWriteStatus,
 };
 use crate::util::secp::pedersen::{Commitment, RangeProof};
 use crate::util::RwLock;
@@ -151,7 +150,6 @@ pub struct Chain {
 	txhashset: Arc<RwLock<txhashset::TxHashSet>>,
 	header_pmmr: Arc<RwLock<txhashset::PMMRHandle<BlockHeader>>>,
 	sync_pmmr: Arc<RwLock<txhashset::PMMRHandle<BlockHeader>>>,
-	verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 	// POW verification function
 	pow_verifier: fn(&BlockHeader) -> Result<(), pow::Error>,
 	archive_mode: bool,
@@ -167,7 +165,6 @@ impl Chain {
 		adapter: Arc<dyn ChainAdapter + Send + Sync>,
 		genesis: Block,
 		pow_verifier: fn(&BlockHeader) -> Result<(), pow::Error>,
-		verifier_cache: Arc<RwLock<dyn VerifierCache>>,
 		archive_mode: bool,
 	) -> Result<Chain, Error> {
 		let store = Arc::new(store::ChainStore::new(&db_root)?);
@@ -180,7 +177,6 @@ impl Chain {
 			"header",
 			"header_head",
 			false,
-			true,
 			ProtocolVersion(1),
 			None,
 		)?;
@@ -189,7 +185,6 @@ impl Chain {
 			"header",
 			"sync_head",
 			false,
-			true,
 			ProtocolVersion(1),
 			None,
 		)?;
@@ -202,6 +197,15 @@ impl Chain {
 			&mut txhashset,
 		)?;
 
+		// Initialize the output_pos index based on UTXO set.
+		// This is fast as we only look for stale and missing entries
+		// and do not need to rebuild the entire index.
+		{
+			let batch = store.batch()?;
+			txhashset.init_output_pos_index(&header_pmmr, &batch)?;
+			batch.commit()?;
+		}
+
 		let chain = Chain {
 			db_root,
 			store,
@@ -211,7 +215,6 @@ impl Chain {
 			header_pmmr: Arc::new(RwLock::new(header_pmmr)),
 			sync_pmmr: Arc::new(RwLock::new(sync_pmmr)),
 			pow_verifier,
-			verifier_cache,
 			archive_mode,
 			genesis: genesis.header.clone(),
 		};
@@ -220,9 +223,6 @@ impl Chain {
 		{
 			// Migrate full blocks to protocol version v2.
 			chain.migrate_db_v1_v2()?;
-
-			// Rebuild height_for_pos index.
-			chain.rebuild_height_for_pos()?;
 		}
 
 		chain.log_heads()?;
@@ -261,6 +261,18 @@ impl Chain {
 		log_head("header_head", self.header_head()?);
 		log_head("sync_head", self.get_sync_head()?);
 		Ok(())
+	}
+
+	/// Reset sync_head to current header_head.
+	/// We do this when we first transition to header_sync to ensure we extend
+	/// the "sync" header MMR from a known consistent state and to ensure we track
+	/// the header chain correctly at the fork point.
+	pub fn reset_sync_head(&self) -> Result<Tip, Error> {
+		let batch = self.store.batch()?;
+		batch.reset_sync_head()?;
+		let head = batch.get_sync_head()?;
+		batch.commit()?;
+		Ok(head)
 	}
 
 	/// Processes a single block, then checks for orphans, processing
@@ -313,7 +325,7 @@ impl Chain {
 			// but not yet committed the batch.
 			// A node shutdown at this point can be catastrophic...
 			// We prevent this via the stop_lock (see above).
-			if let Ok(_) = maybe_new_head {
+			if maybe_new_head.is_ok() {
 				ctx.batch.commit()?;
 			}
 
@@ -339,7 +351,7 @@ impl Chain {
 						added: Instant::now(),
 					};
 
-					&self.orphans.add(orphan);
+					self.orphans.add(orphan);
 
 					debug!(
 						"process_block: orphan: {:?}, # orphans {}{}",
@@ -369,7 +381,7 @@ impl Chain {
 						b.header.height,
 						e
 					);
-					Err(ErrorKind::Other(format!("{:?}", e).to_owned()).into())
+					Err(ErrorKind::Other(format!("{:?}", e)).into())
 				}
 			},
 		}
@@ -425,7 +437,6 @@ impl Chain {
 		Ok(pipe::BlockContext {
 			opts,
 			pow_verifier: self.pow_verifier,
-			verifier_cache: self.verifier_cache.clone(),
 			header_pmmr,
 			txhashset,
 			batch,
@@ -497,22 +508,20 @@ impl Chain {
 		}
 	}
 
-	/// TODO - where do we call this from? And do we need a rewind first?
 	/// For the given commitment find the unspent output and return the
 	/// associated Return an error if the output does not exist or has been
 	/// spent. This querying is done in a way that is consistent with the
 	/// current chain state, specifically the current winning (valid, most
 	/// work) fork.
-	pub fn is_unspent(&self, output_ref: &OutputIdentifier) -> Result<OutputMMRPosition, Error> {
-		let txhashset = self.txhashset.read();
-		txhashset.is_unspent(output_ref)
+	pub fn is_unspent(&self, output_ref: &OutputIdentifier) -> Result<CommitPos, Error> {
+		self.txhashset.read().is_unspent(output_ref)
 	}
 
 	/// Retrieves an unspent output using its PMMR position
 	pub fn get_unspent_output_at(&self, pos: u64) -> Result<Output, Error> {
 		let header_pmmr = self.header_pmmr.read();
 		let txhashset = self.txhashset.read();
-		txhashset::utxo_view(&header_pmmr, &txhashset, |utxo| {
+		txhashset::utxo_view(&header_pmmr, &txhashset, |utxo, _| {
 			utxo.get_unspent_output_at(pos)
 		})
 	}
@@ -521,8 +530,8 @@ impl Chain {
 	pub fn validate_tx(&self, tx: &Transaction) -> Result<(), Error> {
 		let header_pmmr = self.header_pmmr.read();
 		let txhashset = self.txhashset.read();
-		txhashset::utxo_view(&header_pmmr, &txhashset, |utxo| {
-			utxo.validate_tx(tx)?;
+		txhashset::utxo_view(&header_pmmr, &txhashset, |utxo, batch| {
+			utxo.validate_tx(tx, batch)?;
 			Ok(())
 		})
 	}
@@ -538,8 +547,8 @@ impl Chain {
 		let height = self.next_block_height()?;
 		let header_pmmr = self.header_pmmr.read();
 		let txhashset = self.txhashset.read();
-		txhashset::utxo_view(&header_pmmr, &txhashset, |utxo| {
-			utxo.verify_coinbase_maturity(&tx.inputs(), height)?;
+		txhashset::utxo_view(&header_pmmr, &txhashset, |utxo, batch| {
+			utxo.verify_coinbase_maturity(&tx.inputs(), height, batch)?;
 			Ok(())
 		})
 	}
@@ -570,10 +579,10 @@ impl Chain {
 		// Now create an extension from the txhashset and validate against the
 		// latest block header. Rewind the extension to the specified header to
 		// ensure the view is consistent.
-		txhashset::extending_readonly(&mut header_pmmr, &mut txhashset, |mut ext| {
-			pipe::rewind_and_apply_fork(&header, &mut ext)?;
-			let ref mut extension = ext.extension;
-			extension.validate(&self.genesis, fast_validation, &NoStatus)?;
+		txhashset::extending_readonly(&mut header_pmmr, &mut txhashset, |ext, batch| {
+			pipe::rewind_and_apply_fork(&header, ext, batch)?;
+			ext.extension
+				.validate(&self.genesis, fast_validation, &NoStatus, &header)?;
 			Ok(())
 		})
 	}
@@ -585,9 +594,9 @@ impl Chain {
 		let mut txhashset = self.txhashset.write();
 
 		let (prev_root, roots, sizes) =
-			txhashset::extending_readonly(&mut header_pmmr, &mut txhashset, |ext| {
-				let previous_header = ext.batch().get_previous_header(&b.header)?;
-				pipe::rewind_and_apply_fork(&previous_header, ext)?;
+			txhashset::extending_readonly(&mut header_pmmr, &mut txhashset, |ext, batch| {
+				let previous_header = batch.get_previous_header(&b.header)?;
+				pipe::rewind_and_apply_fork(&previous_header, ext, batch)?;
 
 				let ref mut extension = ext.extension;
 				let ref mut header_extension = ext.header_extension;
@@ -596,7 +605,7 @@ impl Chain {
 				let prev_root = header_extension.root()?;
 
 				// Apply the latest block to the chain state via the extension.
-				extension.apply_block(b)?;
+				extension.apply_block(b, batch)?;
 
 				Ok((prev_root, extension.roots()?, extension.sizes()))
 			})?;
@@ -631,10 +640,9 @@ impl Chain {
 		let mut header_pmmr = self.header_pmmr.write();
 		let mut txhashset = self.txhashset.write();
 		let merkle_proof =
-			txhashset::extending_readonly(&mut header_pmmr, &mut txhashset, |ext| {
-				pipe::rewind_and_apply_fork(&header, ext)?;
-				let ref mut extension = ext.extension;
-				extension.merkle_proof(output)
+			txhashset::extending_readonly(&mut header_pmmr, &mut txhashset, |ext, batch| {
+				pipe::rewind_and_apply_fork(&header, ext, batch)?;
+				ext.extension.merkle_proof(output, batch)
 			})?;
 
 		Ok(merkle_proof)
@@ -650,7 +658,7 @@ impl Chain {
 	/// Provides a reading view into the current kernel state.
 	pub fn kernel_data_read(&self) -> Result<File, Error> {
 		let txhashset = self.txhashset.read();
-		txhashset::rewindable_kernel_view(&txhashset, |view| view.kernel_data_read())
+		txhashset::rewindable_kernel_view(&txhashset, |view, _| view.kernel_data_read())
 	}
 
 	/// Writes kernels provided to us (via a kernel data download).
@@ -682,9 +690,9 @@ impl Chain {
 
 		let mut header_pmmr = self.header_pmmr.write();
 		let mut txhashset = self.txhashset.write();
-		txhashset::extending_readonly(&mut header_pmmr, &mut txhashset, |ext| {
-			pipe::rewind_and_apply_fork(&header, ext)?;
-			ext.extension.snapshot()?;
+		txhashset::extending_readonly(&mut header_pmmr, &mut txhashset, |ext, batch| {
+			pipe::rewind_and_apply_fork(&header, ext, batch)?;
+			ext.extension.snapshot(batch)?;
 
 			// prepare the zip
 			txhashset::zip_read(self.db_root.clone(), &header)
@@ -727,11 +735,11 @@ impl Chain {
 
 		let mut count = 0;
 		let mut current = header.clone();
-		txhashset::rewindable_kernel_view(&txhashset, |view| {
+		txhashset::rewindable_kernel_view(&txhashset, |view, batch| {
 			while current.height > 0 {
 				view.rewind(&current)?;
 				view.validate_root()?;
-				current = view.batch().get_previous_header(&current)?;
+				current = batch.get_previous_header(&current)?;
 				count += 1;
 			}
 			Ok(())
@@ -751,9 +759,11 @@ impl Chain {
 	pub fn rebuild_sync_mmr(&self, head: &Tip) -> Result<(), Error> {
 		let mut sync_pmmr = self.sync_pmmr.write();
 		let mut batch = self.store.batch()?;
+		let sync_head = batch.get_sync_head()?;
 		let header = batch.get_block_header(&head.hash())?;
-		txhashset::header_extending(&mut sync_pmmr, &mut batch, |extension| {
-			pipe::rewind_and_apply_header_fork(&header, extension)?;
+
+		txhashset::header_extending(&mut sync_pmmr, &sync_head, &mut batch, |ext, batch| {
+			pipe::rewind_and_apply_header_fork(&header, ext, batch)?;
 			Ok(())
 		})?;
 		batch.commit()?;
@@ -862,8 +872,8 @@ impl Chain {
 	}
 
 	/// Specific tmp dir.
-	/// Normally it's ~/.grin/main/tmp for mainnet
-	/// or ~/.grin/floo/tmp for floonet
+	/// Normally it's ~/.epic/main/tmp for mainnet
+	/// or ~/.epic/floo/tmp for floonet
 	pub fn get_tmp_dir(&self) -> PathBuf {
 		let mut tmp_dir = PathBuf::from(self.db_root.clone());
 		tmp_dir = tmp_dir
@@ -920,7 +930,7 @@ impl Chain {
 			}
 		};
 
-		// Write txhashset to sandbox (in the Grin specific tmp dir)
+		// Write txhashset to sandbox (in the Epic specific tmp dir)
 		let sandbox_dir = self.get_tmp_dir();
 		txhashset::clean_txhashset_folder(&sandbox_dir);
 		txhashset::zip_write(sandbox_dir.clone(), txhashset_data.try_clone()?, &header)?;
@@ -942,25 +952,31 @@ impl Chain {
 
 		let mut header_pmmr = self.header_pmmr.write();
 		let mut batch = self.store.batch()?;
-		txhashset::extending(&mut header_pmmr, &mut txhashset, &mut batch, |ext| {
-			let extension = &mut ext.extension;
-			extension.rewind(&header)?;
+		txhashset::extending(
+			&mut header_pmmr,
+			&mut txhashset,
+			&mut batch,
+			|ext, batch| {
+				let extension = &mut ext.extension;
+				extension.rewind(&header, batch)?;
 
-			// Validate the extension, generating the utxo_sum and kernel_sum.
-			// Full validation, including rangeproofs and kernel signature verification.
-			let (utxo_sum, kernel_sum) = extension.validate(&self.genesis, false, status)?;
+				// Validate the extension, generating the utxo_sum and kernel_sum.
+				// Full validation, including rangeproofs and kernel signature verification.
+				let (utxo_sum, kernel_sum) =
+					extension.validate(&self.genesis, false, status, &header)?;
 
-			// Save the block_sums (utxo_sum, kernel_sum) to the db for use later.
-			extension.batch.save_block_sums(
-				&header.hash(),
-				&BlockSums {
-					utxo_sum,
-					kernel_sum,
-				},
-			)?;
+				// Save the block_sums (utxo_sum, kernel_sum) to the db for use later.
+				batch.save_block_sums(
+					&header.hash(),
+					&BlockSums {
+						utxo_sum,
+						kernel_sum,
+					},
+				)?;
 
-			Ok(())
-		})?;
+				Ok(())
+			},
+		)?;
 
 		debug!("txhashset_write: finished validating and rebuilding");
 
@@ -975,8 +991,8 @@ impl Chain {
 			batch.save_body_tail(&tip)?;
 		}
 
-		// Rebuild our output_pos index in the db based on current UTXO set.
-		txhashset.rebuild_height_pos_index(&header_pmmr, &mut batch)?;
+		// Rebuild our output_pos index in the db based on fresh UTXO set.
+		txhashset.init_output_pos_index(&header_pmmr, &batch)?;
 
 		// Commit all the changes to the db.
 		batch.commit()?;
@@ -1109,13 +1125,13 @@ impl Chain {
 			txhashset.compact(&horizon_header, &mut batch)?;
 		}
 
-		// Rebuild our output_pos index in the db based on current UTXO set.
-		txhashset.rebuild_height_pos_index(&header_pmmr, &mut batch)?;
-
 		// If we are not in archival mode remove historical blocks from the db.
 		if !self.archive_mode {
 			self.remove_historical_blocks(&header_pmmr, &mut batch)?;
 		}
+
+		// Make sure our output_pos index is consistent with the UTXO set.
+		txhashset.init_output_pos_index(&header_pmmr, &batch)?;
 
 		// Commit all the above db changes.
 		batch.commit()?;
@@ -1186,9 +1202,11 @@ impl Chain {
 			None => self.head_header()?.height,
 		};
 		// Return headers at the given heights
+
 		let prev_to_start_header =
 			self.get_header_by_height(start_block_height.saturating_sub(1))?;
 		let end_header = self.get_header_by_height(end_block_height)?;
+
 		Ok((
 			prev_to_start_header.output_mmr_size + 1,
 			end_header.output_mmr_size,
@@ -1214,25 +1232,10 @@ impl Chain {
 			.map_err(|e| ErrorKind::StoreErr(e, "chain tail".to_owned()).into())
 	}
 
-	/// Tip (head) of the header chain if read lock can be acquired reasonably quickly.
-	/// Used by the TUI when updating stats to avoid locking the TUI up.
-	pub fn try_header_head(&self, timeout: Duration) -> Result<Option<Tip>, Error> {
-		self.header_pmmr
-			.try_read_for(timeout)
-			.map(|ref pmmr| self.read_header_head(pmmr).map(|x| Some(x)))
-			.unwrap_or(Ok(None))
-	}
-
-	/// Tip (head) of the header chain.
 	pub fn header_head(&self) -> Result<Tip, Error> {
-		self.read_header_head(&self.header_pmmr.read())
-	}
-
-	/// Read head from the provided PMMR handle.
-	fn read_header_head(&self, pmmr: &txhashset::PMMRHandle<BlockHeader>) -> Result<Tip, Error> {
-		let hash = pmmr.head_hash()?;
-		let header = self.store.get_block_header(&hash)?;
-		Ok(Tip::from_header(&header))
+		self.store
+			.header_head()
+			.map_err(|e| ErrorKind::StoreErr(e, "header head".to_owned()).into())
 	}
 
 	/// Block header for the chain head
@@ -1293,57 +1296,6 @@ impl Chain {
 			batch.migrate_block(&block, ProtocolVersion(2))?;
 		}
 		batch.commit()?;
-		Ok(())
-	}
-
-	/// Migrate the index 'commitment -> output_pos' to index 'commitment -> (output_pos, block_height)'
-	/// Note: should only be called when Node start-up, for database migration from the old version.
-	fn rebuild_height_for_pos(&self) -> Result<(), Error> {
-		let header_pmmr = self.header_pmmr.read();
-		let txhashset = self.txhashset.read();
-		let mut outputs_pos = txhashset.get_all_output_pos()?;
-		let total_outputs = outputs_pos.len();
-		if total_outputs == 0 {
-			debug!("rebuild_height_for_pos: nothing to be rebuilt");
-			return Ok(());
-		} else {
-			debug!(
-				"rebuild_height_for_pos: rebuilding {} output_pos's height...",
-				total_outputs
-			);
-		}
-		outputs_pos.sort_by(|a, b| a.1.cmp(&b.1));
-
-		let max_height = {
-			let head = self.head()?;
-			head.height
-		};
-
-		let batch = self.store.batch()?;
-		// clear it before rebuilding
-		batch.clear_output_pos_height()?;
-
-		let mut i = 0;
-		for search_height in 0..max_height {
-			let hash = header_pmmr.get_header_hash_by_height(search_height + 1)?;
-			let h = batch.get_block_header(&hash)?;
-			while i < total_outputs {
-				let (commit, pos) = outputs_pos[i];
-				if pos > h.output_mmr_size {
-					// Note: MMR position is 1-based and not 0-based, so here must be '>' instead of '>='
-					break;
-				}
-				batch.save_output_pos_height(&commit, pos, h.height)?;
-				trace!("rebuild_height_for_pos: {:?}", (commit, pos, h.height));
-				i += 1;
-			}
-		}
-
-		// clear the output_pos since now it has been replaced by the new index
-		batch.clear_output_pos()?;
-
-		batch.commit()?;
-		debug!("rebuild_height_for_pos: done");
 		Ok(())
 	}
 
@@ -1441,9 +1393,9 @@ impl Chain {
 	/// Get the tip of the current "sync" header chain.
 	/// This may be significantly different to current header chain.
 	pub fn get_sync_head(&self) -> Result<Tip, Error> {
-		let hash = self.sync_pmmr.read().head_hash()?;
-		let header = self.store.get_block_header(&hash)?;
-		Ok(Tip::from_header(&header))
+		self.store
+			.get_sync_head()
+			.map_err(|e| ErrorKind::StoreErr(e, "chain get sync head".to_owned()).into())
 	}
 
 	/// Builds an iterator on blocks starting from the current chain head and
@@ -1491,22 +1443,6 @@ fn setup_head(
 ) -> Result<(), Error> {
 	let mut batch = store.batch()?;
 
-	// Apply the genesis header to header and sync MMRs to ensure they are non-empty.
-	// We read header_head and sync_head directly from the MMR and assume they are non-empty.
-	{
-		if header_pmmr.last_pos == 0 {
-			txhashset::header_extending(header_pmmr, &mut batch, |extension| {
-				extension.apply_header(&genesis.header)
-			})?;
-		}
-
-		if sync_pmmr.last_pos == 0 {
-			txhashset::header_extending(sync_pmmr, &mut batch, |extension| {
-				extension.apply_header(&genesis.header)
-			})?;
-		}
-	}
-
 	// check if we have a head in store, otherwise the genesis block is it
 	let head_res = batch.head();
 	let mut head: Tip;
@@ -1520,18 +1456,17 @@ fn setup_head(
 				// to match the provided block header.
 				let header = batch.get_block_header(&head.last_block_h)?;
 
-				let res = txhashset::extending(header_pmmr, txhashset, &mut batch, |ext| {
-					pipe::rewind_and_apply_fork(&header, ext)?;
+				let res = txhashset::extending(header_pmmr, txhashset, &mut batch, |ext, batch| {
+					pipe::rewind_and_apply_fork(&header, ext, batch)?;
 
 					let ref mut extension = ext.extension;
 
-					extension.validate_roots()?;
+					extension.validate_roots(&header)?;
 
 					// now check we have the "block sums" for the block in question
 					// if we have no sums (migrating an existing node) we need to go
 					// back to the txhashset and sum the outputs and kernels
-					if header.height > 0 && extension.batch.get_block_sums(&header.hash()).is_err()
-					{
+					if header.height > 0 && batch.get_block_sums(&header.hash()).is_err() {
 						debug!(
 							"init: building (missing) block sums for {} @ {}",
 							header.height,
@@ -1541,10 +1476,10 @@ fn setup_head(
 						// Do a full (and slow) validation of the txhashset extension
 						// to calculate the utxo_sum and kernel_sum at this block height.
 						let (utxo_sum, kernel_sum) =
-							extension.validate_kernel_sums(&genesis.header)?;
+							extension.validate_kernel_sums(&genesis.header, &header)?;
 
 						// Save the block_sums to the db for use later.
-						extension.batch.save_block_sums(
+						batch.save_block_sums(
 							&header.hash(),
 							&BlockSums {
 								utxo_sum,
@@ -1581,9 +1516,15 @@ fn setup_head(
 			// We will update this later once we have the correct header_root.
 			batch.save_block_header(&genesis.header)?;
 			batch.save_block(&genesis)?;
-			batch.save_body_head(&Tip::from_header(&genesis.header))?;
 
-			if genesis.kernels().len() > 0 {
+			let tip = Tip::from_header(&genesis.header);
+			batch.save_body_head(&tip)?;
+			batch.save_header_head(&tip)?;
+
+			batch.save_spent_index(&genesis.hash(), &vec![])?;
+			//batch.save_body_head(&Tip::from_header(&genesis.header))?;
+
+			if !genesis.kernels().is_empty() {
 				let (utxo_sum, kernel_sum) = (sums, genesis as &dyn Committed).verify_kernel_sums(
 					genesis.header.overage(),
 					genesis.header.total_kernel_offset(),
@@ -1593,12 +1534,16 @@ fn setup_head(
 					kernel_sum,
 				};
 			}
-			txhashset::extending(header_pmmr, txhashset, &mut batch, |ext| {
-				let ref mut extension = ext.extension;
-				extension.apply_block(&genesis)?;
-				extension.validate_roots()?;
-				extension.validate_sizes()?;
+			txhashset::header_extending(header_pmmr, &tip, &mut batch, |ext, batch| {
+				ext.apply_header(&genesis.header)?;
 				Ok(())
+			})?;
+			txhashset::header_extending(sync_pmmr, &tip, &mut batch, |ext, batch| {
+				ext.apply_header(&genesis.header)?;
+				Ok(())
+			})?;
+			txhashset::extending(header_pmmr, txhashset, &mut batch, |ext, batch| {
+				ext.extension.apply_block(&genesis, batch)
 			})?;
 
 			// Save the block_sums to the db for use later.
@@ -1608,6 +1553,28 @@ fn setup_head(
 		}
 		Err(e) => return Err(ErrorKind::StoreErr(e, "chain init load head".to_owned()))?,
 	};
+
+	// Check we have the header corresponding to the header_head.
+	// If not then something is corrupted and we should reset our header_head.
+	// Either way we want to reset sync_head to match header_head.
+	let head = batch.head()?;
+	let header_head = batch.header_head()?;
+	if batch.get_block_header(&header_head.last_block_h).is_ok() {
+		// Reset sync_head to be consistent with current header_head.
+		batch.reset_sync_head()?;
+	} else {
+		// Reset both header_head and sync_head to be consistent with current head.
+		warn!(
+			"setup_head: header missing for {}, {}, resetting header_head and sync_head to head: {}, {}",
+			header_head.last_block_h,
+			header_head.height,
+			head.last_block_h,
+			head.height,
+		);
+		batch.reset_header_head()?;
+		batch.reset_sync_head()?;
+	}
+
 	batch.commit()?;
 	Ok(())
 }

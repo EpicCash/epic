@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["SHORT_ID_SIZE","The size of a short id used to identify inputs|outputs|kernels (6 bytes)"]],"struct":[["ShortId","Short id for identifying inputs/outputs/kernels"]],"trait":[["ShortIdentifiable","A trait for types that have a short_id (inputs/outputs/kernels)"]]});

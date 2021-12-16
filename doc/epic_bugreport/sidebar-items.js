@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["get_cpuinfo",""],["get_lspci",""],["get_number",""],["get_number_in_range",""],["get_single_number",""],["main",""]]});

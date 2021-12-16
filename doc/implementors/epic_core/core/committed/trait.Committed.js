@@ -1,0 +1,4 @@
+(function() {var implementors = {};
+implementors["epic_chain"] = [{"text":"impl&lt;'a&gt; <a class=\"trait\" href=\"epic_core/core/committed/trait.Committed.html\" title=\"trait epic_core::core::committed::Committed\">Committed</a> for <a class=\"struct\" href=\"epic_chain/txhashset/struct.Extension.html\" title=\"struct epic_chain::txhashset::Extension\">Extension</a>&lt;'a&gt;","synthetic":false,"types":["epic_chain::txhashset::txhashset::Extension"]}];
+implementors["epic_core"] = [];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

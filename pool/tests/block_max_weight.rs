@@ -17,7 +17,6 @@
 pub mod common;
 
 use self::core::core::hash::Hashed;
-use self::core::core::verifier_cache::LruVerifierCache;
 use self::core::core::{Block, BlockHeader, Transaction};
 use self::core::global;
 use self::core::libtx;
@@ -42,8 +41,6 @@ fn test_block_building_max_weight() {
 
 	{
 		let mut chain = ChainAdapter::init(db_root.clone()).unwrap();
-
-		let verifier_cache = Arc::new(RwLock::new(LruVerifierCache::new()));
 
 		// Convenient was to add a new block to the chain.
 		let add_block =
@@ -84,7 +81,7 @@ fn test_block_building_max_weight() {
 		let header = block.header;
 
 		// Initialize a new pool with our chain adapter.
-		let pool = RwLock::new(test_setup(Arc::new(chain.clone()), verifier_cache));
+		let pool = RwLock::new(test_setup(Arc::new(chain.clone())));
 
 		// Build some dependent txs to add to the txpool.
 		// We will build a block from a subset of these.

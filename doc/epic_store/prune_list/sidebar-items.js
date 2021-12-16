@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["PruneList","Maintains a list of previously pruned nodes in PMMR, compacting the list as parents get pruned and allowing checking whether a leaf is pruned. Given a node’s position, computes how much it should get shifted given the subtrees that have been pruned before."]]});

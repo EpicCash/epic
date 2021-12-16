@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["new_cuckaroo_ctx","Instantiate a new CuckarooContext as a PowContext. Note that this can’t be moved in the PoWContext trait as this particular trait needs to be convertible to an object trait."]],"struct":[["CuckarooContext","Cuckatoo cycle context. Only includes the verifier for now."]]});

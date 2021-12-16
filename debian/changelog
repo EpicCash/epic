@@ -1,10 +1,18 @@
-epic (3.0.0~alpha-4) bionic; urgency=medium
+epic (3.0.0) bionic; urgency=medium
 
-  [ Leonardo Viana]
-  * Changes the emission schedule
-  * Fixes wrong times being shown on the tui
+  [ Johannes Hahn]
+  * P2P: better handling of mpsc channel and initial handshake messages with other peers
+  * Chain: Better output PMMR handling and Chain DB index. Improve stability and DB crashes.
+  * New Header Version 7 and better Header Version Switch
+  * Tui:
+  * Some TUI improvements.
+  * Lists can be scrolled now.
+  * Split of File and Console  output and cleanup
+  * API:
+  * API enhancements and new API v3 for Wallet communication
 
- -- Yuri <yurialbuquerque@brickabode.com>  Wed, 15 Apr 2020 11:00:00 +0000
+ -- Johannes Hahn <j.hahn@eccence.digital>  Fri, 15 Oct 2021 11:00:00 +0000
+
 epic (3.0.0~alpha-3) bionic; urgency=medium
 
   [ Yuri Albuquerque ]

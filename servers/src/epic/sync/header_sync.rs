@@ -59,7 +59,7 @@ impl HeaderSync {
 			return Ok(false);
 		}
 
-		let enable_header_sync = match self.sync_state.status() {
+		match self.sync_state.status() {
 			SyncStatus::BodySync { .. }
 			| SyncStatus::HeaderSync { .. }
 			| SyncStatus::TxHashsetDone => true,
@@ -81,6 +81,10 @@ impl HeaderSync {
 				// correctly, so reset any previous (and potentially stale) sync_head to match
 				// our last known "good" header_head.
 				//
+
+				self.chain.reset_sync_head()?;
+
+				// Rebuild the sync MMR to match our updated sync_head.
 				self.chain.rebuild_sync_mmr(&header_head)?;
 
 				self.history_locator.retain(|&x| x.0 == 0);
@@ -89,15 +93,14 @@ impl HeaderSync {
 			_ => false,
 		};
 
-		if enable_header_sync {
+		if self.syncing_peer.is_none() {
 			self.sync_state.update(SyncStatus::HeaderSync {
 				current_height: header_head.height,
 				highest_height: highest_height,
 			});
-
 			self.syncing_peer = self.header_sync();
-			return Ok(true);
 		}
+
 		Ok(false)
 	}
 
@@ -118,12 +121,6 @@ impl HeaderSync {
 		};
 
 		if force_sync || all_headers_received || stalling {
-			self.prev_header_sync = (
-				now + Duration::seconds(10),
-				header_head.height,
-				header_head.height,
-			);
-
 			// save the stalling start time
 			if stalling {
 				if self.stalling_ts.is_none() {
@@ -134,37 +131,48 @@ impl HeaderSync {
 			}
 
 			if all_headers_received {
+				if let Some(ref peer) = self.syncing_peer {
+					info!("all headers received from {:?}", peer.info.addr);
+				}
+
+				self.syncing_peer = None;
 				// reset the stalling start time if syncing goes well
 				self.stalling_ts = None;
-			} else {
-				if let Some(ref stalling_ts) = self.stalling_ts {
-					if let Some(ref peer) = self.syncing_peer {
-						match self.sync_state.status() {
-							SyncStatus::HeaderSync { .. } | SyncStatus::BodySync { .. } => {
-								// Ban this fraud peer which claims a higher work but can't send us the real headers
-								if now > *stalling_ts + Duration::seconds(120)
-									&& header_head.total_difficulty < peer.info.total_difficulty()
+
+				self.prev_header_sync = (
+					now + Duration::seconds(2),
+					header_head.height,
+					header_head.height,
+				);
+			} else if let Some(ref stalling_ts) = self.stalling_ts {
+				if let Some(ref peer) = self.syncing_peer {
+					match self.sync_state.status() {
+						SyncStatus::HeaderSync { .. } | SyncStatus::BodySync { .. } => {
+							// Ban this fraud peer which claims a higher work but can't send us the real headers
+							if now > *stalling_ts + Duration::seconds(120)
+								&& header_head.total_difficulty < peer.info.total_difficulty()
+							{
+								if let Err(e) = self
+									.peers
+									.ban_peer(peer.info.addr, ReasonForBan::FraudHeight)
 								{
-									if let Err(e) = self
-										.peers
-										.ban_peer(peer.info.addr, ReasonForBan::FraudHeight)
-									{
-										error!("failed to ban peer {}: {:?}", peer.info.addr, e);
-									}
-									info!(
+									error!("failed to ban peer {}: {:?}", peer.info.addr, e);
+								}
+								info!(
 										"sync: ban a fraud peer: {}, claimed height: {}, total difficulty: {}",
 										peer.info.addr,
 										peer.info.height(),
 										peer.info.total_difficulty(),
-									);
-								}
+								);
+								self.stalling_ts = None;
+								self.syncing_peer = None;
 							}
-							_ => (),
 						}
+						_ => (),
 					}
 				}
 			}
-			self.syncing_peer = None;
+
 			true
 		} else {
 			// resetting the timeout as long as we progress

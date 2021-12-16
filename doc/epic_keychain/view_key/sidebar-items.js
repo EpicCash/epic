@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["ViewKey","Key that can be used to scan the chain for owned outputs This is a public key, meaning it cannot be used to spend those outputs At the moment only depth 0 keys can be used"]]});

@@ -48,7 +48,7 @@ lazy_static! {
 }
 
 const LOGGING_PATTERN: &str = "{d(%Y%m%d %H:%M:%S%.3f)} {h({l})} {M} - {m}{n}";
-
+const STDOUT_PATTERN: &str = "{d(%Y-%m-%d %H:%M:%S%.3f)} {h({l})} {m}{n}";
 /// 32 log files to rotate over by default
 const DEFAULT_ROTATE_LOG_FILES: u32 = 32 as u32;
 
@@ -100,8 +100,8 @@ impl Default for LoggingConfig {
 	}
 }
 
-/// This filter is rejecting messages that doesn't start with "grin"
-/// in order to save log space for only Grin-related records
+/// This filter is rejecting messages that doesn't start with "epic"
+/// in order to save log space for only Epic-related records
 #[derive(Debug)]
 struct EpicFilter;
 
@@ -166,7 +166,7 @@ pub fn init_logger(config: Option<LoggingConfig>, logs_tx: Option<mpsc::SyncSend
 
 		// Start logger
 		let stdout = ConsoleAppender::builder()
-			.encoder(Box::new(PatternEncoder::new(&LOGGING_PATTERN)))
+			.encoder(Box::new(PatternEncoder::new(&STDOUT_PATTERN)))
 			.build();
 
 		let mut root = Root::builder();

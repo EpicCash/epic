@@ -36,6 +36,9 @@ pub fn start_server(config: servers::ServerConfig, logs_rx: Option<mpsc::Receive
 	// Just kill process for now, otherwise the process
 	// hangs around until sigint because the API server
 	// currently has no shutdown facility
+	warn!("Shutting down...");
+	thread::sleep(Duration::from_millis(1000));
+	warn!("Shutdown complete.");
 	exit(0);
 }
 
@@ -43,7 +46,7 @@ fn start_server_tui(config: servers::ServerConfig, logs_rx: Option<mpsc::Receive
 	// Run the UI controller.. here for now for simplicity to access
 	// everything it might need
 	if config.run_tui.unwrap_or(false) {
-		warn!("Starting EPIC in UI mode...");
+		info!("Starting EPIC in UI mode...");
 		servers::Server::start(
 			config,
 			logs_rx,
@@ -56,7 +59,7 @@ fn start_server_tui(config: servers::ServerConfig, logs_rx: Option<mpsc::Receive
 		)
 		.unwrap();
 	} else {
-		warn!("Starting EPIC w/o UI...");
+		info!("Starting EPIC w/o UI...");
 		servers::Server::start(
 			config,
 			logs_rx,

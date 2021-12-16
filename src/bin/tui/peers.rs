@@ -25,7 +25,7 @@ use cursive::direction::Orientation;
 use cursive::event::Key;
 use cursive::traits::{Boxable, Identifiable};
 use cursive::view::View;
-use cursive::views::{ResizedView, Dialog, LinearLayout, OnEventView, TextView};
+use cursive::views::{Dialog, LinearLayout, OnEventView, ResizedView, TextView};
 use cursive::Cursive;
 
 use crate::tui::constants::{MAIN_MENU, TABLE_PEER_STATUS, VIEW_PEER_SYNC};
@@ -182,9 +182,14 @@ impl TUIStatusListener for TUIPeerView {
 		let _ = c.call_on_name(
 			TABLE_PEER_STATUS,
 			|t: &mut TableView<PeerStats, PeerColumn>| {
-				let current_row:usize = t.row().unwrap_or(0);
+				//let current_row:usize = t.row().unwrap_or(0);
 				t.set_items(stats.peer_stats.clone());
-				t.set_selected_row(current_row);
+				//t.set_selected_row(t.len()-1);
+				/*if current_row <= t.len()-1{
+					t.set_selected_row(current_row);
+				}else{
+					t.set_selected_row(t.len()-1);
+				}*/
 			},
 		);
 		let _ = c.call_on_name("peers_total", |t: &mut TextView| {

@@ -17,7 +17,7 @@
 use cursive::direction::Orientation;
 use cursive::traits::Identifiable;
 use cursive::view::View;
-use cursive::views::{ResizedView, LinearLayout, TextView};
+use cursive::views::{LinearLayout, ResizedView, TextView};
 use cursive::Cursive;
 
 use crate::tui::constants::VIEW_VERSION;
