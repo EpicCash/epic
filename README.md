@@ -1,4 +1,12 @@
-# Epic Cash
+# Epic Cash   for iOS
+
+
+```
+Build with: 
+cargo lipo --release --targets "x86_64-apple-ios"
+```
+
+
 
 Epic Cash is an in-progress implementation of the MimbleWimble protocol. Epic Cash redefined new core characteristics of this new privacy focused blockchain forked from Grin, following constitutes a first set of choices:
 
