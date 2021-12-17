@@ -2962,15 +2962,14 @@ dependencies = [
 
 [[package]]
 name = "randomx"
-version = "0.1.0"
-source = "git+https://github.com/EpicCash/randomx-rust.git#ffc1ae35eea3c2fe8538548718cd7533c8744f71"
+version = "1.1.9"
+source = "git+https://github.com/johanneshahn/randomx-rs.git#78e57f02f8330bb0bab69c6b54e53a9b0945fa7c"
 dependencies = [
  "bigint",
- "bindgen",
+ "bitflags 1.3.2",
  "byteorder 0.5.3",
- "cmake",
- "filetime",
  "libc",
+ "thiserror",
 ]
 
 [[package]]
