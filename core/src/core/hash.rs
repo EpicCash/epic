@@ -17,9 +17,7 @@
 //! Primary hash function used in the protocol
 //!
 
-use crate::ser::{
-	self, AsFixedBytes, Error, ProtocolVersion, Readable, Reader, Writeable, Writer,
-};
+use crate::ser::{self, AsFixedBytes, Error, ProtocolVersion, Readable, Reader, Writeable, Writer};
 use blake2::blake2b::Blake2b;
 use byteorder::{BigEndian, ByteOrder};
 use std::cmp::min;
@@ -64,9 +62,7 @@ impl fmt::Display for Hash {
 	}
 }
 
-
 impl Hash {
-
 	/// A hash is 32 bytes.
 	pub const LEN: usize = 32;
 

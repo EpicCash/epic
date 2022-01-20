@@ -170,7 +170,6 @@ impl Writeable for HeaderEntry {
 	}
 }
 
-
 impl Hashed for HeaderEntry {
 	/// The hash of the underlying block.
 	fn hash(&self) -> Hash {
@@ -853,10 +852,7 @@ impl Block {
 	/// Validates all the elements in a block that can be checked without
 	/// additional data. Includes commitment sums and kernels, Merkle
 	/// trees, reward, etc.
-	pub fn validate(
-		&self,
-		prev_kernel_offset: &BlindingFactor,
-	) -> Result<Commitment, Error> {
+	pub fn validate(&self, prev_kernel_offset: &BlindingFactor) -> Result<Commitment, Error> {
 		self.body.validate(Weighting::AsBlock)?;
 
 		self.verify_kernel_lock_heights()?;
