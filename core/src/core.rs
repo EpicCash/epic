@@ -15,6 +15,7 @@
 //! Core types
 
 pub mod block;
+pub mod block_fees;
 pub mod block_sums;
 pub mod committed;
 pub mod compact_block;

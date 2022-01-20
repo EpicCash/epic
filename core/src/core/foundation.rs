@@ -102,6 +102,6 @@ pub fn load_foundation_output(height: u64) -> CbData {
 	file.seek(SeekFrom::Start(offset)).unwrap();
 	file.read_exact(&mut buffer).unwrap();
 	let buffer_str = String::from_utf8(buffer).unwrap();
-	
+
 	serde_json::from_str(&buffer_str).unwrap()
 }
