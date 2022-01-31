@@ -67,10 +67,12 @@ pub struct LoggingConfig {
 	/// whether to log to stdout
 	pub log_to_stdout: bool,
 	/// logging level for stdout
+	#[serde(deserialize_with = "custom_level_serde::deserialize")]
 	pub stdout_log_level: Level,
 	/// whether to log to file
 	pub log_to_file: bool,
 	/// log file level
+	#[serde(deserialize_with = "custom_level_serde::deserialize")]
 	pub file_log_level: Level,
 	/// Log file path
 	pub log_file_path: String,
@@ -97,6 +99,107 @@ impl Default for LoggingConfig {
 			log_max_files: Some(DEFAULT_ROTATE_LOG_FILES),
 			tui_running: None,
 		}
+	}
+}
+
+/// Module for custom deserialization of the [`Level`] type
+mod custom_level_serde {
+	use std::fmt;
+
+	use log::Level;
+
+	use serde::de::{
+		DeserializeSeed, Deserializer, EnumAccess, Error, Unexpected, VariantAccess, Visitor,
+	};
+
+	/// Possible values for the log levels
+	static LOG_LEVEL_NAMES: &[&str] = &["ERROR", "WARN", "INFO", "DEBUG", "TRACE", "WARNING"];
+
+	/// Custom deserialization for [`Level`] type to accept values from v2 and v3
+	pub fn deserialize<'de, D>(de: D) -> Result<Level, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		struct LevelIdentifier;
+
+		impl<'de> Visitor<'de> for LevelIdentifier {
+			type Value = Level;
+
+			fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+				f.pad("log level")
+			}
+
+			fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+			where
+				E: Error,
+			{
+				self.visit_bytes(s.as_bytes())
+			}
+
+			fn visit_bytes<E>(self, val: &[u8]) -> Result<Self::Value, E>
+			where
+				E: Error,
+			{
+				match &val.to_ascii_lowercase()[..] {
+					b"error" => Ok(Level::Error),
+					b"warn" | b"warning" => Ok(Level::Warn),
+					b"info" => Ok(Level::Info),
+					b"debug" => Ok(Level::Debug),
+					b"trace" => Ok(Level::Trace),
+					_ => Err(Error::unknown_variant(
+						&String::from_utf8_lossy(val),
+						LOG_LEVEL_NAMES,
+					)),
+				}
+			}
+
+			fn visit_u64<E>(self, val: u64) -> Result<Self::Value, E>
+			where
+				E: Error,
+			{
+				match val {
+					0 => Ok(Level::Error),
+					1 => Ok(Level::Warn),
+					2 => Ok(Level::Info),
+					3 => Ok(Level::Debug),
+					4 => Ok(Level::Trace),
+					_ => Err(Error::invalid_value(Unexpected::Unsigned(val), &self)),
+				}
+			}
+		}
+
+		impl<'de> DeserializeSeed<'de> for LevelIdentifier {
+			type Value = Level;
+
+			fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+			where
+				D: Deserializer<'de>,
+			{
+				deserializer.deserialize_identifier(LevelIdentifier)
+			}
+		}
+
+		struct LevelEnum;
+
+		impl<'de> Visitor<'de> for LevelEnum {
+			type Value = Level;
+
+			fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+				f.pad("log level")
+			}
+
+			fn visit_enum<A>(self, value: A) -> Result<Self::Value, A::Error>
+			where
+				A: EnumAccess<'de>,
+			{
+				let (level, variant) = value.variant_seed(LevelIdentifier)?;
+				// Every variant is a unit variant.
+				variant.unit_variant()?;
+				Ok(level)
+			}
+		}
+
+		de.deserialize_enum("Level", LOG_LEVEL_NAMES, LevelEnum)
 	}
 }
 
