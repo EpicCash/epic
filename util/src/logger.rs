@@ -454,3 +454,94 @@ fn send_panic_to_log() {
 		}
 	}));
 }
+
+#[cfg(test)]
+mod logging_config {
+	use super::{LoggingConfig, DEFAULT_ROTATE_LOG_FILES};
+
+	use log::Level;
+	use serde_test::{assert_de_tokens, assert_de_tokens_error, assert_tokens, Token};
+
+	macro_rules! config_tokens {
+		($stdout_log_level_name:expr, $file_log_level_name:expr) => {
+			[
+				Token::Struct {
+					name: "LoggingConfig",
+					len: 9,
+				},
+				Token::Str("log_to_stdout"),
+				Token::Bool(true),
+				Token::Str("stdout_log_level"),
+				Token::UnitVariant {
+					name: "Level",
+					variant: $stdout_log_level_name,
+				},
+				Token::Str("log_to_file"),
+				Token::Bool(true),
+				Token::Str("file_log_level"),
+				Token::UnitVariant {
+					name: "Level",
+					variant: $file_log_level_name,
+				},
+				Token::Str("log_file_path"),
+				Token::String("epic.log"),
+				Token::Str("log_file_append"),
+				Token::Bool(true),
+				Token::Str("log_max_size"),
+				Token::Some,
+				Token::U64(1024 * 1024 * 16),
+				Token::Str("log_max_files"),
+				Token::Some,
+				Token::U32(DEFAULT_ROTATE_LOG_FILES),
+				Token::Str("tui_running"),
+				Token::None,
+				Token::StructEnd,
+			]
+		};
+	}
+
+	fn level_from_str(s: &str) -> Level {
+		match &s.to_ascii_lowercase()[..] {
+			"error" => (Level::Error),
+			"warn" | "warning" => (Level::Warn),
+			"info" => (Level::Info),
+			"debug" => (Level::Debug),
+			"trace" => (Level::Trace),
+			_ => panic!("Not known level from string {}", s),
+		}
+	}
+
+	#[test]
+	fn v2_loglevel_values() {
+		const V2_VALUES: &[&str] = &["Error", "Warning", "Info", "Debug", "Trace"];
+
+		for s in V2_VALUES {
+			let tokens = config_tokens!(s, s);
+			let config = LoggingConfig {
+				stdout_log_level: level_from_str(s),
+				file_log_level: level_from_str(s),
+				..Default::default()
+			};
+
+			assert_de_tokens(&config, &tokens)
+		}
+	}
+
+	#[test]
+	fn v3_loglevel_values() {
+		const V3_VALUES: &[&str] = &[
+			"ERROR", "WARN", "INFO", "DEBUG", "TRACE", "error", "warn", "info", "debug", "trace",
+		];
+
+		for s in V3_VALUES {
+			let tokens = config_tokens!(s, s);
+			let config = LoggingConfig {
+				stdout_log_level: level_from_str(s),
+				file_log_level: level_from_str(s),
+				..Default::default()
+			};
+
+			assert_de_tokens(&config, &tokens)
+		}
+	}
+}
