@@ -49,21 +49,15 @@ pub fn connect_and_monitor(
 		.name("seed".to_string())
 		.spawn(move || {
 			let peers = p2p_server.peers.clone();
+			let sl = seed_list();
 
 			// open a channel with a listener that connects every peer address sent below
 			// max peer count
 			let (tx, rx) = mpsc::channel();
 
-			// check seeds first
-			connect_to_seeds_and_preferred_peers(
-				peers.clone(),
-				tx.clone(),
-				seed_list,
-				preferred_peers.clone(),
-			);
-
 			let mut prev = MIN_DATE.and_hms(0, 0, 0);
 			let mut prev_expire_check = MIN_DATE.and_hms(0, 0, 0);
+			let mut prev_seed_check = MIN_DATE.and_hms(0, 0, 0);
 			let mut prev_ping = Utc::now();
 			let mut start_attempt = 0;
 			let mut connecting_history: HashMap<PeerAddr, DateTime<Utc>> = HashMap::new();
@@ -84,6 +78,21 @@ pub fn connect_and_monitor(
 					peers.remove_expired();
 
 					prev_expire_check = Utc::now();
+				}
+
+				// try to connect to the remote seeds
+				// it helps when the remote seeds server are down during the startup
+				if peers.connected_peers().len() < 1
+					&& Utc::now() - prev_seed_check > Duration::seconds(10)
+				{
+					debug!("Trying to reconnect to seed and preferred peers");
+					connect_to_seeds_and_preferred_peers(
+						peers.clone(),
+						tx.clone(),
+						sl.clone(),
+						preferred_peers.clone(),
+					);
+					prev_seed_check = Utc::now();
 				}
 
 				// make several attempts to get peers as quick as possible
@@ -246,7 +255,7 @@ fn monitor_peers(
 fn connect_to_seeds_and_preferred_peers(
 	peers: Arc<p2p::Peers>,
 	tx: mpsc::Sender<PeerAddr>,
-	seed_list: Box<dyn Fn() -> Vec<PeerAddr>>,
+	seed_list: Vec<PeerAddr>,
 	peers_preferred_list: Option<Vec<PeerAddr>>,
 ) {
 	// check if we have some peers in db
@@ -257,7 +266,7 @@ fn connect_to_seeds_and_preferred_peers(
 	let mut peer_addrs = if peers.len() > 3 {
 		peers.iter().map(|p| p.addr).collect::<Vec<_>>()
 	} else {
-		seed_list()
+		seed_list
 	};
 
 	// If we have preferred peers add them to the connection
