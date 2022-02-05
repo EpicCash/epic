@@ -25,6 +25,7 @@ brew install pkg-config
 brew install openssl
 brew install cmake
 brew install rustup
+brew install coreutils
 ```
 
 ### Rust
@@ -109,6 +110,11 @@ installation open a new terminal session and execute the following steps:
 
    ```sh
    export LD_LIBRARY_PATH=$(find . -iname librandomx.so | head -n 1 | xargs dirname | xargs realpath)
+   ```
+
+   For MacOs use (need brew coreutils to be installed):
+   ```sh
+   export LD_LIBRARY_PATH=$(find . -iname librandomx.dylib | head -n 1 | xargs dirname | xargs realpath)
    ```
 
 3. Execute the epic server using the following command:
