@@ -44,7 +44,7 @@ epic_util = { path = "./util", version = "3.0.0" }
 epic_chain = { path = "./chain", version = "3.0.0" }
 
 
-cursive = { version = "0.15", default-features = false, features = ["pancurses-backend"] }
+cursive = { version = "0.15", default-features = false, features = ["termion-backend"] }
 [target.'cfg(windows)'.dependencies.pancurses]
 version = "0.16.1"
 features = ["win32"]
