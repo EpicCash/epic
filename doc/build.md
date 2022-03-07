@@ -4,7 +4,6 @@
 
 - rust 1.44
 - clang
-- ncurses and libs (ncurses, ncursesw5)
 - zlib libs (zlib1g-dev or zlib-devel)
 - pkg-config
 - linux-headers (reported needed on Alpine linux)
@@ -14,7 +13,7 @@ For Debian-based distributions (Debian, Ubuntu, Mint, etc), all in one line
 (except Rust):
 
 ```sh
-sudo apt install build-essential cmake git libgit2-dev clang libncurses5-dev libncursesw5-dev zlib1g-dev pkg-config llvm
+sudo apt install build-essential cmake git libgit2-dev clang zlib1g-dev pkg-config llvm
 ```
 
 For Mac using [brew](https://brew.sh):
