@@ -43,9 +43,9 @@ epic_servers = { path = "./servers", version = "3.0.0" }
 epic_util = { path = "./util", version = "3.0.0" }
 epic_chain = { path = "./chain", version = "3.0.0" }
 
-openssl-sys = { version = "0.9.70", features = ["vendored"] }
 
-cursive = { version = "0.15", default-features = false, features = ["termion-backend"] }
+cursive = { version = "0.15", default-features = false, features = ["pancurses-backend"] }
+
 [target.'cfg(windows)'.dependencies.pancurses]
 version = "0.16.1"
 features = ["win32"]
