@@ -42,6 +42,8 @@ epic_p2p = { path = "./p2p", version = "1.0.0" }
 epic_servers = { path = "./servers", version = "1.0.0" }
 epic_util = { path = "./util", version = "1.0.0" }
 
+crossbeam-epoch = "0.7.2"
+
 cursive = { version = "0.12", default-features = false, features = ["pancurses-backend"] }
 [target.'cfg(windows)'.dependencies.pancurses]
 version = "0.16.0"
