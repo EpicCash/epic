@@ -33,33 +33,14 @@ pub use crate::core::core::foundation::CbData;
 use crate::core::core::hash::{Hash, Hashed};
 use crate::core::core::{Output, TxKernel};
 use crate::core::global::{get_emitted_policy, get_policies};
-use crate::core::libtx::secp_ser;
 use crate::core::libtx::ProofBuilder;
 use crate::core::pow::randomx::rx_current_seed_height;
 use crate::core::pow::PoWType;
 use crate::core::{consensus, core, global};
 use crate::keychain::{ExtKeychain, Identifier, Keychain};
 use crate::pool;
-/// Fees in block to use for coinbase amount calculation
-/// (Duplicated from Epic wallet project)
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BlockFees {
-	/// fees
-	#[serde(with = "secp_ser::string_or_u64")]
-	pub fees: u64,
-	/// height
-	#[serde(with = "secp_ser::string_or_u64")]
-	pub height: u64,
-	/// key id
-	pub key_id: Option<Identifier>,
-}
 
-impl BlockFees {
-	/// return key id
-	pub fn key_id(&self) -> Option<Identifier> {
-		self.key_id.clone()
-	}
-}
+use crate::core::core::block_fees::BlockFees;
 
 /// Response to build a coinbase output.
 /*#[derive(Serialize, Deserialize, Debug, Clone)]

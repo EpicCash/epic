@@ -311,11 +311,13 @@ pub const BLOCK_KERNEL_WEIGHT: usize = 3;
 ///
 pub const MAX_BLOCK_WEIGHT: usize = 40_000;
 
-/// Mainnet first hard fork height, set to happen around 2020-04-29
-pub const MAINNET_FIRST_HARD_FORK: u64 = 1300000;
+/// Mainnet first hard fork height
+/// Doubled from the previous hard coded value 1300000
+/// We might need to change this later for final release
+pub const MAINNET_FIRST_HARD_FORK: u64 = 2600000;
 
 /// Floonet first hard fork height
-pub const FLOONET_FIRST_HARD_FORK: u64 = 5800;
+pub const FLOONET_FIRST_HARD_FORK: u64 = 25800;
 
 /// AutomatedTesting and UserTesting first hard fork height.
 pub const TESTING_FIRST_HARD_FORK: u64 = 6;

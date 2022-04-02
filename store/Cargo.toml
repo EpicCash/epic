@@ -5,13 +5,15 @@ authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
 repository = "https://github.com/mimblewimble/epic"
-keywords = [ "crypto", "epic", "mimblewimble" ]
+keywords = ["crypto", "epic", "mimblewimble"]
 workspace = ".."
 edition = "2018"
 
 [dependencies]
 byteorder = "1"
-croaring = "0.5.0"
+# FIRME: In the long run we should fix the conflicts and use a recent version of croaring
+# croaring = "0.4.5"
+croaring = { git = "https://github.com/EricShimizuKarbstein/croaring-rs.git", branch = "not-native-march", version = "0.3.10" }
 env_logger = "0.5"
 libc = "0.2"
 failure = "0.1"

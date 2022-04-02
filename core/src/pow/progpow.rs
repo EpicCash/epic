@@ -1,4 +1,4 @@
-extern crate randomx_rs;
+
 
 use std::marker::PhantomData;
 
