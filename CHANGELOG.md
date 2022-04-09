@@ -2,39 +2,39 @@
 
 # epic 3.0.0
 
-  - Fix: Address issue Breaks windows build #50
-  - Merge pull request #45 from acosta-brickabode/fix/log-level-syncer
-  - Merge pull request #46 from acosta-brickabode/feature/gh-action-linux
+  - [#50](https://github.com/EpicCash/epic/issues/50) Fix: Address issue Breaks windows build
+  - [#46](https://github.com/EpicCash/epic/issues/46) Merge pull request  from acosta-brickabode/feature/gh-action-linux
+  - [#45](https://github.com/EpicCash/epic/issues/45) Merge pull request  from acosta-brickabode/fix/log-level-syncer
   - Fix: Replace pancurses-backend feature with termion-backend to fix ncurses rendering issues
   - Refactor: Remove libssl-dev as build requirement
   - Fix: Replace log::info feature with log::debug to fix overprinting sync messages
   - Feat: Implement Github Action for generating Linux artifact
-  - Doubling the value of the MAINNET_FIRST_HARD_FORK constant (#40)
+  - [#40](https://github.com/EpicCash/epic/issues/40) Doubling the value of the MAINNET_FIRST_HARD_FORK constant 
   - Fix: Update croaring to a fork that doesn't use `-march=native` that was causing the illegal instruction errors
-  - Retry connecting to the seed servers when there is no connected peers (#38)
+  - [#38](https://github.com/EpicCash/epic/issues/38) Retry connecting to the seed servers when there is no connected peers
   - Test(config): Add unit tests to check compatibility with v2 and v3 values for log-levels
   - Fix(config): Use custom deserialization function that accepts log-level values from both v2 and v3
-  - Merge pull request #35 from EpicCash/fix/floonet-foundation
+  - [#35](https://github.com/EpicCash/epic/issues/35) Merge pull request from EpicCash/fix/floonet-foundation
   - Fix(floonet): Make `foundation_floonet.json` the same as `foundation.json`
-  - Merge pull request #34 from EpicCash/feature/create-block-fees-submodule
+  - [#34](https://github.com/EpicCash/epic/issues/34) Merge pull request from EpicCash/feature/create-block-fees-submodule
   - Move the BlockFeeds type a separate location for better reusage: the wallets can use it there
   - Increasing the FLOONET_FIRST_HARD_FORK to 25800
-  - Merge pull request #32 from EricShimizuKarbstein/update-docs
-  - Merge pull request #33 from EpicCash/fix/cmake-error
+  - [#33](https://github.com/EpicCash/epic/issues/33) Merge pull request from EpicCash/fix/cmake-error
+  - [#32](https://github.com/EpicCash/epic/issues/32) Merge pull request from EricShimizuKarbstein/update-docs
   - Update randomx-rust
   - Update build instructions
   - Fix: more chunk size for header sync
   - Fix: add missing shutdown info in cmd mode
   - Refactor: update zeroise macro keychain, utils
-  - Update epic cargo docs and wrong comments in code #29
-  - Fix: update some deps in keychain #28
-  - Merge pull request #27 from hdmark/patch-1
+  - [#29](https://github.com/EpicCash/epic/issues/29) Update epic cargo docs and wrong comments in code
+  - [#28](https://github.com/EpicCash/epic/issues/28) Fix: update some deps in keychain
+  - [#27](https://github.com/EpicCash/epic/issues/27) Merge pull request from hdmark/patch-1
   - Fix: update header sync; remove dublicate check bad header; remove debug output from graph weight
   - Fix: move reset stalling, sync peer reset
   - remove unused debug output
   - change header sync ban action
   - Fix: windows foundation height
-  - Removing verifier caches #26
+  - [#26](https://github.com/EpicCash/epic/issues/26) Removing verifier caches
   - make small peers sync improvements
   - Fix: make header sync faster
   - update foundation sha for unix
