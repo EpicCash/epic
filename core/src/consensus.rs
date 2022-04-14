@@ -592,6 +592,10 @@ where
 	let sec_pow_scaling = secondary_pow_scaling(height, &diff_data[1..]);
 	let mut diff = diff_data.last().unwrap().difficulty.num.clone();
 
+	if crate::global::is_floonet() || crate::global::is_user_testing_mode() {
+		return HeaderInfo::from_diff_scaling(Difficulty::from_num(1), sec_pow_scaling);
+	}
+
 	match prev_algo {
 		PoWType::Cuckatoo => {
 			diff.insert(
