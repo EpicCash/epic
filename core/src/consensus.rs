@@ -581,6 +581,10 @@ pub fn next_difficulty<T>(height: u64, prev_algo: PoWType, cursor: T) -> HeaderI
 where
 	T: IntoIterator<Item = HeaderInfo>,
 {
+	if crate::global::is_floonet() || crate::global::is_user_testing_mode() {
+		return HeaderInfo::from_diff_scaling(Difficulty::from_num(1), 1);
+	}
+
 	let diff_data = match prev_algo.clone() {
 		PoWType::Cuckatoo => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
 		PoWType::Cuckaroo => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
@@ -591,10 +595,6 @@ where
 	// First, get the ratio of secondary PoW vs primary, skipping initial header
 	let sec_pow_scaling = secondary_pow_scaling(height, &diff_data[1..]);
 	let mut diff = diff_data.last().unwrap().difficulty.num.clone();
-
-	if crate::global::is_floonet() || crate::global::is_user_testing_mode() {
-		return HeaderInfo::from_diff_scaling(Difficulty::from_num(1), sec_pow_scaling);
-	}
 
 	match prev_algo {
 		PoWType::Cuckatoo => {
