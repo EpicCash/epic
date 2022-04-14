@@ -38,7 +38,10 @@ use crate::util::zip;
 
 /// wrap below to allow UI to clean up on stop
 pub fn start_server(config: servers::ServerConfig) {
-	maybe_set_chain_to_snapshot(PathBuf::from(config.db_root.to_owned()));
+	// Only tries to download a snapshot of mainnet on mainnet
+	if epic_core::global::is_mainnet() {
+		maybe_set_chain_to_snapshot(PathBuf::from(config.db_root.to_owned()));
+	}
 
 	start_server_tui(config);
 	// Just kill process for now, otherwise the process
