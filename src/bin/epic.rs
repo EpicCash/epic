@@ -145,6 +145,7 @@ fn real_main() -> i32 {
 		global::set_policy_config(PolicyConfig::no_progpow());
 		global::ChainTypes::Floonet
 	} else if args.is_present("usernet") {
+		global::set_policy_config(PolicyConfig::only_randomx());
 		global::ChainTypes::UserTesting
 	} else {
 		global::ChainTypes::Mainnet
