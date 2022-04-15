@@ -83,11 +83,21 @@ fn real_main() -> i32 {
 		.get_matches();
 	let node_config;
 
+
+    // run floonet and usernet with csutom PolicyConfig
+    if args.is_present("floonet") || args.is_present("usernet") {
+        if args.is_present("noprogpow") {
+            global::set_policy_config(PolicyConfig::no_progpow());
+        };
+
+        if args.is_present("onlyrandomx") {
+            global::set_policy_config(PolicyConfig::only_randomx());
+        };
+    };
+
 	let chain_type = if args.is_present("floonet") {
-		global::set_policy_config(PolicyConfig::no_progpow());
 		global::ChainTypes::Floonet
 	} else if args.is_present("usernet") {
-		global::set_policy_config(PolicyConfig::only_randomx());
 		global::ChainTypes::UserTesting
 	} else {
 		global::ChainTypes::Mainnet
