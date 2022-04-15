@@ -12,6 +12,14 @@ args:
       help: Run epic as a local-only network. Doesn't block peer connections but will not connect to any peer or seed
       long: usernet
       takes_value: false
+  - noprogpow:
+      help: Run epic floonet or usernet without progpow blocks
+      long: noprogpow
+      takes_value: false
+  - onlyrandomx:
+      help: Run epic floonet or usernet only with randomx blocks
+      long: onlyrandomx
+      takes_value: false
 subcommands:
   - taxes:
       about: Generate kernels and outputs from the foundation wallet.

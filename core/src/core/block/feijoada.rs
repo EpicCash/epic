@@ -82,6 +82,170 @@ pub struct PolicyConfig {
 	pub policies: Vec<Policy>,
 }
 
+impl PolicyConfig {
+	pub fn no_progpow() -> Self {
+		let mut policy_era1 = get_bottles_default();
+		policy_era1.insert(PoWType::RandomX, 60);
+		policy_era1.insert(PoWType::ProgPow, 0);
+		policy_era1.insert(PoWType::Cuckatoo, 40);
+		policy_era1.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era1 = AllowPolicy {
+			height: 0,
+			value: 1 << 0,
+		};
+
+		let mut policy_era2 = get_bottles_default();
+		policy_era2.insert(PoWType::RandomX, 60);
+		policy_era2.insert(PoWType::ProgPow, 0);
+		policy_era2.insert(PoWType::Cuckatoo, 40);
+		policy_era2.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era2 = AllowPolicy {
+			height: consensus::BLOCK_ERA_1 + 1,
+			value: 1 << 1,
+		};
+
+		let mut policy_era3 = get_bottles_default();
+		policy_era3.insert(PoWType::RandomX, 50);
+		policy_era3.insert(PoWType::ProgPow, 0);
+		policy_era3.insert(PoWType::Cuckatoo, 50);
+		policy_era3.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era3 = AllowPolicy {
+			height: consensus::BLOCK_ERA_2 + 1,
+			value: 1 << 2,
+		};
+
+		let mut policy_era4 = get_bottles_default();
+		policy_era4.insert(PoWType::RandomX, 45);
+		policy_era4.insert(PoWType::ProgPow, 0);
+		policy_era4.insert(PoWType::Cuckatoo, 55);
+		policy_era4.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era4 = AllowPolicy {
+			height: consensus::BLOCK_ERA_3 + 1,
+			value: 1 << 3,
+		};
+
+		let mut policy_era5 = get_bottles_default();
+		policy_era5.insert(PoWType::RandomX, 25);
+		policy_era5.insert(PoWType::ProgPow, 0);
+		policy_era5.insert(PoWType::Cuckatoo, 75);
+		policy_era5.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era5 = AllowPolicy {
+			height: consensus::BLOCK_ERA_4 + 1,
+			value: 1 << 4,
+		};
+
+		let mut policy_era6 = get_bottles_default();
+		policy_era6.insert(PoWType::RandomX, 15);
+		policy_era6.insert(PoWType::ProgPow, 0);
+		policy_era6.insert(PoWType::Cuckatoo, 85);
+		policy_era6.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era6 = AllowPolicy {
+			height: consensus::BLOCK_ERA_5 + 1,
+			value: 1 << 5,
+		};
+
+		PolicyConfig {
+			allowed_policies: vec![
+				allowed_policy_era1,
+				allowed_policy_era2,
+				allowed_policy_era3,
+				allowed_policy_era4,
+				allowed_policy_era5,
+				allowed_policy_era6,
+			],
+			policies: vec![
+				policy_era1,
+				policy_era2,
+				policy_era3,
+				policy_era4,
+				policy_era5,
+				policy_era6,
+			],
+		}
+	}
+
+	pub fn only_randomx() -> Self {
+		let mut policy_era1 = get_bottles_default();
+		policy_era1.insert(PoWType::RandomX, 100);
+		policy_era1.insert(PoWType::ProgPow, 0);
+		policy_era1.insert(PoWType::Cuckatoo, 0);
+		policy_era1.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era1 = AllowPolicy {
+			height: 0,
+			value: 1 << 0,
+		};
+
+		let mut policy_era2 = get_bottles_default();
+		policy_era2.insert(PoWType::RandomX, 100);
+		policy_era2.insert(PoWType::ProgPow, 0);
+		policy_era2.insert(PoWType::Cuckatoo, 0);
+		policy_era2.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era2 = AllowPolicy {
+			height: consensus::BLOCK_ERA_1 + 1,
+			value: 1 << 1,
+		};
+
+		let mut policy_era3 = get_bottles_default();
+		policy_era3.insert(PoWType::RandomX, 100);
+		policy_era3.insert(PoWType::ProgPow, 0);
+		policy_era3.insert(PoWType::Cuckatoo, 0);
+		policy_era3.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era3 = AllowPolicy {
+			height: consensus::BLOCK_ERA_2 + 1,
+			value: 1 << 2,
+		};
+
+		let mut policy_era4 = get_bottles_default();
+		policy_era4.insert(PoWType::RandomX, 100);
+		policy_era4.insert(PoWType::ProgPow, 0);
+		policy_era4.insert(PoWType::Cuckatoo, 0);
+		policy_era4.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era4 = AllowPolicy {
+			height: consensus::BLOCK_ERA_3 + 1,
+			value: 1 << 3,
+		};
+
+		let mut policy_era5 = get_bottles_default();
+		policy_era5.insert(PoWType::RandomX, 100);
+		policy_era5.insert(PoWType::ProgPow, 0);
+		policy_era5.insert(PoWType::Cuckatoo, 0);
+		policy_era5.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era5 = AllowPolicy {
+			height: consensus::BLOCK_ERA_4 + 1,
+			value: 1 << 4,
+		};
+
+		let mut policy_era6 = get_bottles_default();
+		policy_era6.insert(PoWType::RandomX, 100);
+		policy_era6.insert(PoWType::ProgPow, 0);
+		policy_era6.insert(PoWType::Cuckatoo, 0);
+		policy_era6.insert(PoWType::Cuckaroo, 0);
+		let allowed_policy_era6 = AllowPolicy {
+			height: consensus::BLOCK_ERA_5 + 1,
+			value: 1 << 5,
+		};
+
+		PolicyConfig {
+			allowed_policies: vec![
+				allowed_policy_era1,
+				allowed_policy_era2,
+				allowed_policy_era3,
+				allowed_policy_era4,
+				allowed_policy_era5,
+				allowed_policy_era6,
+			],
+			policies: vec![
+				policy_era1,
+				policy_era2,
+				policy_era3,
+				policy_era4,
+				policy_era5,
+				policy_era6,
+			],
+		}
+	}
+}
+
 impl Default for PolicyConfig {
 	fn default() -> Self {
 		let mut policy_era1 = get_bottles_default();

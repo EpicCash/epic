@@ -20,6 +20,7 @@ extern crate clap;
 #[macro_use]
 extern crate log;
 use crate::config::config::SERVER_CONFIG_FILE_NAME;
+use crate::core::core::feijoada::PolicyConfig;
 use crate::core::core::foundation;
 use crate::core::{consensus, global};
 use crate::util::init_logger;
@@ -81,6 +82,18 @@ fn real_main() -> i32 {
 		.version(built_info::PKG_VERSION)
 		.get_matches();
 	let node_config;
+
+
+    // run floonet and usernet with csutom PolicyConfig
+    if args.is_present("floonet") || args.is_present("usernet") {
+        if args.is_present("noprogpow") {
+            global::set_policy_config(PolicyConfig::no_progpow());
+        };
+
+        if args.is_present("onlyrandomx") {
+            global::set_policy_config(PolicyConfig::only_randomx());
+        };
+    };
 
 	let chain_type = if args.is_present("floonet") {
 		global::ChainTypes::Floonet
