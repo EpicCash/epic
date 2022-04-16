@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- rust 1.44
+- rust 1.56
 - clang
 - ncurses and libs (ncurses, ncursesw5)
 - zlib libs (zlib1g-dev or zlib-devel)
@@ -58,30 +58,14 @@ The output should be something like this:
 rustc 1.56.0 (xxxxx)
 ```
 
-After you have rust installed, execute the following command in the terminal:
-
-```sh
-rustup default 1.44.0
-```
-
-And then, check if you are using the correct version by typing the following
-command in the terminal:
-
-```sh
-rustc --version
-```
-
-The output should be something like this:
-
-```sh
-rustc 1.56.0 (xxxxx)
-```
 
 ## Build steps
 
 ```sh
 git clone https://gitlab.com/epiccash/epic
 cd epic
+git submodule update --init --recursive
+cargo update
 cargo build --release
 ```
 
@@ -105,18 +89,26 @@ installation open a new terminal session and execute the following steps:
    ```sh
    cd target/release
    ```
-2. Configuring the **$PATH** environment variable
+
+2. <s>Configuring the **$PATH** environment variable</s>
+
 
    ```sh
    export LD_LIBRARY_PATH=$(find . -iname librandomx.so | head -n 1 | xargs dirname | xargs realpath)
    ```
 
-   For MacOs use (need brew coreutils to be installed):
+   <s>For MacOs use (need brew coreutils to be installed):</s>
+
    ```sh
    export LD_LIBRARY_PATH=$(find . -iname librandomx.dylib | head -n 1 | xargs dirname | xargs realpath)
    ```
-
-3. Execute the epic server using the following command:
+   
+   
+3. Create the epic-server.toml config and Init the epic server using the following command:
+   ```sh
+   ./epic server config
+   ```
+4. Execute the epic server using the following command:
 
    ```sh
    ./epic
