@@ -320,7 +320,7 @@ pub const MAINNET_FIRST_HARD_FORK: u64 = 2600000;
 pub const FLOONET_FIRST_HARD_FORK: u64 = 25800;
 
 /// AutomatedTesting and UserTesting first hard fork height.
-pub const TESTING_FIRST_HARD_FORK: u64 = 6;
+pub const TESTING_FIRST_HARD_FORK: u64 = 25800;
 
 /// Get the height of the first epic hard fork
 pub fn first_fork_height() -> u64 {
