@@ -20,9 +20,9 @@ use chrono::prelude::{DateTime, Utc};
 use rand::prelude::*;
 
 use crate::api;
-use crate::core::global;
 use crate::chain;
 use crate::core::core::block::feijoada::PolicyConfig;
+use crate::core::global;
 use crate::core::global::ChainTypes;
 use crate::core::{consensus, core, libtx, pow};
 use crate::keychain;
@@ -292,7 +292,7 @@ impl Default for StratumServerConfig {
 				progpow_minimum_share_difficulty: consensus::MIN_DIFFICULTY_PROGPOW,
 				enable_stratum_server: Some(true),
 				stratum_server_addr: Some("127.0.0.1:3416".to_string()),
-			}
+			},
 		}
 	}
 }

@@ -713,8 +713,11 @@ fn next_randomx_difficulty_era1(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u6
 
 	let param_ref = global::CHAIN_TYPE.read();
 	match *param_ref {
-		global::ChainTypes::UserTesting => max(MIN_DIFFICULTY_RANDOMX_TESTING, diff_sum * BLOCK_TIME_SEC / adj_ts),
-		_ => max(MIN_DIFFICULTY_RANDOMX, diff_sum * BLOCK_TIME_SEC / adj_ts)
+		global::ChainTypes::UserTesting => max(
+			MIN_DIFFICULTY_RANDOMX_TESTING,
+			diff_sum * BLOCK_TIME_SEC / adj_ts,
+		),
+		_ => max(MIN_DIFFICULTY_RANDOMX, diff_sum * BLOCK_TIME_SEC / adj_ts),
 	}
 
 	// minimum difficulty avoids getting stuck due to dampening
