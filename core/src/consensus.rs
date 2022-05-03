@@ -43,7 +43,8 @@ pub const FREEMAN: u64 = 1;
 /// (adjusting the reward accordingly).
 pub const BLOCK_TIME_SEC: u64 = 60;
 ///defines the block height at wich the difficulty adjustment era changes for testing
-pub const TESTING_DIFFICULTY_ERA: u64 = 50;
+// pub const TESTING_DIFFICULTY_ERA: u64 = 50;
+pub const TESTING_DIFFICULTY_ERA: u64 = 1;
 ///defines the block height at wich the difficulty adjustment era changes for floonet
 pub const FLOONET_DIFFICULTY_ERA: u64 = 200;
 ///defines the block height at wich the difficulty adjustment era changes
@@ -387,6 +388,9 @@ pub const MIN_DIFFICULTY: u64 = DIFFICULTY_DAMP_FACTOR;
 
 /// RandomX Minimum difficulty (used for saturation)
 pub const MIN_DIFFICULTY_RANDOMX: u64 = 4000;
+// pub const MIN_DIFFICULTY_RANDOMX: u64 = 1;
+/// RandomX Minimum difficulty (used for saturation on usernet)
+pub const MIN_DIFFICULTY_RANDOMX_TESTING: u64 = 1;
 /// RandomX Minimum difficulty until fork (used for saturation)
 pub const OLD_MIN_DIFFICULTY_RANDOMX: u64 = 5000;
 
@@ -707,8 +711,14 @@ fn next_randomx_difficulty_era1(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u6
 		RX_CLAMP_FACTOR,
 	);
 
+	let param_ref = global::CHAIN_TYPE.read();
+	match *param_ref {
+		global::ChainTypes::UserTesting => max(MIN_DIFFICULTY_RANDOMX_TESTING, diff_sum * BLOCK_TIME_SEC / adj_ts),
+		_ => max(MIN_DIFFICULTY_RANDOMX, diff_sum * BLOCK_TIME_SEC / adj_ts)
+	}
+
 	// minimum difficulty avoids getting stuck due to dampening
-	max(MIN_DIFFICULTY_RANDOMX, diff_sum * BLOCK_TIME_SEC / adj_ts)
+	// max(MIN_DIFFICULTY_RANDOMX, diff_sum * BLOCK_TIME_SEC / adj_ts)
 }
 
 /// calculates the next difficulty era1 level for cuckoo
