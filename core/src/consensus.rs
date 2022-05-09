@@ -107,7 +107,7 @@ pub const MAINNET_FOUNDATION_HEIGHT: u64 = DAY_HEIGHT;
 
 /// Set the height (and its multiples) where the foundation coinbase will be added to the block.
 /// Used in automated tests.
-pub const AUTOMATEDTEST_FOUNDATION_HEIGHT: u64 = 5;
+pub const AUTOMATEDTEST_FOUNDATION_HEIGHT: u64 = DAY_HEIGHT;
 
 /// Set the height (and its multiples) where the foundation coinbase will be added to the block.
 /// Used in the Floonet.
