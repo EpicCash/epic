@@ -783,6 +783,7 @@ fn next_randomx_difficulty_era1(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u6
 		RX_CLAMP_FACTOR,
 	);
 
+	let param_ref = global::CHAIN_TYPE.read();
 	match *param_ref {
 		global::ChainTypes::UserTesting => max(
 			MIN_DIFFICULTY_RANDOMX_TESTING, 
