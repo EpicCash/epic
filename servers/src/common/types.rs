@@ -22,6 +22,7 @@ use rand::prelude::*;
 use crate::api;
 use crate::chain;
 use crate::core::core::block::feijoada::PolicyConfig;
+use crate::core::global;
 use crate::core::global::ChainTypes;
 use crate::core::{consensus, core, libtx, pow};
 use crate::keychain;
@@ -274,15 +275,28 @@ pub struct StratumServerConfig {
 
 impl Default for StratumServerConfig {
 	fn default() -> StratumServerConfig {
-		StratumServerConfig {
-			wallet_listener_url: "http://127.0.0.1:3415".to_string(),
-			burn_reward: false,
-			attempt_time_per_block: 15,
-			cuckatoo_minimum_share_difficulty: consensus::MIN_DIFFICULTY,
-			randomx_minimum_share_difficulty: consensus::MIN_DIFFICULTY_RANDOMX,
-			progpow_minimum_share_difficulty: consensus::MIN_DIFFICULTY_PROGPOW,
-			enable_stratum_server: Some(true),
-			stratum_server_addr: Some("127.0.0.1:3416".to_string()),
+		let param_ref = global::CHAIN_TYPE.read();
+		match *param_ref {
+			global::ChainTypes::UserTesting => StratumServerConfig {
+				wallet_listener_url: "http://127.0.0.1:3415".to_string(),
+				burn_reward: false,
+				attempt_time_per_block: 15,
+				cuckatoo_minimum_share_difficulty: consensus::MIN_DIFFICULTY,
+				randomx_minimum_share_difficulty: consensus::MIN_DIFFICULTY_RANDOMX_TESTING,
+				progpow_minimum_share_difficulty: consensus::MIN_DIFFICULTY_PROGPOW,
+				enable_stratum_server: Some(true),
+				stratum_server_addr: Some("127.0.0.1:3416".to_string()),
+			},
+			_ => StratumServerConfig {
+				wallet_listener_url: "http://127.0.0.1:3415".to_string(),
+				burn_reward: false,
+				attempt_time_per_block: 15,
+				cuckatoo_minimum_share_difficulty: consensus::MIN_DIFFICULTY,
+				randomx_minimum_share_difficulty: consensus::MIN_DIFFICULTY_RANDOMX,
+				progpow_minimum_share_difficulty: consensus::MIN_DIFFICULTY_PROGPOW,
+				enable_stratum_server: Some(true),
+				stratum_server_addr: Some("127.0.0.1:3416".to_string()),
+			}
 		}
 	}
 }
