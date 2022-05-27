@@ -9,7 +9,7 @@
 - pkg-config
 - linux-headers (reported needed on Alpine linux)
 - llvm (which can be downloaded [here](https://github.com/llvm/llvm-project/releases))
-- cmake
+- cmake (tested with versions 3.18.4 and 3.19.3)
 
 For Debian-based distributions (Debian, Ubuntu, Mint, etc), all in one line
 (except Rust):
