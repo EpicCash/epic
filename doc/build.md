@@ -62,7 +62,7 @@ rustc 1.56.0 (xxxxx)
 ## Build steps
 
 ```sh
-git clone https://gitlab.com/epiccash/epic
+git clone https://github.com/EpicCash/epic
 cd epic
 git submodule update --init --recursive
 cargo update
