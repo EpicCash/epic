@@ -8,7 +8,8 @@
 - zlib libs (zlib1g-dev or zlib-devel)
 - pkg-config
 - linux-headers (reported needed on Alpine linux)
-- llvm
+- llvm (which can be downloaded [here](https://github.com/llvm/llvm-project/releases))
+- cmake (tested with versions 3.18.4 and 3.19.3)
 
 For Debian-based distributions (Debian, Ubuntu, Mint, etc), all in one line
 (except Rust):
@@ -62,7 +63,7 @@ rustc 1.56.0 (xxxxx)
 ## Build steps
 
 ```sh
-git clone https://gitlab.com/epiccash/epic
+git clone https://github.com/EpicCash/epic
 cd epic
 git submodule update --init --recursive
 cargo update
@@ -150,6 +151,28 @@ All mining functions for Epic are in a separate project called
 
 <a id="testnet_reset"></a>
 
+## Testnet Configuration
+
+If you want to run one of the testnets (**floonet** or **usernet**) to try out new features and simulate distinct scenarios without using a real wallet, 
+you need to add the parameter "--floonet" (remote testnet) or "--usernet" (local testnet, recommended) 
+after the epic server and the epic wallet to be used.
+
+   ```sh
+   epic --usernet --onlyrandomx...
+   epic-wallet --usernet ...
+   ```
+   
+Floonet data is stored on the directory path **<HOME>/.epic/floo**, while usernet data is stored on the directory path **<HOME>/.epic/user**.
+
+To be able to run a testnet properly, you need to ensure that:
+
+1. When running the epic-miner, the **stratum_server_addr** variable available in the file epic-miner.toml should be 13416;
+2. When running the epic-server for floonet, the file epic-server.toml must be configured so that the **seeding_type = List** and the **seeds = ["15.229.31.27:23414"]**;
+3. When running the epic-server for usernet, the file epic-server.toml must be configured so that the **stratum_server_addr = "127.0.0.1:13416"**;
+
+Also, be careful with the epic-wallet.toml file that may be downloaded from the repository, because if this file is available in the same folder as the epic-wallet executable, 
+it will be used by the application rather than the epic-wallet.toml file available in the home path.
+   
 ## Testnet Reset
 
 If the testnet is restarted or there's a new version of the epic server, you

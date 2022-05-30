@@ -8,8 +8,8 @@ blockchain on Linux distributions.
 
 There are three different cases that you can run the Epic Cash blockchain: 
 - [[#server][Running only the server]].
-- [[#wallet_server][Running the server and the wallet.]]
-- [[#miner_wallet_server][Running the server, the wallet and the miner]].
+- [[#wallet--server][Running the server and the wallet.]]
+- [[#miner--wallet--server][Running the server, the wallet and the miner]].
 
 If you want to just have a copy of the chain or help the propagation
 of the blocks in the network, all you need is to run the server.
