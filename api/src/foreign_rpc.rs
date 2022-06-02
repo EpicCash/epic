@@ -243,6 +243,14 @@ pub trait ForeignRpc: Sync + Send {
 		commit: Option<String>,
 	) -> Result<BlockPrintable, ErrorKind>;
 
+	fn get_blocks(
+		&self,
+		start_height: Option<u64>,
+		end_height: Option<u64>,
+		hash: Option<String>,
+		commit: Option<String>,
+	) -> Result<Vec<BlockPrintable>, ErrorKind>;
+
 	/**
 	Networked version of [Foreign::get_version](struct.Node.html#method.get_version).
 
@@ -753,6 +761,7 @@ impl ForeignRpc for Foreign {
 		}
 		Foreign::get_header(self, height, parsed_hash, commit).map_err(|e| e.kind().clone())
 	}
+
 	fn get_block(
 		&self,
 		height: Option<u64>,
@@ -766,6 +775,35 @@ impl ForeignRpc for Foreign {
 			parsed_hash = Some(Hash::from_vec(&vec));
 		}
 		Foreign::get_block(self, height, parsed_hash, commit).map_err(|e| e.kind().clone())
+	}
+
+	fn get_blocks(
+		&self,
+		start_height: Option<u64>,
+		end_height: Option<u64>,
+		hash: Option<String>,
+		commit: Option<String>,
+	) -> Result<Vec<BlockPrintable>, ErrorKind> {
+		if Some(start_height) > Some(end_height) {
+			return Err(ErrorKind::Argument("Start_height must be lower or equal than end_height".to_string()))
+		}
+		let mut parsed_hash: Option<Hash> = None;
+		if let Some(hash) = hash {
+			let vec = util::from_hex(hash)
+				.map_err(|e| ErrorKind::Argument(format!("invalid block hash: {}", e)))?;
+			parsed_hash = Some(Hash::from_vec(&vec));
+		}
+		if let Some(start_height) = start_height {
+			if let Some(end_height) = end_height {
+				let mut blocks: Vec<BlockPrintable> = vec![];
+				for height in start_height..=end_height {
+					let block = Foreign::get_block(self, Some(height), parsed_hash, commit.clone()).map_err(|e| e.kind().clone())?;
+					blocks.push(block);
+				}
+				return Ok(blocks);
+			}
+		}	
+		return Err(ErrorKind::Argument("Start_height or end_height is not valid".to_string()));	
 	}
 
 	fn get_version(&self) -> Result<Version, ErrorKind> {
