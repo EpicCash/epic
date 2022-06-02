@@ -785,7 +785,9 @@ impl ForeignRpc for Foreign {
 		commit: Option<String>,
 	) -> Result<Vec<BlockPrintable>, ErrorKind> {
 		if Some(start_height) > Some(end_height) {
-			return Err(ErrorKind::Argument("Start_height must be lower or equal than end_height".to_string()))
+			return Err(ErrorKind::Argument(
+				"Start_height must be lower or equal than end_height".to_string(),
+			));
 		}
 		let mut parsed_hash: Option<Hash> = None;
 		if let Some(hash) = hash {
@@ -797,13 +799,16 @@ impl ForeignRpc for Foreign {
 			if let Some(end_height) = end_height {
 				let mut blocks: Vec<BlockPrintable> = vec![];
 				for height in start_height..=end_height {
-					let block = Foreign::get_block(self, Some(height), parsed_hash, commit.clone()).map_err(|e| e.kind().clone())?;
+					let block = Foreign::get_block(self, Some(height), parsed_hash, commit.clone())
+						.map_err(|e| e.kind().clone())?;
 					blocks.push(block);
 				}
 				return Ok(blocks);
 			}
-		}	
-		return Err(ErrorKind::Argument("Start_height or end_height is not valid".to_string()));	
+		}
+		return Err(ErrorKind::Argument(
+			"Start_height or end_height is not valid".to_string(),
+		));
 	}
 
 	fn get_version(&self) -> Result<Version, ErrorKind> {
