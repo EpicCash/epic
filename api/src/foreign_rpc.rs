@@ -243,6 +243,20 @@ pub trait ForeignRpc: Sync + Send {
 		commit: Option<String>,
 	) -> Result<BlockPrintable, ErrorKind>;
 
+	/*
+	# Json rpc example
+
+	```
+	# epic_api::doctest_helper_json_rpc_foreign_assert_response!(
+	# r#"
+	{
+		"jsonrpc": "2.0",
+		"method": "get_blocks",
+		"params": [1, 3, null, null],
+		"id": 1
+	}
+	*/
+
 	fn get_blocks(
 		&self,
 		start_height: Option<u64>,
