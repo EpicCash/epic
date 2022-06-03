@@ -800,8 +800,11 @@ impl ForeignRpc for Foreign {
 				let mut blocks: Vec<BlockPrintable> = vec![];
 				for height in start_height..=end_height {
 					let block = Foreign::get_block(self, Some(height), parsed_hash, commit.clone())
-						.map_err(|e| e.kind().clone())?;
-					blocks.push(block);
+						.map_err(|e| e.kind().clone());
+					match block {
+						Ok(b) => blocks.push(b),
+						Err(_) => (),
+					}
 				}
 				return Ok(blocks);
 			}
