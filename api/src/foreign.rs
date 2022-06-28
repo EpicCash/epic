@@ -14,6 +14,7 @@
 
 //! Foreign API External Definition
 
+use epic_core::core::TxKernel;
 use crate::chain::{Chain, SyncState};
 use crate::core::core::hash::Hash;
 use crate::core::core::transaction::Transaction;
@@ -181,6 +182,20 @@ impl Foreign {
 			chain: self.chain.clone(),
 		};
 		kernel_handler.get_kernel_v2(excess, min_height, max_height)
+	}
+
+	pub fn get_last_n_kernels(
+		&self,
+		distance: u64,
+	) -> Result<Vec<TxKernel>, Error>{
+		let kernel_handler = KernelHandler {
+			chain: self.chain.clone()
+		};
+		let kernels = kernel_handler.get_last_n_kernels(distance);
+		match kernels {
+			Ok(k) => Ok(k),
+			Err(k) => Err(k)
+		}
 	}
 
 	/// Retrieves details about specifics outputs. Supports retrieval of multiple outputs in a single request.

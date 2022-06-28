@@ -14,6 +14,7 @@
 
 //! JSON-RPC Stub generation for the Foreign API
 
+use epic_core::core::TxKernel;
 use crate::core::core::hash::Hash;
 use crate::core::core::transaction::Transaction;
 use crate::foreign::Foreign;
@@ -375,6 +376,44 @@ pub trait ForeignRpc: Sync + Send {
 		min_height: Option<u64>,
 		max_height: Option<u64>,
 	) -> Result<LocatedTxKernel, ErrorKind>;
+
+	/*
+	# Json rpc example
+
+	```
+	# epic_api::doctest_helper_json_rpc_foreign_assert_response!(
+	# r#"
+	{
+		"jsonrpc": "2.0",
+		"method": "get_last_n_kernels",
+		"params": [1],
+		"id": 1
+	}
+	# "#
+	# ,
+	# r#"
+	{
+		"id": 1,
+		"jsonrpc": "2.0",
+		"result": {
+			"Ok": [
+			{
+				"excess": "08fa0cecd81956afb1b45cb749ff04291c9d8b711c780921995d81f5710f663ccd",
+				"excess_sig": "db717651f56341bdfcfe90427f5aa2c7dae81a46090301194259f9bbc2f98c9c5154a65a9c6ce9c0d9851383a4f0fe63d42b2ca93247322f4830788c947168b1",
+				"features": "Coinbase"
+			}
+			]
+		}
+	}
+	# "#
+	# );
+	```
+	*/
+
+	fn get_last_n_kernels(
+		&self,
+		distance: u64,
+	) -> Result<Vec<TxKernel>, ErrorKind>;
 
 	/**
 	Networked version of [Foreign::get_outputs](struct.Node.html#method.get_outputs).
@@ -826,6 +865,16 @@ impl ForeignRpc for Foreign {
 		return Err(ErrorKind::Argument(
 			"Start_height or end_height is not valid".to_string(),
 		));
+	}
+
+	fn get_last_n_kernels(
+		&self,
+		distance: u64,
+	) -> Result<Vec<TxKernel>, ErrorKind>{
+		match Foreign::get_last_n_kernels(self, distance) {
+			Ok(k) => Ok(k),
+			Err(k) => Err(ErrorKind::Argument("Could not get kernels".to_string()))
+		}
 	}
 
 	fn get_version(&self) -> Result<Version, ErrorKind> {
