@@ -116,7 +116,10 @@ impl Server {
 		if hash.as_str() != hash_to_compare {
 			error!("Invalid {} file!\nThe sha256 of this file should be: {} - {}\nCheck if the file was not changed!", global::get_foundation_path().unwrap(), hash_to_compare, hash.as_str());
 			error!("Closing the application!");
-			println!("\nInvalid foundation file!\nCheck if the file \"{}\" was not changed!",global::get_foundation_path().unwrap());
+			println!(
+				"\nInvalid foundation file!\nCheck if the file \"{}\" was not changed!",
+				global::get_foundation_path().unwrap()
+			);
 			std::process::exit(1);
 		}
 		let mining_config = config.stratum_mining_config.clone();
