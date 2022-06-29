@@ -255,6 +255,7 @@ pub fn use_alternative_path(path_str: String) -> String {
 			check_path.display(),
 			p.display()
 		);
+		println!("The file `{}` was not found! Will try to use the alternative file `{}`!", check_path.display(), p.display());
 		p.to_str().expect("Failed to get the executable's directory and no path to the foundation.json was provided!").to_owned()
 	} else {
 		path_str
@@ -607,8 +608,13 @@ impl Version {
 	}
 }
 
+/// Get the sha256 of file
 pub fn get_file_sha256(path: &str) -> String {
-	let mut file = File::open(path).expect(
+	let file_open = File::open(path);
+	if file_open.is_err() {
+		println!("\nCouldn't open the foundation file!\nCheck if the file \"{}\" was not changed!",path);
+	};
+	let mut file = file_open.expect(
 		format!(
 			"Error trying to read the foundation.json. Couldn't find/open the file {}!",
 			path
