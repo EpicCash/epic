@@ -237,12 +237,14 @@ pub fn set_foundation_path(path: String) {
 /// If we are running floonet, it will look for the file foundation_floonet.json .
 pub fn use_alternative_path(path_str: String) -> String {
 	let check_path = Path::new(&path_str);
-	if check_path.exists(){
-		if check_foundation(path_str.clone()){
-			return path_str
+	if check_path.exists() {
+		if check_foundation(path_str.clone()) {
+			return path_str;
 		};
 	};
-	let mut p = env::current_exe().expect("Failed to get the executable's directory and no path to the foundation.json was provided!");
+	let mut p = env::current_exe().expect(
+		"Failed to get the executable's directory and no path to the foundation.json was provided!",
+	);
 	//removing the file from the path and going back 2 directories
 	for _ in 0..3 {
 		p.pop();
@@ -254,16 +256,21 @@ pub fn use_alternative_path(path_str: String) -> String {
 	};
 	p.push(foundation_name);
 	if check_path.exists() {
-		warn!("Invalid foundation file!\nCheck if the file `{}` was not changed!", check_path.display());
-		println!("Invalid foundation file!\nCheck if the file `{}` was not changed!", check_path.display());
-	} else{
+		warn!(
+			"Invalid foundation file!\nCheck if the file `{}` was not changed!",
+			check_path.display()
+		);
+		println!(
+			"Invalid foundation file!\nCheck if the file `{}` was not changed!",
+			check_path.display()
+		);
+	} else {
 		warn!("The file `{}` was not found!", check_path.display());
 		println!("The file `{}` was not found!", check_path.display());
 	}
-	warn!("Will try to use the alternative file `{}`!",p.display());
-	println!("Will try to use the alternative file `{}`!",p.display());
-	return p.to_str().expect("Failed to get the executable's directory and no path to the foundation.json was provided!").to_owned()
-
+	warn!("Will try to use the alternative file `{}`!", p.display());
+	println!("Will try to use the alternative file `{}`!", p.display());
+	return p.to_str().expect("Failed to get the executable's directory and no path to the foundation.json was provided!").to_owned();
 }
 
 /// Get the current path to the foundation.json file (file with the foundation wallet outputs/kernels)
@@ -278,7 +285,7 @@ pub fn check_foundation(path_str: String) -> bool {
 	let hash = get_file_sha256(&path_str);
 	if hash.as_str() != hash_to_compare {
 		false
-	} else{
+	} else {
 		true
 	}
 }
