@@ -21,6 +21,7 @@ use crate::types::*;
 use crate::util;
 use crate::util::secp::pedersen::Commitment;
 use crate::web::*;
+use epic_core::core::TxKernel;
 use failure::ResultExt;
 use hyper::{Body, Request, StatusCode};
 use std::sync::Weak;
@@ -464,6 +465,20 @@ impl KernelHandler {
 				mmr_index,
 			});
 		kernel.ok_or_else(|| ErrorKind::NotFound.into())
+	}
+
+	pub fn get_last_n_kernels(
+		&self,
+		distance: u64,
+	) -> Result<Vec<TxKernel>, Error> {
+		let chain = w(&self.chain)?;
+		let kernels = chain.get_last_n_kernel(distance);
+		let mut tx_kernels: Vec<TxKernel> = Vec::new();
+		for k in &kernels {
+			let tx_kernel = k.1.clone();
+			tx_kernels.push(tx_kernel);
+		};
+		return Ok(tx_kernels);
 	}
 }
 
