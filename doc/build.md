@@ -151,11 +151,13 @@ All mining functions for Epic are in a separate project called
 
 <a id="testnet_reset"></a>
 
+## How to Connect to Testnet
+
+To connect to floonet properly, just follow the steps indicated in the file [testnet configuration](https://github.com/EpicCash/epic/blob/master/doc/testnet_configuration.md).
+
 ## Testnet Configuration
 
-If you want to run one of the testnets (**floonet** or **usernet**) to try out new features and simulate distinct scenarios without using a real wallet, 
-you need to add the parameter "--floonet" (remote testnet) or "--usernet" (local testnet, recommended) 
-after the epic server and the epic wallet to be used.
+If you want to run one of the testnets (**floonet** or **usernet**) to try out new features and simulate distinct scenarios without using a real wallet, you need to add the parameter "--floonet" (remote testnet) or "--usernet" (local testnet, recommended) after the epic server and the epic wallet to be used.
 
    ```sh
    epic --usernet --onlyrandomx...
