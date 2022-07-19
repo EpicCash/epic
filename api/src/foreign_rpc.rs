@@ -14,6 +14,7 @@
 
 //! JSON-RPC Stub generation for the Foreign API
 
+use epic_core::core::TxKernel;
 use crate::core::core::hash::Hash;
 use crate::core::core::transaction::Transaction;
 use crate::foreign::Foreign;
@@ -243,6 +244,28 @@ pub trait ForeignRpc: Sync + Send {
 		commit: Option<String>,
 	) -> Result<BlockPrintable, ErrorKind>;
 
+	/*
+	# Json rpc example
+
+	```
+	# epic_api::doctest_helper_json_rpc_foreign_assert_response!(
+	# r#"
+	{
+		"jsonrpc": "2.0",
+		"method": "get_blocks",
+		"params": [1, 3, null, null],
+		"id": 1
+	}
+	*/
+
+	fn get_blocks(
+		&self,
+		start_height: Option<u64>,
+		end_height: Option<u64>,
+		hash: Option<String>,
+		commit: Option<String>,
+	) -> Result<Vec<BlockPrintable>, ErrorKind>;
+
 	/**
 	Networked version of [Foreign::get_version](struct.Node.html#method.get_version).
 
@@ -353,6 +376,44 @@ pub trait ForeignRpc: Sync + Send {
 		min_height: Option<u64>,
 		max_height: Option<u64>,
 	) -> Result<LocatedTxKernel, ErrorKind>;
+
+	/*
+	# Json rpc example
+
+	```
+	# epic_api::doctest_helper_json_rpc_foreign_assert_response!(
+	# r#"
+	{
+		"jsonrpc": "2.0",
+		"method": "get_last_n_kernels",
+		"params": [1],
+		"id": 1
+	}
+	# "#
+	# ,
+	# r#"
+	{
+		"id": 1,
+		"jsonrpc": "2.0",
+		"result": {
+			"Ok": [
+			{
+				"excess": "08fa0cecd81956afb1b45cb749ff04291c9d8b711c780921995d81f5710f663ccd",
+				"excess_sig": "db717651f56341bdfcfe90427f5aa2c7dae81a46090301194259f9bbc2f98c9c5154a65a9c6ce9c0d9851383a4f0fe63d42b2ca93247322f4830788c947168b1",
+				"features": "Coinbase"
+			}
+			]
+		}
+	}
+	# "#
+	# );
+	```
+	*/
+
+	fn get_last_n_kernels(
+		&self,
+		distance: u64,
+	) -> Result<Vec<TxKernel>, ErrorKind>;
 
 	/**
 	Networked version of [Foreign::get_outputs](struct.Node.html#method.get_outputs).
@@ -753,6 +814,7 @@ impl ForeignRpc for Foreign {
 		}
 		Foreign::get_header(self, height, parsed_hash, commit).map_err(|e| e.kind().clone())
 	}
+
 	fn get_block(
 		&self,
 		height: Option<u64>,
@@ -766,6 +828,53 @@ impl ForeignRpc for Foreign {
 			parsed_hash = Some(Hash::from_vec(&vec));
 		}
 		Foreign::get_block(self, height, parsed_hash, commit).map_err(|e| e.kind().clone())
+	}
+
+	fn get_blocks(
+		&self,
+		start_height: Option<u64>,
+		end_height: Option<u64>,
+		hash: Option<String>,
+		commit: Option<String>,
+	) -> Result<Vec<BlockPrintable>, ErrorKind> {
+		if Some(start_height) > Some(end_height) {
+			return Err(ErrorKind::Argument(
+				"Start_height must be lower or equal than end_height".to_string(),
+			));
+		}
+		let mut parsed_hash: Option<Hash> = None;
+		if let Some(hash) = hash {
+			let vec = util::from_hex(hash)
+				.map_err(|e| ErrorKind::Argument(format!("invalid block hash: {}", e)))?;
+			parsed_hash = Some(Hash::from_vec(&vec));
+		}
+		if let Some(start_height) = start_height {
+			if let Some(end_height) = end_height {
+				let mut blocks: Vec<BlockPrintable> = vec![];
+				for height in start_height..=end_height {
+					let block = Foreign::get_block(self, Some(height), parsed_hash, commit.clone())
+						.map_err(|e| e.kind().clone());
+					match block {
+						Ok(b) => blocks.push(b),
+						Err(_) => (),
+					}
+				}
+				return Ok(blocks);
+			}
+		}
+		return Err(ErrorKind::Argument(
+			"Start_height or end_height is not valid".to_string(),
+		));
+	}
+
+	fn get_last_n_kernels(
+		&self,
+		distance: u64,
+	) -> Result<Vec<TxKernel>, ErrorKind>{
+		match Foreign::get_last_n_kernels(self, distance) {
+			Ok(k) => Ok(k),
+			Err(k) => Err(ErrorKind::Argument("Could not get kernels".to_string()))
+		}
 	}
 
 	fn get_version(&self) -> Result<Version, ErrorKind> {
