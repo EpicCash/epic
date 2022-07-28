@@ -1,6 +1,6 @@
 // Copyright 2018 The Grin Developers
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the &Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -245,6 +245,10 @@ pub fn use_alternative_path(path_str: String) -> String {
 	let mut p = env::current_exe().expect(
 		"Failed to get the executable's directory and no path to the foundation.json was provided!",
 	);
+	//if we run the "cargo test --release" the p contains "cucumber_..." in last folder
+	if p.file_stem().unwrap().to_str().unwrap().contains(&"cucumber") {
+		return path_str;
+	}
 	//removing the file from the path and going back 2 directories
 	for _ in 0..3 {
 		p.pop();
