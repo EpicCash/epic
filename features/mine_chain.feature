@@ -464,3 +464,16 @@ Scenario: refuse invalid progpow pow
   Then I refuse a block with <progpow> invalid
   Then clean tmp chain dir
   Then clean output dir
+
+
+Scenario: refuse invalid cuckatoo pow
+  Given I have the policy <0> with <cuckaroo> equals <0>
+  And I have the policy <0> with <randomx> equals <0>
+  And I have the policy <0> with <cuckatoo> equals <100>
+  And I setup all the policies
+  Given I have a <testing> chain
+  And I define my output dir as <.epic10>
+  And I setup a chain
+  Then I refuse a block with <cuckoo> invalid
+  Then clean tmp chain dir
+  Then clean output dir
