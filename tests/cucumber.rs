@@ -751,7 +751,6 @@ mod mine_chain {
 				let chain = world.chain.as_ref().unwrap();
 				let kc_foundation = world.keychain_foundation.as_ref().unwrap();
 				let kc = world.keychain.as_ref().unwrap();
-
 				let prev = chain.head_header().unwrap();
 				let height = prev.height + 1;
 				let diff = height;
@@ -1849,7 +1848,7 @@ mod mine_chain {
 
 // Declares a before handler function named `a_before_fn`
 before!(a_before_fn => |_scenario| {
-	println!("Test 1");
+	println!("Testing a_before_fn ----------------------------------\n++++++++++++++++++++++++++++++\n----------------------------------\n----------------------------------\n");
 	global::set_foundation_path("./tests/assets/foundation.json".to_string());
 });
 
@@ -1860,6 +1859,7 @@ after!(an_after_fn => |_scenario| {
 
 // A setup function to be called before everything else
 fn setup() {
+	global::set_foundation_path("./tests/assets/foundation.json".to_string());
 	let policies = [
 		(FType::Cuckaroo, 100),
 		(FType::Cuckatoo, 0),
@@ -1894,10 +1894,9 @@ fn setup() {
 		policies: vec![policies, policies2, policies3],
 		..Default::default()
 	});
-
 	util::init_test_logger();
 }
-
+/// To run cucumber test: cargo test --package epic --test cucumber
 cucumber! {
 	features: "./features", // Path to our feature files
 	world: crate::EdnaWorld, // The world needs to be the same for steps and the main cucumber call
