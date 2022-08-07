@@ -60,7 +60,7 @@ Download all binaries from the requirements list above and extract them in a con
   ```toml
   #If the seeding type is List, the list of peers to connect to can
   #be specified as follows:
-  seeds = ["15.228.37.137:13414", "3.223.249.67:13414"]
+  seeds = ["15.229.31.27:23414"]
   ```
   Save the `epic-server.toml` file.
 
@@ -92,7 +92,7 @@ These are the steps to reset your `floonet`:
   ```toml
   #If the seeding type is List, the list of peers to connect to can
   #be specified as follows:
-  seeds = ["15.228.37.137:13414", "3.223.249.67:13414"]
+  seeds = ["15.229.31.27:23414"]
   ```
   Save the `epic-server.toml` file.
 
@@ -144,7 +144,7 @@ Download all binaries from the requirements list above and extract them in a con
   ```toml
   #If the seeding type is List, the list of peers to connect to can
   #be specified as follows:
-  seeds = ["15.228.37.137:13414", "3.223.249.67:13414"]
+  seeds = ["15.229.31.27:23414"]
   ```
   Save the `epic-server.toml` file.
 
@@ -196,7 +196,7 @@ These are the steps to access the `testnet`:
   ```toml
   #If the seeding type is List, the list of peers to connect to can
   #be specified as follows:
-  seeds = ["15.228.37.137:13414", "3.223.249.67:13414"]
+  seeds = ["15.229.31.27:23414"]
   ```
   Save the `epic-server.toml` file.
 
