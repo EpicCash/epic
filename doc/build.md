@@ -230,25 +230,3 @@ Finally, run from the respective project root the following command:
 ```sh
 fakeroot make -f debian/rules binary
 ```
-
-## Adjusting algorithm difficulties
-
-In the next few days we will need to adjust the difficulties in order to reach
-an ideal point. In order to change that manually access the file
-**core/src/genesis.rs** from epic root directory. Look for the functions
-**genesis_floo** and **genesis_main** and search for the lines that look like
-the following:
-
-```rust
-diff.insert(PoWType::Cuckaroo, 2_u64.pow(1));
-diff.insert(PoWType::Cuckatoo, 2_u64.pow(1));
-diff.insert(PoWType::RandomX, 2_u64.pow(16));
-diff.insert(PoWType::ProgPow, 2_u64.pow(8));
-```
-
-And change the values under **.pow()**.
-
-After you did those things you will need to rebuild the package, the testnet and
-everybody participating in the network will need to install the new package and
-restart all the services. More instruction of how to that can be found in the
-topic [Testnet Reset](#testnet_reset).
