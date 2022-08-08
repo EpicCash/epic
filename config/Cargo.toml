@@ -1,6 +1,6 @@
 [package]
 name = "epic_config"
-version = "3.0.0"
+version = "3.0.9-1"
 authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
 description = "Configuration for epic, a simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
@@ -16,9 +16,9 @@ serde_derive = "1"
 toml = "0.4"
 dirs = "1.0.3"
 
-epic_core = { path = "../core", version = "3.0.0" }
-epic_servers = { path = "../servers", version = "3.0.0" }
-epic_p2p = { path = "../p2p", version = "3.0.0" }
+epic_core = { path = "../core", version = "3.0.9-1" }
+epic_servers = { path = "../servers", version = "3.0.9-1" }
+epic_p2p = { path = "../p2p", version = "3.0.9-1" }
 epic_util = { path = "../util", version = "3.0.0" }
 
 [dev-dependencies]

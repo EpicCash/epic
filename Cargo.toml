@@ -1,6 +1,6 @@
 [package]
 name = "epic"
-version = "3.0.0"
+version = "3.0.9-1"
 authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
@@ -34,14 +34,14 @@ failure_derive = "0.1"
 
 reqwest = "0.9"
 
-epic_api = { path = "./api", version = "3.0.0" }
-epic_config = { path = "./config", version = "3.0.0" }
-epic_core = { path = "./core", version = "3.0.0" }
+epic_api = { path = "./api", version = "3.0.9-1" }
+epic_config = { path = "./config", version = "3.0.9-1" }
+epic_core = { path = "./core", version = "3.0.9-1" }
 epic_keychain = { path = "./keychain", version = "3.0.0" }
-epic_p2p = { path = "./p2p", version = "3.0.0" }
-epic_servers = { path = "./servers", version = "3.0.0" }
+epic_p2p = { path = "./p2p", version = "3.0.9-1" }
+epic_servers = { path = "./servers", version = "3.0.9-1" }
 epic_util = { path = "./util", version = "3.0.0" }
-epic_chain = { path = "./chain", version = "3.0.0" }
+epic_chain = { path = "./chain", version = "3.0.9-1" }
 
 
 cursive = { version = "0.15", default-features = false, features = ["pancurses-backend"] }
@@ -58,5 +58,5 @@ harness = false
 built = "0.3"
 
 [dev-dependencies]
-epic_store = { path = "./store", version = "3.0.0" }
+epic_store = { path = "./store", version = "3.0.9-1" }
 cucumber_rust = { version = "^0.5.1", default-features = false }

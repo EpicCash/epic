@@ -1,6 +1,6 @@
 [package]
 name = "epic_core"
-version = "3.0.0"
+version = "3.0.9-1"
 authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
 description = "Chain implementation for epic, a simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
