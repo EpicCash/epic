@@ -1,3 +1,15 @@
+# epic 3.0.9-alpha-1
+
+  - Add --onlyrandomx and --noprogpow for testnet
+  - Fix: mining on usernet
+  - Feat: speed up mine blocks on usernet
+  - Fix: Variable Reference
+  - Update build.md
+  - Create testnet_configuration.md
+  - Feat: Add get_blocks and get_last_n_kernels
+  - [#21](https://github.com/EpicCash/epic/issues/21) Add simple print to indicate the foundation is broke
+  - Fix: cucumber tests
+  - Add CDN
 
 
 # epic 3.0.0
