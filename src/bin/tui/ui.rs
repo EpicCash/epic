@@ -67,7 +67,6 @@ impl UI {
 		let (ui_tx, ui_rx) = mpsc::channel::<UIMessage>();
 
 		let backend = cursive::backends::curses::pan::Backend::init().unwrap();
-		// let buffered_backend = Box::new(cursive_buffered_backend::BufferedBackend::new(backend));
 
 		let mut epic_ui = UI {
 			cursive: cursive::CursiveRunner::new(cursive::Cursive::new(), backend),
