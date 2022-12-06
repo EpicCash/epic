@@ -2,6 +2,7 @@
 
 # Code used to build the releases for the project
 # The final output is the tar.gz file and the checksum with sha256 for linux
+# This must be executed from the root of the project
 
 # Initialize the project variables
 NAME=$(awk -F "=" '/name/ {print $2}' Cargo.toml | head -1 | tr -d '"' | tr -d ' ')
