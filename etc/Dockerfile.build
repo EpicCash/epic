@@ -1,0 +1,20 @@
+FROM rust:1.60
+
+# Dependencies for the projects
+RUN apt-get update && apt install -y \
+    build-essential=12.9 \
+    cmake=3.18.4-2+deb11u1 \
+    libclang-dev=1:11.0-51+nmu5 \
+    libncurses5-dev=6.2+20201114-2 \
+    clang=1:11.0-51+nmu5 \
+    libncursesw5-dev=6.2+20201114-2 \
+    opencl-headers=3.0~2020.12.18-1 \
+    libssl-dev=1.1.1n-0+deb11u3 \
+    ocl-icd-opencl-dev=2.2.14-2
+
+# Deb build dependencies
+RUN apt-get update && apt install -y \
+    fakeroot=1.25.3-1.1 \
+    debhelper=13.3.4
+
+WORKDIR /home/app
