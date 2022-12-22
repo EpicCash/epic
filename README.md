@@ -31,6 +31,7 @@ Epic is live with mainnet.
 # Getting Started
 
 The full Epic Wiki can be found here: [Epic Cash - Wiki](https://github.com/EpicCash/documentation/wiki)
+
 ## Getting started with the project :bulb:
 
 By the end of this section, you should have the basic knowledge of how to run Epic Cash and its different binaries functions.
@@ -39,7 +40,6 @@ Here are the basic topics:
 
 - [Running the server](https://github.com/EpicCash/documentation/wiki/Running-the-server)
 - [Running the wallet](https://github.com/EpicCash/documentation/wiki/Running-the-wallet)
-- [Making the basic wallet operations](https://github.com/EpicCash/documentation/wiki/Basic-wallet-operations)
 - [Mining](https://github.com/EpicCash/documentation/wiki/Mining)
 
 ## Quick User guides :books: 
