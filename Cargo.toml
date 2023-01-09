@@ -1,18 +1,30 @@
 [package]
 name = "epic"
-version = "3.0.9-1"
+version = "3.3.2"
 authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
 repository = "https://github.com/mimblewimble/epic"
-keywords = [ "crypto", "epic", "mimblewimble" ]
+keywords = ["crypto", "epic", "mimblewimble"]
 readme = "README.md"
 exclude = ["**/*.epic", "**/*.epic2"]
 build = "src/build/build.rs"
 edition = "2018"
 
 [workspace]
-members = ["api", "chain", "config", "core", "keychain", "p2p", "servers", "store", "util", "pool", "bugreport"]
+members = [
+    "api",
+    "chain",
+    "config",
+    "core",
+    "keychain",
+    "p2p",
+    "servers",
+    "store",
+    "util",
+    "pool",
+    "bugreport",
+]
 exclude = ["etc/gen_gen"]
 
 [[bin]]
@@ -31,20 +43,20 @@ log = "0.4"
 term = "0.5"
 failure = "0.1"
 failure_derive = "0.1"
-
 reqwest = "0.11.11"
 
-epic_api = { path = "./api", version = "3.0.9-1" }
-epic_config = { path = "./config", version = "3.0.9-1" }
-epic_core = { path = "./core", version = "3.0.9-1" }
-epic_keychain = { path = "./keychain", version = "3.0.0" }
-epic_p2p = { path = "./p2p", version = "3.0.9-1" }
-epic_servers = { path = "./servers", version = "3.0.9-1" }
-epic_util = { path = "./util", version = "3.0.0" }
-epic_chain = { path = "./chain", version = "3.0.9-1" }
+epic_api = { path = "./api", version = "3.3.2" }
+epic_config = { path = "./config", version = "3.3.2" }
+epic_core = { path = "./core", version = "3.3.2" }
+epic_keychain = { path = "./keychain", version = "3.3.2" }
+epic_p2p = { path = "./p2p", version = "3.3.2" }
+epic_servers = { path = "./servers", version = "3.3.2" }
+epic_util = { path = "./util", version = "3.3.2" }
+epic_chain = { path = "./chain", version = "3.3.2" }
 
-
-cursive = { version = "0.16", default-features = false, features = ["pancurses-backend"] }
+cursive = { version = "0.16", default-features = false, features = [
+    "pancurses-backend",
+] }
 
 [target.'cfg(windows)'.dependencies.pancurses]
 version = "0.16.1"
@@ -58,5 +70,5 @@ harness = false
 built = "0.3"
 
 [dev-dependencies]
-epic_store = { path = "./store", version = "3.0.9-1" }
+epic_store = { path = "./store", version = "3.3.2" }
 cucumber_rust = { version = "^0.5.1", default-features = false }
