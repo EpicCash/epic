@@ -851,7 +851,7 @@ dependencies = [
 
 [[package]]
 name = "epic"
-version = "3.3.2-1"
+version = "3.3.2"
 dependencies = [
  "blake2-rfc",
  "built",
@@ -890,7 +890,7 @@ dependencies = [
 
 [[package]]
 name = "epic_api"
-version = "3.3.2-1"
+version = "3.3.2"
 dependencies = [
  "bigint",
  "easy-jsonrpc-mw",
@@ -924,7 +924,7 @@ dependencies = [
 
 [[package]]
 name = "epic_chain"
-version = "3.3.2-1"
+version = "3.3.2"
 dependencies = [
  "bigint",
  "bit-vec",
@@ -950,7 +950,7 @@ dependencies = [
 
 [[package]]
 name = "epic_config"
-version = "3.3.2-1"
+version = "3.3.2"
 dependencies = [
  "dirs",
  "epic_core",
@@ -966,7 +966,7 @@ dependencies = [
 
 [[package]]
 name = "epic_core"
-version = "3.3.2-1"
+version = "3.3.2"
 dependencies = [
  "bigint",
  "blake2-rfc",
@@ -999,7 +999,7 @@ dependencies = [
 
 [[package]]
 name = "epic_keychain"
-version = "3.3.2-1"
+version = "3.3.2"
 dependencies = [
  "blake2-rfc",
  "byteorder 1.4.3",
@@ -1021,7 +1021,7 @@ dependencies = [
 
 [[package]]
 name = "epic_p2p"
-version = "3.3.2-1"
+version = "3.3.2"
 dependencies = [
  "bitflags 1.3.2",
  "bytes 0.4.12",
@@ -1044,7 +1044,7 @@ dependencies = [
 
 [[package]]
 name = "epic_pool"
-version = "3.3.2-1"
+version = "3.3.2"
 dependencies = [
  "blake2-rfc",
  "chrono",
@@ -1063,7 +1063,7 @@ dependencies = [
 
 [[package]]
 name = "epic_servers"
-version = "3.3.2-1"
+version = "3.3.2"
 dependencies = [
  "bigint",
  "chrono",
@@ -1095,7 +1095,7 @@ dependencies = [
 
 [[package]]
 name = "epic_store"
-version = "3.3.2-1"
+version = "3.3.2"
 dependencies = [
  "byteorder 1.4.3",
  "chrono",
@@ -1118,7 +1118,7 @@ dependencies = [
 
 [[package]]
 name = "epic_util"
-version = "3.3.2-1"
+version = "3.3.2"
 dependencies = [
  "backtrace",
  "base64 0.9.3",
