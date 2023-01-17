@@ -1,3 +1,18 @@
+# epic 3.3.2
+
+  - V3 custom config for testnets
+    - Enable the new PolicyConfig for onlyrandomx and noprogpow please use one-off new arguments
+  - Changes on the usernet
+    - Mine more blocks per second
+  - Added feedback if foundations are broken
+  - Add get blocks and get last n kernels endpoints
+    - Get blocks returns all the mined blocks
+    - Last n kernels returns all the available kernels
+  - Add Testnet configuration file
+  - Reproducible builds
+  - New readme
+
+
 # epic 3.0.9-alpha-1
 
   - Add --onlyrandomx and --noprogpow for testnet
@@ -21,7 +36,7 @@
   - Refactor: Remove libssl-dev as build requirement
   - Fix: Replace log::info feature with log::debug to fix overprinting sync messages
   - Feat: Implement Github Action for generating Linux artifact
-  - [#40](https://github.com/EpicCash/epic/issues/40) Doubling the value of the MAINNET_FIRST_HARD_FORK constant 
+  - [#40](https://github.com/EpicCash/epic/issues/40) Doubling the value of the MAINNET_FIRST_HARD_FORK constant
   - Fix: Update croaring to a fork that doesn't use `-march=native` that was causing the illegal instruction errors
   - [#38](https://github.com/EpicCash/epic/issues/38) Retry connecting to the seed servers when there is no connected peers
   - Test(config): Add unit tests to check compatibility with v2 and v3 values for log-levels

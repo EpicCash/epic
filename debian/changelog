@@ -1,3 +1,14 @@
+epic (3.3.2) bionic; urgency=medium
+
+  [ Epic Team ]
+  * V3 custom config for testnets
+  * Changes on the usernet
+  * Added feedback if foundations are broken
+  * Add get blocks and get last n kernels endpoints
+  * Add Testnet configuration file
+  * Reproducible builds
+  * New readme
+
 epic (3.0.9~alpha-1) UNRELEASED; urgency=low
 
   [ Eric Shimizu ]
@@ -6,17 +17,17 @@ epic (3.0.9~alpha-1) UNRELEASED; urgency=low
   * Make onlyrandomx and noprogpow.
 
   [ Marcio Macedo ]
-  * Fix Testnet: 
+  * Fix Testnet:
   * Make usernet mine more in Header Version 6.
   * Write on the build document about testnet configuration.
-  * Small Fix: 
+  * Small Fix:
   * Variable reference.
   * Cmake version.
 
   [ João Victor da Silva ]
   * CORE: new warning information if foundation file is broken before close the node.
   * Testnet: new testnet_configuration file for collaborators to configure the test environment.
-  * Automated Tests: 
+  * Automated Tests:
   * Fixed the cucumber automated tests.
   * Add new scenario to test refuse invalid cukatoo pow.
 
