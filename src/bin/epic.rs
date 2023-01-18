@@ -83,17 +83,16 @@ fn real_main() -> i32 {
 		.get_matches();
 	let node_config;
 
+	// run floonet and usernet with custom PolicyConfig
+	if args.is_present("floonet") || args.is_present("usernet") {
+		if args.is_present("noprogpow") {
+			global::set_policy_config(PolicyConfig::no_progpow());
+		};
 
-    // run floonet and usernet with csutom PolicyConfig
-    if args.is_present("floonet") || args.is_present("usernet") {
-        if args.is_present("noprogpow") {
-            global::set_policy_config(PolicyConfig::no_progpow());
-        };
-
-        if args.is_present("onlyrandomx") {
-            global::set_policy_config(PolicyConfig::only_randomx());
-        };
-    };
+		if args.is_present("onlyrandomx") {
+			global::set_policy_config(PolicyConfig::only_randomx());
+		};
+	};
 
 	let chain_type = if args.is_present("floonet") {
 		global::ChainTypes::Floonet
