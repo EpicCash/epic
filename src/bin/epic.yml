@@ -48,8 +48,8 @@ subcommands:
             takes_value: true
 
   - wallet:
-      about: As of v1.1.0, the wallet has been split into a separate executable. See https://github.com/mimblewimble/epic-wallet/releases
-      usage: As of v1.1.0, the wallet has been split into a separate executable. See https://github.com/mimblewimble/epic-wallet/releases to download
+      about: As of v1.1.0, the wallet has been split into a separate executable. See https://github.com/EpicCash/epic-wallet/releases
+      usage: As of v1.1.0, the wallet has been split into a separate executable. See https://github.com/EpicCash/epic-wallet/releases to download
   - server:
       about: Control the Epic server
       args:

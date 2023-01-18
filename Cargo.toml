@@ -1,10 +1,10 @@
 [package]
 name = "epic"
 version = "3.3.2"
-authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
+authors = ["Epic Foundation <epiccash@brickabode.com>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
-repository = "https://github.com/mimblewimble/epic"
+repository = "https://github.com/EpicCash/epic"
 keywords = ["crypto", "epic", "mimblewimble"]
 readme = "README.md"
 exclude = ["**/*.epic", "**/*.epic2"]
