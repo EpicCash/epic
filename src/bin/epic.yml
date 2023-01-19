@@ -1,5 +1,5 @@
 name: epic
-version: "3.0.0"
+version: "3.3.2"
 about: Lightweight implementation of the MimbleWimble protocol.
 author: The Epic Team
 
@@ -11,6 +11,14 @@ args:
   - usernet:
       help: Run epic as a local-only network. Doesn't block peer connections but will not connect to any peer or seed
       long: usernet
+      takes_value: false
+  - noprogpow:
+      help: Run epic floonet or usernet without progpow blocks
+      long: noprogpow
+      takes_value: false
+  - onlyrandomx:
+      help: Run epic floonet or usernet only with randomx blocks
+      long: onlyrandomx
       takes_value: false
 subcommands:
   - taxes:
@@ -40,8 +48,8 @@ subcommands:
             takes_value: true
 
   - wallet:
-      about: As of v1.1.0, the wallet has been split into a separate executable. See https://github.com/mimblewimble/epic-wallet/releases
-      usage: As of v1.1.0, the wallet has been split into a separate executable. See https://github.com/mimblewimble/epic-wallet/releases to download
+      about: As of v1.1.0, the wallet has been split into a separate executable. See https://github.com/EpicCash/epic-wallet/releases
+      usage: As of v1.1.0, the wallet has been split into a separate executable. See https://github.com/EpicCash/epic-wallet/releases to download
   - server:
       about: Control the Epic server
       args:

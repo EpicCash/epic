@@ -110,6 +110,10 @@ pub const MAINNET_FOUNDATION_HEIGHT: u64 = DAY_HEIGHT;
 pub const AUTOMATEDTEST_FOUNDATION_HEIGHT: u64 = 5;
 
 /// Set the height (and its multiples) where the foundation coinbase will be added to the block.
+/// Used in Usernet.
+pub const USERNET_FOUNDATION_HEIGHT: u64 = DAY_HEIGHT;
+
+/// Set the height (and its multiples) where the foundation coinbase will be added to the block.
 /// Used in the Floonet.
 pub const FLOONET_FOUNDATION_HEIGHT: u64 = DAY_HEIGHT;
 
@@ -118,7 +122,7 @@ pub fn foundation_height() -> u64 {
 	let param_ref = global::CHAIN_TYPE.read();
 	match *param_ref {
 		global::ChainTypes::AutomatedTesting => AUTOMATEDTEST_FOUNDATION_HEIGHT,
-		global::ChainTypes::UserTesting => AUTOMATEDTEST_FOUNDATION_HEIGHT,
+		global::ChainTypes::UserTesting => USERNET_FOUNDATION_HEIGHT,
 		global::ChainTypes::Floonet => FLOONET_FOUNDATION_HEIGHT,
 		_ => MAINNET_FOUNDATION_HEIGHT,
 	}
@@ -320,7 +324,7 @@ pub const MAINNET_FIRST_HARD_FORK: u64 = 2600000;
 pub const FLOONET_FIRST_HARD_FORK: u64 = 25800;
 
 /// AutomatedTesting and UserTesting first hard fork height.
-pub const TESTING_FIRST_HARD_FORK: u64 = 6;
+pub const TESTING_FIRST_HARD_FORK: u64 = 25800;
 
 /// Get the height of the first epic hard fork
 pub fn first_fork_height() -> u64 {
@@ -349,7 +353,7 @@ pub fn valid_header_version(height: u64, version: HeaderVersion) -> bool {
 }
 
 ///defines the block height at wich the difficulty adjustment era changes for testing
-pub const TESTING_DIFFICULTY_ERA: u64 = 50;
+pub const TESTING_DIFFICULTY_ERA: u64 = 1;
 ///defines the block height at wich the difficulty adjustment era changes for floonet
 pub const FLOONET_DIFFICULTY_ERA: u64 = 200;
 ///defines the block height at wich the difficulty adjustment era changes
@@ -422,6 +426,8 @@ pub const MIN_DIFFICULTY: u64 = DIFFICULTY_DAMP_FACTOR;
 
 /// RandomX Minimum difficulty (used for saturation)
 pub const MIN_DIFFICULTY_RANDOMX: u64 = 4000;
+/// RandomX Minimum difficulty (used for saturation on usernet)
+pub const MIN_DIFFICULTY_RANDOMX_TESTING: u64 = 1;
 /// RandomX Minimum difficulty until fork (used for saturation)
 pub const OLD_MIN_DIFFICULTY_RANDOMX: u64 = 5000;
 
@@ -581,6 +587,10 @@ pub fn next_difficulty<T>(height: u64, prev_algo: PoWType, cursor: T) -> HeaderI
 where
 	T: IntoIterator<Item = HeaderInfo>,
 {
+	if crate::global::is_floonet() || crate::global::is_user_testing_mode() {
+		return HeaderInfo::from_diff_scaling(Difficulty::from_num(1), 1);
+	}
+
 	let diff_data = match prev_algo.clone() {
 		PoWType::Cuckatoo => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
 		PoWType::Cuckaroo => global::difficulty_data_to_vector(cursor, DIFFICULTY_ADJUST_WINDOW),
@@ -777,8 +787,15 @@ fn next_randomx_difficulty_era1(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u6
 		RX_CLAMP_FACTOR,
 	);
 
-	// minimum difficulty avoids getting stuck due to dampening
-	max(MIN_DIFFICULTY_RANDOMX, diff_sum * BLOCK_TIME_SEC / adj_ts)
+	let param_ref = global::CHAIN_TYPE.read();
+	match *param_ref {
+		global::ChainTypes::UserTesting => max(
+			MIN_DIFFICULTY_RANDOMX_TESTING, 
+			diff_sum * BLOCK_TIME_SEC / adj_ts,
+		),
+		_ => max(MIN_DIFFICULTY_RANDOMX, diff_sum * BLOCK_TIME_SEC / adj_ts)
+	}
+
 }
 
 /// calculates the next difficulty era1 level for cuckoo

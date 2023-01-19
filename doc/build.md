@@ -2,13 +2,14 @@
 
 ## Requirements
 
-- rust 1.44
+- rust 1.56
 - clang
 - ncurses and libs (ncurses, ncursesw5)
 - zlib libs (zlib1g-dev or zlib-devel)
 - pkg-config
 - linux-headers (reported needed on Alpine linux)
-- llvm
+- llvm (which can be downloaded [here](https://github.com/llvm/llvm-project/releases))
+- cmake (tested with versions 3.18.4 and 3.19.3)
 
 For Debian-based distributions (Debian, Ubuntu, Mint, etc), all in one line
 (except Rust):
@@ -58,30 +59,14 @@ The output should be something like this:
 rustc 1.56.0 (xxxxx)
 ```
 
-After you have rust installed, execute the following command in the terminal:
-
-```sh
-rustup default 1.44.0
-```
-
-And then, check if you are using the correct version by typing the following
-command in the terminal:
-
-```sh
-rustc --version
-```
-
-The output should be something like this:
-
-```sh
-rustc 1.56.0 (xxxxx)
-```
 
 ## Build steps
 
 ```sh
-git clone https://gitlab.com/epiccash/epic
+git clone https://github.com/EpicCash/epic
 cd epic
+git submodule update --init --recursive
+cargo update
 cargo build --release
 ```
 
@@ -105,18 +90,26 @@ installation open a new terminal session and execute the following steps:
    ```sh
    cd target/release
    ```
-2. Configuring the **$PATH** environment variable
+
+2. <s>Configuring the **$PATH** environment variable</s>
+
 
    ```sh
    export LD_LIBRARY_PATH=$(find . -iname librandomx.so | head -n 1 | xargs dirname | xargs realpath)
    ```
 
-   For MacOs use (need brew coreutils to be installed):
+   <s>For MacOs use (need brew coreutils to be installed):</s>
+
    ```sh
    export LD_LIBRARY_PATH=$(find . -iname librandomx.dylib | head -n 1 | xargs dirname | xargs realpath)
    ```
-
-3. Execute the epic server using the following command:
+   
+   
+3. Create the epic-server.toml config and Init the epic server using the following command:
+   ```sh
+   ./epic server config
+   ```
+4. Execute the epic server using the following command:
 
    ```sh
    ./epic
@@ -158,6 +151,30 @@ All mining functions for Epic are in a separate project called
 
 <a id="testnet_reset"></a>
 
+## How to Connect to Testnet
+
+To connect to floonet properly, just follow the steps indicated in the file [testnet configuration](https://github.com/EpicCash/epic/blob/master/doc/testnet_configuration.md).
+
+## Testnet Configuration
+
+If you want to run one of the testnets (**floonet** or **usernet**) to try out new features and simulate distinct scenarios without using a real wallet, you need to add the parameter "--floonet" (remote testnet) or "--usernet" (local testnet, recommended) after the epic server and the epic wallet to be used.
+
+   ```sh
+   epic --usernet --onlyrandomx...
+   epic-wallet --usernet ...
+   ```
+   
+Floonet data is stored on the directory path **<HOME>/.epic/floo**, while usernet data is stored on the directory path **<HOME>/.epic/user**.
+
+To be able to run a testnet properly, you need to ensure that:
+
+1. When running the epic-miner, the **stratum_server_addr** variable available in the file epic-miner.toml should be 13416;
+2. When running the epic-server for floonet, the file epic-server.toml must be configured so that the **seeding_type = List** and the **seeds = ["15.229.31.27:23414"]**;
+3. When running the epic-server for usernet, the file epic-server.toml must be configured so that the **stratum_server_addr = "127.0.0.1:13416"**;
+
+Also, be careful with the epic-wallet.toml file that may be downloaded from the repository, because if this file is available in the same folder as the epic-wallet executable, 
+it will be used by the application rather than the epic-wallet.toml file available in the home path.
+   
 ## Testnet Reset
 
 If the testnet is restarted or there's a new version of the epic server, you
@@ -213,25 +230,3 @@ Finally, run from the respective project root the following command:
 ```sh
 fakeroot make -f debian/rules binary
 ```
-
-## Adjusting algorithm difficulties
-
-In the next few days we will need to adjust the difficulties in order to reach
-an ideal point. In order to change that manually access the file
-**core/src/genesis.rs** from epic root directory. Look for the functions
-**genesis_floo** and **genesis_main** and search for the lines that look like
-the following:
-
-```rust
-diff.insert(PoWType::Cuckaroo, 2_u64.pow(1));
-diff.insert(PoWType::Cuckatoo, 2_u64.pow(1));
-diff.insert(PoWType::RandomX, 2_u64.pow(16));
-diff.insert(PoWType::ProgPow, 2_u64.pow(8));
-```
-
-And change the values under **.pow()**.
-
-After you did those things you will need to rebuild the package, the testnet and
-everybody participating in the network will need to install the new package and
-restart all the services. More instruction of how to that can be found in the
-topic [Testnet Reset](#testnet_reset).

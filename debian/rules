@@ -11,8 +11,6 @@ clean: debian/control
 
 .ONESHELL:
 build/stamp: Cargo.toml api chain config core keychain p2p pool servers src store util
-	git submodule update --init --recursive
-	git submodule update --recursive
 	cargo build --release
 	mkdir -p build
 	touch $(@)
@@ -39,4 +37,4 @@ binary binary-arch binary-indep: build/stamp debian/control
 	dh_installdeb
 	dh_gencontrol
 	dh_md5sums
-	dh_builddeb
+	dh_builddeb --destdir ./release/epic/

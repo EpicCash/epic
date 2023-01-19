@@ -1,6 +1,6 @@
 // Copyright 2018 The Grin Developers
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the &Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -120,7 +120,6 @@ pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
 pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
 	"8ef0a84b35ec04576e583b7ed2f8a0d1becf4ee6ce67f9f3608deff8ad2ad103";
 
-
 /// Types of chain a server can run with, dictates the genesis block and
 /// and mining parameters used.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -238,33 +237,61 @@ pub fn set_foundation_path(path: String) {
 /// If we are running floonet, it will look for the file foundation_floonet.json .
 pub fn use_alternative_path(path_str: String) -> String {
 	let check_path = Path::new(&path_str);
-	if !check_path.exists() {
-		let mut p = env::current_exe().expect("Failed to get the executable's directory and no path to the foundation.json was provided!");
-		//removing the file from the path and going back 2 directories
-		for _ in 0..3 {
-			p.pop();
-		}
-		p.push("debian");
-		let foundation_name = match CHAIN_TYPE.read().clone() {
-			ChainTypes::Mainnet => "foundation.json",
-			_ => "foundation_floonet.json",
+	if check_path.exists() {
+		if check_foundation(path_str.clone()) {
+			return path_str;
 		};
-		p.push(foundation_name);
-		warn!(
-			"The file `{}` was not found! Will try to use the alternative file `{}`!",
-			check_path.display(),
-			p.display()
-		);
-		p.to_str().expect("Failed to get the executable's directory and no path to the foundation.json was provided!").to_owned()
-	} else {
-		path_str
+	};
+	let mut p = env::current_exe().expect(
+		"Failed to get the executable's directory and no path to the foundation.json was provided!",
+	);
+	//if we run the "cargo test --release" the p contains "cucumber_..." in last folder
+	if p.file_stem().unwrap().to_str().unwrap().contains(&"cucumber") {
+		return path_str;
 	}
+	//removing the file from the path and going back 2 directories
+	for _ in 0..3 {
+		p.pop();
+	}
+	p.push("debian");
+	let foundation_name = match CHAIN_TYPE.read().clone() {
+		ChainTypes::Mainnet => "foundation.json",
+		_ => "foundation_floonet.json",
+	};
+	p.push(foundation_name);
+	if check_path.exists() {
+		warn!(
+			"Invalid foundation file!\nCheck if the file `{}` was not changed!",
+			check_path.display()
+		);
+		println!(
+			"Invalid foundation file!\nCheck if the file `{}` was not changed!",
+			check_path.display()
+		);
+	} else {
+		warn!("The file `{}` was not found!", check_path.display());
+		println!("The file `{}` was not found!", check_path.display());
+	}
+	warn!("Will try to use the alternative file `{}`!", p.display());
+	println!("Will try to use the alternative file `{}`!", p.display());
+	return p.to_str().expect("Failed to get the executable's directory and no path to the foundation.json was provided!").to_owned();
 }
 
 /// Get the current path to the foundation.json file (file with the foundation wallet outputs/kernels)
 pub fn get_foundation_path() -> Option<String> {
 	let foundation_path = FOUNDATION_FILE.read();
 	foundation_path.clone()
+}
+
+/// Check if the foundation file is correct
+pub fn check_foundation(path_str: String) -> bool {
+	let hash_to_compare = foundation_json_sha256();
+	let hash = get_file_sha256(&path_str);
+	if hash.as_str() != hash_to_compare {
+		false
+	} else {
+		true
+	}
 }
 
 /// Set the policy configuration that will be used by the blockchain
@@ -607,8 +634,16 @@ impl Version {
 	}
 }
 
+/// Get the sha256 of file
 pub fn get_file_sha256(path: &str) -> String {
-	let mut file = File::open(path).expect(
+	let file_open = File::open(path);
+	if file_open.is_err() {
+		println!(
+			"\nCouldn't open the foundation file!\nCheck if the file \"{}\" was not changed!",
+			path
+		);
+	};
+	let mut file = file_open.expect(
 		format!(
 			"Error trying to read the foundation.json. Couldn't find/open the file {}!",
 			path

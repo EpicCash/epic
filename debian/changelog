@@ -1,6 +1,47 @@
+epic (3.3.2) bionic; urgency=medium
+
+  [ Epic Team ]
+  * V3 custom config for testnets
+  * Changes on the usernet
+  * Added feedback if foundations are broken
+  * Add get blocks and get last n kernels endpoints
+  * Add Testnet configuration file
+  * Reproducible builds
+  * New readme
+
+epic (3.0.9~alpha-1) UNRELEASED; urgency=low
+
+  [ Eric Shimizu ]
+  * Testnet improvements:
+  * Make testnet difficulty smaller.
+  * Make onlyrandomx and noprogpow.
+
+  [ Marcio Macedo ]
+  * Fix Testnet:
+  * Make usernet mine more in Header Version 6.
+  * Write on the build document about testnet configuration.
+  * Small Fix:
+  * Variable reference.
+  * Cmake version.
+
+  [ João Victor da Silva ]
+  * CORE: new warning information if foundation file is broken before close the node.
+  * Testnet: new testnet_configuration file for collaborators to configure the test environment.
+  * Automated Tests:
+  * Fixed the cucumber automated tests.
+  * Add new scenario to test refuse invalid cukatoo pow.
+
+  [ Raul Silva ]
+  * Testnet improvements: make the difficulty equals 1 to usernet.
+  * API: create 2 new methods:
+  * get_last_n_kernels to get kernels for last n blocks.
+  * get_blocks to get the entire information about the blocks.
+
+ -- João Victor da Silva <joao.silva@brickabode.com>  Mon, 8 Aug 2022 12:00:00 +0000
+
 epic (3.0.0) bionic; urgency=medium
 
-  [ Johannes Hahn]
+  [ Johannes Hahn ]
   * P2P: better handling of mpsc channel and initial handshake messages with other peers
   * Chain: Better output PMMR handling and Chain DB index. Improve stability and DB crashes.
   * New Header Version 7 and better Header Version Switch
