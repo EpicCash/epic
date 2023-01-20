@@ -28,7 +28,7 @@ The main goal and characteristics of the Epic project are:
 
 Epic is live with mainnet.
 
-# Getting Started
+# Getting Started (from 3.3.2 forward)
 
 The full Epic Wiki can be found here: [Epic Cash - Wiki](https://github.com/EpicCash/documentation/wiki)
 
