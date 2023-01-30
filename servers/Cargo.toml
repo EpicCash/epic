@@ -37,3 +37,4 @@ epic_p2p = { path = "../p2p", version = "3.0.0" }
 epic_pool = { path = "../pool", version = "3.0.0" }
 epic_store = { path = "../store", version = "3.0.0" }
 epic_util = { path = "../util", version = "3.0.0" }
+cdn = { path = "../cdn", version = "0.1.0" }

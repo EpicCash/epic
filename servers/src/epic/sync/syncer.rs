@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::path::Path;
 use std::sync::Arc;
 use std::thread;
 use std::time;
@@ -24,6 +25,7 @@ use crate::epic::sync::header_sync::HeaderSync;
 use crate::epic::sync::state_sync::StateSync;
 use crate::p2p;
 use crate::util::StopState;
+use cdn::cdn::CDN;
 
 pub fn run_sync(
 	sync_state: Arc<SyncState>,
@@ -31,12 +33,18 @@ pub fn run_sync(
 	chain: Arc<chain::Chain>,
 	stop_state: Arc<StopState>,
 ) -> std::io::Result<std::thread::JoinHandle<()>> {
-	thread::Builder::new()
-		.name("sync".to_string())
-		.spawn(move || {
-			let runner = SyncRunner::new(sync_state, peers, chain, stop_state);
-			runner.sync_loop();
-		})
+	let path = Path::new("/home/~/.epic/user/chain_data/");
+	if path.exists() {
+		let cdn_syncer = CDNSyncer { cdn: CDN {} };
+		cdn_syncer.run();
+	} else {
+		thread::Builder::new()
+			.name("sync".to_string())
+			.spawn(move || {
+				let runner = SyncRunner::new(sync_state, peers, chain, stop_state);
+				runner.sync_loop();
+			})
+	}
 }
 
 pub struct SyncRunner {
@@ -278,5 +286,17 @@ impl SyncRunner {
 			}
 		}
 		Ok((is_syncing, peer_info.height()))
+	}
+}
+
+pub struct CDNSyncer {
+	cdn: CDN,
+}
+
+impl CDNSyncer {
+	fn run(&self) {
+		self.cdn.download();
+		self.cdn.unzip();
+		self.cdn.chdir();
 	}
 }
