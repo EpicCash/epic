@@ -234,7 +234,6 @@ pub fn set_foundation_path(path: String) {
 
 ///	Check if the foundation.json exists in the directory appointed by the .toml file, if not,
 /// use the alternative path ../../debian/foundation.json relative to the folder where the executable is in.
-/// If we are running floonet, it will look for the file foundation_floonet.json .
 pub fn use_alternative_path(path_str: String) -> String {
 	let check_path = Path::new(&path_str);
 	if check_path.exists() {
@@ -246,7 +245,12 @@ pub fn use_alternative_path(path_str: String) -> String {
 		"Failed to get the executable's directory and no path to the foundation.json was provided!",
 	);
 	//if we run the "cargo test --release" the p contains "cucumber_..." in last folder
-	if p.file_stem().unwrap().to_str().unwrap().contains(&"cucumber") {
+	if p.file_stem()
+		.unwrap()
+		.to_str()
+		.unwrap()
+		.contains(&"cucumber")
+	{
 		return path_str;
 	}
 	//removing the file from the path and going back 2 directories
@@ -254,10 +258,7 @@ pub fn use_alternative_path(path_str: String) -> String {
 		p.pop();
 	}
 	p.push("debian");
-	let foundation_name = match CHAIN_TYPE.read().clone() {
-		ChainTypes::Mainnet => "foundation.json",
-		_ => "foundation_floonet.json",
-	};
+	let foundation_name = "foundation.json";
 	p.push(foundation_name);
 	if check_path.exists() {
 		warn!(
