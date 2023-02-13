@@ -56,11 +56,8 @@ fn get_epic_path(chain_type: &global::ChainTypes) -> Result<PathBuf, ConfigError
 	Ok(epic_path)
 }
 
-fn get_foundation_path(chain_type: &global::ChainTypes) -> String {
-	let foundation_name = match *chain_type {
-		global::ChainTypes::Mainnet => "foundation.json",
-		_ => "foundation_floonet.json",
-	};
+fn get_foundation_path(_: &global::ChainTypes) -> String {
+	let foundation_name = "foundation.json";
 
 	if cfg!(windows) {
 		format!(".\\{}", foundation_name).to_owned()
