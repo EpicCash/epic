@@ -21,7 +21,6 @@ use rand::prelude::*;
 
 use crate::api;
 use crate::chain;
-use crate::core::core::block::feijoada::PolicyConfig;
 use crate::core::global;
 use crate::core::global::ChainTypes;
 use crate::core::{consensus, core, libtx, pow};
@@ -185,6 +184,14 @@ pub struct ServerConfig {
 	/// if enabled, this will disable logging to stdout
 	pub run_tui: Option<bool>,
 
+	/// Only use PoWType::RandomX in PolicyConfig
+	/// Required for floonet, has no effect on Mainnet
+	pub only_randomx: Option<bool>,
+
+	/// Disable PoWType::ProgPow in PolicyConfig
+	/// For use with Floonet, Usernet. Has no effect on Mainnet
+	pub no_progpow: Option<bool>,
+
 	/// Whether to run the test miner (internal, cuckoo 16)
 	pub run_test_miner: Option<bool>,
 
@@ -234,6 +241,8 @@ impl Default for ServerConfig {
 			skip_sync_wait: Some(false),
 			header_sync_timeout: 10,
 			run_tui: Some(true),
+			only_randomx: Some(false),
+			no_progpow: Some(false),
 			run_test_miner: Some(false),
 			test_miner_wallet_url: None,
 			webhook_config: WebHooksConfig::default(),
@@ -296,7 +305,7 @@ impl Default for StratumServerConfig {
 				progpow_minimum_share_difficulty: consensus::MIN_DIFFICULTY_PROGPOW,
 				enable_stratum_server: Some(true),
 				stratum_server_addr: Some("127.0.0.1:3416".to_string()),
-			}
+			},
 		}
 	}
 }

@@ -149,6 +149,24 @@ fn comments() -> HashMap<String, String> {
 	);
 
 	retval.insert(
+		"only_randomx".to_string(),
+		"
+#Whether or not to set PolicyConfig to only use PoWType::RandomX.
+#Required for use of Floonet, has no effect on Mainnet
+"
+		.to_string(),
+	);
+
+	retval.insert(
+		"no_progpow".to_string(),
+		"
+#Whether or not to set PolicyConfig to disable PoWType::ProgPow
+#For use on Floonet or Usernet. Has no effect on Mainnet
+"
+		.to_string(),
+	);
+
+	retval.insert(
 		"[server.dandelion_config]".to_string(),
 		"
 #########################################
