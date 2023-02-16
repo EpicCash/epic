@@ -71,6 +71,14 @@ fn comments() -> HashMap<String, String> {
 	);
 
 	retval.insert(
+		"syncing_method".to_string(),
+		"
+#method to be used when syncing with empty chain data
+"
+		.to_string(),
+	);
+
+	retval.insert(
 		"db_root".to_string(),
 		"
 #the directory, relative to current, in which the epic blockchain

@@ -35,8 +35,12 @@ pub fn run_sync(
 ) -> std::io::Result<std::thread::JoinHandle<()>> {
 	let path = Path::new("/home/~/.epic/user/chain_data/");
 	if path.exists() {
-		let cdn_syncer = CDNSyncer { cdn: CDN {} };
-		cdn_syncer.run();
+		thread::Builder::new()
+			.name("sync".to_string())
+			.spawn(move || {
+				let cdn_syncer = CDNSyncer { cdn: CDN {} };
+				cdn_syncer.run();
+			})
 	} else {
 		thread::Builder::new()
 			.name("sync".to_string())

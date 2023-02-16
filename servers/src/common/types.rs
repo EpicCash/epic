@@ -157,6 +157,9 @@ pub struct ServerConfig {
 	/// Path to the directory where the file of pre-generated foundation coinbases is in.
 	pub foundation_path: String,
 
+	/// The method of syncing for chain data
+	pub syncing_method: String,
+
 	/// TLS certificate file
 	pub tls_certificate_file: Option<String>,
 	/// TLS certificate private key file
@@ -222,6 +225,7 @@ impl Default for ServerConfig {
 			api_secret_path: Some(".api_secret".to_string()),
 			foreign_api_secret_path: Some(".foreign_api_secret".to_string()),
 			foundation_path: "foundation".to_string(),
+			syncing_method: "CDN".to_string(),
 			tls_certificate_file: None,
 			tls_certificate_key: None,
 			p2p_config: p2p::P2PConfig::default(),
@@ -296,7 +300,7 @@ impl Default for StratumServerConfig {
 				progpow_minimum_share_difficulty: consensus::MIN_DIFFICULTY_PROGPOW,
 				enable_stratum_server: Some(true),
 				stratum_server_addr: Some("127.0.0.1:3416".to_string()),
-			}
+			},
 		}
 	}
 }
