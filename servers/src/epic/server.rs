@@ -282,6 +282,7 @@ impl Server {
 		sync_state.update(SyncStatus::AwaitingPeers(!skip_sync_wait));
 
 		let sync_thread = sync::run_sync(
+			&config.syncing_method,
 			sync_state.clone(),
 			p2p_server.peers.clone(),
 			shared_chain.clone(),

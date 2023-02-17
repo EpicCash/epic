@@ -28,13 +28,15 @@ use crate::util::StopState;
 use cdn::cdn::CDN;
 
 pub fn run_sync(
+	method: &str,
 	sync_state: Arc<SyncState>,
 	peers: Arc<p2p::Peers>,
 	chain: Arc<chain::Chain>,
 	stop_state: Arc<StopState>,
 ) -> std::io::Result<std::thread::JoinHandle<()>> {
 	let path = Path::new("/home/~/.epic/user/chain_data/");
-	if path.exists() {
+	// TODO this should consider a threshold for each type of syncing.
+	if path.exists() && method == "CDN" {
 		thread::Builder::new()
 			.name("sync".to_string())
 			.spawn(move || {
