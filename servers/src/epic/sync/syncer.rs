@@ -12,10 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::env::current_dir;
+use std::fs;
+use std::fs::create_dir_all;
+use std::io;
+use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 use std::thread;
 use std::time;
+use tokio::runtime::Runtime;
+//use std::sync::Arc;
+use chrono::prelude::*;
 
 use crate::chain::{self, SyncState, SyncStatus};
 use crate::core::global;
@@ -25,7 +33,7 @@ use crate::epic::sync::header_sync::HeaderSync;
 use crate::epic::sync::state_sync::StateSync;
 use crate::p2p;
 use crate::util::StopState;
-use cdn::cdn::CDN;
+use cdn::cdn::{generate_name, print_async, run_download, CDNSyncer, CDN};
 
 pub fn run_sync(
 	method: &str,
@@ -34,16 +42,39 @@ pub fn run_sync(
 	chain: Arc<chain::Chain>,
 	stop_state: Arc<StopState>,
 ) -> std::io::Result<std::thread::JoinHandle<()>> {
-	let path = Path::new("/home/~/.epic/user/chain_data/");
-	// TODO this should consider a threshold for each type of syncing.
-	if path.exists() && method == "CDN" {
-		thread::Builder::new()
-			.name("sync".to_string())
-			.spawn(move || {
-				let cdn_syncer = CDNSyncer { cdn: CDN {} };
-				cdn_syncer.run();
-			})
+	if method == "CDN" {
+		let path = current_dir()?;
+		let result_cdn = if !path.exists() {
+			create_dir_all(path)
+		} else {
+			Ok(())
+		};
+
+		match result_cdn {
+			Ok(_) => {
+				println!("++ CDN SYNCED!");
+				let download_path = generate_name();
+				run_download(download_path.clone());
+
+				let handle = thread::Builder::new()
+					.name("sync".to_string())
+					.spawn(move || {
+						let cdn_syncer = CDNSyncer {
+							cdn: CDN {},
+							download_path: download_path,
+						};
+						cdn_syncer.run();
+					});
+
+				println!("++ CDN IN DOWNLOAD!");
+				handle
+			}
+			Err(e) => {
+				panic!("Error creating CDN directory: {:?}", e);
+			}
+		}
 	} else {
+		info!("++ PEERS SYNCED!");
 		thread::Builder::new()
 			.name("sync".to_string())
 			.spawn(move || {
@@ -292,17 +323,5 @@ impl SyncRunner {
 			}
 		}
 		Ok((is_syncing, peer_info.height()))
-	}
-}
-
-pub struct CDNSyncer {
-	cdn: CDN,
-}
-
-impl CDNSyncer {
-	fn run(&self) {
-		self.cdn.download();
-		self.cdn.unzip();
-		self.cdn.chdir();
 	}
 }

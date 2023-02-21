@@ -281,6 +281,8 @@ impl Server {
 		let skip_sync_wait = config.skip_sync_wait.unwrap_or(false);
 		sync_state.update(SyncStatus::AwaitingPeers(!skip_sync_wait));
 
+		info!("++ Sync Method: {:?}", &config.syncing_method);
+
 		let sync_thread = sync::run_sync(
 			&config.syncing_method,
 			sync_state.clone(),
@@ -288,6 +290,8 @@ impl Server {
 			shared_chain.clone(),
 			stop_state.clone(),
 		)?;
+
+		info!("++ Finished sync_thread: {:?}", sync_thread.is_finished());
 
 		let p2p_inner = p2p_server.clone();
 		let _ = thread::Builder::new()

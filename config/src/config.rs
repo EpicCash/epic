@@ -41,7 +41,8 @@ const EPIC_CHAIN_DIR: &'static str = "chain_data";
 /// Node API secret
 pub const API_SECRET_FILE_NAME: &'static str = ".api_secret";
 
-fn get_epic_path(chain_type: &global::ChainTypes) -> Result<PathBuf, ConfigError> {
+/// This function will return the `~/.epic/chain_type` directory, and if it doesn't exist -> create and return
+pub fn get_epic_path(chain_type: &global::ChainTypes) -> Result<PathBuf, ConfigError> {
 	// Check if epic dir exists
 	let mut epic_path = match dirs::home_dir() {
 		Some(p) => p,

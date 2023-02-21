@@ -5,7 +5,7 @@ authors = ["Epic Foundation <mimblewimble@lists.launchpad.net>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
 repository = "https://github.com/mimblewimble/epic"
-keywords = [ "crypto", "epic", "mimblewimble" ]
+keywords = ["crypto", "epic", "mimblewimble"]
 workspace = ".."
 edition = "2018"
 
@@ -23,7 +23,7 @@ log = "0.4"
 serde_derive = "1"
 serde_json = "1"
 chrono = "0.4.4"
-tokio =  "0.1.11"
+tokio = "0.1.11"
 bigint = "4.4.1"
 clokwerk = "0.2.1"
 trust-dns-resolver = "0.11.1"
@@ -37,4 +37,4 @@ epic_p2p = { path = "../p2p", version = "3.0.0" }
 epic_pool = { path = "../pool", version = "3.0.0" }
 epic_store = { path = "../store", version = "3.0.0" }
 epic_util = { path = "../util", version = "3.0.0" }
-cdn = { path = "../cdn", version = "0.1.0" }
+cdn = { path = "../cdn", version = "3.5.0" }
