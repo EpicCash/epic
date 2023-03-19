@@ -344,6 +344,8 @@ bitflags! {
 		const PEER_LIST = 0b00000100;
 		/// Can broadcast and request txs by kernel hash.
 		const TX_KERNEL_HASH = 0b00001000;
+		/// Does support fastsync where requested headers can be returned by an offset value.
+		const HEADER_FASTSYNC = 0b00010000;
 
 		/// All nodes right now are "full nodes".
 		/// Some nodes internally may maintain longer block histories (archival_mode)
@@ -352,7 +354,9 @@ bitflags! {
 		const FULL_NODE = Capabilities::HEADER_HIST.bits
 			| Capabilities::TXHASHSET_HIST.bits
 			| Capabilities::PEER_LIST.bits
-			| Capabilities::TX_KERNEL_HASH.bits;
+			| Capabilities::TX_KERNEL_HASH.bits
+			| Capabilities::HEADER_FASTSYNC.bits
+			;
 	}
 }
 
@@ -560,7 +564,11 @@ pub trait ChainAdapter: Sync + Send {
 	/// Finds a list of block headers based on the provided locator. Tries to
 	/// identify the common chain and gets the headers that follow it
 	/// immediately.
-	fn locate_headers(&self, locator: &[Hash]) -> Result<Vec<core::BlockHeader>, chain::Error>;
+	fn locate_headers(
+		&self,
+		locator: &[Hash],
+		offset: &u8,
+	) -> Result<Vec<core::BlockHeader>, chain::Error>;
 
 	/// Gets a full block by its hash.
 	fn get_block(&self, h: Hash) -> Option<core::Block>;

@@ -31,7 +31,8 @@ use crate::core::ser::Writeable;
 use crate::core::{core, global};
 use crate::handshake::Handshake;
 use crate::msg::{
-	self, BanReason, GetPeerAddrs, KernelDataRequest, Locator, Msg, Ping, TxHashSetRequest, Type,
+	self, BanReason, GetPeerAddrs, KernelDataRequest, Locator, LocatorFastSync, Msg, Ping,
+	TxHashSetRequest, Type,
 };
 use crate::protocol::Protocol;
 use crate::types::{
@@ -364,6 +365,21 @@ impl Peer {
 		self.send(&Locator { hashes: locator }, msg::Type::GetHeaders)
 	}
 
+	/// Sends a request for block headers with a offset value from the provided block locator
+	pub fn send_header_fastsync_request(
+		&self,
+		locator: Vec<Hash>,
+		offset: u8,
+	) -> Result<(), Error> {
+		self.send(
+			&LocatorFastSync {
+				hashes: locator,
+				offset,
+			},
+			msg::Type::GetHeadersFastSync,
+		)
+	}
+
 	pub fn send_tx_request(&self, h: Hash) -> Result<(), Error> {
 		debug!(
 			"Requesting tx (kernel hash) {} from peer {}.",
@@ -550,8 +566,12 @@ impl ChainAdapter for TrackingAdapter {
 		self.adapter.headers_received(bh, peer_info)
 	}
 
-	fn locate_headers(&self, locator: &[Hash]) -> Result<Vec<core::BlockHeader>, chain::Error> {
-		self.adapter.locate_headers(locator)
+	fn locate_headers(
+		&self,
+		locator: &[Hash],
+		offset: &u8,
+	) -> Result<Vec<core::BlockHeader>, chain::Error> {
+		self.adapter.locate_headers(locator, offset)
 	}
 
 	fn get_block(&self, h: Hash) -> Option<core::Block> {

@@ -187,12 +187,39 @@ impl HeaderSync {
 	fn header_sync(&mut self) -> Option<Arc<Peer>> {
 		if let Ok(header_head) = self.chain.header_head() {
 			let difficulty = header_head.total_difficulty;
+			for peer in self.peers.most_work_peers() {
+				if peer
+					.info
+					.capabilities
+					.contains(p2p::types::Capabilities::HEADER_FASTSYNC)
+				{
+					error!(
+						"this is a peer with HEADER_FASTSYNC support ############# {:?}",
+						peer.info.addr
+					);
+				}
+			}
 
 			if let Some(peer) = self.peers.most_work_peer() {
 				if peer.info.total_difficulty() > difficulty {
 					return self.request_headers(peer);
 				}
 			}
+		}
+		return None;
+	}
+
+	/// Request some block headers from a peer to advance us.
+	fn request_headers_fastsync(&mut self, peer: Arc<Peer>, offset: u8) -> Option<Arc<Peer>> {
+		if let Ok(locator) = self.get_locator() {
+			debug!(
+				"sync: request_headers_fastsync: asking {} for headers, {:?}, offset {:?}",
+				peer.info.addr, locator, offset
+			);
+
+			let _ = peer.send_header_fastsync_request(locator, offset);
+
+			return Some(peer.clone());
 		}
 		return None;
 	}
