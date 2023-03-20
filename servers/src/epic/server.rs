@@ -37,6 +37,7 @@ use crate::common::stats::{
 	ChainStats, DiffBlock, DiffStats, PeerStats, ServerStateInfo, ServerStats, TxStats,
 };
 use crate::common::types::{Error, ServerConfig, StratumServerConfig};
+use crate::core::core::feijoada::PolicyConfig;
 use crate::core::core::hash::Hashed;
 use crate::core::core::hash::{Hash, ZERO_HASH};
 use crate::core::pow::{PoWType, Proof};
@@ -54,6 +55,13 @@ use clokwerk::{ScheduleHandle, Scheduler, TimeUnits};
 use epic_util::logger::LogEntry;
 use fs2::FileExt;
 use walkdir::WalkDir;
+
+fn is_test_network() -> bool {
+	match *global::CHAIN_TYPE.read() {
+		global::ChainTypes::Mainnet => false,
+		_ => true,
+	}
+}
 
 /// Epic server holding internal structures.
 pub struct Server {
@@ -100,8 +108,29 @@ impl Server {
 				panic!("Error reading the .toml file!\n The values of the policy number <{}> must sum to 100 and be integers!\n", i);
 			};
 		}
+
 		// set the policies configs from the .toml file
 		global::set_policy_config(policy_config);*/
+
+		if is_test_network() {
+			// guard against lack of presence in old config files
+			// otherwise unwrapping non-existent value causes runtime crash
+			if config.no_progpow.is_some() {
+				let no_progpow = config.no_progpow.unwrap();
+				if no_progpow {
+					global::set_policy_config(PolicyConfig::no_progpow());
+					info!("printing no_progpow value: {}", no_progpow);
+				}
+			}
+			if config.only_randomx.is_some() {
+				let only_randomx = config.only_randomx.unwrap();
+				if only_randomx {
+					global::set_policy_config(PolicyConfig::only_randomx());
+					info!("printing only_randomx value: {}", only_randomx);
+				}
+			}
+		}
+
 		global::set_foundation_path(config.foundation_path.clone().to_owned());
 		info!(
 			"The policy configuration is: {:?}",
@@ -125,6 +154,7 @@ impl Server {
 		let mining_config = config.stratum_mining_config.clone();
 		let enable_test_miner = config.run_test_miner;
 		let test_miner_wallet_url = config.test_miner_wallet_url.clone();
+
 		let serv = Server::new(config)?;
 
 		if let Some(c) = mining_config {
