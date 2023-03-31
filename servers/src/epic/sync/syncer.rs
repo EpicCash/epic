@@ -135,6 +135,7 @@ impl SyncRunner {
 		//let mut header_syncs: HashMap<String, Rc<RefCell<HeaderSync>>> = HashMap::new();
 		let mut header_syncs: HashMap<String, std::sync::mpsc::Sender<bool>> = HashMap::new();
 		let mut offset = 0;
+		let mut tochain_attemps = 0;
 
 		let fastsync_header_queue: Arc<std::sync::Mutex<HashMap<u64, FastsyncHeaderQueue>>> =
 			Arc::new(std::sync::Mutex::new(HashMap::new()));
@@ -340,11 +341,14 @@ impl SyncRunner {
 				info!("---------------------- <------> -----------------------");
 
 				if let Ok(mut fastsync_headers) = fastsync_header_queue.try_lock() {
-					//reset
-					if fastsync_headers.len() == 0 {
+					//reset if all queue items are processed or get stuck because items in queue can not be added
+					if fastsync_headers.len() == 0 || tochain_attemps > 10 {
 						waiting_for_queue = true;
 						offset = 0;
+						tochain_attemps = 0;
 						header_syncs = HashMap::new();
+						fastsync_headers.clear();
+						drop(fastsync_headers);
 						continue;
 					}
 
@@ -389,6 +393,8 @@ impl SyncRunner {
         						);
 							}
 						}
+					} else {
+						tochain_attemps += 1;
 					}
 					//end if fastsync_header
 				}
