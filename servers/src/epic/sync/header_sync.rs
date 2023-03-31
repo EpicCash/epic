@@ -12,230 +12,124 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use chrono::prelude::{DateTime, Utc};
-use chrono::Duration;
+use crate::core::core::BlockHeader;
+use chrono::prelude::Utc;
 use std::sync::Arc;
 
 use crate::chain::{self, SyncState, SyncStatus};
 use crate::common::types::Error;
 use crate::core::core::hash::{Hash, Hashed};
-use crate::p2p::{self, types::ReasonForBan, Peer};
+use crate::p2p::{self, types::ReasonForBan, Peer, Peers};
 
 pub struct HeaderSync {
 	sync_state: Arc<SyncState>,
-	peers: Arc<p2p::Peers>,
+	peers: Arc<Peers>,
+	pub peer: Arc<Peer>,
 	chain: Arc<chain::Chain>,
-
 	history_locator: Vec<(u64, Hash)>,
-	prev_header_sync: (DateTime<Utc>, u64, u64),
-
-	syncing_peer: Option<Arc<Peer>>,
-	stalling_ts: Option<DateTime<Utc>>,
+	header_head_height: u64,
+	highest_height: u64,
+	syncing_peer: bool,
+	offset: u8,
+	start_time: i64,
 }
 
 impl HeaderSync {
 	pub fn new(
 		sync_state: Arc<SyncState>,
-		peers: Arc<p2p::Peers>,
+		peers: Arc<Peers>,
+		peer: Arc<Peer>,
 		chain: Arc<chain::Chain>,
+		header_head_height: u64,
+		highest_height: u64,
+		offset: u8,
 	) -> HeaderSync {
 		HeaderSync {
 			sync_state,
 			peers,
+			peer,
 			chain,
 			history_locator: vec![],
-			prev_header_sync: (Utc::now(), 0, 0),
-			syncing_peer: None,
-			stalling_ts: None,
+			header_head_height,
+			highest_height,
+			syncing_peer: false,
+			offset,
+			start_time: Utc::now().timestamp(),
 		}
 	}
+	pub fn offset(&self) -> u8 {
+		self.offset
+	}
 
-	pub fn check_run(
-		&mut self,
-		header_head: &chain::Tip,
-		highest_height: u64,
-	) -> Result<bool, chain::Error> {
-		if !self.header_sync_due(header_head) {
-			return Ok(false);
+	pub fn check_run(&mut self) -> Result<Vec<BlockHeader>, chain::Error> {
+		match self.peers.get_connected_peer(self.peer.info.addr) {
+			Some(peer) => {
+				if !peer.is_connected() || peer.is_banned() {
+					//self.syncing_peer = false;
+					return Ok(vec![]);
+				}
+			}
+			None => {
+				//self.syncing_peer = false;
+				return Ok(vec![]);
+			}
 		}
 
-		match self.sync_state.status() {
-			SyncStatus::BodySync { .. }
-			| SyncStatus::HeaderSync { .. }
-			| SyncStatus::TxHashsetDone => true,
-			SyncStatus::NoSync | SyncStatus::Initial | SyncStatus::AwaitingPeers(_) => {
-				let sync_head = self.chain.get_sync_head()?;
-				debug!(
-					"sync: initial transition to HeaderSync. sync_head: {} at {}, resetting to: {} at {}",
-					sync_head.hash(),
-					sync_head.height,
-					header_head.hash(),
-					header_head.height,
-				);
-
-				// Reset sync_head to header_head on transition to HeaderSync,
-				// but ONLY on initial transition to HeaderSync state.
-				//
-				// The header_head and sync_head may diverge here in the presence of a fork
-				// in the header chain. Ensure we track the new advertised header chain here
-				// correctly, so reset any previous (and potentially stale) sync_head to match
-				// our last known "good" header_head.
-				//
-
-				self.chain.reset_sync_head()?;
-
-				// Rebuild the sync MMR to match our updated sync_head.
-				self.chain.rebuild_sync_mmr(&header_head)?;
-
-				self.history_locator.retain(|&x| x.0 == 0);
-				true
-			}
-			_ => false,
-		};
-
-		if self.syncing_peer.is_none() {
+		if !self.syncing_peer {
+			error!(
+				"{:?}\t########## new sync peer ########### offset: {:?}",
+				self.peer.info.addr, self.offset
+			);
 			self.sync_state.update(SyncStatus::HeaderSync {
-				current_height: header_head.height,
-				highest_height: highest_height,
+				current_height: self.header_head_height,
+				highest_height: self.highest_height,
 			});
-			self.syncing_peer = self.header_sync();
-		}
 
-		Ok(false)
-	}
-
-	fn header_sync_due(&mut self, header_head: &chain::Tip) -> bool {
-		let now = Utc::now();
-		let (timeout, latest_height, prev_height) = self.prev_header_sync;
-
-		// received all necessary headers, can ask for more
-		let all_headers_received =
-			header_head.height >= prev_height + (p2p::MAX_BLOCK_HEADERS as u64) - 4;
-		// no headers processed and we're past timeout, need to ask for more
-		let stalling = header_head.height <= latest_height && now > timeout;
-
-		// always enable header sync on initial state transition from NoSync / Initial
-		let force_sync = match self.sync_state.status() {
-			SyncStatus::NoSync | SyncStatus::Initial | SyncStatus::AwaitingPeers(_) => true,
-			_ => false,
-		};
-
-		if force_sync || all_headers_received || stalling {
-			// save the stalling start time
-			if stalling {
-				if self.stalling_ts.is_none() {
-					self.stalling_ts = Some(now);
-				}
-			} else {
-				self.stalling_ts = None;
-			}
-
-			if all_headers_received {
-				if let Some(ref peer) = self.syncing_peer {
-					info!("all headers received from {:?}", peer.info.addr);
-				}
-
-				self.syncing_peer = None;
-				// reset the stalling start time if syncing goes well
-				self.stalling_ts = None;
-
-				self.prev_header_sync = (
-					now + Duration::seconds(2),
-					header_head.height,
-					header_head.height,
-				);
-			} else if let Some(ref stalling_ts) = self.stalling_ts {
-				if let Some(ref peer) = self.syncing_peer {
-					match self.sync_state.status() {
-						SyncStatus::HeaderSync { .. } | SyncStatus::BodySync { .. } => {
-							// Ban this fraud peer which claims a higher work but can't send us the real headers
-							if now > *stalling_ts + Duration::seconds(120)
-								&& header_head.total_difficulty < peer.info.total_difficulty()
-							{
-								if let Err(e) = self
-									.peers
-									.ban_peer(peer.info.addr, ReasonForBan::FraudHeight)
-								{
-									error!("failed to ban peer {}: {:?}", peer.info.addr, e);
-								}
-								info!(
-										"sync: ban a fraud peer: {}, claimed height: {}, total difficulty: {}",
-										peer.info.addr,
-										peer.info.height(),
-										peer.info.total_difficulty(),
-								);
-								self.stalling_ts = None;
-								self.syncing_peer = None;
-							}
-						}
-						_ => (),
-					}
-				}
-			}
-
-			true
+			self.syncing_peer = true;
+			self.header_sync();
+			return Ok(vec![]);
 		} else {
-			// resetting the timeout as long as we progress
-			if header_head.height > latest_height {
-				self.prev_header_sync =
-					(now + Duration::seconds(2), header_head.height, prev_height);
-			}
-			false
+			self.header_sync_due();
+		}
+		Ok(self.peer.info.get_headers().clone())
+	}
+
+	fn header_sync_due(&mut self) {
+		let now = Utc::now().timestamp();
+
+		if (now - self.start_time) > 240 {
+			let _ = self
+				.peers
+				.ban_peer(self.peer.info.addr, ReasonForBan::FraudHeight);
+
+			info!(
+				"sync: ban a fraud peer: {}, claimed height: {}, total difficulty: {}",
+				self.peer.info.addr,
+				self.peer.info.height(),
+				self.peer.info.total_difficulty(),
+			);
 		}
 	}
 
-	fn header_sync(&mut self) -> Option<Arc<Peer>> {
+	fn header_sync(&mut self) {
 		if let Ok(header_head) = self.chain.header_head() {
 			let difficulty = header_head.total_difficulty;
-			for peer in self.peers.most_work_peers() {
-				if peer
-					.info
-					.capabilities
-					.contains(p2p::types::Capabilities::HEADER_FASTSYNC)
-				{
-					error!(
-						"this is a peer with HEADER_FASTSYNC support ############# {:?}",
-						peer.info.addr
-					);
-				}
-			}
-
-			if let Some(peer) = self.peers.most_work_peer() {
-				if peer.info.total_difficulty() > difficulty {
-					return self.request_headers(peer);
-				}
+			if self.peer.info.total_difficulty() > difficulty {
+				self.request_headers_fastsync();
 			}
 		}
-		return None;
 	}
 
 	/// Request some block headers from a peer to advance us.
-	fn request_headers_fastsync(&mut self, peer: Arc<Peer>, offset: u8) -> Option<Arc<Peer>> {
+	fn request_headers_fastsync(&mut self) {
 		if let Ok(locator) = self.get_locator() {
 			debug!(
-				"sync: request_headers_fastsync: asking {} for headers, {:?}, offset {:?}",
-				peer.info.addr, locator, offset
+				"############ sync: request_headers_fastsync: asking {} for headers, {:?}, offset {:?} ############",
+				self.peer.info.addr, locator, self.offset
 			);
 
-			let _ = peer.send_header_fastsync_request(locator, offset);
-
-			return Some(peer.clone());
+			let _ = self.peer.send_header_fastsync_request(locator, self.offset);
 		}
-		return None;
-	}
-
-	/// Request some block headers from a peer to advance us.
-	fn request_headers(&mut self, peer: Arc<Peer>) -> Option<Arc<Peer>> {
-		if let Ok(locator) = self.get_locator() {
-			debug!(
-				"sync: request_headers: asking {} for headers, {:?}",
-				peer.info.addr, locator,
-			);
-
-			let _ = peer.send_header_request(locator);
-			return Some(peer.clone());
-		}
-		return None;
 	}
 
 	/// We build a locator based on sync_head.

@@ -60,6 +60,10 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 		Ok(self.chain().head()?.height)
 	}
 
+	fn total_header_height(&self) -> Result<u64, chain::Error> {
+		Ok(self.chain().header_head()?.height)
+	}
+
 	fn get_transaction(&self, kernel_hash: Hash) -> Option<core::Transaction> {
 		self.tx_pool.read().retrieve_tx_by_kernel_hash(kernel_hash)
 	}
@@ -276,6 +280,7 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 		Ok(true)
 	}
 
+	// if headers are empty or refused, then peer is banned
 	fn headers_received(
 		&self,
 		bhs: &[core::BlockHeader],
@@ -288,12 +293,12 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 		);
 
 		if bhs.len() == 0 {
+			//peer is banned
 			return Ok(false);
 		}
 
-		// try to add headers to our header chain
 		match self.chain().sync_block_headers(bhs, chain::Options::SYNC) {
-			Ok(_) => Ok(true),
+			Ok(_) => return Ok(true),
 			Err(e) => {
 				debug!("Block headers refused by chain: {:?}", e);
 				if e.is_bad_data() {
@@ -374,10 +379,10 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 	/// at the provided block hash.
 	fn txhashset_read(&self, h: Hash) -> Option<p2p::TxHashSetRead> {
 		match self.chain().txhashset_read(h.clone()) {
-			Ok((out_index, kernel_index, read)) => Some(p2p::TxHashSetRead {
-				output_index: out_index,
-				kernel_index: kernel_index,
-				reader: read,
+			Ok((output_index, kernel_index, reader)) => Some(p2p::TxHashSetRead {
+				output_index,
+				kernel_index,
+				reader,
 			}),
 			Err(e) => {
 				warn!("Couldn't produce txhashset data for block {}: {:?}", h, e);
@@ -764,7 +769,7 @@ impl ChainToPoolAndNetAdapter {
 		ChainToPoolAndNetAdapter {
 			tx_pool,
 			peers: OneTime::new(),
-			hooks: hooks,
+			hooks,
 		}
 	}
 

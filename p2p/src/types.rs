@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::core::core::BlockHeader;
 use crate::util::RwLock;
 use std::convert::From;
 use std::fs::File;
@@ -392,6 +393,7 @@ pub struct PeerLiveInfo {
 	pub stuck_detector: DateTime<Utc>,
 	pub first_seen: DateTime<Utc>,
 	pub local_timestamp: i64,
+	pub synced_headers: Vec<BlockHeader>,
 }
 
 /// General information about a connected peer that's useful to other modules.
@@ -414,6 +416,7 @@ impl PeerLiveInfo {
 			last_seen: Utc::now(),
 			local_timestamp: 0,
 			stuck_detector: Utc::now(),
+			synced_headers: vec![],
 		}
 	}
 }
@@ -467,6 +470,17 @@ impl PeerInfo {
 		live_info.last_seen = Utc::now();
 		live_info.local_timestamp = local_timestamp;
 	}
+
+	/// store received untrusted headers. will be added later to chain
+	pub fn set_headers(&self, headers: Vec<BlockHeader>) {
+		let mut live_info = self.live_info.write();
+		live_info.synced_headers = headers;
+	}
+
+	/// untrusted headers from header sync.
+	pub fn get_headers(&self) -> Vec<BlockHeader> {
+		self.live_info.read().synced_headers.clone()
+	}
 }
 
 /// Flatten out a PeerInfo and nested PeerLiveInfo (taking a read lock on it)
@@ -516,6 +530,9 @@ pub trait ChainAdapter: Sync + Send {
 
 	/// Current total height
 	fn total_height(&self) -> Result<u64, chain::Error>;
+
+	/// Current total header height
+	fn total_header_height(&self) -> Result<u64, chain::Error>;
 
 	/// A valid transaction has been received from one of our peers
 	fn transaction_received(&self, tx: core::Transaction, stem: bool)

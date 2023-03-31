@@ -217,11 +217,14 @@ impl MessageHandler for Protocol {
 				let loc: Locator = msg.body()?;
 				let offset = 0 as u8;
 				let headers = adapter.locate_headers(&loc.hashes, &offset)?;
-
+				let len = headers.len();
 				// serialize and send all the headers over
 				Ok(Some(Msg::new(
 					Type::Headers,
-					Headers { headers },
+					Headers {
+						count: len as u16,
+						headers,
+					},
 					self.peer_info.version,
 				)?))
 			}
@@ -230,11 +233,14 @@ impl MessageHandler for Protocol {
 				// load headers from the locator
 				let loc: LocatorFastSync = msg.body()?;
 				let headers = adapter.locate_headers(&loc.hashes, &loc.offset)?;
-
+				let len = headers.len();
 				// serialize and send all the headers over
 				Ok(Some(Msg::new(
 					Type::Headers,
-					Headers { headers },
+					Headers {
+						count: len as u16,
+						headers,
+					},
 					self.peer_info.version,
 				)?))
 			}
@@ -248,30 +254,16 @@ impl MessageHandler for Protocol {
 			}
 
 			Type::Headers => {
-				let mut total_bytes_read = 0;
+				let mut loc: Headers = msg.body()?;
 
-				// Read the count (u16) so we now how many headers to read.
-				let (count, bytes_read): (u16, _) = msg.streaming_read()?;
-				total_bytes_read += bytes_read;
+				/*info!(
+					"{:?}\t------------ UntrustedBlockHeader len {:?} ---------------",
+					&self.peer_info.addr,
+					loc.headers.len(),
+				);*/
 
-				// Read chunks of headers off the stream and pass them off to the adapter.
-				let chunk_size = 128;
-				let mut headers = vec![];
-				for chunk in (0..count).collect::<Vec<_>>().chunks(chunk_size) {
-					for _ in chunk {
-						let (header, bytes_read) =
-							msg.streaming_read::<core::UntrustedBlockHeader>()?;
-						headers.push(header.into());
-						total_bytes_read += bytes_read;
-					}
-				}
-				adapter.headers_received(&headers, &self.peer_info)?;
-
-				// Now check we read the correct total number of bytes off the stream.
-				if total_bytes_read != msg.header.msg_len {
-					return Err(Error::MsgLen);
-				}
-
+				loc.headers.sort_by_key(|a| a.height);
+				adapter.headers_received(&loc.headers, &self.peer_info)?;
 				Ok(None)
 			}
 

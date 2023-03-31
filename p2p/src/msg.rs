@@ -68,6 +68,7 @@ enum_from_primitive! {
 		KernelDataRequest = 21,
 		KernelDataResponse = 22,
 		GetHeadersFastSync = 23,
+
 	}
 }
 
@@ -268,7 +269,7 @@ impl MsgHeader {
 	pub fn new(msg_type: Type, len: u64) -> MsgHeader {
 		MsgHeader {
 			magic: magic(),
-			msg_type: msg_type,
+			msg_type,
 			msg_len: len,
 		}
 	}
@@ -497,7 +498,7 @@ impl Readable for PeerAddrs {
 		for _ in 0..peer_count {
 			peers.push(PeerAddr::read(reader)?);
 		}
-		Ok(PeerAddrs { peers: peers })
+		Ok(PeerAddrs { peers })
 	}
 }
 
@@ -522,10 +523,7 @@ impl Readable for PeerError {
 		let code = reader.read_u32()?;
 		let msg = reader.read_bytes_len_prefix()?;
 		let message = String::from_utf8(msg).map_err(|_| ser::Error::CorruptedData)?;
-		Ok(PeerError {
-			code: code,
-			message: message,
-		})
+		Ok(PeerError { code, message })
 	}
 }
 
@@ -562,7 +560,7 @@ impl Readable for Locator {
 		for _ in 0..len {
 			hashes.push(Hash::read(reader)?);
 		}
-		Ok(Locator { hashes: hashes })
+		Ok(Locator { hashes })
 	}
 }
 
@@ -595,16 +593,33 @@ impl Readable for LocatorFastSync {
 
 /// Serializable wrapper for a list of block headers.
 pub struct Headers {
+	pub count: u16,
 	pub headers: Vec<BlockHeader>,
 }
 
 impl Writeable for Headers {
 	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
 		writer.write_u16(self.headers.len() as u16)?;
-		for h in &self.headers {
-			h.write(writer)?
-		}
+		self.headers.write(writer)?;
 		Ok(())
+	}
+}
+
+impl Readable for Headers {
+	fn read(reader: &mut dyn Reader) -> Result<Headers, ser::Error> {
+		let len = reader.read_u16()?;
+		if len > (MAX_BLOCK_HEADERS as u16) {
+			return Err(ser::Error::TooLargeReadErr);
+		}
+		let mut headers = Vec::with_capacity(len as usize);
+		for _ in 0..len {
+			headers.push(BlockHeader::read(reader)?);
+		}
+
+		Ok(Headers {
+			count: len,
+			headers,
+		})
 	}
 }
 

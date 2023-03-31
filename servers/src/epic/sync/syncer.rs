@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::mpsc::channel;
 use std::sync::Arc;
-use std::thread;
 use std::time;
+use std::{thread, thread::JoinHandle};
 
 use crate::chain::{self, SyncState, SyncStatus};
 use crate::core::global;
@@ -24,6 +25,16 @@ use crate::epic::sync::header_sync::HeaderSync;
 use crate::epic::sync::state_sync::StateSync;
 use crate::p2p;
 use crate::util::StopState;
+
+// all for FastsyncHeaderQueue
+use crate::core::core::BlockHeader;
+use crate::p2p::PeerInfo;
+use std::collections::HashMap;
+pub struct FastsyncHeaderQueue {
+	offset: u8,
+	peer_info: PeerInfo,
+	headers: Vec<BlockHeader>,
+}
 
 pub fn run_sync(
 	sync_state: Arc<SyncState>,
@@ -103,16 +114,16 @@ impl SyncRunner {
 	/// Starts the syncing loop, just spawns two threads that loop forever
 	fn sync_loop(&self) {
 		macro_rules! unwrap_or_restart_loop(
-	($obj: expr) =>(
-		match $obj {
-			Ok(v) => v,
-			Err(e) => {
-				error!("unexpected error: {:?}", e);
-				thread::sleep(time::Duration::from_secs(1));
-				continue;
-			},
-		}
-	));
+    	  ($obj: expr) =>(
+    		match $obj {
+    			Ok(v) => v,
+    			Err(e) => {
+    				error!("unexpected error: {:?}", e);
+    				thread::sleep(time::Duration::from_secs(1));
+    				continue;
+    			},
+    		}
+    	));
 
 		// Wait for connections reach at least MIN_PEERS
 		if let Err(e) = self.wait_for_min_peers() {
@@ -120,11 +131,18 @@ impl SyncRunner {
 		}
 
 		// Our 3 main sync stages
-		let mut header_sync = HeaderSync::new(
-			self.sync_state.clone(),
-			self.peers.clone(),
-			self.chain.clone(),
-		);
+		// fast header sync
+		//let mut header_syncs: HashMap<String, Rc<RefCell<HeaderSync>>> = HashMap::new();
+		let mut header_syncs: HashMap<String, std::sync::mpsc::Sender<bool>> = HashMap::new();
+		let mut offset = 0;
+
+		let fastsync_header_queue: Arc<std::sync::Mutex<HashMap<u64, FastsyncHeaderQueue>>> =
+			Arc::new(std::sync::Mutex::new(HashMap::new()));
+
+		let chainsync = self.peers.clone();
+
+		let mut waiting_for_queue = true;
+
 		let mut body_sync = BodySync::new(
 			self.sync_state.clone(),
 			self.peers.clone(),
@@ -143,6 +161,13 @@ impl SyncRunner {
 		// Main syncing loop
 		loop {
 			if self.stop_state.is_stopped() {
+				for header_sync in header_syncs {
+					if let Err(_e) = header_sync.1.send(false) {
+						/*error!(
+							"########### error send to thread, channel is already closed ############## {:?}",e
+						);*/
+					}
+				}
 				break;
 			}
 
@@ -158,6 +183,8 @@ impl SyncRunner {
 				highest_height = most_work_height;
 			}
 
+			//sync_slots = highest_height / sync_slot_size as u64;
+			//info!("current sync_slots: {:?}", sync_slots);
 			// quick short-circuit (and a decent sleep) if no syncing is needed
 			if !needs_syncing {
 				if currently_syncing {
@@ -183,14 +210,192 @@ impl SyncRunner {
 			// if syncing is needed
 			let head = unwrap_or_restart_loop!(self.chain.head());
 			let tail = self.chain.tail().unwrap_or_else(|_| head.clone());
-
 			let header_head = unwrap_or_restart_loop!(self.chain.header_head());
 
 			// run each sync stage, each of them deciding whether they're needed
 			// except for state sync that only runs if body sync return true (means txhashset is needed)
-			unwrap_or_restart_loop!(header_sync.check_run(&header_head, highest_height));
+			//add new header_sync peer if we found a new peer which is not in list
+			// this state is working
+			//TODO: implement normal peer
+			//Lst sync test start 23:15
+			if waiting_for_queue {
+				for peer in self.peers.clone().most_work_peers() {
+					let peer_addr = peer.info.addr.to_string();
+					if peer
+						.info
+						.capabilities
+						.contains(p2p::types::Capabilities::HEADER_FASTSYNC)
+						&& peer.is_connected() && !peer.is_banned()
+					{
+						let mut remove_peer_from_sync = false;
+						match header_syncs.get(&peer_addr) {
+							Some(header_sync) => {
+								if let Err(_e) = header_sync.send(false) {
+									remove_peer_from_sync = true;
+								}
+							}
+
+							None => {
+								let (sender, receiver) = channel();
+
+								let mut header_sync = HeaderSync::new(
+									self.sync_state.clone(),
+									self.peers.clone(),
+									peer.clone(),
+									self.chain.clone(),
+									header_head.height.clone(),
+									header_head.height.clone(),
+									offset.clone(),
+								);
+
+								let handler: JoinHandle<FastsyncHeaderQueue> =
+									thread::spawn(move || {
+										let mut synchthread_headers = FastsyncHeaderQueue {
+											offset: header_sync.offset(),
+											peer_info: peer.info.clone(),
+											headers: vec![],
+										};
+										loop {
+											let stop = match receiver.try_recv() {
+												Ok(rcv) => rcv,
+												Err(std::sync::mpsc::TryRecvError::Empty) => false,
+												Err(
+													std::sync::mpsc::TryRecvError::Disconnected,
+												) => {
+													println!("Terminating sync thread");
+
+													break;
+												}
+											};
+
+											if stop {
+												info!("Sync thread stop");
+												break;
+											}
+
+											match header_sync.check_run() {
+												Ok(headers) => {
+													if headers.len() > 0 {
+														synchthread_headers.headers = headers;
+														break;
+													}
+												}
+												Err(_) => break,
+											}
+
+											thread::sleep(time::Duration::from_millis(1000));
+										}
+										synchthread_headers
+									});
+
+								let feedback = handler.join().unwrap();
+								info!(
+									"{:?}\t ----- data from thread {:?}",
+									feedback.peer_info.addr, feedback.offset
+								);
+
+								if let Ok(mut fastsync_headers) = fastsync_header_queue.try_lock() {
+									match fastsync_headers
+										.insert(feedback.headers[0].height, feedback)
+									{
+										Some(_s) => {
+											info!("already inserted");
+										}
+										None => {}
+									}
+								} else {
+									error!("-------------------------------- failed to get lock to insert headers to queue --------------------------------");
+								}
+
+								offset = offset + 1 as u8;
+								header_syncs.insert(peer_addr.clone(), sender);
+								//sync_handles.push(handler);
+							}
+						}
+
+						if remove_peer_from_sync {
+							header_syncs.remove(&peer_addr);
+						}
+						//info!("current offset {:?}", offset);
+					}
+
+					/**/
+					thread::sleep(time::Duration::from_millis(1000));
+				}
+			}
+
+			if header_syncs.len() > 0 {
+				waiting_for_queue = false;
+
+				//end foreach peer
+				info!("---------------------- in queue -----------------------");
+				if let Ok(fastsync_headers) = fastsync_header_queue.try_lock() {
+					let mut sorted: Vec<_> = fastsync_headers.iter().collect();
+					sorted.sort_by_key(|a| a.0);
+					for (key, value) in sorted.iter() {
+						info!("queue start heights {:?}, offset: {:?}", key, value.offset);
+					}
+					drop(fastsync_headers);
+				}
+				info!("---------------------- <------> -----------------------");
+
+				if let Ok(mut fastsync_headers) = fastsync_header_queue.try_lock() {
+					//reset
+					if fastsync_headers.len() == 0 {
+						waiting_for_queue = true;
+						offset = 0;
+						header_syncs = HashMap::new();
+						continue;
+					}
+
+					let current_height = chainsync.adapter.total_header_height().unwrap();
+					if let Some(fastsync_header) = fastsync_headers.get(&(current_height + 1)) {
+						let headers = fastsync_header.headers.clone();
+						let peer_info = fastsync_header.peer_info.clone();
+
+						match chainsync
+							.adapter
+							.headers_received(&headers.clone(), &peer_info.clone())
+						{
+							Ok(added) => {
+								if !added {
+									// if the peer sent us a block header that's intrinsically bad
+									// they are either mistaken or malevolent, both of which require a ban
+
+									info!(
+										"{:?}\t1.1 ---------- adding headers failed!!!!",
+										peer_info.addr
+									);
+									chainsync
+										.ban_peer(
+											peer_info.addr,
+											p2p::types::ReasonForBan::BadBlockHeader,
+										)
+										.map_err(|e| {
+											let err: chain::Error = chain::ErrorKind::Other(
+												format!("ban peer error :{:?}", e),
+											)
+											.into();
+											err
+										})
+										.unwrap();
+								}
+								fastsync_headers.remove(&(current_height + 1));
+							}
+							Err(err) => {
+								info!(
+        							"####################### headers_received {:?} ######################",
+        							err
+        						);
+							}
+						}
+					}
+					//end if fastsync_header
+				}
+			}
 
 			let mut check_state_sync = false;
+
 			match self.sync_state.status() {
 				SyncStatus::TxHashsetDownload { .. }
 				| SyncStatus::TxHashsetSetup
@@ -200,6 +405,10 @@ impl SyncRunner {
 				| SyncStatus::TxHashsetDone => check_state_sync = true,
 				_ => {
 					// skip body sync if header chain is not synced.
+					/*info!(
+						"self.sync_state.status header_head height: {:? }",
+						header_head.height
+					);*/
 					if header_head.height < highest_height {
 						continue;
 					}

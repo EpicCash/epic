@@ -198,7 +198,7 @@ impl Handshake {
 			version: self.protocol_version,
 			capabilities: capab,
 			genesis: self.genesis,
-			total_difficulty: total_difficulty,
+			total_difficulty,
 			user_agent: USER_AGENT.to_string(),
 		};
 

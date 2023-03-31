@@ -107,7 +107,7 @@ impl Readable for PeerData {
 				addr,
 				capabilities,
 				user_agent,
-				flags: flags,
+				flags,
 				last_banned: lb,
 				ban_reason,
 				last_connected,
@@ -127,7 +127,7 @@ impl PeerStore {
 	/// Instantiates a new peer store under the provided root path.
 	pub fn new(db_root: &str) -> Result<PeerStore, Error> {
 		let db = epic_store::Store::new(db_root, Some(DB_NAME), Some(STORE_SUBPATH), None)?;
-		Ok(PeerStore { db: db })
+		Ok(PeerStore { db })
 	}
 
 	pub fn save_peer(&self, p: &PeerData) -> Result<(), Error> {

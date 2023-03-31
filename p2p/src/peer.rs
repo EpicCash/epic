@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use crate::util::{Mutex, RwLock};
+use lru_cache::LruCache;
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
@@ -20,8 +21,6 @@ use std::net::{Shutdown, TcpStream};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-
-use lru_cache::LruCache;
 
 use crate::chain;
 use crate::conn;
@@ -41,8 +40,8 @@ use crate::types::{
 };
 use chrono::prelude::{DateTime, Utc};
 
-const MAX_TRACK_SIZE: usize = 30;
-const MAX_PEER_MSG_PER_MIN: u64 = 500;
+const MAX_TRACK_SIZE: usize = 30 * 10;
+const MAX_PEER_MSG_PER_MIN: u64 = 500 * 10;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Remind: don't mix up this 'State' with that 'State' in p2p/src/store.rs,
@@ -89,6 +88,7 @@ impl Peer {
 		let (sendh, stoph) = conn::listen(conn, info.version, tracker.clone(), handler)?;
 		let send_handle = Mutex::new(sendh);
 		let stop_handle = Mutex::new(stoph);
+
 		Ok(Peer {
 			info,
 			state,
@@ -371,6 +371,7 @@ impl Peer {
 		locator: Vec<Hash>,
 		offset: u8,
 	) -> Result<(), Error> {
+		//TODO: maybe handle errors
 		self.send(
 			&LocatorFastSync {
 				hashes: locator,
@@ -461,7 +462,7 @@ struct TrackingAdapter {
 impl TrackingAdapter {
 	fn new(adapter: Arc<dyn NetAdapter>) -> TrackingAdapter {
 		TrackingAdapter {
-			adapter: adapter,
+			adapter,
 			received: Arc::new(RwLock::new(LruCache::new(MAX_TRACK_SIZE))),
 			requested: Arc::new(RwLock::new(LruCache::new(MAX_TRACK_SIZE))),
 		}
@@ -493,6 +494,10 @@ impl ChainAdapter for TrackingAdapter {
 
 	fn total_height(&self) -> Result<u64, chain::Error> {
 		self.adapter.total_height()
+	}
+
+	fn total_header_height(&self) -> Result<u64, chain::Error> {
+		self.adapter.total_header_height()
 	}
 
 	fn get_transaction(&self, kernel_hash: Hash) -> Option<core::Transaction> {
