@@ -18,6 +18,7 @@ use std::time;
 use std::{thread, thread::JoinHandle};
 
 use crate::chain::{self, SyncState, SyncStatus};
+use crate::core::core::hash::Hashed;
 use crate::core::global;
 use crate::core::pow::Difficulty;
 use crate::epic::sync::body_sync::BodySync;
@@ -209,13 +210,13 @@ impl SyncRunner {
 			let head = unwrap_or_restart_loop!(self.chain.head());
 			let tail = self.chain.tail().unwrap_or_else(|_| head.clone());
 			let header_head = unwrap_or_restart_loop!(self.chain.header_head());
-
+			let mut check_state_sync = false;
 			// run each sync stage, each of them deciding whether they're needed
 			// except for state sync that only runs if body sync return true (means txhashset is needed)
 			//add new header_sync peer if we found a new peer which is not in list
 
 			//add peer to the sync queue. only offset 0 can add old sync peer
-			if waiting_for_queue {
+			if waiting_for_queue && header_head.height < highest_height {
 				for peer in self.peers.clone().most_work_peers() {
 					let peer_addr = peer.info.addr.to_string();
 					if (peer
@@ -386,8 +387,6 @@ impl SyncRunner {
 				}
 			}
 
-			let mut check_state_sync = false;
-
 			match self.sync_state.status() {
 				SyncStatus::TxHashsetDownload { .. }
 				| SyncStatus::TxHashsetSetup
@@ -395,12 +394,30 @@ impl SyncRunner {
 				| SyncStatus::TxHashsetKernelsValidation { .. }
 				| SyncStatus::TxHashsetSave
 				| SyncStatus::TxHashsetDone => check_state_sync = true,
+				SyncStatus::NoSync | SyncStatus::Initial => {
+					let sync_head = self.chain.get_sync_head().unwrap();
+					debug!(
+                        "sync: initial transition to HeaderSync. sync_head: {} at {}, resetting to: {} at {}",
+                        sync_head.hash(),
+                        sync_head.height,
+                        header_head.hash(),
+                        header_head.height,
+                    );
+
+					// Reset sync_head to header_head on transition to HeaderSync,
+					// but ONLY on initial transition to HeaderSync state.
+					//
+					// The header_head and sync_head may diverge here in the presence of a fork
+					// in the header chain. Ensure we track the new advertised header chain here
+					// correctly, so reset any previous (and potentially stale) sync_head to match
+					// our last known "good" header_head.
+					//
+					let _ = self.chain.reset_sync_head();
+					// Rebuild the sync MMR to match our updated sync_head.
+					let _ = self.chain.rebuild_sync_mmr(&header_head);
+				}
 				_ => {
 					// skip body sync if header chain is not synced.
-					/*info!(
-						"self.sync_state.status header_head height: {:? }",
-						header_head.height
-					);*/
 					if header_head.height < highest_height {
 						continue;
 					}
