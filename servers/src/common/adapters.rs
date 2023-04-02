@@ -286,19 +286,20 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 		bhs: &[core::BlockHeader],
 		peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
-		info!(
-			"Received {} block headers from {}",
-			bhs.len(),
-			peer_info.addr
-		);
-
 		if bhs.len() == 0 {
 			//peer is banned
 			return Ok(false);
 		}
 
+		info!(
+			"Validate {} block headers from {}",
+			bhs.len(),
+			peer_info.addr
+		);
 		match self.chain().sync_block_headers(bhs, chain::Options::SYNC) {
-			Ok(_) => return Ok(true),
+			Ok(_) => {
+				return Ok(true);
+			}
 			Err(e) => {
 				debug!("Block headers refused by chain: {:?}", e);
 				if e.is_bad_data() {

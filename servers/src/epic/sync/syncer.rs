@@ -323,22 +323,23 @@ impl SyncRunner {
 			if header_syncs.len() > 0 {
 				waiting_for_queue = false;
 
-				//end foreach peer
-				info!("------------------------ in queue -------------------------");
+				// just for stats
 				if let Ok(fastsync_headers) = fastsync_header_queue.try_lock() {
+					info!("------------ Downloaded headers in queue ------------");
+
 					let mut sorted: Vec<_> = fastsync_headers.iter().collect();
 					sorted.sort_by_key(|a| a.0);
 					for (key, value) in sorted.iter() {
 						info!(
-							"queue item start height: {:?}, headers: {:?}, offset: {:?}",
+							"Start height: {:?}, Headers: {:?}, offset: {:?}",
 							key,
 							value.headers.len(),
 							value.offset
 						);
 					}
 					drop(fastsync_headers);
+					info!("------------------ <-------------> ------------------");
 				}
-				info!("------------------------ <------> -------------------------");
 
 				if let Ok(mut fastsync_headers) = fastsync_header_queue.try_lock() {
 					//reset if all queue items are processed or get stuck because items in queue can not be added
