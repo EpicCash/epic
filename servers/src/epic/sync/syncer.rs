@@ -394,28 +394,22 @@ impl SyncRunner {
 				| SyncStatus::TxHashsetKernelsValidation { .. }
 				| SyncStatus::TxHashsetSave
 				| SyncStatus::TxHashsetDone => check_state_sync = true,
-				SyncStatus::NoSync | SyncStatus::Initial => {
-					let sync_head = self.chain.get_sync_head().unwrap();
-					debug!(
-                        "sync: initial transition to HeaderSync. sync_head: {} at {}, resetting to: {} at {}",
-                        sync_head.hash(),
-                        sync_head.height,
-                        header_head.hash(),
-                        header_head.height,
-                    );
+				SyncStatus::AwaitingPeers(_) => {
+					if !waiting_for_queue {
+						let sync_head = self.chain.get_sync_head().unwrap();
+						info!(
+        					"sync: initial transition to HeaderSync. sync_head: {} at {}, resetting to: {} at {}",
+        					sync_head.hash(),
+        					sync_head.height,
+        					header_head.hash(),
+        					header_head.height,
+        				);
+						let _ = self.chain.reset_sync_head();
 
-					// Reset sync_head to header_head on transition to HeaderSync,
-					// but ONLY on initial transition to HeaderSync state.
-					//
-					// The header_head and sync_head may diverge here in the presence of a fork
-					// in the header chain. Ensure we track the new advertised header chain here
-					// correctly, so reset any previous (and potentially stale) sync_head to match
-					// our last known "good" header_head.
-					//
-					let _ = self.chain.reset_sync_head();
-					// Rebuild the sync MMR to match our updated sync_head.
-					let _ = self.chain.rebuild_sync_mmr(&header_head);
-					waiting_for_queue = true;
+						// Rebuild the sync MMR to match our updated sync_head.
+						let _ = self.chain.rebuild_sync_mmr(&header_head);
+						waiting_for_queue = true;
+					}
 				}
 				_ => {
 					// skip body sync if header chain is not synced.
