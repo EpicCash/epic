@@ -216,17 +216,17 @@ impl SyncRunner {
 			// run each sync stage, each of them deciding whether they're needed
 			// except for state sync that only runs if body sync return true (means txhashset is needed)
 			//add new header_sync peer if we found a new peer which is not in list
-			// this state is working
-			//TODO: implement normal peer
-			//Lst sync test start 23:15
+
+			//add peer to the sync queue. only offset 0 can add old sync peer
 			if waiting_for_queue {
 				for peer in self.peers.clone().most_work_peers() {
 					let peer_addr = peer.info.addr.to_string();
-					if peer
+					if (peer
 						.info
 						.capabilities
 						.contains(p2p::types::Capabilities::HEADER_FASTSYNC)
-						&& peer.is_connected() && !peer.is_banned()
+						|| offset == 0) && peer.is_connected()
+						&& !peer.is_banned()
 					{
 						let mut remove_peer_from_sync = false;
 						match header_syncs.get(&peer_addr) {

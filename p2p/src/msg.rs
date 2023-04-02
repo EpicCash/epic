@@ -68,6 +68,7 @@ enum_from_primitive! {
 		KernelDataRequest = 21,
 		KernelDataResponse = 22,
 		GetHeadersFastSync = 23,
+		FastHeaders = 24,
 
 	}
 }
@@ -96,6 +97,7 @@ fn max_msg_size(msg_type: Type) -> u64 {
 		Type::GetHeadersFastSync => 1 + 32 * MAX_LOCATORS as u64 + 2,
 		Type::Header => 365,
 		Type::Headers => 2 + 365 * MAX_BLOCK_HEADERS as u64,
+		Type::FastHeaders => 2 + 365 * MAX_BLOCK_HEADERS as u64,
 		Type::GetBlock => 32,
 		Type::Block => max_block_size(),
 		Type::GetCompactBlock => 32,

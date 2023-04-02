@@ -236,7 +236,7 @@ impl MessageHandler for Protocol {
 				let len = headers.len();
 				// serialize and send all the headers over
 				Ok(Some(Msg::new(
-					Type::Headers,
+					Type::FastHeaders,
 					Headers {
 						count: len as u16,
 						headers,
@@ -252,8 +252,34 @@ impl MessageHandler for Protocol {
 				adapter.header_received(header.into(), &self.peer_info)?;
 				Ok(None)
 			}
-
 			Type::Headers => {
+				let mut total_bytes_read = 0;
+
+				// Read the count (u16) so we now how many headers to read.
+				let (count, bytes_read): (u16, _) = msg.streaming_read()?;
+				total_bytes_read += bytes_read;
+
+				// Read chunks of headers off the stream and pass them off to the adapter.
+				let chunk_size = 128;
+				for chunk in (0..count).collect::<Vec<_>>().chunks(chunk_size) {
+					let mut headers = vec![];
+					for _ in chunk {
+						let (header, bytes_read) =
+							msg.streaming_read::<core::UntrustedBlockHeader>()?;
+						headers.push(header.into());
+						total_bytes_read += bytes_read;
+					}
+					adapter.headers_received(&headers, &self.peer_info)?;
+				}
+
+				// Now check we read the correct total number of bytes off the stream.
+				if total_bytes_read != msg.header.msg_len {
+					return Err(Error::MsgLen);
+				}
+
+				Ok(None)
+			}
+			Type::FastHeaders => {
 				let mut loc: Headers = msg.body()?;
 
 				/*info!(

@@ -23,7 +23,8 @@
 use crate::core::ser;
 use crate::core::ser::{FixedLength, ProtocolVersion};
 use crate::msg::{
-	read_body, read_discard, read_header, write_message, Msg, MsgHeader, MsgHeaderWrapper,
+	read_body, read_discard, read_header, read_item, write_message, Msg, MsgHeader,
+	MsgHeaderWrapper,
 };
 use crate::types::Error;
 use crate::util::{RateCounter, RwLock};
@@ -113,6 +114,12 @@ impl<'a> Message<'a> {
 	/// Read the message body from the underlying connection
 	pub fn body<T: ser::Readable>(&mut self) -> Result<T, Error> {
 		read_body(&self.header, self.stream, self.version)
+	}
+
+	/// Read a single "thing" from the underlying connection.
+	/// Return the thing and the total bytes read.
+	pub fn streaming_read<T: ser::Readable>(&mut self) -> Result<(T, u64), Error> {
+		read_item(self.stream, self.version)
 	}
 
 	pub fn copy_attachment(&mut self, len: usize, writer: &mut dyn Write) -> Result<usize, Error> {

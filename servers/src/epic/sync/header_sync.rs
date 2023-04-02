@@ -127,8 +127,11 @@ impl HeaderSync {
 				"############ sync: request_headers_fastsync: asking {} for headers, {:?}, offset {:?} ############",
 				self.peer.info.addr, locator, self.offset
 			);
-
-			let _ = self.peer.send_header_fastsync_request(locator, self.offset);
+			if self.offset == 0 {
+				let _ = self.peer.send_header_request(locator);
+			} else {
+				let _ = self.peer.send_header_fastsync_request(locator, self.offset);
+			}
 		}
 	}
 
