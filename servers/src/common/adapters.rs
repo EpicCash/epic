@@ -330,10 +330,7 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 		// looks like we know one, getting as many following headers as allowed
 		let hh = header.height;
 		let offset: u64 = offset.clone() as u64 * p2p::MAX_BLOCK_HEADERS as u64;
-		debug!(
-			"############### localtor with offset request: {:?} ###################",
-			offset
-		);
+		debug!("Locate headers with offset request: {:?}", offset);
 
 		let mut headers = vec![];
 		for h in (hh + 1)..=(hh + (p2p::MAX_BLOCK_HEADERS as u64)) {

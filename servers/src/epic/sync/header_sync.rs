@@ -65,27 +65,30 @@ impl HeaderSync {
 		match self.peers.get_connected_peer(self.peer.info.addr) {
 			Some(peer) => {
 				if !peer.is_connected() || peer.is_banned() {
-					//self.syncing_peer = false;
 					return Ok(vec![]);
 				}
 			}
 			None => {
-				//self.syncing_peer = false;
 				return Ok(vec![]);
 			}
 		}
 
 		if !self.syncing_peer {
 			error!(
-				"{:?}\t########## new sync peer ########### offset: {:?}",
+				"{:?}\tnew sync peer, offset: {:?}",
 				self.peer.info.addr, self.offset
 			);
+
 			self.sync_state.update(SyncStatus::HeaderSync {
 				current_height: self.header_head_height,
 				highest_height: self.highest_height,
 			});
 
 			self.syncing_peer = true;
+
+			//reset previous queued headers
+			self.peer.info.set_headers(vec![]);
+
 			self.header_sync();
 			return Ok(vec![]);
 		} else {
@@ -124,7 +127,7 @@ impl HeaderSync {
 	fn request_headers_fastsync(&mut self) {
 		if let Ok(locator) = self.get_locator() {
 			debug!(
-				"############ sync: request_headers_fastsync: asking {} for headers, {:?}, offset {:?} ############",
+				"sync: request_headers_fastsync: asking {} for headers, {:?}, offset {:?}",
 				self.peer.info.addr, locator, self.offset
 			);
 			if self.offset == 0 {

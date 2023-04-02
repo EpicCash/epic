@@ -162,12 +162,9 @@ impl SyncRunner {
 		// Main syncing loop
 		loop {
 			if self.stop_state.is_stopped() {
+				//close running header sync threads
 				for header_sync in header_syncs {
-					if let Err(_e) = header_sync.1.send(false) {
-						/*error!(
-							"########### error send to thread, channel is already closed ############## {:?}",e
-						);*/
-					}
+					let _ = header_sync.1.send(false);
 				}
 				break;
 			}
@@ -290,38 +287,29 @@ impl SyncRunner {
 									});
 
 								let feedback = handler.join().unwrap();
-								info!(
-									"{:?}\t ----- data from thread {:?}",
-									feedback.peer_info.addr, feedback.offset
-								);
 
 								if let Ok(mut fastsync_headers) = fastsync_header_queue.try_lock() {
 									match fastsync_headers
 										.insert(feedback.headers[0].height, feedback)
 									{
 										Some(_s) => {
-											info!("already inserted");
+											error!("headers already in queue");
 										}
 										None => {}
 									}
 								} else {
-									error!("-------------------------------- failed to get lock to insert headers to queue --------------------------------");
+									error!("failed to get lock to insert headers to queue");
 								}
 
 								offset = offset + 1 as u8;
 								header_syncs.insert(peer_addr.clone(), sender);
-								//sync_handles.push(handler);
 							}
 						}
 
 						if remove_peer_from_sync {
 							header_syncs.remove(&peer_addr);
 						}
-						//info!("current offset {:?}", offset);
 					}
-
-					/**/
-					thread::sleep(time::Duration::from_millis(1000));
 				}
 			}
 
@@ -334,7 +322,12 @@ impl SyncRunner {
 					let mut sorted: Vec<_> = fastsync_headers.iter().collect();
 					sorted.sort_by_key(|a| a.0);
 					for (key, value) in sorted.iter() {
-						info!("queue start heights {:?}, offset: {:?}", key, value.offset);
+						info!(
+							"queue item start height: {:?}, headers: {:?}, offset: {:?}",
+							key,
+							value.headers.len(),
+							value.offset
+						);
 					}
 					drop(fastsync_headers);
 				}
@@ -366,10 +359,6 @@ impl SyncRunner {
 									// if the peer sent us a block header that's intrinsically bad
 									// they are either mistaken or malevolent, both of which require a ban
 
-									info!(
-										"{:?}\t1.1 ---------- adding headers failed!!!!",
-										peer_info.addr
-									);
 									chainsync
 										.ban_peer(
 											peer_info.addr,
@@ -387,10 +376,7 @@ impl SyncRunner {
 								fastsync_headers.remove(&(current_height + 1));
 							}
 							Err(err) => {
-								info!(
-        							"####################### headers_received {:?} ######################",
-        							err
-        						);
+								error!("chainsync {:?}", err);
 							}
 						}
 					} else {
