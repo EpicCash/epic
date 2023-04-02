@@ -215,8 +215,7 @@ impl SyncRunner {
 			// except for state sync that only runs if body sync return true (means txhashset is needed)
 			//add new header_sync peer if we found a new peer which is not in list
 
-			//add peer to the sync queue. only offset 0 can add old sync peer
-			if waiting_for_queue {
+			if waiting_for_queue && header_head.height < highest_height {
 				for peer in self.peers.clone().most_work_peers() {
 					let peer_addr = peer.info.addr.to_string();
 					if (peer
@@ -395,6 +394,7 @@ impl SyncRunner {
 				| SyncStatus::TxHashsetSave
 				| SyncStatus::TxHashsetDone => check_state_sync = true,
 				SyncStatus::AwaitingPeers(_) => {
+					//apply only on startup
 					if !waiting_for_queue {
 						let sync_head = self.chain.get_sync_head().unwrap();
 						info!(
@@ -408,6 +408,7 @@ impl SyncRunner {
 
 						// Rebuild the sync MMR to match our updated sync_head.
 						let _ = self.chain.rebuild_sync_mmr(&header_head);
+						//asking peers for headers and start header sync tasks
 						waiting_for_queue = true;
 					}
 				}
@@ -416,6 +417,13 @@ impl SyncRunner {
 					if header_head.height < highest_height {
 						continue;
 					}
+
+					//if all headers synced close pending header sync tasks
+					for header_sync in header_syncs.clone() {
+						let _ = header_sync.1.send(false);
+					}
+					//no new headery sync tasks
+					waiting_for_queue = false;
 
 					let check_run = match body_sync.check_run(&head, highest_height) {
 						Ok(v) => v,

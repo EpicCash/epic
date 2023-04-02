@@ -100,7 +100,7 @@ impl HeaderSync {
 	fn header_sync_due(&mut self) {
 		let now = Utc::now().timestamp();
 
-		if (now - self.start_time) > 240 {
+		if (now - self.start_time) > 120 {
 			let _ = self
 				.peers
 				.ban_peer(self.peer.info.addr, ReasonForBan::FraudHeight);
