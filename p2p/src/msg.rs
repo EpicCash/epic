@@ -599,10 +599,44 @@ pub struct Headers {
 	pub headers: Vec<BlockHeader>,
 }
 
-impl Writeable for Headers {
+/// Serializable wrapper for a list of block headers.
+pub struct FastHeaders {
+	pub count: u16,
+	pub headers: Vec<BlockHeader>,
+}
+
+impl Writeable for FastHeaders {
 	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
 		writer.write_u16(self.headers.len() as u16)?;
 		self.headers.write(writer)?;
+		Ok(())
+	}
+}
+
+impl Readable for FastHeaders {
+	fn read(reader: &mut dyn Reader) -> Result<FastHeaders, ser::Error> {
+		let len = reader.read_u16()?;
+		if len > (MAX_BLOCK_HEADERS as u16) {
+			return Err(ser::Error::TooLargeReadErr);
+		}
+		let mut headers = Vec::with_capacity(len as usize);
+		for _ in 0..len {
+			headers.push(BlockHeader::read(reader)?);
+		}
+
+		Ok(FastHeaders {
+			count: len,
+			headers,
+		})
+	}
+}
+
+impl Writeable for Headers {
+	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
+		writer.write_u16(self.headers.len() as u16)?;
+		for h in &self.headers {
+			h.write(writer)?
+		}
 		Ok(())
 	}
 }

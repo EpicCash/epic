@@ -17,8 +17,8 @@ use crate::conn::{Message, MessageHandler, Tracker};
 use crate::core::core::{self, hash::Hash, hash::Hashed, CompactBlock};
 
 use crate::msg::{
-	BanReason, GetPeerAddrs, Headers, KernelDataResponse, Locator, LocatorFastSync, Msg, PeerAddrs,
-	Ping, Pong, TxHashSetArchive, TxHashSetRequest, Type,
+	BanReason, FastHeaders, GetPeerAddrs, Headers, KernelDataResponse, Locator, LocatorFastSync,
+	Msg, PeerAddrs, Ping, Pong, TxHashSetArchive, TxHashSetRequest, Type,
 };
 use crate::types::{Error, NetAdapter, PeerInfo};
 use chrono::prelude::Utc;
@@ -237,7 +237,7 @@ impl MessageHandler for Protocol {
 				// serialize and send all the headers over
 				Ok(Some(Msg::new(
 					Type::FastHeaders,
-					Headers {
+					FastHeaders {
 						count: len as u16,
 						headers,
 					},
