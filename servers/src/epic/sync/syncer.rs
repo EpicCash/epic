@@ -272,7 +272,10 @@ impl SyncRunner {
 											}
 
 											match header_sync.check_run() {
-												Ok(headers) => {
+												Ok((headers, peer_blocks)) => {
+													if peer_blocks {
+														break;
+													}
 													if headers.len() > 0 {
 														synchthread_headers.headers = headers;
 														break;

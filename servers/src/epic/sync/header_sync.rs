@@ -61,15 +61,17 @@ impl HeaderSync {
 		self.offset
 	}
 
-	pub fn check_run(&mut self) -> Result<Vec<BlockHeader>, chain::Error> {
+	pub fn check_run(&mut self) -> Result<(Vec<BlockHeader>, bool), chain::Error> {
+		let mut peer_blocks = false;
+
 		match self.peers.get_connected_peer(self.peer.info.addr) {
 			Some(peer) => {
 				if !peer.is_connected() || peer.is_banned() {
-					return Ok(vec![]);
+					peer_blocks = true;
 				}
 			}
 			None => {
-				return Ok(vec![]);
+				peer_blocks = true;
 			}
 		}
 
@@ -90,14 +92,13 @@ impl HeaderSync {
 			self.peer.info.set_headers(vec![]);
 
 			self.header_sync();
-			return Ok(vec![]);
 		} else {
-			self.header_sync_due();
+			peer_blocks = self.header_sync_due();
 		}
-		Ok(self.peer.info.get_headers().clone())
+		Ok((self.peer.info.get_headers().clone(), peer_blocks))
 	}
 
-	fn header_sync_due(&mut self) {
+	fn header_sync_due(&mut self) -> bool {
 		let now = Utc::now().timestamp();
 
 		if (now - self.start_time) > 120 {
@@ -111,7 +112,9 @@ impl HeaderSync {
 				self.peer.info.height(),
 				self.peer.info.total_difficulty(),
 			);
+			return true;
 		}
+		return false;
 	}
 
 	fn header_sync(&mut self) {
