@@ -216,7 +216,7 @@ impl SyncRunner {
 			//add new header_sync peer if we found a new peer which is not in list
 
 			//add peer to the sync queue. only offset 0 can add old sync peer
-			if waiting_for_queue && header_head.height < highest_height {
+			if waiting_for_queue {
 				for peer in self.peers.clone().most_work_peers() {
 					let peer_addr = peer.info.addr.to_string();
 					if (peer
