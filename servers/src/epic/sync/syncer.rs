@@ -143,7 +143,7 @@ impl SyncRunner {
 
 		let chainsync = self.peers.clone();
 
-		let mut waiting_for_queue = true;
+		let mut waiting_for_queue = false;
 
 		let mut body_sync = BodySync::new(
 			self.sync_state.clone(),
@@ -415,6 +415,7 @@ impl SyncRunner {
 					let _ = self.chain.reset_sync_head();
 					// Rebuild the sync MMR to match our updated sync_head.
 					let _ = self.chain.rebuild_sync_mmr(&header_head);
+					waiting_for_queue = true;
 				}
 				_ => {
 					// skip body sync if header chain is not synced.
