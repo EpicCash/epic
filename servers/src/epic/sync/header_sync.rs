@@ -126,13 +126,23 @@ impl HeaderSync {
 	/// Request some block headers from a peer to advance us.
 	fn request_headers_fastsync(&mut self) {
 		if let Ok(locator) = self.get_locator() {
-			debug!(
-				"sync: request_headers_fastsync: asking {} for headers, {:?}, offset {:?}",
-				self.peer.info.addr, locator, self.offset
-			);
-			if self.offset == 0 {
+			if self.offset == 0
+				&& !self
+					.peer
+					.info
+					.capabilities
+					.contains(p2p::types::Capabilities::HEADER_FASTSYNC)
+			{
+				debug!(
+					"sync: request headers: asking {} for headers, {:?}, offset {:?}",
+					self.peer.info.addr, locator, self.offset
+				);
 				let _ = self.peer.send_header_request(locator);
 			} else {
+				debug!(
+					"sync: request fastsync headers: asking {} for headers, {:?}, offset {:?}",
+					self.peer.info.addr, locator, self.offset
+				);
 				let _ = self.peer.send_header_fastsync_request(locator, self.offset);
 			}
 		}
