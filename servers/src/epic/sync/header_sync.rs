@@ -76,7 +76,7 @@ impl HeaderSync {
 		}
 
 		if !self.syncing_peer {
-			error!(
+			info!(
 				"{:?}\tnew sync peer, offset: {:?}",
 				self.peer.info.addr, self.offset
 			);

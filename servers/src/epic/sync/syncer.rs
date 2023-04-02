@@ -290,6 +290,10 @@ impl SyncRunner {
 									});
 
 								let feedback = handler.join().unwrap();
+								//dont process if headers are empty
+								if feedback.headers.len() <= 0 {
+									continue;
+								}
 
 								if let Ok(mut fastsync_headers) = fastsync_header_queue.try_lock() {
 									match fastsync_headers
@@ -320,7 +324,7 @@ impl SyncRunner {
 				waiting_for_queue = false;
 
 				//end foreach peer
-				info!("---------------------- in queue -----------------------");
+				info!("------------------------ in queue -------------------------");
 				if let Ok(fastsync_headers) = fastsync_header_queue.try_lock() {
 					let mut sorted: Vec<_> = fastsync_headers.iter().collect();
 					sorted.sort_by_key(|a| a.0);
@@ -334,7 +338,7 @@ impl SyncRunner {
 					}
 					drop(fastsync_headers);
 				}
-				info!("---------------------- <------> -----------------------");
+				info!("------------------------ <------> -------------------------");
 
 				if let Ok(mut fastsync_headers) = fastsync_header_queue.try_lock() {
 					//reset if all queue items are processed or get stuck because items in queue can not be added
