@@ -290,7 +290,7 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 			//peer is banned
 			return Ok(false);
 		}
-
+		let start_time = Utc::now().timestamp();
 		info!(
 			"Validate {} block headers from {}",
 			bhs.len(),
@@ -298,6 +298,10 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 		);
 		match self.chain().sync_block_headers(bhs, chain::Options::SYNC) {
 			Ok(_) => {
+				info!(
+					"------------ Validation required: {:?} sec ------------",
+					Utc::now().timestamp() - start_time,
+				);
 				return Ok(true);
 			}
 			Err(e) => {
