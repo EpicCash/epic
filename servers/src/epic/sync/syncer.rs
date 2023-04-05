@@ -143,7 +143,7 @@ impl SyncRunner {
 
 		let chainsync = self.peers.clone();
 
-		let mut waiting_for_queue = false;
+		let mut download_headers = false;
 
 		let mut body_sync = BodySync::new(
 			self.sync_state.clone(),
@@ -158,7 +158,7 @@ impl SyncRunner {
 
 		// Highest height seen on the network, generally useful for a fast test on
 		// whether some sync is needed
-		let mut highest_height = 0;
+		let mut highest_network_height = 0;
 
 		// Main syncing loop
 		loop {
@@ -179,10 +179,10 @@ impl SyncRunner {
 
 			if most_work_height > 0 {
 				// we can occasionally get a most work height of 0 if read locks fail
-				highest_height = most_work_height;
+				highest_network_height = most_work_height;
 			}
 
-			//sync_slots = highest_height / sync_slot_size as u64;
+			//sync_slots = highest_network_height / sync_slot_size as u64;
 			//info!("current sync_slots: {:?}", sync_slots);
 			// quick short-circuit (and a decent sleep) if no syncing is needed
 			if !needs_syncing {
@@ -215,7 +215,7 @@ impl SyncRunner {
 			// except for state sync that only runs if body sync return true (means txhashset is needed)
 			//add new header_sync peer if we found a new peer which is not in list
 
-			if waiting_for_queue && header_head.height < highest_height {
+			if download_headers {
 				for peer in self.peers.clone().most_work_peers() {
 					let peer_addr = peer.info.addr.to_string();
 					if (peer
@@ -223,7 +223,8 @@ impl SyncRunner {
 						.capabilities
 						.contains(p2p::types::Capabilities::HEADER_FASTSYNC)
 						|| offset == 0) && peer.is_connected()
-						&& !peer.is_banned()
+						&& !peer.is_banned() && (header_head.height + (offset as u64 * 512))
+						< highest_network_height
 					{
 						let mut remove_peer_from_sync = false;
 						match header_syncs.get(&peer_addr) {
@@ -321,7 +322,7 @@ impl SyncRunner {
 			}
 
 			if header_syncs.len() > 0 {
-				waiting_for_queue = false;
+				download_headers = false;
 
 				// just for stats
 				if let Ok(fastsync_headers) = fastsync_header_queue.try_lock() {
@@ -344,7 +345,7 @@ impl SyncRunner {
 				if let Ok(mut fastsync_headers) = fastsync_header_queue.try_lock() {
 					//reset if all queue items are processed or get stuck because items in queue can not be added
 					if fastsync_headers.len() == 0 || tochain_attemps > 10 {
-						waiting_for_queue = true;
+						download_headers = true;
 						offset = 0;
 						tochain_attemps = 0;
 						header_syncs = HashMap::new();
@@ -403,7 +404,7 @@ impl SyncRunner {
 				| SyncStatus::TxHashsetDone => check_state_sync = true,
 				SyncStatus::AwaitingPeers(_) => {
 					//apply only on startup
-					if !waiting_for_queue {
+					if !download_headers {
 						let sync_head = self.chain.get_sync_head().unwrap();
 						info!(
         					"sync: initial transition to HeaderSync. sync_head: {} at {}, resetting to: {} at {}",
@@ -417,12 +418,12 @@ impl SyncRunner {
 						// Rebuild the sync MMR to match our updated sync_head.
 						let _ = self.chain.rebuild_sync_mmr(&header_head);
 						//asking peers for headers and start header sync tasks
-						waiting_for_queue = true;
+						download_headers = true;
 					}
 				}
 				_ => {
 					// skip body sync if header chain is not synced.
-					if header_head.height < highest_height {
+					if header_head.height < highest_network_height {
 						continue;
 					}
 
@@ -431,9 +432,9 @@ impl SyncRunner {
 						let _ = header_sync.1.send(false);
 					}
 					//no new headery sync tasks
-					waiting_for_queue = false;
+					download_headers = false;
 
-					let check_run = match body_sync.check_run(&head, highest_height) {
+					let check_run = match body_sync.check_run(&head, highest_network_height) {
 						Ok(v) => v,
 						Err(e) => {
 							error!("check_run failed: {:?}", e);
@@ -448,7 +449,7 @@ impl SyncRunner {
 			}
 
 			if check_state_sync {
-				state_sync.check_run(&header_head, &head, &tail, highest_height);
+				state_sync.check_run(&header_head, &head, &tail, highest_network_height);
 			}
 		}
 	}
