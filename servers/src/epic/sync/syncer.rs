@@ -243,7 +243,7 @@ impl SyncRunner {
 									peer.clone(),
 									self.chain.clone(),
 									header_head.height.clone(),
-									header_head.height.clone(),
+									highest_network_height.clone(),
 									offset.clone(),
 								);
 
@@ -427,12 +427,11 @@ impl SyncRunner {
 						continue;
 					}
 
-					//if all headers synced close pending header sync tasks
+					//if all headers synced close pending header sync tasks and stop aksing peers
+					download_headers = false;
 					for header_sync in header_syncs.clone() {
 						let _ = header_sync.1.send(false);
 					}
-					//no new headery sync tasks
-					download_headers = false;
 
 					let check_run = match body_sync.check_run(&head, highest_network_height) {
 						Ok(v) => v,
