@@ -81,31 +81,26 @@ The following steps explain how to install and run the epic server:
   :CUSTOM_ID: run_epic
   :END:   
 
-1. In the unzipped package directory, run the command
+1. In the unzipped package directory, run the following command in the terminal:
 
     #+begin_src shell
       ./epic
     #+end_src
 
-2. It creates the .epic directory in user directory which has the epic-server.toml file when first run. The epic-server.toml file is created in /home/user/.epic/main directory. 
+2. It creates the .epic directory in user directory which has the epic-server.toml file when first run. The epic-server.toml file is created in /home/<user>/.epic/main directory. 
 
-3. Copy the foundation.json file in the unzipped package directory and paste it in the '/home/user/.epic/main' directory.
+3. Copy the foundation.json file in the unzipped package directory and paste it in the '/home/<user>/.epic/main' directory.
 
-4. Open the epic-server.toml file in your text editor and look for 'foundation_path', change the file locations to match the newly copied foundation.json location, i.e., /home/user/.epic/main. 
+4. Open the epic-server.toml file in your text editor and look for 'foundation_path', change the file locations to match the newly copied foundation.json location, i.e., /home/<user>/.epic/main. 
 
-    Also edit the following rows in the same .toml file:    
+    Also edit the same .toml file to change seeding_type to "List" and uncomment/update seeds to ["95.217.197.180:3517"]:    
   
-```diff
-#how to seed this server, can be None, List or DNSSeed
--seeding_type = "DNSSeed"
-+#seeding_type = "DNSSeed"
-+seeding_type = "List"
 
-#If the seeding type is List, the list of peers to connect to can
-#be specified as follows:
--#seeds = ["192.168.0.1:3414","192.168.0.2:3414"]
-+seeds = ["95.217.197.180:3517"]
-```
+#+CAPTION: Epic Server toml changes
+#+NAME:   fig:update-epic-server-toml
+#+ATTR_HTML: :width 50% :height 50% 
+[[./images/update-epic-server-toml.png]]
+
 
 *If you are running the epic server for the first time, it will use*
 *its [[#epic_config_default][default configuration]]. If you want to save all epic server data*
