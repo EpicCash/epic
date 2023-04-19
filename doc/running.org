@@ -67,7 +67,7 @@ The following steps explain how to install and run the epic server:
 
 1. Download the latest version of the *epic* package [[https://epic.tech/downloads/][here]].
 
-2.  Unzip the downloaded epic server package. A binary file and a foundation.json file are available inside the unzipped paxkage. 
+2.  Unzip the downloaded epic server package. A binary file and a foundation.json file are available inside the unzipped package. 
 
 3. Stay in the unzipped package directory, run the following command to make your binary file executable. 
    
@@ -175,7 +175,7 @@ The following steps explain how to install and run the epic-wallet:
 
 1. Download the latest version of the *epic-wallet* package [[https://epic.tech/downloads/][here]].
 
-2.  Unzip the downloaded epic wallet package. A binary file is available inside the unzipped paxkage. 
+2.  Unzip the downloaded epic wallet package. A binary file is available inside the unzipped package. 
 
 3. Stay in the unzipped package directory, run the following command to make your binary file executable. 
    
