@@ -87,11 +87,11 @@ The following steps explain how to install and run the epic server:
       ./epic
     #+end_src
 
-2. It creates the .epic directory in user directory which has the epic-server.toml file when first run. The epic-server.toml file is created in /home/user/.epic/main directory. 
+2. It creates the .epic directory in user directory which has the epic-server.toml file when first run. The epic-server.toml file is created in ~/home/user/.epic/main~ directory. 
 
-3. Copy the foundation.json file in the unzipped package directory and paste it in the '/home/user/.epic/main' directory.
+3. Copy the foundation.json file in the unzipped package directory and paste it in the ~/home/user/.epic/main~ directory.
 
-4. Open the epic-server.toml file in your text editor and look for 'foundation_path', change the file locations to match the newly copied foundation.json location, i.e., /home/user/.epic/main. 
+4. Open the epic-server.toml file in your text editor and look for 'foundation_path', change the file locations to match the newly copied foundation.json location, i.e., ~/home/user/.epic/main~. 
     
     After editing it should look similar to the below snippet.
 
