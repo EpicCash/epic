@@ -11,7 +11,6 @@ edition = "2018"
 
 [dependencies]
 hyper = "0.12"
-hyper-rustls = "0.14"
 fs2 = "0.4"
 futures = "0.1"
 http = "0.1"
@@ -28,6 +27,7 @@ bigint = "4.4.1"
 clokwerk = "0.2.1"
 trust-dns-resolver = "0.11.1"
 walkdir = "2.2.9"
+hyper-rustls = "0.17.1"
 
 epic_api = { path = "../api", version = "3.3.2" }
 epic_chain = { path = "../chain", version = "3.3.2" }
