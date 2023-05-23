@@ -28,18 +28,6 @@ pub fn to_hex(bytes: Vec<u8>) -> String {
 	s
 }
 
-/// Convert to hex
-pub trait ToHex {
-	/// convert to hex
-	fn to_hex(&self) -> String;
-}
-
-impl<T: AsRef<[u8]>> ToHex for T {
-	fn to_hex(&self) -> String {
-		to_hex(self.as_ref())
-	}
-}
-
 /// Decode a hex string into bytes.
 pub fn from_hex(hex_str: String) -> Result<Vec<u8>, num::ParseIntError> {
 	if hex_str.len() % 2 == 1 {
