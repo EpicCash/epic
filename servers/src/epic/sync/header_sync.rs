@@ -152,14 +152,14 @@ impl HeaderSync {
 							if now > *stalling_ts + Duration::seconds(120)
 								&& header_head.total_difficulty < peer.info.total_difficulty()
 							{
-								if let Err(e) = self
-									.peers
-									.ban_peer(peer.info.addr, ReasonForBan::FraudHeight)
-								{
-									error!("failed to ban peer {}: {:?}", peer.info.addr, e);
+								if let Err(e) = self.peers.disconnect_peer(
+									peer.info.addr, /*, ReasonForBan::FraudHeight*/
+								) {
+									error!("failed to disconnect_peer {}: {:?}", peer.info.addr, e);
 								}
 								info!(
-										"sync: ban a fraud peer: {}, claimed height: {}, total difficulty: {}",
+										"sync: disconnect peer, claimed higher work but headers not delivered: {}, \
+										claimed height: {}, total difficulty: {}",
 										peer.info.addr,
 										peer.info.height(),
 										peer.info.total_difficulty(),
