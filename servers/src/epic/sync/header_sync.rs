@@ -148,13 +148,11 @@ impl HeaderSync {
 				if let Some(ref peer) = self.syncing_peer {
 					match self.sync_state.status() {
 						SyncStatus::HeaderSync { .. } | SyncStatus::BodySync { .. } => {
-							// Ban this fraud peer which claims a higher work but can't send us the real headers
+							// Disconnect peer which claims a higher work but can't send us the real headers
 							if now > *stalling_ts + Duration::seconds(120)
 								&& header_head.total_difficulty < peer.info.total_difficulty()
 							{
-								if let Err(e) = self.peers.disconnect_peer(
-									peer.info.addr, /*, ReasonForBan::FraudHeight*/
-								) {
+								if let Err(e) = self.peers.disconnect_peer(peer.info.addr) {
 									error!("failed to disconnect_peer {}: {:?}", peer.info.addr, e);
 								}
 								info!(
