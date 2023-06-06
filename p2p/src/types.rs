@@ -329,6 +329,8 @@ impl Default for Seeding {
 	}
 }
 
+// Section below will set [server.p2p_config.capabilities] bits value in epic-server.toml
+
 bitflags! {
 	/// Options for what type of interaction a peer supports
 	#[derive(Serialize, Deserialize)]
@@ -344,9 +346,9 @@ bitflags! {
 		/// Can provide a list of healthy peers
 		const PEER_LIST = 0b00000100;
 		/// Can broadcast and request txs by kernel hash.
-		const TX_KERNEL_HASH = 0b00001000;
+		const TX_KERNEL_HASH = 0b00001000; // 15
 		/// Does support fastsync where requested headers can be returned by an offset value.
-		const HEADER_FASTSYNC = 0b00010000;
+		const HEADER_FASTSYNC = 0b00010000; // 31
 
 		/// All nodes right now are "full nodes".
 		/// Some nodes internally may maintain longer block histories (archival_mode)
