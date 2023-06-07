@@ -187,14 +187,14 @@ impl HeaderSync {
 					.capabilities
 					.contains(p2p::types::Capabilities::HEADER_FASTSYNC)
 			{
-				debug!(
-					"sync: request headers: asking {} for headers, {:?}, offset {:?}",
+				info!(
+					">>>> slow sync: request headers: asking {} for headers, {:?}, offset {:?}",
 					self.peer.info.addr, locator, self.offset
 				);
 				let _ = self.peer.send_header_request(locator);
 			} else {
-				debug!(
-					"sync: request fastsync headers: asking {} for headers, {:?}, offset {:?}",
+				info!(
+					"<<<< fast sync: request fastsync headers: asking {} for headers, {:?}, offset {:?}",
 					self.peer.info.addr, locator, self.offset
 				);
 				let _ = self.peer.send_header_fastsync_request(locator, self.offset);
@@ -217,6 +217,7 @@ impl HeaderSync {
 
 		let tip = self.chain.get_sync_head()?;
 		let heights = get_locator_heights(tip.height);
+		warn!(">>> heights_string ({:?})", heights);
 
 		// for security, clear history_locator[] in any case of header chain rollback,
 		// the easiest way is to check whether the sync head and the header head are identical.
@@ -268,7 +269,7 @@ impl HeaderSync {
 						iter
 					);
 
-					header_cursor = self.chain.get_previous_header(&header);
+					header_cursor = self.chain.get_header_by_height(h);
 
 					// Uncomment below to stop recursive loop
 					/*if iter >= 1024 {
