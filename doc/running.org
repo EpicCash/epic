@@ -42,7 +42,7 @@ to install the libRandomX dependency. The following steps explain how
 to install this dependency:
 
 1. Download the latest version of the *librandomx* package [[https://epic.tech/downloads/][here]].
-
+  
 2. In the terminal, navigate to the directory where you downloaded the
    .deb file and execute the following command changing the argument
    <your-librandomX.deb> to the name of your downloaded file:
@@ -67,25 +67,46 @@ The following steps explain how to install and run the epic server:
 
 1. Download the latest version of the *epic* package [[https://epic.tech/downloads/][here]].
 
-2. In the terminal, navigate to the directory where you downloaded the
-   .deb file and execute the following command changing the argument
-   <your-epic-server.deb> to the name of your downloaded file:
+2.  Unzip the downloaded epic server package. A binary file and a foundation.json file are available inside the unzipped package. 
 
-    #+begin_src shell
-      sudo dpkg -i <your-epic-server.deb>
+3. Stay in the unzipped package directory, run the following command to make your binary file executable. 
+   
+   #+begin_src shell
+      chmod +x epic
     #+end_src
 
 #+ATTR_HTML: :id run_epic
 ** Running the Epic Server
   :PROPERTIES:
   :CUSTOM_ID: run_epic
-  :END:
-After you finished the installation, you can run it by executing the
-following command in the terminal:
+  :END:   
+
+1. In the unzipped package directory, run the following command in the terminal:
 
     #+begin_src shell
-      epic
+      ./epic
     #+end_src
+
+2. It creates the .epic directory in user directory which has the epic-server.toml file when first run. The epic-server.toml file is created in ~/home/user/.epic/main~ directory. 
+
+3. Copy the foundation.json file in the unzipped package directory and paste it in the ~/home/user/.epic/main~ directory.
+
+4. Open the epic-server.toml file in your text editor and look for 'foundation_path', change the file locations to match the newly copied foundation.json location, i.e., ~/home/user/.epic/main~. 
+    
+    After editing it should look similar to the below snippet.
+
+    #+begin_src shell
+      foundation_path = "/home/user/.epic/main/foundation.json"
+    #+end_src
+
+    Also edit the same .toml file to change seeding_type to "List" and uncomment/update seeds to ["95.217.197.180:3517"]:    
+  
+
+#+CAPTION: Epic Server toml changes
+#+NAME:   fig:update-epic-server-toml
+#+ATTR_HTML: :width 50% :height 50% 
+[[./images/update-epic-server-toml.png]]
+
 
 *If you are running the epic server for the first time, it will use*
 *its [[#epic_config_default][default configuration]]. If you want to save all epic server data*
@@ -160,27 +181,28 @@ The following steps explain how to install and run the epic-wallet:
 
 1. Download the latest version of the *epic-wallet* package [[https://epic.tech/downloads/][here]].
 
-2. Open a new terminal window and navigate to the directory where you
-   downloaded the .deb file and execute the following command changing
-   the argument <your-epic-wallet.deb> to the name of your downloaded
-   file:
+2.  Unzip the downloaded epic wallet package. A binary file is available inside the unzipped package. 
 
-    #+begin_src shell
-      sudo dpkg -i <your-epic-wallet.deb>
+3. Stay in the unzipped package directory, run the following command to make your binary file executable. 
+   
+   #+begin_src shell
+      chmod +x epic-wallet
     #+end_src
+ 
 
 #+ATTR_HTML: :id init_wallet
 ** Initialize the Wallet
   :PROPERTIES:
   :CUSTOM_ID: init_wallet
   :END:    
+
 Before you can use the Epic wallet, it must be initialized. This
 process will initialize your wallet's database and create your secret
 master seed file. For this, we need to run the following command in
 the terminal:
 
     #+begin_src shell
-      epic-wallet init
+      ./epic-wallet init
     #+end_src
     
 You will then be prompted to enter a password. This password will be
