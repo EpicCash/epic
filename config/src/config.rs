@@ -169,7 +169,9 @@ impl GlobalConfig {
 		defaults.chain_type = chain_type.clone();
 
 		match *chain_type {
-			global::ChainTypes::Mainnet => {}
+			global::ChainTypes::Mainnet => {
+				defaults.p2p_config.seeding_type = p2p::Seeding::List;
+			}
 			global::ChainTypes::Floonet => {
 				defaults.api_http_addr = "127.0.0.1:13413".to_owned();
 				defaults.p2p_config.port = 13414;
