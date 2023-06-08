@@ -247,6 +247,13 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 		if self.chain().block_exists(bh.hash())? {
 			return Ok(true);
 		}
+
+		// Also no need to process if we are syncing headers, we receive a new peer header broadcast
+		if matches!(self.sync_state.status(), SyncStatus::HeaderSync { .. }) {
+			//warn!("Ignoring broadcasted header for block: hash({}) height({})", bh.hash(), bh.height);
+			return Ok(true);
+		}
+
 		if !self.sync_state.is_syncing() {
 			for hook in &self.hooks {
 				hook.on_header_received(&bh, &peer_info.addr);
@@ -255,6 +262,7 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 
 		// pushing the new block header through the header chain pipeline
 		// we will go ask for the block if this is a new header
+
 		let res = self.chain().process_block_header(&bh, chain::Options::NONE);
 
 		if let Err(e) = res {
