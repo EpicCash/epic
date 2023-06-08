@@ -64,7 +64,7 @@ impl HeaderSync {
 	pub fn check_run(&mut self) -> Result<(Vec<BlockHeader>, bool), chain::Error> {
 		let mut peer_blocks = false;
 
-		warn!(
+		trace!(
 			"check_run: now ({}) start_time ({}) diff({})",
 			Utc::now().timestamp(),
 			self.start_time,
@@ -74,19 +74,21 @@ impl HeaderSync {
 		match self.peers.get_connected_peer(self.peer.info.addr) {
 			Some(peer) => {
 				let now = Utc::now().timestamp();
-				warn!(
+				trace!(
 					"check_run, peermatch: now ({}) start_time ({}) diff({})",
 					now,
 					self.start_time,
 					(now - self.start_time)
 				);
-				if !peer.is_connected() || peer.is_banned() {
+				if !peer.is_connected() || peer.is_banned()
+				/*|| !peer.info.capabilities.contains(p2p::types::Capabilities::HEADER_FASTSYNC)*/
+				{
 					peer_blocks = true;
 				}
 			}
 			None => {
 				let now = Utc::now().timestamp();
-				warn!(
+				trace!(
 					"check_run, peermatchnone: now ({}) start_time ({}) diff({})",
 					now,
 					self.start_time,
@@ -98,7 +100,7 @@ impl HeaderSync {
 
 		if !self.syncing_peer {
 			let now = Utc::now().timestamp();
-			warn!(
+			trace!(
 				"check_run,syncing_peer: now ({}) start_time ({}) diff({})",
 				now,
 				self.start_time,
@@ -116,7 +118,7 @@ impl HeaderSync {
 			});
 
 			let now = Utc::now().timestamp();
-			warn!(
+			trace!(
 				"check_run, after sync_state.update: now ({}) start_time ({}) diff({})",
 				now,
 				self.start_time,
@@ -144,7 +146,7 @@ impl HeaderSync {
 			(now - self.start_time)
 		);
 
-		if (now - self.start_time) > 240 {
+		if (now - self.start_time) > 120 {
 			let _ = self
 				.peers
 				.ban_peer(self.peer.info.addr, ReasonForBan::FraudHeight);
@@ -172,7 +174,7 @@ impl HeaderSync {
 	/// Request some block headers from a peer to advance us.
 	fn request_headers_fastsync(&mut self) {
 		let now = Utc::now().timestamp();
-		warn!(
+		trace!(
 			"request_headers_fastsync: now ({}) start_time ({}) diff({})",
 			now,
 			self.start_time,
@@ -191,6 +193,7 @@ impl HeaderSync {
 					">>>> slow sync: request headers: asking {} for headers, {:?}, offset {:?}",
 					self.peer.info.addr, locator, self.offset
 				);
+				//debug!(">>> slow sync peer, do nothing");
 				let _ = self.peer.send_header_request(locator);
 			} else {
 				info!(
@@ -208,7 +211,7 @@ impl HeaderSync {
 	fn get_locator(&mut self) -> Result<Vec<Hash>, Error> {
 		let mut iter = 0;
 		let now = Utc::now().timestamp();
-		warn!(
+		trace!(
 			"get_locator, start: now ({}) start_time ({}) diff({})",
 			now,
 			self.start_time,
@@ -226,7 +229,7 @@ impl HeaderSync {
 		}
 
 		let now = Utc::now().timestamp();
-		warn!(
+		trace!(
 			"get_locator, bp1: now ({}) start_time ({}) diff({})",
 			now,
 			self.start_time,
@@ -239,7 +242,7 @@ impl HeaderSync {
 		for h in heights {
 			if let Some(l) = close_enough(&self.history_locator, h) {
 				let now = Utc::now().timestamp();
-				warn!(
+				trace!(
 					"get_locator, bp2: now ({}) start_time ({}) diff({})",
 					now,
 					self.start_time,
@@ -252,12 +255,6 @@ impl HeaderSync {
 				let mut header_cursor = self.chain.get_block_header(&last_loc.1);
 				while let Ok(header) = header_cursor {
 					iter += 1;
-					if header.height == h {
-						if header.height != last_loc.0 {
-							locator.push((header.height, header.hash()));
-						}
-						break;
-					}
 					let now = Utc::now().timestamp();
 					warn!(
 						"get_locator, bp3: now ({}) start_time ({}) diff({}) header.height({}), h({}), iter({})",
@@ -268,18 +265,18 @@ impl HeaderSync {
 						h,
 						iter
 					);
-
-					header_cursor = self.chain.get_header_by_height(h);
-
-					// Uncomment below to stop recursive loop
-					/*if iter >= 1024 {
+					if header.height == h {
+						if header.height != last_loc.0 {
+							locator.push((header.height, header.hash()));
+						}
 						break;
-					}*/
+					}
+					header_cursor = self.chain.get_header_by_height(h);
 				}
 			}
 		}
 		let now = Utc::now().timestamp();
-		warn!(
+		trace!(
 			"get_locator, bp4: now ({}) start_time ({}) diff({})",
 			now,
 			self.start_time,
