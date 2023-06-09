@@ -17,8 +17,8 @@ use crate::conn::{Message, MessageHandler, Tracker};
 use crate::core::core::{self, hash::Hash, hash::Hashed, CompactBlock};
 
 use crate::msg::{
-	BanReason, GetPeerAddrs, Headers, KernelDataResponse, Locator, Msg, PeerAddrs, Ping, Pong,
-	TxHashSetArchive, TxHashSetRequest, Type,
+	BanReason, FastHeaders, GetPeerAddrs, Headers, KernelDataResponse, Locator, LocatorFastSync,
+	Msg, PeerAddrs, Ping, Pong, TxHashSetArchive, TxHashSetRequest, Type,
 };
 use crate::types::{Error, NetAdapter, PeerInfo};
 use chrono::prelude::Utc;
@@ -215,12 +215,32 @@ impl MessageHandler for Protocol {
 			Type::GetHeaders => {
 				// load headers from the locator
 				let loc: Locator = msg.body()?;
-				let headers = adapter.locate_headers(&loc.hashes)?;
-
+				let offset = 0 as u8;
+				let headers = adapter.locate_headers(&loc.hashes, &offset)?;
+				let len = headers.len();
 				// serialize and send all the headers over
 				Ok(Some(Msg::new(
 					Type::Headers,
-					Headers { headers },
+					Headers {
+						count: len as u16,
+						headers,
+					},
+					self.peer_info.version,
+				)?))
+			}
+
+			Type::GetHeadersFastSync => {
+				// load headers from the locator
+				let loc: LocatorFastSync = msg.body()?;
+				let headers = adapter.locate_headers(&loc.hashes, &loc.offset)?;
+				let len = headers.len();
+				// serialize and send all the headers over
+				Ok(Some(Msg::new(
+					Type::FastHeaders,
+					FastHeaders {
+						count: len as u16,
+						headers,
+					},
 					self.peer_info.version,
 				)?))
 			}
@@ -232,7 +252,6 @@ impl MessageHandler for Protocol {
 				adapter.header_received(header.into(), &self.peer_info)?;
 				Ok(None)
 			}
-
 			Type::Headers => {
 				let mut total_bytes_read = 0;
 
@@ -241,23 +260,34 @@ impl MessageHandler for Protocol {
 				total_bytes_read += bytes_read;
 
 				// Read chunks of headers off the stream and pass them off to the adapter.
+				let mut headers = Headers {
+					count: 0,
+					headers: vec![],
+				};
 				let chunk_size = 128;
 				for chunk in (0..count).collect::<Vec<_>>().chunks(chunk_size) {
-					let mut headers = vec![];
 					for _ in chunk {
 						let (header, bytes_read) =
 							msg.streaming_read::<core::UntrustedBlockHeader>()?;
-						headers.push(header.into());
+						headers.headers.push(header.into());
 						total_bytes_read += bytes_read;
 					}
-					adapter.headers_received(&headers, &self.peer_info)?;
 				}
+				headers.headers.sort_by_key(|a| a.height);
+				adapter.headers_received(&headers.headers, &self.peer_info)?;
 
 				// Now check we read the correct total number of bytes off the stream.
 				if total_bytes_read != msg.header.msg_len {
 					return Err(Error::MsgLen);
 				}
 
+				Ok(None)
+			}
+			Type::FastHeaders => {
+				let mut loc: Headers = msg.body()?;
+
+				loc.headers.sort_by_key(|a| a.height);
+				adapter.headers_received(&loc.headers, &self.peer_info)?;
 				Ok(None)
 			}
 

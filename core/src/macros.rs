@@ -20,7 +20,7 @@
 #[macro_export]
 macro_rules! map_vec {
 	($thing:expr, $mapfn:expr) => {
-		$thing.iter().map($mapfn).collect::<Vec<_>>();
+		$thing.iter().map($mapfn).collect::<Vec<_>>()
 	};
 }
 
@@ -60,7 +60,7 @@ macro_rules! tee {
 	($thing:ident, $thing_expr:expr) => {{
 		$thing_expr;
 		$thing
-		}};
+	}};
 }
 
 /// Eliminate some of the boilerplate of deserialization (package ser) by
@@ -75,7 +75,7 @@ macro_rules! tee {
 #[macro_export]
 macro_rules! ser_multiread {
   ($rdr:ident, $($read_call:ident $(($val:expr)),*),*) => {
-    ( $(r#try!($rdr.$read_call($($val),*))),* )
+    ( $($rdr.$read_call($($val),*)?),* )
   }
 }
 
@@ -89,7 +89,7 @@ macro_rules! ser_multiread {
 #[macro_export]
 macro_rules! ser_multiwrite {
   ($wrtr:ident, $([ $write_call:ident, $val:expr ]),* ) => {
-    $( r#try!($wrtr.$write_call($val)) );*
+    $( $wrtr.$write_call($val)? );*
   }
 }
 

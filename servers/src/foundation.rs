@@ -36,10 +36,10 @@ pub fn create_foundation(
 		);
 		match c_foundation(&wallet_listener_url, &block_fees) {
 			Err(_) => {
-				panic!(format!(
+				panic!(
 					"Failed to get coinbase from {}. Is the wallet listening?",
 					wallet_listener_url
-				));
+				);
 			}
 			Ok(foundation) => {
 				result.push(foundation);

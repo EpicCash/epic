@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::core::core::BlockHeader;
 use crate::util::RwLock;
 use std::convert::From;
 use std::fs::File;
@@ -328,6 +329,8 @@ impl Default for Seeding {
 	}
 }
 
+// Section below will set [server.p2p_config.capabilities] bits value in epic-server.toml
+
 bitflags! {
 	/// Options for what type of interaction a peer supports
 	#[derive(Serialize, Deserialize)]
@@ -343,7 +346,9 @@ bitflags! {
 		/// Can provide a list of healthy peers
 		const PEER_LIST = 0b00000100;
 		/// Can broadcast and request txs by kernel hash.
-		const TX_KERNEL_HASH = 0b00001000;
+		const TX_KERNEL_HASH = 0b00001000; // 15
+		/// Does support fastsync where requested headers can be returned by an offset value.
+		const HEADER_FASTSYNC = 0b00010000; // 31
 
 		/// All nodes right now are "full nodes".
 		/// Some nodes internally may maintain longer block histories (archival_mode)
@@ -352,7 +357,9 @@ bitflags! {
 		const FULL_NODE = Capabilities::HEADER_HIST.bits
 			| Capabilities::TXHASHSET_HIST.bits
 			| Capabilities::PEER_LIST.bits
-			| Capabilities::TX_KERNEL_HASH.bits;
+			| Capabilities::TX_KERNEL_HASH.bits
+			| Capabilities::HEADER_FASTSYNC.bits
+			;
 	}
 }
 
@@ -388,6 +395,7 @@ pub struct PeerLiveInfo {
 	pub stuck_detector: DateTime<Utc>,
 	pub first_seen: DateTime<Utc>,
 	pub local_timestamp: i64,
+	pub synced_headers: Vec<BlockHeader>,
 }
 
 /// General information about a connected peer that's useful to other modules.
@@ -410,6 +418,7 @@ impl PeerLiveInfo {
 			last_seen: Utc::now(),
 			local_timestamp: 0,
 			stuck_detector: Utc::now(),
+			synced_headers: vec![],
 		}
 	}
 }
@@ -463,6 +472,17 @@ impl PeerInfo {
 		live_info.last_seen = Utc::now();
 		live_info.local_timestamp = local_timestamp;
 	}
+
+	/// store received untrusted headers. will be added later to chain
+	pub fn set_headers(&self, headers: Vec<BlockHeader>) {
+		let mut live_info = self.live_info.write();
+		live_info.synced_headers = headers;
+	}
+
+	/// untrusted headers from header sync.
+	pub fn get_headers(&self) -> Vec<BlockHeader> {
+		self.live_info.read().synced_headers.clone()
+	}
 }
 
 /// Flatten out a PeerInfo and nested PeerLiveInfo (taking a read lock on it)
@@ -513,6 +533,9 @@ pub trait ChainAdapter: Sync + Send {
 	/// Current total height
 	fn total_height(&self) -> Result<u64, chain::Error>;
 
+	/// Current total header height
+	fn total_header_height(&self) -> Result<u64, chain::Error>;
+
 	/// A valid transaction has been received from one of our peers
 	fn transaction_received(&self, tx: core::Transaction, stem: bool)
 		-> Result<bool, chain::Error>;
@@ -560,7 +583,11 @@ pub trait ChainAdapter: Sync + Send {
 	/// Finds a list of block headers based on the provided locator. Tries to
 	/// identify the common chain and gets the headers that follow it
 	/// immediately.
-	fn locate_headers(&self, locator: &[Hash]) -> Result<Vec<core::BlockHeader>, chain::Error>;
+	fn locate_headers(
+		&self,
+		locator: &[Hash],
+		offset: &u8,
+	) -> Result<Vec<core::BlockHeader>, chain::Error>;
 
 	/// Gets a full block by its hash.
 	fn get_block(&self, h: Hash) -> Option<core::Block>;

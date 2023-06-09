@@ -60,6 +60,10 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 		Ok(self.chain().head()?.height)
 	}
 
+	fn total_header_height(&self) -> Result<u64, chain::Error> {
+		Ok(self.chain().header_head()?.height)
+	}
+
 	fn get_transaction(&self, kernel_hash: Hash) -> Option<core::Transaction> {
 		self.tx_pool.read().retrieve_tx_by_kernel_hash(kernel_hash)
 	}
@@ -243,6 +247,13 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 		if self.chain().block_exists(bh.hash())? {
 			return Ok(true);
 		}
+
+		// Also no need to process if we are syncing headers, we receive a new peer header broadcast
+		if matches!(self.sync_state.status(), SyncStatus::HeaderSync { .. }) {
+			//warn!("Ignoring broadcasted header for block: hash({}) height({})", bh.hash(), bh.height);
+			return Ok(true);
+		}
+
 		if !self.sync_state.is_syncing() {
 			for hook in &self.hooks {
 				hook.on_header_received(&bh, &peer_info.addr);
@@ -251,6 +262,7 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 
 		// pushing the new block header through the header chain pipeline
 		// we will go ask for the block if this is a new header
+
 		let res = self.chain().process_block_header(&bh, chain::Options::NONE);
 
 		if let Err(e) = res {
@@ -276,24 +288,30 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 		Ok(true)
 	}
 
+	// if headers are empty or refused, then peer is banned
 	fn headers_received(
 		&self,
 		bhs: &[core::BlockHeader],
 		peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
+		if bhs.len() == 0 {
+			//peer is banned
+			return Ok(false);
+		}
+		let start_time = Utc::now().timestamp();
 		info!(
-			"Received {} block headers from {}",
+			"Validate {} block headers from {}",
 			bhs.len(),
 			peer_info.addr
 		);
-
-		if bhs.len() == 0 {
-			return Ok(false);
-		}
-
-		// try to add headers to our header chain
 		match self.chain().sync_block_headers(bhs, chain::Options::SYNC) {
-			Ok(_) => Ok(true),
+			Ok(_) => {
+				info!(
+					"------------ Validation required: {:?} sec ------------",
+					Utc::now().timestamp() - start_time,
+				);
+				return Ok(true);
+			}
 			Err(e) => {
 				debug!("Block headers refused by chain: {:?}", e);
 				if e.is_bad_data() {
@@ -305,7 +323,11 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 		}
 	}
 
-	fn locate_headers(&self, locator: &[Hash]) -> Result<Vec<core::BlockHeader>, chain::Error> {
+	fn locate_headers(
+		&self,
+		locator: &[Hash],
+		offset: &u8,
+	) -> Result<Vec<core::BlockHeader>, chain::Error> {
 		debug!("locator: {:?}", locator);
 
 		let header = match self.find_common_header(locator) {
@@ -320,13 +342,16 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 
 		// looks like we know one, getting as many following headers as allowed
 		let hh = header.height;
+		let offset: u64 = offset.clone() as u64 * p2p::MAX_BLOCK_HEADERS as u64;
+		debug!("Locate headers with offset request: {:?}", offset);
+
 		let mut headers = vec![];
 		for h in (hh + 1)..=(hh + (p2p::MAX_BLOCK_HEADERS as u64)) {
-			if h > max_height {
+			if h + offset > max_height {
 				break;
 			}
 
-			if let Ok(hash) = header_pmmr.get_header_hash_by_height(h) {
+			if let Ok(hash) = header_pmmr.get_header_hash_by_height(h + offset) {
 				let header = self.chain().get_block_header(&hash)?;
 				headers.push(header);
 			} else {
@@ -364,10 +389,10 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 	/// at the provided block hash.
 	fn txhashset_read(&self, h: Hash) -> Option<p2p::TxHashSetRead> {
 		match self.chain().txhashset_read(h.clone()) {
-			Ok((out_index, kernel_index, read)) => Some(p2p::TxHashSetRead {
-				output_index: out_index,
-				kernel_index: kernel_index,
-				reader: read,
+			Ok((output_index, kernel_index, reader)) => Some(p2p::TxHashSetRead {
+				output_index,
+				kernel_index,
+				reader,
 			}),
 			Err(e) => {
 				warn!("Couldn't produce txhashset data for block {}: {:?}", h, e);
@@ -754,7 +779,7 @@ impl ChainToPoolAndNetAdapter {
 		ChainToPoolAndNetAdapter {
 			tx_pool,
 			peers: OneTime::new(),
-			hooks: hooks,
+			hooks,
 		}
 	}
 

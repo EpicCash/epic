@@ -271,7 +271,7 @@ seeds = [\"95.217.197.180:3517\",\"5.161.127.56:3414\",\"5.75.242.4:3414\",\"5.7
 #until we get to at least this number
 #peer_min_preferred_count = 8
 
-# 15 = Bit flags for FULL_NODE
+# 31 = Bit flags for FULL_NODE, with HEADER_FASTSYNC capability
 #This structure needs to be changed internally, to make it more configurable
 
 # A preferred dandelion_peer, mainly used for testing dandelion

@@ -573,6 +573,10 @@ impl ChainAdapter for Peers {
 		self.adapter.total_height()
 	}
 
+	fn total_header_height(&self) -> Result<u64, chain::Error> {
+		self.adapter.total_header_height()
+	}
+
 	fn get_transaction(&self, kernel_hash: Hash) -> Option<core::Transaction> {
 		self.adapter.get_transaction(kernel_hash)
 	}
@@ -669,23 +673,26 @@ impl ChainAdapter for Peers {
 		headers: &[core::BlockHeader],
 		peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
-		if !self.adapter.headers_received(headers, peer_info)? {
-			// if the peer sent us a block header that's intrinsically bad
-			// they are either mistaken or malevolent, both of which require a ban
-			self.ban_peer(peer_info.addr, ReasonForBan::BadBlockHeader)
+		if headers.len() > 0 {
+			peer_info.set_headers(headers.to_vec());
+			Ok(true)
+		} else {
+			self.ban_peer(peer_info.addr.clone(), ReasonForBan::BadBlockHeader)
 				.map_err(|e| {
 					let err: chain::Error =
 						chain::ErrorKind::Other(format!("ban peer error :{:?}", e)).into();
 					err
 				})?;
 			Ok(false)
-		} else {
-			Ok(true)
 		}
 	}
 
-	fn locate_headers(&self, hs: &[Hash]) -> Result<Vec<core::BlockHeader>, chain::Error> {
-		self.adapter.locate_headers(hs)
+	fn locate_headers(
+		&self,
+		hs: &[Hash],
+		offset: &u8,
+	) -> Result<Vec<core::BlockHeader>, chain::Error> {
+		self.adapter.locate_headers(hs, offset)
 	}
 
 	fn get_block(&self, h: Hash) -> Option<core::Block> {

@@ -38,7 +38,7 @@ use std::{
 	thread::{self, JoinHandle},
 };
 
-pub const SEND_CHANNEL_CAP: usize = 100;
+pub const SEND_CHANNEL_CAP: usize = 100 * 10;
 
 const HEADER_IO_TIMEOUT: Duration = Duration::from_millis(2000);
 const CHANNEL_TIMEOUT: Duration = Duration::from_millis(1000);
@@ -65,7 +65,7 @@ macro_rules! try_break {
 				// to avoid the heavy polling which will consume CPU 100%
 				thread::sleep(Duration::from_millis(10));
 				None
-				}
+			}
 			Err(Error::Store(_))
 			| Err(Error::Chain(_))
 			| Err(Error::Internal)
@@ -73,18 +73,21 @@ macro_rules! try_break {
 			Err(ref e) => {
 				debug!("try_break: exit the loop: {:?}", e);
 				break;
-				}
 			}
+		}
 	};
 }
 
 macro_rules! try_header {
 	($res:expr, $conn: expr) => {{
-		$conn
-			.set_read_timeout(Some(HEADER_IO_TIMEOUT))
-			.expect("set timeout");
+		match $conn.set_read_timeout(Some(HEADER_IO_TIMEOUT)) {
+			Ok(v) => v,
+			Err(e) => {
+				error!("try_header error: {:?}", e);
+			}
+		}
 		try_break!($res)
-		}};
+	}};
 }
 
 /// A message as received by the connection. Provides access to the message
