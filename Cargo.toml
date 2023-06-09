@@ -1,6 +1,6 @@
 [package]
 name = "epic"
-version = "3.3.2"
+version = "3.4.0"
 authors = ["Epic Foundation <epiccash@brickabode.com>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
@@ -45,14 +45,14 @@ failure = "0.1"
 failure_derive = "0.1"
 reqwest = "0.11.11"
 
-epic_api = { path = "./api", version = "3.3.2" }
-epic_config = { path = "./config", version = "3.3.2" }
-epic_core = { path = "./core", version = "3.3.2" }
-epic_keychain = { path = "./keychain", version = "3.3.2" }
-epic_p2p = { path = "./p2p", version = "3.3.2" }
-epic_servers = { path = "./servers", version = "3.3.2" }
-epic_util = { path = "./util", version = "3.3.2" }
-epic_chain = { path = "./chain", version = "3.3.2" }
+epic_api = { path = "./api", version = "3.4.0" }
+epic_config = { path = "./config", version = "3.4.0" }
+epic_core = { path = "./core", version = "3.4.0" }
+epic_keychain = { path = "./keychain", version = "3.4.0" }
+epic_p2p = { path = "./p2p", version = "3.4.0" }
+epic_servers = { path = "./servers", version = "3.4.0" }
+epic_util = { path = "./util", version = "3.4.0" }
+epic_chain = { path = "./chain", version = "3.4.0" }
 
 cursive = { version = "0.16", default-features = false, features = [
     "pancurses-backend",
@@ -70,5 +70,5 @@ harness = false
 built = "0.3"
 
 [dev-dependencies]
-epic_store = { path = "./store", version = "3.3.2" }
+epic_store = { path = "./store", version = "3.4.0" }
 cucumber_rust = { version = "^0.5.1", default-features = false }

@@ -318,7 +318,7 @@ pub const MAX_BLOCK_WEIGHT: usize = 40_000;
 /// Mainnet first hard fork height
 /// Doubled from the previous hard coded value 1300000
 /// We might need to change this later for final release
-pub const MAINNET_FIRST_HARD_FORK: u64 = 2600000;
+pub const MAINNET_FIRST_HARD_FORK: u64 = 9000000;
 
 /// Floonet first hard fork height
 pub const FLOONET_FIRST_HARD_FORK: u64 = 25800;
@@ -790,12 +790,11 @@ fn next_randomx_difficulty_era1(pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u6
 	let param_ref = global::CHAIN_TYPE.read();
 	match *param_ref {
 		global::ChainTypes::UserTesting => max(
-			MIN_DIFFICULTY_RANDOMX_TESTING, 
+			MIN_DIFFICULTY_RANDOMX_TESTING,
 			diff_sum * BLOCK_TIME_SEC / adj_ts,
 		),
-		_ => max(MIN_DIFFICULTY_RANDOMX, diff_sum * BLOCK_TIME_SEC / adj_ts)
+		_ => max(MIN_DIFFICULTY_RANDOMX, diff_sum * BLOCK_TIME_SEC / adj_ts),
 	}
-
 }
 
 /// calculates the next difficulty era1 level for cuckoo
