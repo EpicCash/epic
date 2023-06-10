@@ -101,7 +101,7 @@ impl HeaderSync {
 	fn header_sync_due(&mut self) -> bool {
 		let now = Utc::now().timestamp();
 
-		if (now - self.start_time) > 120 {
+		if (now - self.start_time) > 180 {
 			let _ = self
 				.peers
 				.ban_peer(self.peer.info.addr, ReasonForBan::FraudHeight);
@@ -129,6 +129,8 @@ impl HeaderSync {
 	/// Request some block headers from a peer to advance us.
 	fn request_headers_fastsync(&mut self) {
 		if let Ok(locator) = self.get_locator() {
+			self.start_time = Utc::now().timestamp();
+
 			if self.offset == 0
 				&& !self
 					.peer
