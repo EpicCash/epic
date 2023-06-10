@@ -129,6 +129,8 @@ impl HeaderSync {
 	/// Request some block headers from a peer to advance us.
 	fn request_headers_fastsync(&mut self) {
 		if let Ok(locator) = self.get_locator() {
+			self.start_time = Utc::now().timestamp();
+
 			if self.offset == 0
 				&& !self
 					.peer
