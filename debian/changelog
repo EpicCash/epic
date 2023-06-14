@@ -1,3 +1,14 @@
+epic (3.4.0) focal; urgency=high
+
+  [ Epic Team ]
+  * Mandatory update for mining policy in upcoming era
+  * Update mining algo policy to 48% ProgPow, 48% Randomx, 4% Cuckatoo for all future eras
+  * New sync_header process for faster initial chain sync
+  * Fixes peer discovery, changes seeding type to List
+  * Update ring dependency to 0.16.x
+
+ -- Epic Team <admin@epic.tech>  Wed, 14 Jun 2023 12:00:00 +0000
+
 epic (3.3.2) bionic; urgency=medium
 
   [ Epic Team ]
@@ -8,6 +19,8 @@ epic (3.3.2) bionic; urgency=medium
   * Add Testnet configuration file
   * Reproducible builds
   * New readme
+
+ -- Epic Team <admin@epic.tech>  Tue, 17 Jan 2023 12:00:00 +0000
 
 epic (3.0.9~alpha-1) UNRELEASED; urgency=low
 

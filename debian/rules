@@ -37,4 +37,4 @@ binary binary-arch binary-indep: build/stamp debian/control
 	dh_installdeb
 	dh_gencontrol
 	dh_md5sums
-	dh_builddeb --destdir ./release/epic/
+	dh_builddeb --destdir .
