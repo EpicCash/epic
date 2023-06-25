@@ -324,7 +324,7 @@ impl P2PConfig {
 	/// return peer min major version
 	pub fn peer_min_major(&self) -> u32 {
 		match self.peer_min_major {
-			Some(n) => std::cmp::min(PEER_MIN_MAJOR, n),
+			Some(n) => std::cmp::max(PEER_MIN_MAJOR, n),
 			None => PEER_MIN_MAJOR,
 		}
 	}
