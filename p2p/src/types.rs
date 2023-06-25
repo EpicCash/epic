@@ -60,6 +60,12 @@ const PEER_MIN_PREFERRED_OUTBOUND_COUNT: u32 = 8;
 /// than allowed by PEER_MAX_INBOUND_COUNT to encourage network bootstrapping.
 const PEER_LISTENER_BUFFER_COUNT: u32 = 8;
 
+/// The minimum Major version a peer must have
+pub const PEER_MIN_MAJOR: u32 = 3;
+
+/// The minimum Minor version a peer must have
+pub const PEER_MIN_MINOR: u32 = 4;
+
 #[derive(Debug)]
 pub enum Error {
 	Serialization(ser::Error),
@@ -241,6 +247,10 @@ pub struct P2PConfig {
 	pub peer_listener_buffer_count: Option<u32>,
 
 	pub dandelion_peer: Option<PeerAddr>,
+
+	pub peer_min_major: Option<u32>,
+
+	pub peer_min_minor: Option<u32>,
 }
 
 /// Default address for peer-to-peer connections.
@@ -262,6 +272,8 @@ impl Default for P2PConfig {
 			peer_min_preferred_outbound_count: None,
 			peer_listener_buffer_count: None,
 			dandelion_peer: None,
+			peer_min_major: None,
+			peer_min_minor: None,
 		}
 	}
 }
@@ -306,6 +318,22 @@ impl P2PConfig {
 		match self.peer_listener_buffer_count {
 			Some(n) => n,
 			None => PEER_LISTENER_BUFFER_COUNT,
+		}
+	}
+
+	/// return peer min major version
+	pub fn peer_min_major(&self) -> u32 {
+		match self.peer_min_major {
+			Some(n) => std::cmp::min(PEER_MIN_MAJOR, n),
+			None => PEER_MIN_MAJOR,
+		}
+	}
+
+	/// return peer min minor version
+	pub fn peer_min_minor(&self) -> u32 {
+		match self.peer_min_minor {
+			Some(n) => std::cmp::max(PEER_MIN_MINOR, n),
+			None => PEER_MIN_MINOR,
 		}
 	}
 }

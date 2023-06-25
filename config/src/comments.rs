@@ -277,6 +277,11 @@ seeds = [\"95.217.197.180:3517\",\"5.161.127.56:3414\",\"5.75.242.4:3414\",\"5.7
 # A preferred dandelion_peer, mainly used for testing dandelion
 # dandelion_peer = \"10.0.0.1:13144\"
 
+
+# minimum version for other peers that can connect
+peer_min_major = 3
+peer_min_minor = 4
+
 "
 		.to_string(),
 	);
