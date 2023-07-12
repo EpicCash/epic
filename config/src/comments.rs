@@ -264,8 +264,11 @@ seeds = [\"95.217.197.180:3517\",\"5.161.127.56:3414\",\"5.75.242.4:3414\",\"5.7
 #how long a banned peer should stay banned
 #ban_window = 10800
 
-#maximum number of peers
-#peer_max_count = 125
+#maximum number of inbound peers (default = 128)
+#peer_max_inbound_count = 40
+
+#maximum number of outbound peers (default = 128)
+#peer_max_outbound_count = 40
 
 #preferred minimum number of peers (we'll actively keep trying to add peers
 #until we get to at least this number
