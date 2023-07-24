@@ -24,10 +24,10 @@ use crate::core::block::feijoada::get_bottles_default;
 use crate::global;
 use crate::pow::PoWType;
 use crate::pow::{Difficulty, DifficultyNumber, Proof, ProofOfWork};
-use crate::util;
-use crate::util::secp::constants::SINGLE_BULLET_PROOF_SIZE;
-use crate::util::secp::pedersen::{Commitment, RangeProof};
-use crate::util::secp::Signature;
+//use crate::util;
+//use crate::util::secp::constants::SINGLE_BULLET_PROOF_SIZE;
+//use crate::util::secp::pedersen::{Commitment, RangeProof};
+//use crate::util::secp::Signature;
 
 use crate::core::hash::Hash;
 use crate::keychain::BlindingFactor;
@@ -40,7 +40,7 @@ pub fn genesis_dev() -> core::Block {
 		height: 0,
 		version: core::HeaderVersion(6),
 		// previous: core::hash::Hash([0xff; 32]),
-		timestamp: Utc.ymd(1997, 8, 4).and_hms(0, 0, 0),
+		timestamp: Utc.with_ymd_and_hms(1997, 8, 4, 0, 0, 0).unwrap(),
 		pow: ProofOfWork {
 			nonce: global::get_genesis_nonce(),
 			..Default::default()
@@ -65,7 +65,7 @@ pub fn genesis_floo() -> core::Block {
 	core::Block::with_header(core::BlockHeader {
 		version: core::HeaderVersion(6),
 		height: 0,
-		timestamp: Utc.ymd(2019, 8, 9).and_hms(17, 04, 38),
+		timestamp: Utc.with_ymd_and_hms(2019, 8, 9, 17, 04, 38).unwrap(),
 		prev_root: Hash::from_hex(
 			"00000000000000000017ff4903ef366c8f62e3151ba74e41b8332a126542f538",
 		)
@@ -126,7 +126,7 @@ pub fn genesis_main() -> core::Block {
 	core::Block::with_header(core::BlockHeader {
 		version: core::HeaderVersion(6),
 		height: 0,
-		timestamp: Utc.ymd(2019, 8, 9).and_hms(17, 04, 38),
+		timestamp: Utc.with_ymd_and_hms(2019, 8, 9, 17, 04, 38).unwrap(),
 		prev_root: Hash::from_hex(
 			"00000000000000000004de683e7aa4d35c51f46ec76c6852b0f3161bd1e2e00e",
 		)

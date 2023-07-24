@@ -88,7 +88,7 @@ where
 		&mut self,
 		header: Vec<u8>,
 		nonce: Option<u64>,
-		height: Option<u64>,
+		_height: Option<u64>,
 		_solve: bool,
 	) -> Result<(), Error> {
 		self.header = header;

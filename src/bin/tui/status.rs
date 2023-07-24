@@ -25,7 +25,7 @@ use crate::tui::constants::VIEW_BASIC_STATUS;
 use crate::tui::types::TUIStatusListener;
 
 use crate::chain::SyncStatus;
-use crate::core::pow::{DifficultyNumber, PoWType};
+use crate::core::pow::PoWType;
 use crate::servers::ServerStats;
 
 const NANO_TO_MILLIS: f64 = 1.0 / 1_000_000.0;

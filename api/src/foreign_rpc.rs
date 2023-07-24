@@ -14,7 +14,6 @@
 
 //! JSON-RPC Stub generation for the Foreign API
 
-use epic_core::core::TxKernel;
 use crate::core::core::hash::Hash;
 use crate::core::core::transaction::Transaction;
 use crate::foreign::Foreign;
@@ -25,6 +24,7 @@ use crate::types::{
 	Version,
 };
 use crate::util;
+use epic_core::core::TxKernel;
 
 /// Public definition used to generate Node jsonrpc api.
 /// * When running `epic` with defaults, the V2 api is available at
@@ -410,10 +410,7 @@ pub trait ForeignRpc: Sync + Send {
 	```
 	*/
 
-	fn get_last_n_kernels(
-		&self,
-		distance: u64,
-	) -> Result<Vec<TxKernel>, ErrorKind>;
+	fn get_last_n_kernels(&self, distance: u64) -> Result<Vec<TxKernel>, ErrorKind>;
 
 	/**
 	Networked version of [Foreign::get_outputs](struct.Node.html#method.get_outputs).
@@ -867,13 +864,10 @@ impl ForeignRpc for Foreign {
 		));
 	}
 
-	fn get_last_n_kernels(
-		&self,
-		distance: u64,
-	) -> Result<Vec<TxKernel>, ErrorKind>{
+	fn get_last_n_kernels(&self, distance: u64) -> Result<Vec<TxKernel>, ErrorKind> {
 		match Foreign::get_last_n_kernels(self, distance) {
 			Ok(k) => Ok(k),
-			Err(k) => Err(ErrorKind::Argument("Could not get kernels".to_string()))
+			Err(_) => Err(ErrorKind::Argument("Could not get kernels".to_string())),
 		}
 	}
 

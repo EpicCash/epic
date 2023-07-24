@@ -24,9 +24,8 @@ use crate::core::block::feijoada::{
 use crate::core::block::HeaderVersion;
 use crate::core::hash::{Hash, ZERO_HASH};
 use crate::global;
-use crate::pow::{Difficulty, DifficultyNumber, PoWType};
+use crate::pow::{Difficulty, PoWType};
 use std::cmp::{max, min};
-use std::collections::HashMap;
 
 /// A epic is divisible to 10^8 like bitcoin
 pub const EPIC_BASE: u64 = 100_000_000;
@@ -563,11 +562,11 @@ where
 	(pow_type, b)
 }
 
-macro_rules! error_invalid_pow {
+/*macro_rules! error_invalid_pow {
 	($pow:expr) => {
 		panic!("The function next_hash_difficulty is only used by Progpow and RandomX, but it got a {:?}", $pow);
 	}
-}
+}*/
 
 /// Computes the proof-of-work difficulty that the next block should comply
 /// with. Takes an iterator over past block headers information, from latest
@@ -633,7 +632,7 @@ where
 }
 
 /// calculates the next difficulty level for cuckoo
-fn next_cuckoo_difficulty(height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
+fn next_cuckoo_difficulty(_height: u64, pow: PoWType, diff_data: &Vec<HeaderInfo>) -> u64 {
 	// Get the timestamp delta across the window
 
 	let ts_delta: u64 =

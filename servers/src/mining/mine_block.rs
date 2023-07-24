@@ -27,12 +27,12 @@ use crate::api;
 use crate::chain;
 use crate::common::types::Error;
 use crate::core::consensus::is_foundation_height;
-use crate::core::core::block::feijoada::{next_block_bottles, Deterministic, Feijoada};
+//use crate::core::core::block::feijoada::{next_block_bottles, Deterministic, Feijoada};
 use crate::core::core::foundation::load_foundation_output;
 pub use crate::core::core::foundation::CbData;
-use crate::core::core::hash::{Hash, Hashed};
-use crate::core::core::{Output, TxKernel};
-use crate::core::global::{get_emitted_policy, get_policies};
+//use crate::core::core::hash::{Hash, Hashed};
+//use crate::core::core::{Output, TxKernel};
+use crate::core::global::get_emitted_policy;
 use crate::core::libtx::ProofBuilder;
 use crate::core::pow::randomx::rx_current_seed_height;
 use crate::core::pow::PoWType;
@@ -190,7 +190,8 @@ fn build_block(
 	b.header.pow.seed = seed_u8;
 	b.header.pow.nonce = thread_rng().gen();
 	b.header.pow.secondary_scaling = difficulty.secondary_scaling;
-	b.header.timestamp = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(now_sec, 0), Utc);
+	b.header.timestamp =
+		DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp_opt(now_sec, 0).unwrap(), Utc);
 	b.header.policy = get_emitted_policy(b.header.height);
 
 	let bottle_cursor = chain.bottles_iter(get_emitted_policy(b.header.height))?;
