@@ -29,9 +29,9 @@ use bigint::uint::U256;
 use crate::consensus::{graph_weight, MIN_DIFFICULTY, SECOND_POW_EDGE_BITS};
 use crate::core::hash::{DefaultHashable, Hashed};
 use crate::global;
-use crate::ser::{self, FixedLength, Readable, Reader, Writeable, Writer};
+use crate::ser::{self, /*FixedLength,*/ Readable, Reader, Writeable, Writer};
 
-use crate::core::hash::Hash;
+//use crate::core::hash::Hash;
 use crate::pow::common::EdgeType;
 use crate::pow::error::Error;
 use crate::pow::progpow::get_progpow_value;
@@ -232,9 +232,9 @@ impl fmt::Display for Difficulty {
 
 impl Ord for Difficulty {
 	fn cmp(&self, other: &Self) -> Ordering {
-		let self_sum: u128 = self.num.iter().map(|(x, y)| *y as u128).sum();
+		let self_sum: u128 = self.num.iter().map(|(_x, y)| *y as u128).sum();
 
-		let other_sum: u128 = other.num.iter().map(|(x, y)| *y as u128).sum();
+		let other_sum: u128 = other.num.iter().map(|(_x, y)| *y as u128).sum();
 
 		self_sum.cmp(&other_sum)
 	}
@@ -242,9 +242,9 @@ impl Ord for Difficulty {
 
 impl PartialOrd for Difficulty {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		let self_sum: u128 = self.num.iter().map(|(x, y)| *y as u128).sum();
+		let self_sum: u128 = self.num.iter().map(|(_x, y)| *y as u128).sum();
 
-		let other_sum: u128 = other.num.iter().map(|(x, y)| *y as u128).sum();
+		let other_sum: u128 = other.num.iter().map(|(_x, y)| *y as u128).sum();
 
 		Some(self_sum.cmp(&other_sum))
 	}
@@ -490,7 +490,7 @@ impl ProofOfWork {
 				}
 			}
 			Proof::RandomXProof { ref hash } => Difficulty::from_proof_hash(hash),
-			Proof::ProgPowProof { ref mix } => {
+			Proof::ProgPowProof { mix: _ } => {
 				Difficulty::from_proof_hash(&get_progpow_value(header, height, nonce))
 			}
 		}

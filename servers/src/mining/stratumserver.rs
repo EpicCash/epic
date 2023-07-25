@@ -35,7 +35,7 @@ use std::{cmp, thread};
 use crate::chain::{self, SyncState};
 use crate::common::stats::{StratumStats, WorkerStats};
 use crate::common::types::StratumServerConfig;
-use crate::core::core::block::feijoada::{next_block_bottles, Deterministic};
+//use crate::core::core::block::feijoada::{next_block_bottles, Deterministic};
 use crate::core::core::hash::Hashed;
 use crate::core::core::Block;
 use crate::core::pow::{DifficultyNumber, PoWType};
@@ -45,7 +45,7 @@ use crate::mining::mine_block;
 use crate::pool;
 use crate::util;
 
-use bigint::uint::U256;
+//use bigint::uint::U256;
 use epic_core::pow::Proof;
 use epic_core::ser::Writeable;
 
@@ -368,7 +368,7 @@ impl Handler {
 
 	// Handle GETJOBTEMPLATE message
 	fn handle_getjobtemplate(&self, params: Option<Value>) -> Result<Value, RpcError> {
-		let params: JobParams = parse_params(params)?;
+		let _params: JobParams = parse_params(params)?;
 		// Build a JobTemplate from a BlockHeader and return JSON
 		let job_template = self.build_block_template();
 		let response = serde_json::to_value(&job_template).unwrap();
@@ -379,14 +379,14 @@ impl Handler {
 		return Ok(response);
 	}
 
-	fn get_parse_algorithm(&self, algo: &str) -> PoWType {
+	/*fn get_parse_algorithm(&self, algo: &str) -> PoWType {
 		match algo {
 			"cuckoo" => PoWType::Cuckatoo,
 			"randomx" => PoWType::RandomX,
 			"progpow" => PoWType::ProgPow,
 			_ => panic!("algorithm is not supported"),
 		}
-	}
+	}*/
 
 	// Build and return a JobTemplate for mining the current block
 	fn build_block_template(&self) -> JobTemplate {

@@ -27,7 +27,7 @@ use crate::core::ser::ProtocolVersion;
 
 use chrono::prelude::*;
 
-use crate::chain;
+//use crate::chain;
 use crate::chain::SyncStatus;
 use crate::p2p;
 

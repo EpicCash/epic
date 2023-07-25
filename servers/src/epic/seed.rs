@@ -18,7 +18,7 @@
 //! list of DNS records (the default).
 
 use chrono::prelude::{DateTime, Utc};
-use chrono::{Duration, MIN_DATE};
+use chrono::{Duration, NaiveDate};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::collections::HashMap;
@@ -55,10 +55,10 @@ pub fn connect_and_monitor(
 			// max peer count
 			let (tx, rx) = mpsc::channel();
 
-			let mut prev = MIN_DATE.and_hms(0, 0, 0);
-			let mut prev_expire_check = MIN_DATE.and_hms(0, 0, 0);
-			let mut prev_seed_check = MIN_DATE.and_hms(0, 0, 0);
-			let mut prev_ping = Utc::now();
+			let mut prev = NaiveDate::MIN.and_hms_opt(0, 0, 0).unwrap();
+			let mut prev_expire_check = NaiveDate::MIN.and_hms_opt(0, 0, 0).unwrap();
+			let mut prev_seed_check = NaiveDate::MIN.and_hms_opt(0, 0, 0).unwrap();
+			let mut prev_ping = Utc::now().naive_utc();
 			let mut start_attempt = 0;
 			let mut connecting_history: HashMap<PeerAddr, DateTime<Utc>> = HashMap::new();
 
@@ -74,16 +74,16 @@ pub fn connect_and_monitor(
 				}
 
 				// Check for and remove expired peers from the storage
-				if Utc::now() - prev_expire_check > Duration::hours(1) {
+				if Utc::now().naive_utc() - prev_expire_check > Duration::hours(1) {
 					peers.remove_expired();
 
-					prev_expire_check = Utc::now();
+					prev_expire_check = Utc::now().naive_utc();
 				}
 
 				// try to connect to the remote seeds
 				// it helps when the remote seeds server are down during the startup
 				if peers.connected_peers().len() < 1
-					&& Utc::now() - prev_seed_check > Duration::seconds(10)
+					&& Utc::now().naive_utc() - prev_seed_check > Duration::seconds(10)
 				{
 					debug!("Trying to reconnect to seed and preferred peers");
 					connect_to_seeds_and_preferred_peers(
@@ -92,12 +92,14 @@ pub fn connect_and_monitor(
 						sl.clone(),
 						preferred_peers.clone(),
 					);
-					prev_seed_check = Utc::now();
+					prev_seed_check = Utc::now().naive_utc();
 				}
 
 				// make several attempts to get peers as quick as possible
 				// with exponential backoff
-				if Utc::now() - prev > Duration::seconds(cmp::min(20, 1 << start_attempt)) {
+				if Utc::now().naive_utc() - prev
+					> Duration::seconds(cmp::min(20, 1 << start_attempt))
+				{
 					// try to connect to any address sent to the channel
 					listen_for_addrs(
 						peers.clone(),
@@ -115,17 +117,17 @@ pub fn connect_and_monitor(
 						preferred_peers.clone(),
 					);
 
-					prev = Utc::now();
+					prev = Utc::now().naive_utc();
 					start_attempt = cmp::min(6, start_attempt + 1);
 				}
 
 				// Ping connected peers on every 10s to monitor peers.
-				if Utc::now() - prev_ping > Duration::seconds(10) {
+				if Utc::now().naive_utc() - prev_ping > Duration::seconds(10) {
 					let total_diff = peers.total_difficulty();
 					let total_height = peers.total_height();
 					if total_diff.is_ok() && total_height.is_ok() {
 						peers.check_all(total_diff.unwrap(), total_height.unwrap());
-						prev_ping = Utc::now();
+						prev_ping = Utc::now().naive_utc();
 					} else {
 						error!("failed to get peers difficulty and/or height");
 					}

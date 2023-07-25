@@ -27,11 +27,11 @@ use crate::store;
 use crate::store::BottleIter;
 use crate::txhashset;
 use crate::types::{CommitPos, Options, Tip};
-use crate::util::RwLock;
 use chrono::prelude::Utc;
 use chrono::Duration;
 use epic_store;
-use std::sync::Arc;
+//use std::sync::Arc;
+//use crate::util::RwLock;
 
 /// Contextual information required to process a new block and either reject or
 /// accept it.
@@ -394,7 +394,7 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 		return Err(ErrorKind::PolicyIsNotAllowed.into());
 	}
 
-	if let Some(p) = global::get_policies(header.policy) {
+	if let Some(_p) = global::get_policies(header.policy) {
 		let cursor = BottleIter::from_batch(prev.hash(), &ctx.batch, header.policy);
 		let (algo, _) = consensus::next_policy(header.policy, cursor);
 

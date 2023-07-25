@@ -17,7 +17,7 @@ use std::mem;
 use byteorder::{BigEndian, WriteBytesExt};
 use croaring::Bitmap;
 
-use crate::global;
+//use crate::global;
 use crate::pow::common::{CuckooParams, EdgeType, Link};
 use crate::pow::error::{Error, ErrorKind};
 use crate::pow::{PoWContext, Proof};
@@ -190,7 +190,7 @@ where
 		&mut self,
 		header: Vec<u8>,
 		nonce: Option<u64>,
-		height: Option<u64>,
+		_height: Option<u64>,
 		solve: bool,
 	) -> Result<(), Error> {
 		self.set_header_nonce_impl(header, nonce, solve)

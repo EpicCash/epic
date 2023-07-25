@@ -51,7 +51,7 @@ use crate::p2p::types::PeerAddr;
 use crate::pool;
 use crate::util::file::get_first_line;
 use crate::util::{RwLock, StopState};
-use clokwerk::{ScheduleHandle, Scheduler, TimeUnits};
+use clokwerk::{/*ScheduleHandle,*/ Scheduler, TimeUnits};
 use epic_util::logger::LogEntry;
 use fs2::FileExt;
 use walkdir::WalkDir;
@@ -387,7 +387,7 @@ impl Server {
 				error!("Unable to get the allowed versions from the dns server!");
 			}
 		});
-		let version_checker_thread = scheduler.watch_thread(Duration::from_millis(100));
+		let _version_checker_thread = scheduler.watch_thread(Duration::from_millis(100));
 
 		warn!("Epic server started.");
 		Ok(Server {
@@ -454,7 +454,7 @@ impl Server {
 		stop_state: Arc<StopState>,
 	) {
 		info!("start_test_miner - start",);
-		let sync_state = self.sync_state.clone();
+		let _sync_state = self.sync_state.clone();
 		let config_wallet_url = match wallet_listener_url.clone() {
 			Some(u) => u,
 			None => String::from("http://127.0.0.1:13415"),

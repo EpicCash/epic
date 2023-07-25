@@ -1,8 +1,8 @@
 //! Implementation of MD5 by Yuri Albuquerque
-use crate::pow::common::{EdgeType, Link};
+use crate::pow::common::EdgeType;
 use crate::pow::error::{Error, ErrorKind};
 use crate::pow::{PoWContext, Proof};
-use crate::util;
+//use crate::util;
 use std::marker::PhantomData;
 
 pub struct MD5Context<T>
@@ -43,7 +43,7 @@ where
 		&mut self,
 		header: Vec<u8>,
 		nonce: Option<u64>,
-		height: Option<u64>,
+		_height: Option<u64>,
 		_solve: bool,
 	) -> Result<(), Error> {
 		self.header = header;

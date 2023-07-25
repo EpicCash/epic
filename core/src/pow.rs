@@ -26,7 +26,7 @@
 #![deny(non_camel_case_types)]
 #![deny(non_snake_case)]
 #![deny(unused_mut)]
-#![warn(missing_docs)]
+//#![warn(missing_docs)]
 
 use chrono;
 use num;
@@ -144,7 +144,8 @@ pub fn pow_size(
 		// and if we're back where we started, update the time (changes the hash as
 		// well)
 		if bh.pow.nonce == start_nonce {
-			bh.timestamp = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(0, 0), Utc);
+			bh.timestamp =
+				DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp_opt(0, 0).unwrap(), Utc);
 		}
 	}
 }

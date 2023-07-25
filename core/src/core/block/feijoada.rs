@@ -404,14 +404,14 @@ impl Readable for Policy {
 	}
 }
 
-fn largest_allotment(policy: &Policy) -> PoWType {
+/*fn largest_allotment(policy: &Policy) -> PoWType {
 	let (algo, _) = policy.iter().max_by(|&(_, x), &(_, y)| x.cmp(y)).unwrap();
 	*algo
 }
 
 fn check_policy(policy: &Policy) {
 	assert_eq!(100, policy.values().fold(0, |acc, &x| x + acc));
-}
+}*/
 
 pub fn count_beans(bottles: &Policy) -> u32 {
 	std::cmp::max(bottles.values().fold(0, |acc, &x| x + acc), 1)

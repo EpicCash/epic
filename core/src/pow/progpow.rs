@@ -2,7 +2,7 @@ extern crate randomx;
 
 use std::marker::PhantomData;
 
-use crate::core::block::BlockHeader;
+//use crate::core::block::BlockHeader;
 use crate::pow::common::EdgeType;
 use crate::pow::error::{Error, ErrorKind};
 use crate::pow::{PoWContext, Proof};
@@ -13,7 +13,7 @@ use keccak_hash::keccak_256;
 use progpow::hardware::cpu::PpCPU;
 use progpow::types::PpCompute;
 
-use bigint::uint::U256;
+//use bigint::uint::U256;
 
 lazy_static! {
 	pub static ref PP_CPU: RwLock<PpCPU> = RwLock::new(PpCPU::new());

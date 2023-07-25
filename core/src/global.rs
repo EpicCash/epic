@@ -20,18 +20,18 @@ use crate::consensus;
 use crate::consensus::HeaderInfo;
 use crate::consensus::{
 	graph_weight, BASE_EDGE_BITS, BLOCK_TIME_SEC, COINBASE_MATURITY, CUT_THROUGH_HORIZON,
-	DAY_HEIGHT, DEFAULT_MIN_EDGE_BITS, DIFFICULTY_ADJUST_WINDOW, INITIAL_DIFFICULTY,
+	DAY_HEIGHT, DEFAULT_MIN_EDGE_BITS, /*DIFFICULTY_ADJUST_WINDOW,*/ INITIAL_DIFFICULTY,
 	MAX_BLOCK_WEIGHT, PROOFSIZE, SECOND_POW_EDGE_BITS, STATE_SYNC_THRESHOLD,
 };
 use crate::core::block::feijoada::{AllowPolicy, Policy, PolicyConfig};
-use crate::pow::{self, new_cuckaroo_ctx, new_cuckatoo_ctx, EdgeType, PoWContext};
+use crate::pow::{self, /*new_cuckaroo_ctx,*/ new_cuckatoo_ctx, EdgeType, PoWContext};
 /// An enum collecting sets of parameters used throughout the
 /// code wherever mining is needed. This should allow for
 /// different sets of parameters for different purposes,
 /// e.g. CI, User testing, production values
 use crate::util::RwLock;
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+//use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::path::Path;
@@ -246,7 +246,12 @@ pub fn use_alternative_path(path_str: String) -> String {
 		"Failed to get the executable's directory and no path to the foundation.json was provided!",
 	);
 	//if we run the "cargo test --release" the p contains "cucumber_..." in last folder
-	if p.file_stem().unwrap().to_str().unwrap().contains(&"cucumber") {
+	if p.file_stem()
+		.unwrap()
+		.to_str()
+		.unwrap()
+		.contains(&"cucumber")
+	{
 		return path_str;
 	}
 	//removing the file from the path and going back 2 directories
@@ -313,16 +318,16 @@ pub fn get_allowed_policies() -> Vec<AllowPolicy> {
 }
 
 pub fn get_emitted_policy(height: u64) -> u8 {
-	let policy_config = POLICY_CONFIG.read();
-	if (height <= consensus::BLOCK_ERA_1) {
+	let _policy_config = POLICY_CONFIG.read();
+	if height <= consensus::BLOCK_ERA_1 {
 		0
-	} else if (height <= consensus::BLOCK_ERA_2) {
+	} else if height <= consensus::BLOCK_ERA_2 {
 		1
-	} else if (height <= consensus::BLOCK_ERA_3) {
+	} else if height <= consensus::BLOCK_ERA_3 {
 		2
-	} else if (height <= consensus::BLOCK_ERA_4) {
+	} else if height <= consensus::BLOCK_ERA_4 {
 		3
-	} else if (height <= consensus::BLOCK_ERA_5) {
+	} else if height <= consensus::BLOCK_ERA_5 {
 		4
 	} else {
 		5

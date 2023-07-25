@@ -23,7 +23,7 @@
 //! In Cuckaroo, edges are calculated by repeatedly hashing the seeds to
 //! obtain blocks of values. Nodes are then extracted from those edges.
 
-use crate::global;
+//use crate::global;
 use crate::pow::common::{CuckooParams, EdgeType};
 use crate::pow::error::{Error, ErrorKind};
 use crate::pow::siphash::siphash_block;
@@ -59,7 +59,7 @@ where
 		&mut self,
 		header: Vec<u8>,
 		nonce: Option<u64>,
-		height: Option<u64>,
+		_height: Option<u64>,
 		_solve: bool,
 	) -> Result<(), Error> {
 		self.params.reset_header_nonce(header, nonce)
