@@ -1,3 +1,4 @@
+// Copyright 2019-2023, Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,7 +27,7 @@ use crate::error::{Error, ErrorKind};
 use crate::store;
 use crate::store::BottleIter;
 use crate::txhashset;
-use crate::types::{CommitPos, Options, Tip};
+use crate::types::{BlockchainCheckpoints, CommitPos, Options, Tip};
 use crate::util::RwLock;
 use chrono::prelude::Utc;
 use chrono::Duration;
@@ -352,7 +353,25 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 
 	check_bad_header(header)?;
 
-	if !ctx.opts.contains(Options::SKIP_POW) {
+	let checkpoints = BlockchainCheckpoints::new().checkpoints;
+
+	for c in &checkpoints {
+		if header.height == c.height {
+			if header.hash() == c.block_hash {
+				info!(
+					"Checkpoint successfully passed at height({})! Hashes: header({:?}), checkpoint({:?})",
+					 c.height,
+					 header.hash(),
+					 c.block_hash
+				);
+			} else {
+				return Err(ErrorKind::CheckpointFailure.into());
+			}
+		}
+	}
+
+	if !ctx.opts.contains(Options::SKIP_POW) || (header.height > checkpoints.last().unwrap().height)
+	{
 		if !header.pow.is_primary() && !header.pow.is_secondary() {
 			return Err(ErrorKind::LowEdgebits.into());
 		}

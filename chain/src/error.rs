@@ -159,6 +159,9 @@ pub enum ErrorKind {
 
 	#[fail(display = "Invalid seed")]
 	InvalidSeed,
+
+	#[fail(display = "Checkpoint Integrity Failure: Mismatched hashes")]
+	CheckpointFailure,
 }
 
 impl Display for Error {
