@@ -16,7 +16,7 @@
 use std::convert::From;
 use std::sync::Arc;
 
-use chrono::prelude::{DateTime, Utc};
+use chrono::prelude::Utc;
 use rand::prelude::*;
 
 use crate::api;
@@ -29,7 +29,7 @@ use crate::p2p;
 use crate::pool;
 use crate::pool::types::DandelionConfig;
 use crate::store;
-use crate::util::RwLock;
+//use crate::util::RwLock;
 
 /// Error type wrapping underlying module errors.
 #[derive(Debug)]

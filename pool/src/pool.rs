@@ -21,13 +21,13 @@ use self::core::core::transaction;
 use self::core::core::{
 	Block, BlockHeader, BlockSums, Committed, Transaction, TxKernel, Weighting,
 };
-use self::util::RwLock;
 use crate::types::{BlockChain, PoolEntry, PoolError};
 use epic_core as core;
-use epic_util as util;
 use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+//use self::util::RwLock;
+//use epic_util as util;
 
 pub struct Pool {
 	/// Entries in the pool (tx + info + timer) in simple insertion order.
@@ -38,10 +38,7 @@ pub struct Pool {
 }
 
 impl Pool {
-	pub fn new(
-		chain: Arc<dyn BlockChain>,
-		name: String,
-	) -> Pool {
+	pub fn new(chain: Arc<dyn BlockChain>, name: String) -> Pool {
 		Pool {
 			entries: vec![],
 			blockchain: chain,
@@ -359,10 +356,7 @@ impl Pool {
 					// Otherwise discard and let the next block pick this tx up.
 					let bucket = &tx_buckets[pos];
 
-					if let Ok(new_bucket) = bucket.aggregate_with_tx(
-						entry.tx.clone(),
-						weighting,
-					) {
+					if let Ok(new_bucket) = bucket.aggregate_with_tx(entry.tx.clone(), weighting) {
 						if new_bucket.fee_to_weight >= bucket.fee_to_weight {
 							// Only aggregate if it would not reduce the fee_to_weight ratio.
 							tx_buckets[pos] = new_bucket;

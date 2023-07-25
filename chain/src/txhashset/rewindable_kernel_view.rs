@@ -19,8 +19,8 @@ use std::fs::File;
 use crate::core::core::pmmr::RewindablePMMR;
 use crate::core::core::{BlockHeader, TxKernel};
 use crate::error::{Error, ErrorKind};
-use crate::store::Batch;
 use epic_store::pmmr::PMMRBackend;
+//use crate::store::Batch;
 
 /// Rewindable (but readonly) view of the kernel set (based on kernel MMR).
 pub struct RewindableKernelView<'a> {
@@ -34,10 +34,7 @@ impl<'a> RewindableKernelView<'a> {
 		pmmr: RewindablePMMR<'a, TxKernel, PMMRBackend<TxKernel>>,
 		header: BlockHeader,
 	) -> RewindableKernelView<'a> {
-		RewindableKernelView {
-			pmmr,
-			header,
-		}
+		RewindableKernelView { pmmr, header }
 	}
 
 	/// Rewind this readonly view to a previous block.

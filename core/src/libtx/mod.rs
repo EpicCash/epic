@@ -19,7 +19,7 @@
 #![deny(non_camel_case_types)]
 #![deny(non_snake_case)]
 #![deny(unused_mut)]
-#![warn(missing_docs)]
+//#![warn(missing_docs)]
 
 pub mod aggsig;
 pub mod build;

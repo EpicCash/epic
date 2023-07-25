@@ -1534,11 +1534,11 @@ fn setup_head(
 					kernel_sum,
 				};
 			}
-			txhashset::header_extending(header_pmmr, &tip, &mut batch, |ext, batch| {
+			txhashset::header_extending(header_pmmr, &tip, &mut batch, |ext, _batch| {
 				ext.apply_header(&genesis.header)?;
 				Ok(())
 			})?;
-			txhashset::header_extending(sync_pmmr, &tip, &mut batch, |ext, batch| {
+			txhashset::header_extending(sync_pmmr, &tip, &mut batch, |ext, _batch| {
 				ext.apply_header(&genesis.header)?;
 				Ok(())
 			})?;
