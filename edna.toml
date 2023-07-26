@@ -49,6 +49,10 @@ chain_validation_mode = "Disabled"
 #run the node in "full archive" mode (default is fast-sync, pruned node)
 archive_mode = false
 
+#Whether or not to skip pow validation when syncing headers
+#Only applies to blocks within checkpointed history range (default is false)
+skip_pow_validation = false
+
 #skip waiting for sync on startup, (optional param, mostly for testing)
 skip_sync_wait = false
 
