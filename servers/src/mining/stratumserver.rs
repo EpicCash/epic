@@ -899,7 +899,7 @@ impl WorkersList {
 
 	pub fn login(&self, worker_id: usize, login: String, agent: String) -> Result<(), RpcError> {
 		let mut wl = self.workers_list.write();
-		let mut worker = wl.get_mut(&worker_id).ok_or(RpcError::internal_error())?;
+		let worker = wl.get_mut(&worker_id).ok_or(RpcError::internal_error())?;
 		worker.login = Some(login);
 		// XXX TODO Future - Validate password?
 		worker.agent = agent;
