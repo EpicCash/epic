@@ -3,6 +3,7 @@
 [![Documentation Wiki](https://img.shields.io/badge/doc-wiki-blue.svg)](https://github.com/EpicCash/documentation/wiki)
 [![Release Version](https://img.shields.io/github/release/EpicCash/epic.svg)](https://github.com/EpicCash/epic/releases/)
 [![License](https://img.shields.io/github/license/EpicCash/epic.svg)](https://github.com/EpicCash/epic/blob/master/LICENSE)
+[![Epic Master Branch Build Status](https://github.com/EpicCash/epic/actions/workflows/epic-master-branch.yml/badge.svg)](https://github.com/EpicCash/epic/actions/workflows/epic-master-branch.yml)
 
 This is the implementation of the epic server. The epic server is a node in the network that validates, propagates, and sometimes produces new blocks, basically a collection of processed transactions.
 
