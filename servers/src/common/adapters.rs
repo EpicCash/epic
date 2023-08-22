@@ -103,7 +103,7 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 		let header = self.chain().head_header()?;
 
 		for hook in &self.hooks {
-			hook.on_transaction_received(&tx);
+			let _ = hook.on_transaction_received(&tx);
 		}
 
 		let tx_hash = tx.hash();
@@ -166,7 +166,7 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 				Ok(block) => {
 					if !self.sync_state.is_syncing() {
 						for hook in &self.hooks {
-							hook.on_block_received(&block, &peer_info.addr);
+							let _ = hook.on_block_received(&block, &peer_info.addr);
 						}
 					}
 					self.process_block(block, peer_info, chain::Options::NONE)
@@ -208,7 +208,7 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 				Ok(block) => {
 					if !self.sync_state.is_syncing() {
 						for hook in &self.hooks {
-							hook.on_block_received(&block, &peer_info.addr);
+							let _ = hook.on_block_received(&block, &peer_info.addr);
 						}
 					}
 					block
@@ -258,7 +258,7 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 
 		if !self.sync_state.is_syncing() {
 			for hook in &self.hooks {
-				hook.on_header_received(&bh, &peer_info.addr);
+				let _ = hook.on_header_received(&bh, &peer_info.addr);
 			}
 		}
 
@@ -776,7 +776,7 @@ impl ChainAdapter for ChainToPoolAndNetAdapter {
 		// not broadcasting blocks received through sync
 		if !opts.contains(chain::Options::SYNC) {
 			for hook in &self.hooks {
-				hook.on_block_accepted(b, &status);
+				let _ = hook.on_block_accepted(b, &status);
 			}
 			// If we mined the block then we want to broadcast the compact block.
 			// If we received the block from another node then broadcast "header first"
