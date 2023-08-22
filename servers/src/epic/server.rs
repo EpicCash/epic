@@ -559,7 +559,7 @@ impl Server {
 						block_hash: hash,
 						difficulty: next.difficulty.to_num(algo_type),
 						time: next.timestamp,
-						duration: duration,
+						duration,
 						secondary_scaling: next.secondary_scaling,
 						is_secondary: next.is_secondary,
 						algorithm: algo_name.to_owned(),
@@ -648,13 +648,13 @@ impl Server {
 		Ok(ServerStats {
 			peer_count: self.peer_count(),
 			chain_stats: head_stats,
-			header_stats: header_stats,
+			header_stats,
 			sync_status: self.sync_state.status(),
-			disk_usage_gb: disk_usage_gb,
-			stratum_stats: stratum_stats,
-			peer_stats: peer_stats,
-			diff_stats: diff_stats,
-			tx_stats: tx_stats,
+			disk_usage_gb,
+			stratum_stats,
+			peer_stats,
+			diff_stats,
+			tx_stats,
 		})
 	}
 

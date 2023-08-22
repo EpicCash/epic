@@ -24,7 +24,7 @@ use crate::common::types::{ServerConfig, WebHooksConfig};
 use crate::core::core;
 use crate::core::core::hash::Hashed;
 use crate::p2p::types::PeerAddr;
-use futures::future::Future;
+
 use hyper::client::HttpConnector;
 use hyper::header::HeaderValue;
 use hyper::Client;
@@ -33,7 +33,8 @@ use hyper_rustls::HttpsConnector;
 use serde::Serialize;
 use serde_json::{json, to_string};
 use std::time::Duration;
-use tokio::runtime::Runtime;
+
+use async_trait::async_trait;
 
 /// Returns the list of event hooks that will be initialized for network events
 pub fn init_net_hooks(config: &ServerConfig) -> Vec<Box<dyn NetEvents + Send + Sync>> {
@@ -58,31 +59,32 @@ pub fn init_chain_hooks(config: &ServerConfig) -> Vec<Box<dyn ChainEvents + Send
 	list
 }
 
-#[allow(unused_variables)]
+#[async_trait]
 /// Trait to be implemented by Network Event Hooks
 pub trait NetEvents {
 	/// Triggers when a new transaction arrives
-	fn on_transaction_received(&self, tx: &core::Transaction) {}
+	async fn on_transaction_received(&self, tx: &core::Transaction) {}
 
 	/// Triggers when a new block arrives
-	fn on_block_received(&self, block: &core::Block, addr: &PeerAddr) {}
+	async fn on_block_received(&self, block: &core::Block, addr: &PeerAddr) {}
 
 	/// Triggers when a new block header arrives
-	fn on_header_received(&self, header: &core::BlockHeader, addr: &PeerAddr) {}
+	async fn on_header_received(&self, header: &core::BlockHeader, addr: &PeerAddr) {}
 }
 
-#[allow(unused_variables)]
+#[async_trait]
 /// Trait to be implemented by Chain Event Hooks
 pub trait ChainEvents {
 	/// Triggers when a new block is accepted by the chain (might be a Reorg or a Fork)
-	fn on_block_accepted(&self, block: &core::Block, status: &BlockStatus) {}
+	async fn on_block_accepted(&self, block: &core::Block, status: &BlockStatus) {}
 }
 
 /// Basic Logger
 struct EventLogger;
 
+#[async_trait]
 impl NetEvents for EventLogger {
-	fn on_transaction_received(&self, tx: &core::Transaction) {
+	async fn on_transaction_received(&self, tx: &core::Transaction) {
 		info!(
 			"Received tx {}, [in/out/kern: {}/{}/{}] going to process.",
 			tx.hash(),
@@ -92,7 +94,7 @@ impl NetEvents for EventLogger {
 		);
 	}
 
-	fn on_block_received(&self, block: &core::Block, addr: &PeerAddr) {
+	async fn on_block_received(&self, block: &core::Block, addr: &PeerAddr) {
 		info!(
 			"Received block {} at {} from {} [in/out/kern: {}/{}/{}] going to process.",
 			block.hash(),
@@ -104,7 +106,7 @@ impl NetEvents for EventLogger {
 		);
 	}
 
-	fn on_header_received(&self, header: &core::BlockHeader, addr: &PeerAddr) {
+	async fn on_header_received(&self, header: &core::BlockHeader, addr: &PeerAddr) {
 		info!(
 			"Received block header {} at {} from {}, going to process.",
 			header.hash(),
@@ -114,8 +116,9 @@ impl NetEvents for EventLogger {
 	}
 }
 
+#[async_trait]
 impl ChainEvents for EventLogger {
-	fn on_block_accepted(&self, block: &core::Block, status: &BlockStatus) {
+	async fn on_block_accepted(&self, block: &core::Block, status: &BlockStatus) {
 		match status {
 			BlockStatus::Reorg(depth) => {
 				info!(
@@ -153,7 +156,7 @@ fn parse_url(value: &Option<String>) -> Option<hyper::Uri> {
 				Ok(value) => value,
 				Err(_) => panic!("Invalid url : {}", url),
 			};
-			let scheme = uri.scheme_part().map(|s| s.as_str());
+			let scheme = uri.scheme().map(|s| s.as_str());
 			if (scheme != Some("http")) && (scheme != Some("https")) {
 				panic!(
 					"Invalid url scheme {}, expected one of ['http', https']",
@@ -178,8 +181,6 @@ struct WebHook {
 	block_accepted_url: Option<hyper::Uri>,
 	/// The hyper client to be used for all requests
 	client: Client<HttpsConnector<HttpConnector>>,
-	/// The tokio event loop
-	runtime: Runtime,
 }
 
 impl WebHook {
@@ -199,9 +200,10 @@ impl WebHook {
 			nthreads, timeout
 		);
 
-		let https = HttpsConnector::new(nthreads as usize);
+		//nthreads as usize
+		let https = HttpsConnector::new();
 		let client = Client::builder()
-			.keep_alive_timeout(keep_alive)
+			.pool_idle_timeout(keep_alive)
 			.build::<_, hyper::Body>(https);
 
 		WebHook {
@@ -210,7 +212,6 @@ impl WebHook {
 			header_received_url,
 			block_accepted_url,
 			client,
-			runtime: Runtime::new().unwrap(),
 		}
 	}
 
@@ -226,7 +227,7 @@ impl WebHook {
 		)
 	}
 
-	fn post(&self, url: hyper::Uri, data: String) {
+	async fn post(&self, url: hyper::Uri, data: String) {
 		let mut req = Request::new(Body::from(data));
 		*req.method_mut() = Method::POST;
 		*req.uri_mut() = url.clone();
@@ -234,19 +235,20 @@ impl WebHook {
 			hyper::header::CONTENT_TYPE,
 			HeaderValue::from_static("application/json"),
 		);
-
-		let future = self
+		info!("####### servers common hooks post req: {:?}", req);
+		let _future = self
 			.client
-			.request(req)
-			.map(|_res| {})
+			.request(req).await
+			/*.map(|_res| {})
 			.map_err(move |_res| {
 				warn!("Error sending POST request to {}", url);
-			});
+			})*/;
 
-		let handle = self.runtime.executor();
-		handle.spawn(future);
+		//future.
+		//let handle = self.runtime.executor();
+		//handle.spawn(future);
 	}
-	fn make_request<T: Serialize>(&self, payload: &T, uri: &Option<hyper::Uri>) -> bool {
+	async fn make_request<T: Serialize>(&self, payload: &T, uri: &Option<hyper::Uri>) -> bool {
 		if let Some(url) = uri {
 			let payload = match to_string(payload) {
 				Ok(serialized) => serialized,
@@ -254,14 +256,15 @@ impl WebHook {
 					return false; // print error message
 				}
 			};
-			self.post(url.clone(), payload);
+			self.post(url.clone(), payload).await;
 		}
 		true
 	}
 }
 
+#[async_trait]
 impl ChainEvents for WebHook {
-	fn on_block_accepted(&self, block: &core::Block, status: &BlockStatus) {
+	async fn on_block_accepted(&self, block: &core::Block, status: &BlockStatus) {
 		let status_str = match status {
 			BlockStatus::Reorg(_) => "reorg",
 			BlockStatus::Fork => "fork",
@@ -285,7 +288,7 @@ impl ChainEvents for WebHook {
 			})
 		};
 
-		if !self.make_request(&payload, &self.block_accepted_url) {
+		if !self.make_request(&payload, &self.block_accepted_url).await {
 			error!(
 				"Failed to serialize block {} at height {}",
 				block.hash(),
@@ -295,26 +298,27 @@ impl ChainEvents for WebHook {
 	}
 }
 
+#[async_trait]
 impl NetEvents for WebHook {
 	/// Triggers when a new transaction arrives
-	fn on_transaction_received(&self, tx: &core::Transaction) {
+	async fn on_transaction_received(&self, tx: &core::Transaction) {
 		let payload = json!({
 			"hash": tx.hash().to_hex(),
 			"data": tx
 		});
-		if !self.make_request(&payload, &self.tx_received_url) {
+		if !self.make_request(&payload, &self.tx_received_url).await {
 			error!("Failed to serialize transaction {}", tx.hash());
 		}
 	}
 
 	/// Triggers when a new block arrives
-	fn on_block_received(&self, block: &core::Block, addr: &PeerAddr) {
+	async fn on_block_received(&self, block: &core::Block, addr: &PeerAddr) {
 		let payload = json!({
 			"hash": block.header.hash().to_hex(),
 			"peer": addr,
 			"data": block
 		});
-		if !self.make_request(&payload, &self.block_received_url) {
+		if !self.make_request(&payload, &self.block_received_url).await {
 			error!(
 				"Failed to serialize block {} at height {}",
 				block.hash().to_hex(),
@@ -324,13 +328,13 @@ impl NetEvents for WebHook {
 	}
 
 	/// Triggers when a new block header arrives
-	fn on_header_received(&self, header: &core::BlockHeader, addr: &PeerAddr) {
+	async fn on_header_received(&self, header: &core::BlockHeader, addr: &PeerAddr) {
 		let payload = json!({
 			"hash": header.hash().to_hex(),
 			"peer": addr,
 			"data": header
 		});
-		if !self.make_request(&payload, &self.header_received_url) {
+		if !self.make_request(&payload, &self.header_received_url).await {
 			error!(
 				"Failed to serialize header {} at height {}",
 				header.hash(),
