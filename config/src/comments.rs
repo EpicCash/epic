@@ -107,7 +107,16 @@ fn comments() -> HashMap<String, String> {
 		"skip_pow_validation".to_string(),
 		"
 #Whether or not to skip pow validation when syncing headers
-#Only applies to blocks within checkpointed history range (default is false)
+#Only applies to blocks in checkpointed range, unless disable_checkpoints is set to true
+"
+		.to_string(),
+	);
+
+	retval.insert(
+		"disable_checkpoints".to_string(),
+		"
+#Disables checkpoint-based pow_validation, no proof of work will be validated whatsoever
+#while syncing. Has no effect unless 'skip_pow_validation' is set to true
 "
 		.to_string(),
 	);

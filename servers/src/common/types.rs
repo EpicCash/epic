@@ -21,6 +21,7 @@ use rand::prelude::*;
 
 use crate::api;
 use crate::chain;
+use crate::core::core::hash::Hash;
 use crate::core::global;
 use crate::core::global::ChainTypes;
 use crate::core::{consensus, core, libtx, pow};
@@ -172,8 +173,13 @@ pub struct ServerConfig {
 	/// Whether this node is a full archival node or a fast-sync, pruned node
 	pub archive_mode: Option<bool>,
 
-	// How to validate new block headers
+	/// Disable pow validation in checkpointed range, fully validate all blocks
+	/// Outside of checkpointed range
 	pub skip_pow_validation: Option<bool>,
+
+	/// Disable pow validation all the way to chaintip, only has effect when
+	/// skip_pow_validation is also set to 'true'
+	pub disable_checkpoints: Option<bool>,
 
 	/// Whether to skip the sync timeout on startup
 	/// (To assist testing on solo chains)
@@ -240,6 +246,7 @@ impl Default for ServerConfig {
 			chain_type: ChainTypes::default(),
 			archive_mode: Some(false),
 			skip_pow_validation: Some(false),
+			disable_checkpoints: Some(false),
 			chain_validation_mode: ChainValidationMode::default(),
 			pool_config: pool::PoolConfig::default(),
 			skip_sync_wait: Some(false),
@@ -444,5 +451,109 @@ impl DandelionEpoch {
 		}
 
 		self.relay_peer.clone()
+	}
+}
+
+// Elements in checkpoint data vector
+#[derive(Debug)]
+pub struct Checkpoint {
+	pub height: u64,
+	pub block_hash: Hash,
+}
+
+#[derive(Debug)]
+pub struct BlockchainCheckpoints {
+	pub checkpoints: Vec<Checkpoint>,
+}
+
+impl BlockchainCheckpoints {
+	pub fn new() -> BlockchainCheckpoints {
+		let checkpoints = vec![
+			Checkpoint {
+				height: 100000,
+				block_hash: Hash::from_hex(
+					"e835eb9ebc9f2e13b11061691cb268f44b20001f081003169b634497eb730848",
+				)
+				.unwrap(),
+			},
+			Checkpoint {
+				height: 200000,
+				block_hash: Hash::from_hex(
+					"b2365a8c9719a709f11d450bbddfd012011e21c862239bdc8590aba00815e84c",
+				)
+				.unwrap(),
+			},
+			Checkpoint {
+				height: 400000,
+				block_hash: Hash::from_hex(
+					"6578f1cdf5504d29fc757424e75ac60494e0f6d24b7553d124c8bea6ef99b5d8",
+				)
+				.unwrap(),
+			},
+			Checkpoint {
+				height: 600000,
+				block_hash: Hash::from_hex(
+					"de483eafb2141d66bf541a94d8e41858f01ffc517b9fa61d8781483c34c2a6f7",
+				)
+				.unwrap(),
+			},
+			Checkpoint {
+				height: 800000,
+				block_hash: Hash::from_hex(
+					"1465e7c094376e781b1e80ebd6b7a0c6350ec4d6554f9acdd843802162831003",
+				)
+				.unwrap(),
+			},
+			Checkpoint {
+				height: 1000000,
+				block_hash: Hash::from_hex(
+					"00e4a404130ac192face23fd25f2c46a99a38a31d8cf2d3cc79ea7a518830686",
+				)
+				.unwrap(),
+			},
+			Checkpoint {
+				height: 1200000,
+				block_hash: Hash::from_hex(
+					"8d69282df5579d32346ad0f6d3f4e03a43b1e00e741b1f3ba71c2934d81e5e1a",
+				)
+				.unwrap(),
+			},
+			Checkpoint {
+				height: 1400000,
+				block_hash: Hash::from_hex(
+					"e7e34e50e8a5c9bcf3fe7b7ad99e62a848cda37171ce8d37f21bc334035df4d2",
+				)
+				.unwrap(),
+			},
+			Checkpoint {
+				height: 1600000,
+				block_hash: Hash::from_hex(
+					"ba44beaf37776c3e7da3f4a1b906ae238e1178794cbaa90685e3945d2662d7a2",
+				)
+				.unwrap(),
+			},
+			Checkpoint {
+				height: 1800000,
+				block_hash: Hash::from_hex(
+					"4f23aaf2e83e4041cac670226d3024f4468e3b9bb6ffa2548ebc59489bd09b63",
+				)
+				.unwrap(),
+			},
+			Checkpoint {
+				height: 2000000,
+				block_hash: Hash::from_hex(
+					"eaf5d7a4b6f07ccb8bdbe5db2f39e10eea3ee1c28f8333907d91c9ccc21ce99d",
+				)
+				.unwrap(),
+			},
+			Checkpoint {
+				height: 2050000,
+				block_hash: Hash::from_hex(
+					"1a51bb18562e120f33783e53a70c449fd14197ac77082dc23d664c7f47a744c9",
+				)
+				.unwrap(),
+			},
+		];
+		return BlockchainCheckpoints { checkpoints };
 	}
 }
