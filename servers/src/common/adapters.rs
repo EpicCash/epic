@@ -25,7 +25,9 @@ use std::time::Instant;
 
 use crate::chain::{self, BlockStatus, ChainAdapter, Options, SyncState, SyncStatus};
 use crate::common::hooks::{ChainEvents, NetEvents};
-use crate::common::types::{ChainValidationMode, DandelionEpoch, ServerConfig};
+use crate::common::types::{
+	BlockchainCheckpoints, ChainValidationMode, DandelionEpoch, ServerConfig,
+};
 use crate::core::core::hash::{Hash, Hashed};
 use crate::core::core::transaction::Transaction;
 use crate::core::core::{BlockHeader, BlockSums, CompactBlock};
@@ -306,12 +308,47 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 		);
 
 		let mut ctx_option = Options::SYNC;
+		let mut within_checkpointed_range = true;
+		let mut disable_checkpoints = false;
+
+		let checkpoints = BlockchainCheckpoints::new().checkpoints;
+
+		for header in bhs {
+			for c in &checkpoints {
+				if header.height == c.height {
+					if header.hash() == c.block_hash {
+						info!("Checkpoint successfully passed at height({})! Hashes: header({:?}), checkpoint({:?})",
+                                	        	c.height,
+                                        	 	header.hash(),
+                                        		c.block_hash
+                                		);
+					} else {
+						return Err(chain::ErrorKind::CheckpointFailure.into());
+					}
+				}
+			}
+			if header.height > checkpoints.last().unwrap().height {
+				within_checkpointed_range = false;
+			}
+		}
+
+		if self.config.disable_checkpoints.is_some() {
+			if self.config.disable_checkpoints.unwrap() {
+				disable_checkpoints = true;
+			}
+		}
 
 		if self.config.skip_pow_validation.is_some() {
 			if self.config.skip_pow_validation.unwrap() {
-				ctx_option = Options::SKIP_POW;
+				if within_checkpointed_range || disable_checkpoints {
+					// only skip pow validation if setting is toggled AND we are within checkpointed range
+					// OR if we have 'skip_pow_validation' AND 'disable_checkpoints' toggled
+					// fully validate pow for all other cases
+					ctx_option = Options::SKIP_POW;
+				}
 			}
 		}
+
 		match self.chain().sync_block_headers(bhs, ctx_option) {
 			Ok(_) => {
 				info!(
