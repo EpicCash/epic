@@ -14,19 +14,18 @@
 
 //! Mining Stratum Server
 
+use crate::util::RwLock;
+use chrono::prelude::Utc;
 use futures::channel::mpsc;
 use futures::pin_mut;
 use futures::{SinkExt, StreamExt, TryStreamExt};
-use tokio::net::TcpListener;
-use tokio::runtime::Runtime;
-use tokio_util::codec::{Framed, LinesCodec};
-
-use crate::util::RwLock;
-use chrono::prelude::Utc;
 use serde;
 use serde_json;
 use serde_json::Value;
 use std::collections::HashMap;
+use tokio::net::TcpListener;
+use tokio::runtime::Runtime;
+use tokio_util::codec::{Framed, LinesCodec};
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -43,10 +42,11 @@ use crate::core::pow::{DifficultyNumber, PoWType};
 use crate::core::{pow, ser};
 use crate::keychain;
 use crate::mining::mine_block;
-use crate::pool;
+
 use crate::util;
 
 //use bigint::uint::U256;
+use crate::ServerTxPool;
 use epic_core::pow::Proof;
 use epic_core::ser::Writeable;
 
@@ -666,7 +666,7 @@ impl Handler {
 		self.workers.broadcast(job_request_json.clone());
 	}
 
-	pub fn run(&self, config: &StratumServerConfig, tx_pool: &Arc<RwLock<pool::TransactionPool>>) {
+	pub fn run(&self, config: &StratumServerConfig, tx_pool: &ServerTxPool) {
 		debug!("Run main loop");
 		let mut deadline: i64 = 0;
 		let mut head = self.chain.head().unwrap();
@@ -1011,7 +1011,7 @@ pub struct StratumServer {
 	id: String,
 	config: StratumServerConfig,
 	chain: Arc<chain::Chain>,
-	tx_pool: Arc<RwLock<pool::TransactionPool>>,
+	pub tx_pool: ServerTxPool,
 	sync_state: Arc<SyncState>,
 	stratum_stats: Arc<RwLock<StratumStats>>,
 }
@@ -1021,7 +1021,7 @@ impl StratumServer {
 	pub fn new(
 		config: StratumServerConfig,
 		chain: Arc<chain::Chain>,
-		tx_pool: Arc<RwLock<pool::TransactionPool>>,
+		tx_pool: ServerTxPool,
 		stratum_stats: Arc<RwLock<StratumStats>>,
 	) -> StratumServer {
 		StratumServer {

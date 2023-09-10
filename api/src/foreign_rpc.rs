@@ -17,8 +17,9 @@
 use crate::core::core::hash::Hash;
 use crate::core::core::transaction::Transaction;
 use crate::foreign::Foreign;
-use crate::pool::PoolEntry;
-use crate::rest::ErrorKind;
+
+use crate::pool::{BlockChain, PoolAdapter, PoolEntry};
+use crate::rest::Error;
 use crate::types::{
 	BlockHeaderPrintable, BlockPrintable, LocatedTxKernel, OutputListing, OutputPrintable, Tip,
 	Version,
@@ -124,7 +125,7 @@ pub trait ForeignRpc: Sync + Send {
 		height: Option<u64>,
 		hash: Option<String>,
 		commit: Option<String>,
-	) -> Result<BlockHeaderPrintable, ErrorKind>;
+	) -> Result<BlockHeaderPrintable, Error>;
 
 	/**
 	Networked version of [Foreign::get_block](struct.Node.html#method.get_block).
@@ -242,7 +243,7 @@ pub trait ForeignRpc: Sync + Send {
 		height: Option<u64>,
 		hash: Option<String>,
 		commit: Option<String>,
-	) -> Result<BlockPrintable, ErrorKind>;
+	) -> Result<BlockPrintable, Error>;
 
 	/*
 	# Json rpc example
@@ -264,7 +265,7 @@ pub trait ForeignRpc: Sync + Send {
 		end_height: Option<u64>,
 		hash: Option<String>,
 		commit: Option<String>,
-	) -> Result<Vec<BlockPrintable>, ErrorKind>;
+	) -> Result<Vec<BlockPrintable>, Error>;
 
 	/**
 	Networked version of [Foreign::get_version](struct.Node.html#method.get_version).
@@ -297,7 +298,7 @@ pub trait ForeignRpc: Sync + Send {
 	# );
 	```
 	 */
-	fn get_version(&self) -> Result<Version, ErrorKind>;
+	fn get_version(&self) -> Result<Version, Error>;
 
 	/**
 	Networked version of [Foreign::get_tip](struct.Node.html#method.get_tip).
@@ -332,7 +333,7 @@ pub trait ForeignRpc: Sync + Send {
 	# );
 	```
 	 */
-	fn get_tip(&self) -> Result<Tip, ErrorKind>;
+	fn get_tip(&self) -> Result<Tip, Error>;
 
 	/**
 	Networked version of [Foreign::get_kernel](struct.Node.html#method.get_kernel).
@@ -375,7 +376,7 @@ pub trait ForeignRpc: Sync + Send {
 		excess: String,
 		min_height: Option<u64>,
 		max_height: Option<u64>,
-	) -> Result<LocatedTxKernel, ErrorKind>;
+	) -> Result<LocatedTxKernel, Error>;
 
 	/*
 	# Json rpc example
@@ -410,7 +411,7 @@ pub trait ForeignRpc: Sync + Send {
 	```
 	*/
 
-	fn get_last_n_kernels(&self, distance: u64) -> Result<Vec<TxKernel>, ErrorKind>;
+	fn get_last_n_kernels(&self, distance: u64) -> Result<Vec<TxKernel>, Error>;
 
 	/**
 	Networked version of [Foreign::get_outputs](struct.Node.html#method.get_outputs).
@@ -497,7 +498,7 @@ pub trait ForeignRpc: Sync + Send {
 		end_height: Option<u64>,
 		include_proof: Option<bool>,
 		include_merkle_proof: Option<bool>,
-	) -> Result<Vec<OutputPrintable>, ErrorKind>;
+	) -> Result<Vec<OutputPrintable>, Error>;
 
 	/**
 	Networked version of [Foreign::get_unspent_outputs](struct.Node.html#method.get_unspent_outputs).
@@ -558,7 +559,7 @@ pub trait ForeignRpc: Sync + Send {
 		end_index: Option<u64>,
 		max: u64,
 		include_proof: Option<bool>,
-	) -> Result<OutputListing, ErrorKind>;
+	) -> Result<OutputListing, Error>;
 
 	/**
 	Networked version of [Foreign::get_pmmr_indices](struct.Node.html#method.get_pmmr_indices).
@@ -595,7 +596,7 @@ pub trait ForeignRpc: Sync + Send {
 		&self,
 		start_block_height: u64,
 		end_block_height: Option<u64>,
-	) -> Result<OutputListing, ErrorKind>;
+	) -> Result<OutputListing, Error>;
 
 	/**
 	Networked version of [Foreign::get_pool_size](struct.Node.html#method.get_pool_size).
@@ -625,7 +626,7 @@ pub trait ForeignRpc: Sync + Send {
 	# );
 	```
 	 */
-	fn get_pool_size(&self) -> Result<usize, ErrorKind>;
+	fn get_pool_size(&self) -> Result<usize, Error>;
 
 	/**
 	Networked version of [Foreign::get_stempool_size](struct.Node.html#method.get_stempool_size).
@@ -655,7 +656,7 @@ pub trait ForeignRpc: Sync + Send {
 	# );
 	```
 	 */
-	fn get_stempool_size(&self) -> Result<usize, ErrorKind>;
+	fn get_stempool_size(&self) -> Result<usize, Error>;
 
 	/**
 	Networked version of [Foreign::get_unconfirmed_transactions](struct.Node.html#method.get_unconfirmed_transactions).
@@ -728,7 +729,7 @@ pub trait ForeignRpc: Sync + Send {
 	# );
 	```
 	 */
-	fn get_unconfirmed_transactions(&self) -> Result<Vec<PoolEntry>, ErrorKind>;
+	fn get_unconfirmed_transactions(&self) -> Result<Vec<PoolEntry>, Error>;
 
 	/**
 	Networked version of [Foreign::push_transaction](struct.Node.html#method.push_transaction).
@@ -793,23 +794,27 @@ pub trait ForeignRpc: Sync + Send {
 	# );
 	```
 	 */
-	fn push_transaction(&self, tx: Transaction, fluff: Option<bool>) -> Result<(), ErrorKind>;
+	fn push_transaction(&self, tx: Transaction, fluff: Option<bool>) -> Result<(), Error>;
 }
 
-impl ForeignRpc for Foreign {
+impl<B, P> ForeignRpc for Foreign<B, P>
+where
+	B: BlockChain,
+	P: PoolAdapter,
+{
 	fn get_header(
 		&self,
 		height: Option<u64>,
 		hash: Option<String>,
 		commit: Option<String>,
-	) -> Result<BlockHeaderPrintable, ErrorKind> {
+	) -> Result<BlockHeaderPrintable, Error> {
 		let mut parsed_hash: Option<Hash> = None;
 		if let Some(hash) = hash {
 			let vec = util::from_hex(hash)
-				.map_err(|e| ErrorKind::Argument(format!("invalid block hash: {}", e)))?;
+				.map_err(|e| Error::Argument(format!("invalid block hash: {}", e)))?;
 			parsed_hash = Some(Hash::from_vec(&vec));
 		}
-		Foreign::get_header(self, height, parsed_hash, commit).map_err(|e| e.kind().clone())
+		Foreign::get_header(self, height, parsed_hash, commit)
 	}
 
 	fn get_block(
@@ -817,14 +822,14 @@ impl ForeignRpc for Foreign {
 		height: Option<u64>,
 		hash: Option<String>,
 		commit: Option<String>,
-	) -> Result<BlockPrintable, ErrorKind> {
+	) -> Result<BlockPrintable, Error> {
 		let mut parsed_hash: Option<Hash> = None;
 		if let Some(hash) = hash {
 			let vec = util::from_hex(hash)
-				.map_err(|e| ErrorKind::Argument(format!("invalid block hash: {}", e)))?;
+				.map_err(|e| Error::Argument(format!("invalid block hash: {}", e)))?;
 			parsed_hash = Some(Hash::from_vec(&vec));
 		}
-		Foreign::get_block(self, height, parsed_hash, commit).map_err(|e| e.kind().clone())
+		Foreign::get_block(self, height, parsed_hash, commit)
 	}
 
 	fn get_blocks(
@@ -833,24 +838,24 @@ impl ForeignRpc for Foreign {
 		end_height: Option<u64>,
 		hash: Option<String>,
 		commit: Option<String>,
-	) -> Result<Vec<BlockPrintable>, ErrorKind> {
+	) -> Result<Vec<BlockPrintable>, Error> {
 		if Some(start_height) > Some(end_height) {
-			return Err(ErrorKind::Argument(
+			return Err(Error::Argument(
 				"Start_height must be lower or equal than end_height".to_string(),
 			));
 		}
 		let mut parsed_hash: Option<Hash> = None;
 		if let Some(hash) = hash {
 			let vec = util::from_hex(hash)
-				.map_err(|e| ErrorKind::Argument(format!("invalid block hash: {}", e)))?;
+				.map_err(|e| Error::Argument(format!("invalid block hash: {}", e)))?;
 			parsed_hash = Some(Hash::from_vec(&vec));
 		}
 		if let Some(start_height) = start_height {
 			if let Some(end_height) = end_height {
 				let mut blocks: Vec<BlockPrintable> = vec![];
 				for height in start_height..=end_height {
-					let block = Foreign::get_block(self, Some(height), parsed_hash, commit.clone())
-						.map_err(|e| e.kind().clone());
+					let block = Foreign::get_block(self, Some(height), parsed_hash, commit.clone());
+
 					match block {
 						Ok(b) => blocks.push(b),
 						Err(_) => (),
@@ -859,24 +864,24 @@ impl ForeignRpc for Foreign {
 				return Ok(blocks);
 			}
 		}
-		return Err(ErrorKind::Argument(
+		return Err(Error::Argument(
 			"Start_height or end_height is not valid".to_string(),
 		));
 	}
 
-	fn get_last_n_kernels(&self, distance: u64) -> Result<Vec<TxKernel>, ErrorKind> {
+	fn get_last_n_kernels(&self, distance: u64) -> Result<Vec<TxKernel>, Error> {
 		match Foreign::get_last_n_kernels(self, distance) {
 			Ok(k) => Ok(k),
-			Err(_) => Err(ErrorKind::Argument("Could not get kernels".to_string())),
+			Err(_) => Err(Error::Argument("Could not get kernels".to_string())),
 		}
 	}
 
-	fn get_version(&self) -> Result<Version, ErrorKind> {
-		Foreign::get_version(self).map_err(|e| e.kind().clone())
+	fn get_version(&self) -> Result<Version, Error> {
+		Foreign::get_version(self)
 	}
 
-	fn get_tip(&self) -> Result<Tip, ErrorKind> {
-		Foreign::get_tip(self).map_err(|e| e.kind().clone())
+	fn get_tip(&self) -> Result<Tip, Error> {
+		Foreign::get_tip(self)
 	}
 
 	fn get_kernel(
@@ -884,8 +889,8 @@ impl ForeignRpc for Foreign {
 		excess: String,
 		min_height: Option<u64>,
 		max_height: Option<u64>,
-	) -> Result<LocatedTxKernel, ErrorKind> {
-		Foreign::get_kernel(self, excess, min_height, max_height).map_err(|e| e.kind().clone())
+	) -> Result<LocatedTxKernel, Error> {
+		Foreign::get_kernel(self, excess, min_height, max_height)
 	}
 
 	fn get_outputs(
@@ -895,7 +900,7 @@ impl ForeignRpc for Foreign {
 		end_height: Option<u64>,
 		include_proof: Option<bool>,
 		include_merkle_proof: Option<bool>,
-	) -> Result<Vec<OutputPrintable>, ErrorKind> {
+	) -> Result<Vec<OutputPrintable>, Error> {
 		Foreign::get_outputs(
 			self,
 			commits,
@@ -904,7 +909,6 @@ impl ForeignRpc for Foreign {
 			include_proof,
 			include_merkle_proof,
 		)
-		.map_err(|e| e.kind().clone())
 	}
 
 	fn get_unspent_outputs(
@@ -913,33 +917,31 @@ impl ForeignRpc for Foreign {
 		end_index: Option<u64>,
 		max: u64,
 		include_proof: Option<bool>,
-	) -> Result<OutputListing, ErrorKind> {
+	) -> Result<OutputListing, Error> {
 		Foreign::get_unspent_outputs(self, start_index, end_index, max, include_proof)
-			.map_err(|e| e.kind().clone())
 	}
 
 	fn get_pmmr_indices(
 		&self,
 		start_block_height: u64,
 		end_block_height: Option<u64>,
-	) -> Result<OutputListing, ErrorKind> {
+	) -> Result<OutputListing, Error> {
 		Foreign::get_pmmr_indices(self, start_block_height, end_block_height)
-			.map_err(|e| e.kind().clone())
 	}
 
-	fn get_pool_size(&self) -> Result<usize, ErrorKind> {
-		Foreign::get_pool_size(self).map_err(|e| e.kind().clone())
+	fn get_pool_size(&self) -> Result<usize, Error> {
+		Foreign::get_pool_size(self)
 	}
 
-	fn get_stempool_size(&self) -> Result<usize, ErrorKind> {
-		Foreign::get_stempool_size(self).map_err(|e| e.kind().clone())
+	fn get_stempool_size(&self) -> Result<usize, Error> {
+		Foreign::get_stempool_size(self)
 	}
 
-	fn get_unconfirmed_transactions(&self) -> Result<Vec<PoolEntry>, ErrorKind> {
-		Foreign::get_unconfirmed_transactions(self).map_err(|e| e.kind().clone())
+	fn get_unconfirmed_transactions(&self) -> Result<Vec<PoolEntry>, Error> {
+		Foreign::get_unconfirmed_transactions(self)
 	}
-	fn push_transaction(&self, tx: Transaction, fluff: Option<bool>) -> Result<(), ErrorKind> {
-		Foreign::push_transaction(self, tx, fluff).map_err(|e| e.kind().clone())
+	fn push_transaction(&self, tx: Transaction, fluff: Option<bool>) -> Result<(), Error> {
+		Foreign::push_transaction(self, tx, fluff)
 	}
 }
 

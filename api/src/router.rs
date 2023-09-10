@@ -12,21 +12,58 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use futures::future;
-use hyper;
-use hyper::rt::Future;
-use hyper::service::{NewService, Service};
-use hyper::{Body, Method, Request, Response, StatusCode};
+//use hyper::rt::Future;
+//use hyper::service::{NewService, Service};
+use futures::future::{self, Future};
+
+use hyper::service::Service;
+use hyper::{Method, StatusCode};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
+
+use hyper::{Body, Request, Response};
+
+const MAX_CHILDREN: usize = 16;
 
 lazy_static! {
 	static ref WILDCARD_HASH: u64 = calculate_hash(&"*");
 	static ref WILDCARD_STOP_HASH: u64 = calculate_hash(&"**");
 }
 
-pub type ResponseFuture = Box<dyn Future<Item = Response<Body>, Error = hyper::Error> + Send>;
+pub type HandlerObj = Arc<dyn Handler + Send + Sync>;
+
+pub type ResponseFuture =
+	Pin<Box<dyn Future<Output = Result<hyper::Response<Body>, hyper::Error>> + Send>>;
+
+#[derive(Clone, thiserror::Error, Eq, Debug, PartialEq, Serialize, Deserialize)]
+pub enum RouterError {
+	#[error("Route already exists")]
+	RouteAlreadyExists,
+	#[error("Route not found")]
+	RouteNotFound,
+	#[error("Value not found")]
+	NoValue,
+}
+
+#[derive(Clone)]
+pub struct Router {
+	nodes: Vec<Node>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct NodeId(usize);
+
+#[derive(Clone)]
+pub struct Node {
+	key: u64,
+	value: Option<HandlerObj>,
+	children: [NodeId; MAX_CHILDREN],
+	children_count: usize,
+	mws: Option<Vec<HandlerObj>>,
+}
 
 pub trait Handler {
 	fn get(&self, _req: Request<Body>) -> ResponseFuture {
@@ -70,50 +107,19 @@ pub trait Handler {
 		req: Request<Body>,
 		mut _handlers: Box<dyn Iterator<Item = HandlerObj>>,
 	) -> ResponseFuture {
-		match req.method() {
-			&Method::GET => self.get(req),
-			&Method::POST => self.post(req),
-			&Method::PUT => self.put(req),
-			&Method::DELETE => self.delete(req),
-			&Method::PATCH => self.patch(req),
-			&Method::OPTIONS => self.options(req),
-			&Method::CONNECT => self.connect(req),
-			&Method::TRACE => self.trace(req),
-			&Method::HEAD => self.head(req),
+		match *req.method() {
+			Method::GET => self.get(req),
+			Method::POST => self.post(req),
+			Method::PUT => self.put(req),
+			Method::DELETE => self.delete(req),
+			Method::PATCH => self.patch(req),
+			Method::OPTIONS => self.options(req),
+			Method::CONNECT => self.connect(req),
+			Method::TRACE => self.trace(req),
+			Method::HEAD => self.head(req),
 			_ => not_found(),
 		}
 	}
-}
-
-#[derive(Clone, Fail, Eq, Debug, PartialEq, Serialize, Deserialize)]
-pub enum RouterError {
-	#[fail(display = "Route already exists")]
-	RouteAlreadyExists,
-	#[fail(display = "Route not found")]
-	RouteNotFound,
-	#[fail(display = "Value not found")]
-	NoValue,
-}
-
-#[derive(Clone)]
-pub struct Router {
-	nodes: Vec<Node>,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct NodeId(usize);
-
-const MAX_CHILDREN: usize = 16;
-
-pub type HandlerObj = Arc<dyn Handler + Send + Sync>;
-
-#[derive(Clone)]
-pub struct Node {
-	key: u64,
-	value: Option<HandlerObj>,
-	children: [NodeId; MAX_CHILDREN],
-	children_count: usize,
-	mws: Option<Vec<HandlerObj>>,
 }
 
 impl Router {
@@ -203,13 +209,16 @@ impl Router {
 	}
 }
 
-impl Service for Router {
-	type ReqBody = Body;
-	type ResBody = Body;
+impl Service<hyper::Request<hyper::body::Body>> for Router {
+	type Response = hyper::Response<Body>;
 	type Error = hyper::Error;
 	type Future = ResponseFuture;
 
-	fn call(&mut self, req: Request<Self::ReqBody>) -> Self::Future {
+	fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+		Poll::Ready(Ok(()))
+	}
+
+	fn call(&mut self, req: hyper::Request<Body>) -> Self::Future {
 		match self.get(req.uri().path()) {
 			Err(_) => not_found(),
 			Ok(mut handlers) => match handlers.next() {
@@ -217,18 +226,6 @@ impl Service for Router {
 				Some(h) => h.call(req, Box::new(handlers)),
 			},
 		}
-	}
-}
-
-impl NewService for Router {
-	type ReqBody = Body;
-	type ResBody = Body;
-	type Error = hyper::Error;
-	type InitError = hyper::Error;
-	type Service = Router;
-	type Future = Box<dyn Future<Item = Self::Service, Error = Self::InitError> + Send>;
-	fn new_service(&self) -> Self::Future {
-		Box::new(future::ok(self.clone()))
 	}
 }
 
@@ -276,7 +273,7 @@ impl Node {
 pub fn not_found() -> ResponseFuture {
 	let mut response = Response::new(Body::empty());
 	*response.status_mut() = StatusCode::NOT_FOUND;
-	Box::new(future::ok(response))
+	Box::pin(future::ok(response))
 }
 
 fn calculate_hash<T: Hash>(t: &T) -> u64 {
@@ -305,19 +302,22 @@ fn collect_node_middleware(handlers: &mut Vec<HandlerObj>, node: &Node) {
 mod tests {
 
 	use super::*;
-	use tokio::prelude::future::ok;
-	use tokio_core::reactor::Core;
+	use futures::executor::block_on;
+	//use tokio::prelude::future::ok;
+	//use tokio_core::reactor::Core;
 
 	struct HandlerImpl(u16);
 
 	impl Handler for HandlerImpl {
 		fn get(&self, _req: Request<Body>) -> ResponseFuture {
-			Box::new(future::ok(
-				Response::builder()
-					.status(self.0)
+			let code = self.0;
+			Box::pin(async move {
+				let res = Response::builder()
+					.status(code)
 					.body(Body::default())
-					.unwrap(),
-			))
+					.unwrap();
+				Ok(res)
+			})
 		}
 	}
 
@@ -358,15 +358,18 @@ mod tests {
 			.unwrap();
 
 		let call_handler = |url| {
-			let mut event_loop = Core::new().unwrap();
-			let task = routes
-				.get(url)
-				.unwrap()
-				.next()
-				.unwrap()
-				.get(Request::new(Body::default()))
-				.and_then(|resp| ok(resp.status().as_u16()));
-			event_loop.run(task).unwrap()
+			let task = async {
+				let resp = routes
+					.get(url)
+					.unwrap()
+					.next()
+					.unwrap()
+					.get(Request::new(Body::default()))
+					.await
+					.unwrap();
+				resp.status().as_u16()
+			};
+			block_on(task)
 		};
 
 		assert_eq!(call_handler("/v1/users"), 101);

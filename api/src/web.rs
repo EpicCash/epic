@@ -1,30 +1,26 @@
 use crate::rest::*;
 use crate::router::ResponseFuture;
-use futures::future::{err, ok};
-use futures::{Future, Stream};
+use bytes::buf::BufExt;
+use futures::future::ok;
 use hyper::{Body, Request, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use url::form_urlencoded;
-
 /// Parse request body
-pub fn parse_body<T>(req: Request<Body>) -> Box<dyn Future<Item = T, Error = Error> + Send>
+pub async fn parse_body<T>(req: Request<Body>) -> Result<T, Error>
 where
 	for<'de> T: Deserialize<'de> + Send + 'static,
 {
-	Box::new(
-		req.into_body()
-			.concat2()
-			.map_err(|e| ErrorKind::RequestError(format!("Failed to read request: {}", e)).into())
-			.and_then(|body| match serde_json::from_reader(&body.to_vec()[..]) {
-				Ok(obj) => ok(obj),
-				Err(e) => {
-					err(ErrorKind::RequestError(format!("Invalid request body: {}", e)).into())
-				}
-			}),
-	)
+	// Aggregate the body...
+	let whole_body = hyper::body::aggregate(req)
+		.await
+		.map_err(|e| Error::RequestError(format!("Failed to read request: {}", e)))?;
+
+	// Decode as JSON...
+	serde_json::from_reader(whole_body.reader())
+		.map_err(|e| Error::RequestError(format!("Invalid request body: {}", e)))
 }
 
 /// Convert Result to ResponseFuture
@@ -34,16 +30,14 @@ where
 {
 	match res {
 		Ok(s) => json_response_pretty(&s),
-		Err(e) => match e.kind() {
-			ErrorKind::Argument(msg) => response(StatusCode::BAD_REQUEST, msg.clone()),
-			ErrorKind::RequestError(msg) => response(StatusCode::BAD_REQUEST, msg.clone()),
-			ErrorKind::NotFound => response(StatusCode::NOT_FOUND, ""),
-			ErrorKind::Internal(msg) => response(StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
-			ErrorKind::ResponseError(msg) => {
-				response(StatusCode::INTERNAL_SERVER_ERROR, msg.clone())
-			}
+		Err(e) => match e {
+			Error::Argument(msg) => response(StatusCode::BAD_REQUEST, msg.clone()),
+			Error::RequestError(msg) => response(StatusCode::BAD_REQUEST, msg.clone()),
+			Error::NotFound => response(StatusCode::NOT_FOUND, ""),
+			Error::Internal(msg) => response(StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
+			Error::ResponseError(msg) => response(StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
 			// place holder
-			ErrorKind::Router(_) => response(StatusCode::INTERNAL_SERVER_ERROR, ""),
+			Error::Router { .. } => response(StatusCode::INTERNAL_SERVER_ERROR, ""),
 		},
 	}
 }
@@ -83,7 +77,7 @@ pub fn just_response<T: Into<Body> + Debug>(status: StatusCode, text: T) -> Resp
 
 /// Text response as future
 pub fn response<T: Into<Body> + Debug>(status: StatusCode, text: T) -> ResponseFuture {
-	Box::new(ok(just_response(status, text)))
+	Box::pin(ok(just_response(status, text)))
 }
 
 pub struct QueryParams {
@@ -152,7 +146,7 @@ macro_rules! must_get_query(
 	($req: expr) =>(
 		match $req.uri().query() {
 			Some(q) => q,
-			None => return Err(ErrorKind::RequestError("no query string".to_owned()))?,
+			None => return Err(Error::RequestError("no query string".to_owned()))?,
 		}
 	));
 
@@ -163,7 +157,7 @@ macro_rules! parse_param(
 		None => $default,
 		Some(val) =>  match val.parse() {
 			Ok(val) => val,
-			Err(_) => return Err(ErrorKind::RequestError(format!("invalid value of parameter {}", $name)))?,
+			Err(_) => return Err(Error::RequestError(format!("invalid value of parameter {}", $name)))?,
 		}
 	}
 	));

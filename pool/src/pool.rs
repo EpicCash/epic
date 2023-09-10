@@ -29,16 +29,22 @@ use std::sync::Arc;
 //use self::util::RwLock;
 //use epic_util as util;
 
-pub struct Pool {
+pub struct Pool<B>
+where
+	B: BlockChain,
+{
 	/// Entries in the pool (tx + info + timer) in simple insertion order.
 	pub entries: Vec<PoolEntry>,
 	/// The blockchain
-	pub blockchain: Arc<dyn BlockChain>,
+	pub blockchain: Arc<B>,
 	pub name: String,
 }
 
-impl Pool {
-	pub fn new(chain: Arc<dyn BlockChain>, name: String) -> Pool {
+impl<B> Pool<B>
+where
+	B: BlockChain,
+{
+	pub fn new(chain: Arc<B>, name: String) -> Self {
 		Pool {
 			entries: vec![],
 			blockchain: chain,

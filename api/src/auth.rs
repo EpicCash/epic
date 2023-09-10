@@ -14,6 +14,7 @@
 
 use crate::router::{Handler, HandlerObj, ResponseFuture};
 use crate::web::response;
+
 use futures::future::ok;
 use hyper::header::{HeaderValue, AUTHORIZATION, WWW_AUTHENTICATE};
 use hyper::{Body, Request, Response, StatusCode};
@@ -128,7 +129,7 @@ impl Handler for BasicAuthURIMiddleware {
 				unauthorized_response(&self.basic_realm)
 			}
 		} else {
-			return next_handler.call(req, handlers);
+			next_handler.call(req, handlers)
 		}
 	}
 }
@@ -139,5 +140,5 @@ fn unauthorized_response(basic_realm: &HeaderValue) -> ResponseFuture {
 		.header(WWW_AUTHENTICATE, basic_realm)
 		.body(Body::empty())
 		.unwrap();
-	Box::new(ok(response))
+	Box::pin(ok(response))
 }
