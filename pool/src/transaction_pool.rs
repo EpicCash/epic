@@ -30,35 +30,36 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 
 /// Transaction pool implementation.
-pub struct TransactionPool {
+pub struct TransactionPool<B, P>
+where
+	B: BlockChain,
+	P: PoolAdapter,
+{
 	/// Pool Config
 	pub config: PoolConfig,
 	/// Our transaction pool.
-	pub txpool: Pool,
+	pub txpool: Pool<B>,
 	/// Our Dandelion "stempool".
-	pub stempool: Pool,
+	pub stempool: Pool<B>,
 	/// Cache of previous txs in case of a re-org.
 	pub reorg_cache: Arc<RwLock<VecDeque<PoolEntry>>>,
 	/// The blockchain
-	pub blockchain: Arc<dyn BlockChain>,
+	pub blockchain: Arc<B>,
 	/// The pool adapter
-	pub adapter: Arc<dyn PoolAdapter>,
+	pub adapter: Arc<P>,
 }
 
-impl TransactionPool {
+impl<B, P> TransactionPool<B, P>
+where
+	B: BlockChain,
+	P: PoolAdapter,
+{
 	/// Create a new transaction pool
-	pub fn new(
-		config: PoolConfig,
-		chain: Arc<dyn BlockChain>,
-		adapter: Arc<dyn PoolAdapter>,
-	) -> TransactionPool {
+	pub fn new(config: PoolConfig, chain: Arc<B>, adapter: Arc<P>) -> Self {
 		TransactionPool {
 			config,
 			txpool: Pool::new(chain.clone(), "txpool".to_string()),
-			stempool: Pool::new(
-				chain.clone(),
-				"stempool".to_string(),
-			),
+			stempool: Pool::new(chain.clone(), "stempool".to_string()),
 			reorg_cache: Arc::new(RwLock::new(VecDeque::new())),
 			blockchain: chain,
 			adapter,

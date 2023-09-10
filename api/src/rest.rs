@@ -20,85 +20,46 @@
 
 use crate::router::{Handler, HandlerObj, ResponseFuture, Router, RouterError};
 use crate::web::response;
-use failure::{Backtrace, Context, Fail, ResultExt};
-use futures::sync::oneshot;
-use futures::Stream;
-use hyper::rt::Future;
-use hyper::{rt, Body, Request, Server, StatusCode};
-use rustls;
+use futures::channel::oneshot;
+use futures::TryStreamExt;
+use hyper::server::accept;
+use hyper::service::make_service_fn;
+use hyper::Server;
+use hyper::{Body, Request, StatusCode};
 use rustls::internal::pemfile;
-use std::fmt::{self, Display};
+use std::convert::Infallible;
 use std::fs::File;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::{io, thread};
+use tokio::net::TcpListener;
+use tokio::runtime::Runtime;
+use tokio::stream::StreamExt;
 use tokio_rustls::TlsAcceptor;
 
-use tokio_tcp;
-
 /// Errors that can be returned by an ApiEndpoint implementation.
-#[derive(Debug)]
-pub struct Error {
-	inner: Context<ErrorKind>,
-}
-
-#[derive(Clone, Eq, PartialEq, Debug, Fail, Serialize, Deserialize)]
-pub enum ErrorKind {
-	#[fail(display = "Internal error: {}", _0)]
+#[derive(Clone, Eq, PartialEq, Debug, thiserror::Error, Serialize, Deserialize)]
+pub enum Error {
+	#[error("Internal error: {0}")]
 	Internal(String),
-	#[fail(display = "Bad arguments: {}", _0)]
+	#[error("Bad arguments: {0}")]
 	Argument(String),
-	#[fail(display = "Not found.")]
+	#[error("Not found.")]
 	NotFound,
-	#[fail(display = "Request error: {}", _0)]
+	#[error("Request error: {0}")]
 	RequestError(String),
-	#[fail(display = "ResponseError error: {}", _0)]
+	#[error("ResponseError error: {0}")]
 	ResponseError(String),
-	#[fail(display = "Router error: {}", _0)]
-	Router(RouterError),
+	#[error("Router error: {source}")]
+	Router {
+		#[from]
+		source: RouterError,
+	},
 }
 
-impl Fail for Error {
-	fn cause(&self) -> Option<&dyn Fail> {
-		self.inner.cause()
-	}
-
-	fn backtrace(&self) -> Option<&Backtrace> {
-		self.inner.backtrace()
-	}
-}
-
-impl Display for Error {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		Display::fmt(&self.inner, f)
-	}
-}
-
-impl Error {
-	pub fn kind(&self) -> &ErrorKind {
-		self.inner.get_context()
-	}
-}
-
-impl From<ErrorKind> for Error {
-	fn from(kind: ErrorKind) -> Error {
-		Error {
-			inner: Context::new(kind),
-		}
-	}
-}
-
-impl From<Context<ErrorKind>> for Error {
-	fn from(inner: Context<ErrorKind>) -> Error {
-		Error { inner: inner }
-	}
-}
-
-impl From<RouterError> for Error {
-	fn from(error: RouterError) -> Error {
-		Error {
-			inner: Context::new(ErrorKind::Router(error)),
-		}
+impl From<crate::chain::Error> for Error {
+	fn from(error: crate::chain::Error) -> Error {
+		Error::Internal(error.to_string())
 	}
 }
 
@@ -118,29 +79,26 @@ impl TLSConfig {
 	}
 
 	fn load_certs(&self) -> Result<Vec<rustls::Certificate>, Error> {
-		let certfile = File::open(&self.certificate).context(ErrorKind::Internal(format!(
-			"failed to open file {}",
-			self.certificate
-		)))?;
+		let certfile = File::open(&self.certificate).map_err(|e| {
+			Error::Internal(format!("failed to open file {} {}", self.certificate, e))
+		})?;
 		let mut reader = io::BufReader::new(certfile);
 
 		pemfile::certs(&mut reader)
-			.map_err(|_| ErrorKind::Internal("failed to load certificate".to_string()).into())
+			.map_err(|_| Error::Internal("failed to load certificate".to_string()))
 	}
 
 	fn load_private_key(&self) -> Result<rustls::PrivateKey, Error> {
-		let keyfile = File::open(&self.private_key).context(ErrorKind::Internal(format!(
-			"failed to open file {}",
-			self.private_key
-		)))?;
+		let keyfile = File::open(&self.private_key)
+			.map_err(|e| Error::Internal(format!("failed to open private key file {}", e)))?;
+
 		let mut reader = io::BufReader::new(keyfile);
 
 		let keys = pemfile::pkcs8_private_keys(&mut reader)
-			.map_err(|_| ErrorKind::Internal("failed to load private key".to_string()))?;
+			.map_err(|_| Error::Internal("failed to load private key".to_string()))?;
+
 		if keys.len() != 1 {
-			return Err(ErrorKind::Internal(
-				"expected a single private key".to_string(),
-			))?;
+			return Err(Error::Internal("expected a single private key".to_string()))?;
 		}
 		Ok(keys[0].clone())
 	}
@@ -150,9 +108,8 @@ impl TLSConfig {
 		let key = self.load_private_key()?;
 		let mut cfg = rustls::ServerConfig::new(rustls::NoClientAuth::new());
 		cfg.set_single_cert(certs, key)
-			.context(ErrorKind::Internal(
-				"set single certificate failed".to_string(),
-			))?;
+			.map_err(|e| Error::Internal(format!("set single certificate failed {}", e)))?;
+
 		Ok(Arc::new(cfg))
 	}
 }
@@ -178,10 +135,11 @@ impl ApiServer {
 		addr: SocketAddr,
 		router: Router,
 		conf: Option<TLSConfig>,
+		api_chan: &'static mut (oneshot::Sender<()>, oneshot::Receiver<()>),
 	) -> Result<thread::JoinHandle<()>, Error> {
 		match conf {
-			Some(conf) => self.start_tls(addr, router, conf),
-			None => self.start_no_tls(addr, router),
+			Some(conf) => self.start_tls(addr, router, conf, api_chan),
+			None => self.start_no_tls(addr, router, api_chan),
 		}
 	}
 
@@ -190,26 +148,45 @@ impl ApiServer {
 		&mut self,
 		addr: SocketAddr,
 		router: Router,
+		api_chan: &'static mut (oneshot::Sender<()>, oneshot::Receiver<()>),
 	) -> Result<thread::JoinHandle<()>, Error> {
 		if self.shutdown_sender.is_some() {
-			return Err(ErrorKind::Internal(
+			return Err(Error::Internal(
 				"Can't start HTTP API server, it's running already".to_string(),
-			))?;
+			));
 		}
-		let (tx, _rx) = oneshot::channel::<()>();
+		let rx = &mut api_chan.1;
+		let tx = &mut api_chan.0;
+
+		// Jones's trick to update memory
+		let m = oneshot::channel::<()>();
+		let tx = std::mem::replace(tx, m.0);
 		self.shutdown_sender = Some(tx);
+
 		thread::Builder::new()
 			.name("apis".to_string())
 			.spawn(move || {
-				let server = Server::bind(&addr)
-					.serve(router)
-					// TODO graceful shutdown is unstable, investigate
-					//.with_graceful_shutdown(rx)
-					.map_err(|e| eprintln!("HTTP API server error: {}", e));
+				let server = async move {
+					let server = Server::bind(&addr)
+						.serve(make_service_fn(move |_| {
+							let router = router.clone();
+							async move { Ok::<_, Infallible>(router) }
+						}))
+						.with_graceful_shutdown(async {
+							rx.await.ok();
+						});
 
-				rt::run(server);
+					server.await
+				};
+
+				let mut rt = Runtime::new()
+					.map_err(|e| eprintln!("HTTP API server error: {}", e))
+					.unwrap();
+				if let Err(e) = rt.block_on(server) {
+					eprintln!("HTTP API server error: {}", e)
+				}
 			})
-			.map_err(|_| ErrorKind::Internal("failed to spawn API thread".to_string()).into())
+			.map_err(|_| Error::Internal("failed to spawn API thread".to_string()))
 	}
 
 	/// Starts the TLS ApiServer at the provided address.
@@ -219,39 +196,55 @@ impl ApiServer {
 		addr: SocketAddr,
 		router: Router,
 		conf: TLSConfig,
+		api_chan: &'static mut (oneshot::Sender<()>, oneshot::Receiver<()>),
 	) -> Result<thread::JoinHandle<()>, Error> {
 		if self.shutdown_sender.is_some() {
-			return Err(ErrorKind::Internal(
+			return Err(Error::Internal(
 				"Can't start HTTPS API server, it's running already".to_string(),
-			))?;
+			));
 		}
 
-		let tls_conf = conf.build_server_config()?;
-		let acceptor = TlsAcceptor::from(tls_conf);
+		let rx = &mut api_chan.1;
+		let tx = &mut api_chan.0;
+
+		// Jones's trick to update memory
+		let m = oneshot::channel::<()>();
+		let tx = std::mem::replace(tx, m.0);
+		self.shutdown_sender = Some(tx);
+
+		let acceptor = TlsAcceptor::from(conf.build_server_config()?);
 
 		thread::Builder::new()
 			.name("apis".to_string())
 			.spawn(move || {
-				let listener = tokio_tcp::TcpListener::bind(&addr).expect("failed to bind");
-				let acceptor = acceptor.clone();
-				let tls = listener
-					.incoming()
-					.and_then(move |s| acceptor.accept(s))
-					.then(|r| match r {
-						Ok(x) => Ok::<_, io::Error>(Some(x)),
-						Err(e) => {
-							error!("accept_async failed: {}", e);
-							Ok(None)
-						}
-					})
-					.filter_map(|x| x);
-				let server = Server::builder(tls)
-					.serve(router)
-					.map_err(|e| eprintln!("HTTP API server error: {}", e));
+				let server = async move {
+					let mut listener = TcpListener::bind(&addr).await.expect("failed to bind");
 
-				rt::run(server);
+					let listener = listener
+						.incoming()
+						.and_then(move |s| acceptor.accept(s))
+						.filter(|r| r.is_ok());
+
+					let server = Server::builder(accept::from_stream(listener))
+						.serve(make_service_fn(move |_| {
+							let router = router.clone();
+							async move { Ok::<_, Infallible>(router) }
+						}))
+						.with_graceful_shutdown(async {
+							rx.await.ok();
+						});
+
+					server.await
+				};
+
+				let mut rt = Runtime::new()
+					.map_err(|e| eprintln!("HTTP API server error: {}", e))
+					.unwrap();
+				if let Err(e) = rt.block_on(server) {
+					eprintln!("HTTP API server error: {}", e)
+				}
 			})
-			.map_err(|_| ErrorKind::Internal("failed to spawn API thread".to_string()).into())
+			.map_err(|_| Error::Internal("failed to spawn API thread".to_string()))
 	}
 
 	/// Stops the API server, it panics in case of error
@@ -278,6 +271,7 @@ impl Handler for LoggingMiddleware {
 		mut handlers: Box<dyn Iterator<Item = HandlerObj>>,
 	) -> ResponseFuture {
 		debug!("REST call: {} {}", req.method(), req.uri().path());
+
 		match handlers.next() {
 			Some(handler) => handler.call(req, handlers),
 			None => response(StatusCode::INTERNAL_SERVER_ERROR, "no handler found"),

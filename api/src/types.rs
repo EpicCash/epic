@@ -35,7 +35,7 @@ macro_rules! no_dup {
 	($field:ident) => {
 		if $field.is_some() {
 			return Err(serde::de::Error::duplicate_field("$field"));
-			}
+		}
 	};
 }
 
@@ -99,7 +99,7 @@ impl Status {
 		Status {
 			protocol_version: ser::ProtocolVersion::local().into(),
 			user_agent: p2p::msg::USER_AGENT.to_string(),
-			connections: connections,
+			connections,
 			tip: Tip::from_tip(current_tip),
 			sync_status,
 			sync_info,
@@ -197,8 +197,8 @@ impl Output {
 			commit: PrintableCommitment {
 				commit: commit.clone(),
 			},
-			height: height,
-			mmr_index: mmr_index,
+			height,
+			mmr_index,
 		}
 	}
 }
@@ -475,10 +475,10 @@ impl<'de> serde::de::Deserialize<'de> for OutputPrintable {
 					output_type: output_type.unwrap(),
 					commit: commit.unwrap(),
 					spent: spent.unwrap(),
-					proof: proof,
+					proof,
 					proof_hash: proof_hash.unwrap(),
 					block_height: block_height.unwrap(),
-					merkle_proof: merkle_proof,
+					merkle_proof,
 					mmr_index: mmr_index.unwrap(),
 				})
 			}
@@ -682,9 +682,9 @@ impl BlockPrintable {
 			.collect();
 		Ok(BlockPrintable {
 			header: BlockHeaderPrintable::from_header(&block.header),
-			inputs: inputs,
-			outputs: outputs,
-			kernels: kernels,
+			inputs,
+			outputs,
+			kernels,
 		})
 	}
 }
