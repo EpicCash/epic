@@ -30,7 +30,8 @@ use crate::store;
 use crate::txhashset;
 use crate::txhashset::{PMMRHandle, TxHashSet};
 use crate::types::{
-	BlockStatus, ChainAdapter, CommitPos, NoStatus, Options, Tip, TxHashsetWriteStatus,
+	BlockStatus, BlockchainCheckpoints, ChainAdapter, CommitPos, NoStatus, Options, Tip,
+	TxHashsetWriteStatus,
 };
 use crate::util::secp::pedersen::{Commitment, RangeProof};
 use crate::util::RwLock;
@@ -1431,6 +1432,31 @@ impl Chain {
 		self.store
 			.block_exists(&h)
 			.map_err(|e| ErrorKind::StoreErr(e, "chain block exists".to_owned()).into())
+	}
+
+	/// Check block headers against checkpoints hash and height. Returns
+	/// boolean in Result with 'false' once we are out of checkpointed range.
+	pub fn check_header_against_checkpoints(&self, header: &BlockHeader) -> Result<bool, Error> {
+		let checkpoints = BlockchainCheckpoints::new().checkpoints;
+		let mut within_checkpointed_range = true;
+		if header.height > checkpoints.last().unwrap().height {
+			within_checkpointed_range = false;
+		} else {
+			for c in &checkpoints {
+				if header.height == c.height {
+					if header.hash() == c.block_hash {
+						info!("Checkpoint successfully passed at height({})! Hashes: header({:?}), checkpoint({:?})",
+                               		        	c.height,
+                               	        	 	header.hash(),
+                               	        		c.block_hash
+                               			);
+					} else {
+						return Err(ErrorKind::CheckpointFailure.into());
+					}
+				}
+			}
+		}
+		Ok(within_checkpointed_range)
 	}
 }
 

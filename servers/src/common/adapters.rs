@@ -25,9 +25,7 @@ use std::time::Instant;
 
 use crate::chain::{self, BlockStatus, ChainAdapter, Options, SyncState, SyncStatus};
 use crate::common::hooks::{ChainEvents, NetEvents};
-use crate::common::types::{
-	BlockchainCheckpoints, ChainValidationMode, DandelionEpoch, ServerConfig,
-};
+use crate::common::types::{ChainValidationMode, DandelionEpoch, ServerConfig};
 use crate::core::core::hash::{Hash, Hashed};
 use crate::core::core::transaction::Transaction;
 use crate::core::core::{BlockHeader, BlockSums, CompactBlock};
@@ -316,27 +314,17 @@ where
 		);
 
 		let mut ctx_option = Options::SYNC;
-		let mut within_checkpointed_range = true;
+		let mut within_checkpointed_range = false;
 		let mut disable_checkpoints = false;
 
-		let checkpoints = BlockchainCheckpoints::new().checkpoints;
-
 		for header in bhs {
-			for c in &checkpoints {
-				if header.height == c.height {
-					if header.hash() == c.block_hash {
-						info!("Checkpoint successfully passed at height({})! Hashes: header({:?}), checkpoint({:?})",
-                                	        	c.height,
-                                        	 	header.hash(),
-                                        		c.block_hash
-                                		);
-					} else {
-						return Err(chain::ErrorKind::CheckpointFailure.into());
-					}
+			match self.chain().check_header_against_checkpoints(header) {
+				Ok(in_range) => {
+					within_checkpointed_range = in_range;
 				}
-			}
-			if header.height > checkpoints.last().unwrap().height {
-				within_checkpointed_range = false;
+				Err(e) => {
+					return Err(e);
+				}
 			}
 		}
 
@@ -622,8 +610,30 @@ where
 
 		let bhash = b.hash();
 		let previous = self.chain().get_previous_header(&b.header);
+		let within_checkpointed_range;
+		let mut options = opts;
 
-		match self.chain().process_block(b, opts) {
+		match self.chain().check_header_against_checkpoints(&b.header) {
+			Ok(in_range) => {
+				within_checkpointed_range = in_range;
+			}
+			Err(e) => {
+				return Err(e);
+			}
+		}
+
+		if self.config.skip_pow_validation.is_some() {
+			if self.config.skip_pow_validation.unwrap() {
+				if within_checkpointed_range {
+					// only skip_pow_validation if setting is toggled AND we are within checkpointed range
+					// fully validate pow for all other cases, no 'disable_checkpoints' effect here,
+					// unlike the mechanics in header_received() above
+					options = chain::Options::SKIP_POW;
+				}
+			}
+		}
+
+		match self.chain().process_block(b, options) {
 			Ok(_) => {
 				self.validate_chain(bhash);
 				self.check_compact();
@@ -794,7 +804,7 @@ where
 {
 	fn block_accepted(&self, b: &core::Block, status: BlockStatus, opts: Options) {
 		// not broadcasting blocks received through sync
-		if !opts.contains(chain::Options::SYNC) {
+		if !opts.contains(chain::Options::SYNC) && !opts.contains(chain::Options::SKIP_POW) {
 			for hook in &self.hooks {
 				let _ = hook.on_block_accepted(b, &status);
 			}
