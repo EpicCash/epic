@@ -423,12 +423,12 @@ impl SyncRunner {
 				_ => {
 					// skip body sync if header chain is not synced.
 					if header_head.height < highest_network_height {
-						warn!(
+						/*warn!(
 							">>> DEFAULT_CASE portion of sync_state, continue case met. header_height({}), highest_network_height({})",
 							header_head.height,
 							highest_network_height
 						);
-						warn!("<<< sync_state({:?})", self.sync_state.status());
+						warn!("<<< sync_state({:?})", self.sync_state.status());*/
 
 						match self.sync_state.status() {
 							SyncStatus::BodySync { .. } => {

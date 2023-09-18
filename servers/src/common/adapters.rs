@@ -16,7 +16,6 @@
 //! events to consumers of those events.
 
 use crate::util::RwLock;
-use std::convert::TryInto;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
@@ -39,6 +38,13 @@ use crate::util::OneTime;
 use chrono::prelude::*;
 use chrono::Duration;
 use rand::prelude::*;
+
+/// Force full pow verification this many blocks from chaintip
+pub const POW_VERIFICATION_THRESHOLD: u64 = 1000;
+
+/// Ignore block broadcasts from chaintip, until we are less than
+/// this many blocks from chaintip, while syncing
+pub const BLOCK_BROADCAST_IGNORE_THRESHOLD: u64 = 200;
 
 /// Implementation of the NetAdapter for the . Gets notified when new
 /// blocks and transactions are received and forwards to the chain and pool
@@ -133,8 +139,9 @@ where
 	) -> Result<bool, chain::Error> {
 		// TODO: guard against panic on unwrap, in case someone changes this constant
 		if self.sync_state.is_syncing() {
-			let orphan_size: u64 = chain::MAX_ORPHAN_SIZE.try_into().unwrap();
-			if b.header.height.clone() > (self.chain().head()?.height + (orphan_size * 2)) {
+			if b.header.height.clone()
+				> (self.chain().head()?.height + BLOCK_BROADCAST_IGNORE_THRESHOLD)
+			{
 				debug!(
 					"Ignoring full block {}, height({}), delivered during sync",
 					b.hash(),
@@ -165,8 +172,9 @@ where
 		peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
 		if self.sync_state.is_syncing() {
-			let orphan_size: u64 = chain::MAX_ORPHAN_SIZE.try_into().unwrap();
-			if cb.header.height.clone() > (self.chain().head()?.height + (orphan_size * 2)) {
+			if cb.header.height.clone()
+				> (self.chain().head()?.height + BLOCK_BROADCAST_IGNORE_THRESHOLD)
+			{
 				debug!(
 					"Ignoring compact block {}, height({}), delivered during sync",
 					cb.hash(),
@@ -640,9 +648,8 @@ where
 		let mut options = opts;
 
 		let network_height = self.chain().header_head()?.height;
-		// ensure we check proof-of-work for last (MAX_ORPHAN_SIZE * 5) blocks from network chain tip
-		let orphan_size: u64 = chain::MAX_ORPHAN_SIZE.try_into().unwrap();
-		let check_pow_dyn_threshold = network_height - (orphan_size * 5);
+		// ensure we check proof-of-work for last (POW_VERIFICATION_THRESHOLD) blocks from network chaintip
+		let check_pow_dyn_threshold = network_height - POW_VERIFICATION_THRESHOLD;
 
 		if self.config.disable_checkpoints.is_some() {
 			if self.config.disable_checkpoints.unwrap() {
