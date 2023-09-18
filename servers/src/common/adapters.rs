@@ -16,6 +16,7 @@
 //! events to consumers of those events.
 
 use crate::util::RwLock;
+use std::convert::TryInto;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
@@ -611,7 +612,22 @@ where
 		let bhash = b.hash();
 		let previous = self.chain().get_previous_header(&b.header);
 		let within_checkpointed_range;
+		let mut disable_checkpoints = false;
 		let mut options = opts;
+
+		let network_height = self.chain().header_head()?.height;
+		// ensure we check proof-of-work for last (MAX_ORPHAN_SIZE * 5) blocks from network chain tip
+		let orphan_size: u64 = chain::MAX_ORPHAN_SIZE.try_into().unwrap();
+		let check_pow_dyn_threshold = network_height - (orphan_size * 5);
+
+		if self.config.disable_checkpoints.is_some() {
+			if self.config.disable_checkpoints.unwrap() {
+				// don't honor disable_checkpoints once we hit dynamic threshold
+				if b.header.height < check_pow_dyn_threshold {
+					disable_checkpoints = true;
+				}
+			}
+		}
 
 		match self.chain().check_header_against_checkpoints(&b.header) {
 			Ok(in_range) => {
@@ -624,12 +640,13 @@ where
 
 		if self.config.skip_pow_validation.is_some() {
 			if self.config.skip_pow_validation.unwrap() {
-				if within_checkpointed_range {
-					// only skip_pow_validation if setting is toggled AND we are within checkpointed range
-					// fully validate pow for all other cases, no 'disable_checkpoints' effect here,
-					// unlike the mechanics in header_received() above
+				if within_checkpointed_range || disable_checkpoints {
+					// skip pow validation if we are within checkpointed range OR
+					// if we have disable_checkpoints = true AND we are outside of
+					// dynamic chaintip threshold, otherwise fully verify
 					options = chain::Options::SKIP_POW;
 				}
+				//warn!("b.header.height({}), dyn_threshold({}), options({:?})", b.header.height, check_pow_dyn_threshold, options);
 			}
 		}
 
