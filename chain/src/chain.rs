@@ -279,10 +279,22 @@ impl Chain {
 	/// Processes a single block, then checks for orphans, processing
 	/// those as well if they're found
 	pub fn process_block(&self, b: Block, opts: Options) -> Result<Option<Tip>, Error> {
-		let height = b.header.height;
-		let res = self.process_block_single(b, opts);
-		if res.is_ok() {
-			self.check_orphans(height + 1);
+		let block_height = b.header.height;
+		let orphan_height;
+		let mut res = self.process_block_single(b, opts);
+		match res {
+			Ok(_) => {
+				orphan_height = block_height + 1;
+			}
+			_ => {
+				orphan_height = self.head()?.height + 1;
+			}
+		}
+		let orphans = self.check_orphans(orphan_height);
+		if !orphans.is_empty() {
+			for orphan in orphans {
+				res = self.process_block_single(orphan.block, orphan.opts);
+			}
 		}
 		res
 	}
@@ -455,58 +467,35 @@ impl Chain {
 	}
 
 	/// Check for orphans, once a block is successfully added
-	fn check_orphans(&self, mut height: u64) {
-		let initial_height = height;
+	fn check_orphans(&self, height: u64) -> Vec<Orphan> {
+		//warn!("check_orphans called");
+		let mut orphans_result: Vec<Orphan> = Vec::new();
+		trace!(
+			"check_orphans: at {}, # orphans {}",
+			height,
+			self.orphans.len(),
+		);
 
-		// Is there an orphan in our orphans that we can now process?
-		loop {
-			trace!(
-				"check_orphans: at {}, # orphans {}",
-				height,
-				self.orphans.len(),
-			);
-
-			let mut orphan_accepted = false;
-			let mut height_accepted = height;
-
-			if let Some(orphans) = self.orphans.remove_by_height(&height) {
-				let orphans_len = orphans.len();
-				for (i, orphan) in orphans.into_iter().enumerate() {
-					debug!(
-						"check_orphans: get block {} at {}{}",
-						orphan.block.hash(),
-						height,
-						if orphans_len > 1 {
-							format!(", no.{} of {} orphans", i, orphans_len)
-						} else {
-							String::new()
-						},
-					);
-					let height = orphan.block.header.height;
-					let res = self.process_block_single(orphan.block, orphan.opts);
-					if res.is_ok() {
-						orphan_accepted = true;
-						height_accepted = height;
-					}
-				}
-
-				if orphan_accepted {
-					// We accepted a block, so see if we can accept any orphans
-					height = height_accepted + 1;
-					continue;
-				}
+		if let Some(orphans) = self.orphans.remove_by_height(&height) {
+			let orphans_len = orphans.len();
+			//let mut subloop_iter = 0;
+			for (i, orphan) in orphans.into_iter().enumerate() {
+				//subloop_iter += 1;
+				//warn!("sub_loop iterations in check_orphans ({})", subloop_iter);
+				debug!(
+					"check_orphans: get block {} at {}{}",
+					orphan.block.hash(),
+					height,
+					if orphans_len > 1 {
+						format!(", no.{} of {} orphans", i, orphans_len)
+					} else {
+						String::new()
+					},
+				);
+				orphans_result.push(orphan);
 			}
-			break;
 		}
-
-		if initial_height != height {
-			debug!(
-				"check_orphans: {} blocks accepted since height {}, remaining # orphans {}",
-				height - initial_height,
-				initial_height,
-				self.orphans.len(),
-			);
-		}
+		orphans_result
 	}
 
 	/// For the given commitment find the unspent output and return the
