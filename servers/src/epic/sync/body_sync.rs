@@ -135,17 +135,16 @@ impl BodySync {
 			self.blocks_requested = 0;
 			self.receive_timeout = Utc::now() + Duration::seconds(6);
 
-			let mut peer_idx = 0;
+			let mut peers_iter = peers.iter();
+			//let mut peers_iter = peers.iter().cycle();
 			for hash in hashes_to_get.clone() {
-				if let Err(e) = peers[peer_idx].send_block_request(*hash, chain::Options::SYNC) {
-					debug!("Skipped request to {}: {:?}", peers[peer_idx].info.addr, e);
-					peers[peer_idx].stop();
-				} else {
-					self.blocks_requested += 1;
-				}
-				peer_idx += 1;
-				if peer_idx == peers.len() {
-					break;
+				if let Some(peer) = peers_iter.next() {
+					if let Err(e) = peer.send_block_request(*hash, chain::Options::SYNC) {
+						debug!("Skipped request to {}: {:?}", peer.info.addr, e);
+						peer.stop();
+					} else {
+						self.blocks_requested += 1;
+					}
 				}
 			}
 		}
