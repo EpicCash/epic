@@ -637,7 +637,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4d3686f5fa27dbc1d76c751300376e167c5a43387f44bb451fd1c24776e49113"
 dependencies = [
- "sct",
+ "sct 0.6.1",
 ]
 
 [[package]]
@@ -924,6 +924,7 @@ dependencies = [
  "serde",
  "serde_json",
  "term",
+ "tokio 1.32.0",
 ]
 
 [[package]]
@@ -949,20 +950,22 @@ dependencies = [
  "epic_util",
  "futures 0.3.28",
  "http",
- "hyper 0.13.10",
- "hyper-rustls",
+ "hyper 0.14.27",
+ "hyper-rustls 0.24.1",
  "hyper-timeout",
+ "hyper-tls",
  "lazy_static",
  "log",
  "regex",
  "ring",
- "rustls",
+ "rustls 0.21.7",
+ "rustls-pemfile",
  "serde",
  "serde_derive",
  "serde_json",
  "thiserror",
- "tokio 0.2.25",
- "tokio-rustls",
+ "tokio 1.32.0",
+ "tokio-rustls 0.24.1",
  "url 2.4.1",
 ]
 
@@ -1124,7 +1127,7 @@ dependencies = [
  "futures 0.3.28",
  "http",
  "hyper 0.13.10",
- "hyper-rustls",
+ "hyper-rustls 0.20.0",
  "itertools",
  "lmdb-zero",
  "log",
@@ -1132,8 +1135,9 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "tokio 0.2.25",
- "tokio-util 0.2.0",
+ "tokio 1.32.0",
+ "tokio-stream",
+ "tokio-util 0.7.8",
  "trust-dns-resolver",
  "walkdir",
 ]
@@ -1770,22 +1774,38 @@ dependencies = [
  "futures-util",
  "hyper 0.13.10",
  "log",
- "rustls",
- "rustls-native-certs",
+ "rustls 0.17.0",
+ "rustls-native-certs 0.3.0",
  "tokio 0.2.25",
- "tokio-rustls",
+ "tokio-rustls 0.13.1",
  "webpki",
 ]
 
 [[package]]
-name = "hyper-timeout"
-version = "0.3.1"
+name = "hyper-rustls"
+version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d1f9b0b8258e3ef8f45928021d3ef14096c2b93b99e4b8cfcabf1f58ec84b0a"
+checksum = "8d78e1e73ec14cf7375674f74d7dde185c8206fd9dea6fb6295e8a98098aaa97"
 dependencies = [
- "bytes 0.5.6",
- "hyper 0.13.10",
- "tokio 0.2.25",
+ "futures-util",
+ "http",
+ "hyper 0.14.27",
+ "log",
+ "rustls 0.21.7",
+ "rustls-native-certs 0.6.3",
+ "tokio 1.32.0",
+ "tokio-rustls 0.24.1",
+]
+
+[[package]]
+name = "hyper-timeout"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbb958482e8c7be4bc3cf272a766a2b0bf1a6755e7a6ae777f017a31d11b13b1"
+dependencies = [
+ "hyper 0.14.27",
+ "pin-project-lite 0.2.13",
+ "tokio 1.32.0",
  "tokio-io-timeout",
 ]
 
@@ -2096,6 +2116,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "lock_api"
+version = "0.4.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1cc9717a20b1bb222f333e6a92fd32f7d8a18ddc5a3191a11af45dcbf4dcd16"
+dependencies = [
+ "autocfg 1.1.0",
+ "scopeguard 1.2.0",
+]
+
+[[package]]
 name = "log"
 version = "0.4.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2236,7 +2266,7 @@ dependencies = [
  "kernel32-sys",
  "libc",
  "log",
- "miow 0.2.2",
+ "miow",
  "net2",
  "slab",
  "winapi 0.2.8",
@@ -2251,18 +2281,6 @@ dependencies = [
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys",
-]
-
-[[package]]
-name = "mio-named-pipes"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0840c1c50fd55e521b247f949c241c9997709f23bd7f023b9762cd561e935656"
-dependencies = [
- "log",
- "mio 0.6.23",
- "miow 0.3.7",
- "winapi 0.3.9",
 ]
 
 [[package]]
@@ -2286,15 +2304,6 @@ dependencies = [
  "net2",
  "winapi 0.2.8",
  "ws2_32-sys",
-]
-
-[[package]]
-name = "miow"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9f1c5b025cda876f66ef43a113f91ebc9f4ccef34843000e0adf6ebbab84e21"
-dependencies = [
- "winapi 0.3.9",
 ]
 
 [[package]]
@@ -2691,6 +2700,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "parking_lot"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3742b2c103b9f06bc9fff0a37ff4912935851bee6d36f3c02bcc755bcfec228f"
+dependencies = [
+ "lock_api 0.4.10",
+ "parking_lot_core 0.9.8",
+]
+
+[[package]]
 name = "parking_lot_core"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2699,7 +2718,7 @@ dependencies = [
  "libc",
  "rand 0.5.6",
  "rustc_version",
- "smallvec",
+ "smallvec 0.6.14",
  "winapi 0.3.9",
 ]
 
@@ -2715,7 +2734,7 @@ dependencies = [
  "rand 0.6.5",
  "redox_syscall 0.1.57",
  "rustc_version",
- "smallvec",
+ "smallvec 0.6.14",
  "winapi 0.3.9",
 ]
 
@@ -2730,8 +2749,21 @@ dependencies = [
  "libc",
  "redox_syscall 0.1.57",
  "rustc_version",
- "smallvec",
+ "smallvec 0.6.14",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "parking_lot_core"
+version = "0.9.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93f00c865fe7cabf650081affecd3871070f26767e7b2070a3ffae14c654b447"
+dependencies = [
+ "cfg-if 1.0.0",
+ "libc",
+ "redox_syscall 0.3.5",
+ "smallvec 1.11.0",
+ "windows-targets",
 ]
 
 [[package]]
@@ -2907,7 +2939,7 @@ dependencies = [
  "hamming",
  "primal-bit",
  "primal-estimate",
- "smallvec",
+ "smallvec 0.6.14",
 ]
 
 [[package]]
@@ -3366,8 +3398,20 @@ dependencies = [
  "base64 0.11.0",
  "log",
  "ring",
- "sct",
+ "sct 0.6.1",
  "webpki",
+]
+
+[[package]]
+name = "rustls"
+version = "0.21.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd8d6c9f025a446bc4d18ad9632e69aec8f287aa84499ee335599fabd20c3fd8"
+dependencies = [
+ "log",
+ "ring",
+ "rustls-webpki",
+ "sct 0.7.0",
 ]
 
 [[package]]
@@ -3377,9 +3421,40 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a75ffeb84a6bd9d014713119542ce415db3a3e4748f0bfce1e1416cd224a23a5"
 dependencies = [
  "openssl-probe",
- "rustls",
+ "rustls 0.17.0",
  "schannel",
  "security-framework 0.4.4",
+]
+
+[[package]]
+name = "rustls-native-certs"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9aace74cb666635c918e9c12bc0d348266037aa8eb599b5cba565709a8dff00"
+dependencies = [
+ "openssl-probe",
+ "rustls-pemfile",
+ "schannel",
+ "security-framework 2.9.2",
+]
+
+[[package]]
+name = "rustls-pemfile"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d3987094b1d07b653b7dfdc3f70ce9a1da9c51ac18c1b06b662e4f9a0e9f4b2"
+dependencies = [
+ "base64 0.21.3",
+]
+
+[[package]]
+name = "rustls-webpki"
+version = "0.101.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45a27e3b59326c16e23d30aeb7a36a24cc0d29e71d68ff611cdfb4a01d013bed"
+dependencies = [
+ "ring",
+ "untrusted",
 ]
 
 [[package]]
@@ -3429,6 +3504,16 @@ name = "sct"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b362b83898e0e69f38515b82ee15aa80636befe47c3b6d3d89a911e78fc228ce"
+dependencies = [
+ "ring",
+ "untrusted",
+]
+
+[[package]]
+name = "sct"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d53dcdb7c9f8158937a7981b48accfd39a43af418591a5d008c7b22b5e1b7ca4"
 dependencies = [
  "ring",
  "untrusted",
@@ -3636,6 +3721,12 @@ checksum = "b97fcaeba89edba30f044a10c6a3cc39df9c3f17d7cd829dd1446cab35f890e0"
 dependencies = [
  "maybe-uninit",
 ]
+
+[[package]]
+name = "smallvec"
+version = "1.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62bb4feee49fdd9f707ef802e22365a35de4b7b299de4763d44bfea899442ff9"
 
 [[package]]
 name = "socket2"
@@ -3946,17 +4037,10 @@ dependencies = [
  "futures-core",
  "iovec",
  "lazy_static",
- "libc",
  "memchr 2.6.3",
  "mio 0.6.23",
- "mio-named-pipes",
- "mio-uds",
- "num_cpus",
  "pin-project-lite 0.1.12",
- "signal-hook-registry",
  "slab",
- "tokio-macros",
- "winapi 0.3.9",
 ]
 
 [[package]]
@@ -3969,8 +4053,12 @@ dependencies = [
  "bytes 1.5.0",
  "libc",
  "mio 0.8.8",
+ "num_cpus",
+ "parking_lot 0.12.1",
  "pin-project-lite 0.2.13",
+ "signal-hook-registry",
  "socket2 0.5.3",
+ "tokio-macros",
  "windows-sys",
 ]
 
@@ -4029,23 +4117,23 @@ dependencies = [
 
 [[package]]
 name = "tokio-io-timeout"
-version = "0.4.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9390a43272c8a6ac912ed1d1e2b6abeafd5047e05530a2fa304deee041a06215"
+checksum = "30b74022ada614a1b4834de765f9bb43877f910cc8ce4be40e89042c9223a8bf"
 dependencies = [
- "bytes 0.5.6",
- "tokio 0.2.25",
+ "pin-project-lite 0.2.13",
+ "tokio 1.32.0",
 ]
 
 [[package]]
 name = "tokio-macros"
-version = "0.2.6"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e44da00bfc73a25f814cd8d7e57a68a5c31b74b3152a0a1d1f590c97ed06265a"
+checksum = "630bdcf245f78637c13ec01ffae6187cca34625e8c63150d424b59e55af2675e"
 dependencies = [
  "proc-macro2 1.0.66",
  "quote 1.0.33",
- "syn 1.0.109",
+ "syn 2.0.31",
 ]
 
 [[package]]
@@ -4084,9 +4172,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "15cb62a0d2770787abc96e99c1cd98fcf17f94959f3af63ca85bdfb203f051b4"
 dependencies = [
  "futures-core",
- "rustls",
+ "rustls 0.17.0",
  "tokio 0.2.25",
  "webpki",
+]
+
+[[package]]
+name = "tokio-rustls"
+version = "0.24.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c28327cf380ac148141087fbfb9de9d7bd4e84ab5d2c28fbc911d753de8a7081"
+dependencies = [
+ "rustls 0.21.7",
+ "tokio 1.32.0",
+]
+
+[[package]]
+name = "tokio-stream"
+version = "0.1.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "397c988d37662c7dda6d2208364a706264bf3d6138b11d436cbac0ad38832842"
+dependencies = [
+ "futures-core",
+ "pin-project-lite 0.2.13",
+ "tokio 1.32.0",
 ]
 
 [[package]]
@@ -4173,20 +4282,6 @@ dependencies = [
  "tokio-codec",
  "tokio-io",
  "tokio-reactor",
-]
-
-[[package]]
-name = "tokio-util"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "571da51182ec208780505a32528fc5512a8fe1443ab960b3f2f3ef093cd16930"
-dependencies = [
- "bytes 0.5.6",
- "futures-core",
- "futures-sink",
- "log",
- "pin-project-lite 0.1.12",
- "tokio 0.2.25",
 ]
 
 [[package]]
@@ -4292,7 +4387,7 @@ dependencies = [
  "lazy_static",
  "log",
  "rand 0.6.5",
- "smallvec",
+ "smallvec 0.6.14",
  "socket2 0.3.19",
  "tokio-executor",
  "tokio-io",
@@ -4317,7 +4412,7 @@ dependencies = [
  "log",
  "lru-cache",
  "resolv-conf",
- "smallvec",
+ "smallvec 0.6.14",
  "tokio 0.1.22",
  "tokio-executor",
  "trust-dns-proto",

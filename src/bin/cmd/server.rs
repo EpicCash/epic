@@ -20,7 +20,7 @@ use crate::tui::ui;
 use clap::ArgMatches;
 use ctrlc;
 use epic_util::logger::LogEntry;
-use futures::channel::oneshot;
+
 /// EPIC server commands processing
 use std::process::exit;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -33,7 +33,10 @@ use std::time::Duration;
 pub fn start_server(
 	config: servers::ServerConfig,
 	logs_rx: Option<mpsc::Receiver<LogEntry>>,
-	api_chan: &'static mut (oneshot::Sender<()>, oneshot::Receiver<()>),
+	api_chan: &'static mut (
+		tokio::sync::oneshot::Sender<()>,
+		tokio::sync::oneshot::Receiver<()>,
+	),
 ) {
 	start_server_tui(config, logs_rx, api_chan);
 	// Just kill process for now, otherwise the process
@@ -48,7 +51,10 @@ pub fn start_server(
 fn start_server_tui(
 	config: servers::ServerConfig,
 	logs_rx: Option<mpsc::Receiver<LogEntry>>,
-	api_chan: &'static mut (oneshot::Sender<()>, oneshot::Receiver<()>),
+	api_chan: &'static mut (
+		tokio::sync::oneshot::Sender<()>,
+		tokio::sync::oneshot::Receiver<()>,
+	),
 ) {
 	// Run the UI controller.. here for now for simplicity to access
 	// everything it might need
@@ -100,7 +106,10 @@ pub fn server_command(
 	server_args: Option<&ArgMatches<'_>>,
 	mut global_config: GlobalConfig,
 	logs_rx: Option<mpsc::Receiver<LogEntry>>,
-	api_chan: &'static mut (oneshot::Sender<()>, oneshot::Receiver<()>),
+	api_chan: &'static mut (
+		tokio::sync::oneshot::Sender<()>,
+		tokio::sync::oneshot::Receiver<()>,
+	),
 ) -> i32 {
 	global::set_mining_mode(
 		global_config

@@ -303,8 +303,6 @@ mod tests {
 
 	use super::*;
 	use futures::executor::block_on;
-	//use tokio::prelude::future::ok;
-	//use tokio_core::reactor::Core;
 
 	struct HandlerImpl(u16);
 

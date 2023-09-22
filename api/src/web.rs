@@ -1,7 +1,8 @@
 use crate::rest::*;
 use crate::router::ResponseFuture;
-use bytes::buf::BufExt;
+
 use futures::future::ok;
+use hyper::body::Buf;
 use hyper::{Body, Request, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json;

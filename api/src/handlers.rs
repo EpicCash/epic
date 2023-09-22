@@ -58,8 +58,6 @@ use crate::util::StopState;
 use crate::web::*;
 use easy_jsonrpc_mw::{Handler, MaybeReply};
 
-use futures::channel::oneshot;
-
 use hyper::{Body, Request, Response, StatusCode};
 
 use std::net::SocketAddr;
@@ -80,7 +78,10 @@ pub fn node_apis<B, P>(
 	api_secret: Option<String>,
 	foreign_api_secret: Option<String>,
 	tls_config: Option<TLSConfig>,
-	api_chan: &'static mut (oneshot::Sender<()>, oneshot::Receiver<()>),
+	api_chan: &'static mut (
+		tokio::sync::oneshot::Sender<()>,
+		tokio::sync::oneshot::Receiver<()>,
+	),
 	stop_state: Arc<StopState>,
 ) -> Result<(), Error>
 where
@@ -100,7 +101,7 @@ where
 	// Add basic auth to v2 owner API
 	if let Some(api_secret) = api_secret {
 		let api_basic_auth =
-			"Basic ".to_string() + &to_base64(&("grin:".to_string() + &api_secret));
+			"Basic ".to_string() + &to_base64(&("epic:".to_string() + &api_secret));
 		let basic_auth_middleware = Arc::new(BasicAuthMiddleware::new(
 			api_basic_auth,
 			&EPIC_BASIC_REALM,
@@ -119,7 +120,7 @@ where
 	// Add basic auth to v2 foreign API
 	if let Some(api_secret) = foreign_api_secret {
 		let api_basic_auth =
-			"Basic ".to_string() + &to_base64(&("grin:".to_string() + &api_secret));
+			"Basic ".to_string() + &to_base64(&("epic:".to_string() + &api_secret));
 		let basic_auth_middleware = Arc::new(BasicAuthURIMiddleware::new(
 			api_basic_auth,
 			&EPIC_FOREIGN_BASIC_REALM,
@@ -135,8 +136,9 @@ where
 	);
 	router.add_route("/v2/foreign", Arc::new(api_handler))?;
 
-	let mut apis = ApiServer::new();
 	warn!("Starting HTTP Node APIs server at {}.", addr);
+	let mut apis = ApiServer::new();
+
 	let socket_addr: SocketAddr = addr.parse().expect("unable to parse socket address");
 	let api_thread = apis.start(socket_addr, router, tls_config, api_chan);
 

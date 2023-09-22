@@ -46,6 +46,9 @@ failure = "0.1"
 failure_derive = "0.1"
 reqwest = "0.11.11"
 
+
+tokio = { version = "1.32", features = ["full"] }
+
 epic_api = { path = "./api", version = "3.4.0" }
 epic_config = { path = "./config", version = "3.4.0" }
 epic_core = { path = "./core", version = "3.4.0" }

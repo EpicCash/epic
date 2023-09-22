@@ -37,7 +37,7 @@ mod foreign_rpc;
 mod handlers;
 mod owner;
 mod owner_rpc;
-mod rest;
+pub mod rest;
 mod router;
 mod types;
 

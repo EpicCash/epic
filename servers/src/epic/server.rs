@@ -54,7 +54,6 @@ use crate::util::{RwLock, StopState};
 use clokwerk::{/*ScheduleHandle,*/ Scheduler, TimeUnits};
 use epic_util::logger::LogEntry;
 use fs2::FileExt;
-use futures::channel::oneshot;
 use walkdir::WalkDir;
 
 fn is_test_network() -> bool {
@@ -99,7 +98,10 @@ impl Server {
 		logs_rx: Option<mpsc::Receiver<LogEntry>>,
 		mut info_callback: F,
 		stop_state: Option<Arc<StopState>>,
-		api_chan: &'static mut (oneshot::Sender<()>, oneshot::Receiver<()>),
+		api_chan: &'static mut (
+			tokio::sync::oneshot::Sender<()>,
+			tokio::sync::oneshot::Receiver<()>,
+		),
 	) -> Result<(), Error>
 	where
 		F: FnMut(Server, Option<mpsc::Receiver<LogEntry>>),
@@ -138,6 +140,7 @@ impl Server {
 		}
 
 		global::set_foundation_path(config.foundation_path.clone().to_owned());
+
 		info!(
 			"The policy configuration is: {:?}",
 			global::get_policy_config()
@@ -146,6 +149,7 @@ impl Server {
 			"The foundation.json is being read from {:?}",
 			global::get_foundation_path().unwrap()
 		);
+
 		let hash_to_compare = global::foundation_json_sha256();
 		let hash = global::get_file_sha256(global::get_foundation_path().unwrap().as_str());
 		if hash.as_str() != hash_to_compare {
@@ -157,6 +161,7 @@ impl Server {
 			);
 			std::process::exit(1);
 		}
+
 		let mining_config = config.stratum_mining_config.clone();
 		let enable_test_miner = config.run_test_miner;
 		let test_miner_wallet_url = config.test_miner_wallet_url.clone();
@@ -215,7 +220,10 @@ impl Server {
 	pub fn new(
 		config: ServerConfig,
 		stop_state: Option<Arc<StopState>>,
-		api_chan: &'static mut (oneshot::Sender<()>, oneshot::Receiver<()>),
+		api_chan: &'static mut (
+			tokio::sync::oneshot::Sender<()>,
+			tokio::sync::oneshot::Receiver<()>,
+		),
 	) -> Result<Server, Error> {
 		// Obtain our lock_file or fail immediately with an error.
 		let lock_file = Server::one_epic_at_a_time(&config)?;
@@ -402,6 +410,7 @@ impl Server {
 		let _version_checker_thread = scheduler.watch_thread(Duration::from_millis(100));
 
 		warn!("Epic server started.");
+
 		Ok(Server {
 			config,
 			p2p: p2p_server,

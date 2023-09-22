@@ -287,7 +287,7 @@ impl Handler {
 	}
 	async fn handle_rpc_requests(&self, request: RpcRequest, worker_id: usize) -> String {
 		self.workers.last_seen(worker_id);
-		info!("request: {:?}", request);
+		debug!("request: {:?}", request);
 		// Call the handler function for requested method
 		let response = match request.method.as_str() {
 			"login" => self.handle_login(request.params, worker_id),
@@ -791,84 +791,69 @@ async fn handle_worker_respo(h: Arc<Handler>, request: RpcRequest, worker_id: us
 
 // ----------------------------------------
 // Worker Factory Thread Function
-fn accept_connections(listen_addr: SocketAddr, handler: Arc<Handler>) {
+#[tokio::main]
+async fn accept_connections(listen_addr: SocketAddr, handler: Arc<Handler>) {
 	info!("Start tokio stratum server");
 
-	let task = async {
-		let mut listener = TcpListener::bind(&listen_addr).await.unwrap_or_else(|_| {
-			panic!("Stratum: Failed to bind to listen address {}", listen_addr)
-		});
-		let server = listener
-			.incoming()
-			.filter_map(|s| async { s.map_err(|e| error!("accept error = {:?}", e)).ok() })
-			.for_each(move |socket| {
-				let handler = handler.clone();
+	let listener = TcpListener::bind(&listen_addr)
+		.await
+		.unwrap_or_else(|_| panic!("Stratum: Failed to bind to listen address {}", listen_addr));
 
-				async move {
-					// Spawn a task to process the connection
-					let (tx, mut rx) = mpsc::unbounded();
+	loop {
+		let handler = handler.clone();
+		let (socket, _) = listener.accept().await.unwrap();
+		// Spawn a task to process the connection
+		let (tx, mut rx) = mpsc::unbounded();
 
-					let worker_id = handler.workers.add_worker(tx).await;
-					match socket.peer_addr() {
-						Ok(addr) => {
-							info!("Worker {}/{:?} connected", worker_id, addr);
-						}
-						Err(e) => {
-							error!("Error on Socket {:?}", e);
-						}
-					};
+		let worker_id = handler.workers.add_worker(tx).await;
+		match socket.peer_addr() {
+			Ok(addr) => {
+				info!("Worker {}/{:?} connected", worker_id, addr);
+			}
+			Err(e) => {
+				error!("Error on Socket {:?}", e);
+			}
+		};
+		let framed = Framed::new(socket, LinesCodec::new());
+		let (mut writer, mut reader) = framed.split();
 
-					let framed = Framed::new(socket, LinesCodec::new());
-					let (mut writer, mut reader) = framed.split();
+		let h = handler.clone();
+		let read = async move {
+			while let Some(line) = reader.try_next().await.unwrap() {
+				let request = serde_json::from_str(&line)
+					.map_err(|e| error!("error serializing line: {}", e))?;
 
-					let h = handler.clone();
-					let read = async move {
-						while let Some(line) = reader
-							.try_next()
-							.await
-							.map_err(|e| error!("error reading line: {}", e))?
-						{
-							let request = serde_json::from_str(&line)
-								.map_err(|e| error!("error serializing line: {}", e))?;
+				tokio::task::spawn(handle_worker_respo(h.clone(), request, worker_id));
+			}
 
-							tokio::task::spawn(handle_worker_respo(h.clone(), request, worker_id));
-						}
+			Result::<_, ()>::Ok(())
+		};
 
-						Result::<_, ()>::Ok(())
-					};
+		let write = async move {
+			while let Some(line) = rx.next().await {
+				writer
+					.send(line)
+					.await
+					.map_err(|e| error!("error writing line: {}", e))?;
+			}
 
-					let write = async move {
-						while let Some(line) = rx.next().await {
-							writer
-								.send(line)
-								.await
-								.map_err(|e| error!("error writing line: {}", e))?;
-						}
+			Result::<_, ()>::Ok(())
+		};
 
-						Result::<_, ()>::Ok(())
-					};
-
-					let task = async move {
-						pin_mut!(read, write);
-						match futures::future::select(read, write).await {
-							futures::future::Either::Left(_) => {
-								trace!("Worker {} disconnected", worker_id);
-							}
-							futures::future::Either::Right(_) => {
-								trace!("Worker {} disconnected", worker_id);
-								handler.workers.remove_worker(worker_id);
-							}
-						};
-					};
-					tokio::spawn(task);
+		let task = async move {
+			pin_mut!(read, write);
+			match futures::future::select(read, write).await {
+				futures::future::Either::Left(_) => {
+					trace!("Worker {} disconnected", worker_id);
 				}
-			});
-
-		server.await
-	};
-
-	let mut rt = Runtime::new().unwrap();
-	rt.block_on(task);
+				futures::future::Either::Right(_) => {
+					trace!("Worker {} disconnected", worker_id);
+					handler.workers.remove_worker(worker_id);
+				}
+			};
+		};
+		tokio::spawn(task);
+	}
 }
 
 // ----------------------------------------

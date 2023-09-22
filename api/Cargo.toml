@@ -11,8 +11,7 @@ edition = "2018"
 
 [dependencies]
 easy-jsonrpc-mw = "0.5.4"
-
-hyper = { version = "0.13"}
+hyper = { version = "0.14.27", features = ["full"]}
 lazy_static = "1"
 regex = "1"
 ring = "^0.16.20"
@@ -21,19 +20,23 @@ serde_derive = "1"
 serde_json = "1"
 thiserror = "1"
 log = "0.4"
-tokio = { version = "0.2", features = ["full"] }
-tokio-rustls = "0.13"
+tokio = { version = "1.32", features = ["full"] }
+tokio-rustls = "0.24.1"
 
 http = "0.2"
-hyper-timeout = "0.3"
+
 futures = "0.3"
 
 url = "2.1"
 bigint = "4.4.1"
 
 
-hyper-rustls = "0.20"
-rustls = "0.17"
+hyper-rustls = "0.24.1"
+hyper-tls = "0.5"
+hyper-timeout = "0.4"
+rustls-pemfile = "1.0.3"
+
+rustls = "0.21.7"
 
 bytes = "0.5"
 
