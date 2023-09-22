@@ -210,10 +210,9 @@ impl WebHook {
 			header_received_url,
 			block_accepted_url,
 			client,
-			runtime: Builder::new()
-				.threaded_scheduler()
+			runtime: Builder::new_multi_thread()
+				.worker_threads(nthreads as usize)
 				.enable_all()
-				.core_threads(nthreads as usize)
 				.build()
 				.unwrap(),
 		}

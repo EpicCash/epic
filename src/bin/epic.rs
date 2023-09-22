@@ -195,8 +195,10 @@ fn real_main() -> i32 {
 	let mut logging_config = config.members.as_mut().unwrap().logging.clone().unwrap();
 	logging_config.tui_running = config.members.as_mut().unwrap().server.run_tui;
 
-	let api_chan: &'static mut (oneshot::Sender<()>, oneshot::Receiver<()>) =
-		Box::leak(Box::new(oneshot::channel::<()>()));
+	let api_chan: &mut (
+		tokio::sync::oneshot::Sender<()>,
+		tokio::sync::oneshot::Receiver<()>,
+	) = Box::leak(Box::new(tokio::sync::oneshot::channel::<()>()));
 
 	let (logs_tx, logs_rx) = if logging_config.tui_running.unwrap() {
 		let (logs_tx, logs_rx) = mpsc::sync_channel::<LogEntry>(200);

@@ -20,7 +20,7 @@ use hyper::body;
 use hyper::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use hyper::http::uri::{InvalidUri, Uri};
 use hyper::{Body, Client, Request};
-use hyper_rustls;
+
 use hyper_timeout::TimeoutConnector;
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -229,7 +229,7 @@ where
 }
 
 async fn send_request_async(req: Request<Body>, timeout: TimeOut) -> Result<String, Error> {
-	let https = hyper_rustls::HttpsConnector::new();
+	let https = hyper_tls::HttpsConnector::new();
 	let (connect, read, write) = (
 		Some(timeout.connect),
 		Some(timeout.read),
@@ -263,8 +263,7 @@ async fn send_request_async(req: Request<Body>, timeout: TimeOut) -> Result<Stri
 }
 
 pub fn send_request(req: Request<Body>, timeout: TimeOut) -> Result<String, Error> {
-	let mut rt = Builder::new()
-		.basic_scheduler()
+	let rt = Builder::new_multi_thread()
 		.enable_all()
 		.build()
 		.map_err(|e| Error::RequestError(format!("{}", e)))?;
