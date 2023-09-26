@@ -135,11 +135,10 @@ impl OrphanBlockPool {
 	}
 
 	pub fn clear(&self) -> bool {
-		let mut orphans = self.orphans.write();
-		let mut height_idx = self.height_idx.write();
-		orphans.clear();
-		height_idx.clear();
-		return orphans.is_empty() && height_idx.is_empty();
+		self.orphans.write().clear();
+		self.height_idx.write().clear();
+		self.evicted.store(0, Ordering::Relaxed);
+		return self.orphans.read().is_empty() && self.height_idx.read().is_empty();
 	}
 
 	pub fn contains(&self, hash: &Hash) -> bool {
@@ -525,7 +524,7 @@ impl Chain {
 		orphans_result
 	}
 
-	/// Clear OprhanBlockPool completely, returns true if orphans list
+	/// Clear OrphanBlockPool completely, returns true if orphans list
 	/// and height_idx are empty after clearing, false if failed
 	pub fn clear_orphans(&self) -> bool {
 		self.orphans.clear()
