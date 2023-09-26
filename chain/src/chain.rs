@@ -45,7 +45,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 /// Orphan pool size is limited by MAX_ORPHAN_SIZE
-pub const MAX_ORPHAN_SIZE: usize = 200;
+pub const MAX_ORPHAN_SIZE: usize = 60;
 
 /// When evicting, very old orphans are evicted first
 const MAX_ORPHAN_AGE_SECS: u64 = 300;
