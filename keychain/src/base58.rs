@@ -90,18 +90,11 @@ impl fmt::Display for Error {
 }
 
 impl error::Error for Error {
+	//TODO: replace cause with 'source()' and actually use it
+	// base58/keychain errors presently give hardly any info
+	// if encountered in upper levels
 	fn cause(&self) -> Option<&dyn error::Error> {
 		None
-	}
-	fn description(&self) -> &'static str {
-		match *self {
-			Error::BadByte(_) => "invalid b58 character",
-			Error::BadChecksum(_, _) => "invalid b58ck checksum",
-			Error::InvalidLength(_) => "invalid length for b58 type",
-			Error::InvalidVersion(_) => "invalid version for b58 type",
-			Error::TooShort(_) => "b58ck data less than 4 bytes",
-			Error::Other(_) => "unknown b58 error",
-		}
 	}
 }
 
