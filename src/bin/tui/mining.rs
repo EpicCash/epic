@@ -34,7 +34,7 @@ use crate::tui::types::TUIStatusListener;
 
 use crate::core::pow::PoWType;
 use crate::servers::{DiffBlock, ServerStats, WorkerStats};
-use crate::tui::table::{TableView, TableViewItem};
+use cursive_table_view::{TableView, TableViewItem};
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 enum StratumWorkerColumn {
@@ -328,7 +328,7 @@ impl TUIStatusListener for TUIMiningView {
 			TABLE_MINING_DIFF_STATUS,
 			|t: &mut TableView<DiffBlock, DiffColumn>| {
 				let current_row: usize = t.row().unwrap_or(0);
-				t.set_items(diff_stats);
+				t.set_items_stable(diff_stats);
 				if current_row <= t.len() - 1 {
 					t.set_selected_row(current_row);
 				} else {
@@ -395,7 +395,7 @@ impl TUIStatusListener for TUIMiningView {
 		let _ = c.call_on_name(
 			TABLE_MINING_STATUS,
 			|t: &mut TableView<WorkerStats, StratumWorkerColumn>| {
-				t.set_items(worker_stats);
+				t.set_items_stable(worker_stats);
 				let current_row: usize = t.row().unwrap_or(0);
 				t.set_selected_row(current_row);
 			},

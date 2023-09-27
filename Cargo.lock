@@ -689,6 +689,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cursive_table_view"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74d378a3626928480ca02040934e145991f6256318891c1eb7c48a502321f0cc"
+dependencies = [
+ "cursive_core",
+]
+
+[[package]]
 name = "darling"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -884,6 +893,7 @@ dependencies = [
  "ctrlc",
  "cucumber_rust",
  "cursive",
+ "cursive_table_view",
  "epic_api",
  "epic_chain",
  "epic_config",
