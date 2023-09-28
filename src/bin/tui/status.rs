@@ -63,8 +63,8 @@ impl TUIStatusView {
 					} else {
 						0
 					};
-					let start = prev_update_time.timestamp_nanos();
-					let fin = Utc::now().timestamp_nanos();
+					let start = prev_update_time.timestamp_nanos_opt().unwrap();
+					let fin = Utc::now().timestamp_nanos_opt().unwrap();
 					let dur_ms = (fin - start) as f64 * NANO_TO_MILLIS;
 
 					format!("Sync step 2/7: Downloading {}(MB) chain state for state sync: {}% at {:.1?}(kB/s)",

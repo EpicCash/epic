@@ -16,7 +16,7 @@
 //! them into a block and returns it.
 
 use crate::util::RwLock;
-use chrono::prelude::{DateTime, NaiveDateTime, Utc};
+use chrono::{NaiveDateTime, TimeZone, Utc};
 use rand::{thread_rng, Rng};
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -190,8 +190,10 @@ fn build_block(
 	b.header.pow.seed = seed_u8;
 	b.header.pow.nonce = thread_rng().gen();
 	b.header.pow.secondary_scaling = difficulty.secondary_scaling;
-	b.header.timestamp =
-		DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp_opt(now_sec, 0).unwrap(), Utc);
+	b.header.timestamp = TimeZone::from_utc_datetime(
+		&Utc,
+		&NaiveDateTime::from_timestamp_opt(now_sec, 0).unwrap(),
+	);
 	b.header.policy = get_emitted_policy(b.header.height);
 
 	let bottle_cursor = chain.bottles_iter(get_emitted_policy(b.header.height))?;

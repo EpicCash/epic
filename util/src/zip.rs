@@ -24,6 +24,21 @@ use self::zip_rs::result::{ZipError, ZipResult};
 use self::zip_rs::write::FileOptions;
 use zip as zip_rs;
 
+// Sanitize file path for normal components, excluding '/', '..', and '.'
+// From private function in zip crate
+fn path_to_string(path: &std::path::Path) -> String {
+	let mut path_str = String::new();
+	for component in path.components() {
+		if let std::path::Component::Normal(os_str) = component {
+			if !path_str.is_empty() {
+				path_str.push('/');
+			}
+			path_str.push_str(&*os_str.to_string_lossy());
+		}
+	}
+	path_str
+}
+
 /// Create a zip archive from source dir and list of relative file paths.
 /// Permissions are set to 644 by default.
 pub fn create_zip(dst_file: &File, src_dir: &Path, files: Vec<PathBuf>) -> io::Result<()> {
@@ -40,7 +55,7 @@ pub fn create_zip(dst_file: &File, src_dir: &Path, files: Vec<PathBuf>) -> io::R
 		let file_path = src_dir.join(x);
 		if let Ok(file) = File::open(file_path.clone()) {
 			info!("compress: {:?} -> {:?}", file_path, x);
-			writer.get_mut().start_file_from_path(x, options)?;
+			writer.get_mut().start_file(path_to_string(x), options)?;
 			io::copy(&mut BufReader::new(file), &mut writer)?;
 			// Flush the BufWriter after each file so we start then next one correctly.
 			writer.flush()?;
@@ -60,7 +75,7 @@ pub fn extract_files(from_archive: File, dest: &Path, files: Vec<PathBuf>) -> io
 		let mut archive = zip_rs::ZipArchive::new(from_archive).expect("archive file exists");
 		for x in files {
 			if let Ok(file) = archive.by_name(x.to_str().expect("valid path")) {
-				let path = dest.join(file.sanitized_name());
+				let path = dest.join(file.mangled_name());
 				let parent_dir = path.parent().expect("valid parent dir");
 				fs::create_dir_all(&parent_dir).expect("create parent dir");
 				let outfile = fs::File::create(&path).expect("file created");
@@ -148,7 +163,7 @@ where
 
 		for i in 0..archive.len() {
 			let mut file = archive.by_index(i)?;
-			let san_name = file.sanitized_name();
+			let san_name = file.mangled_name();
 			if san_name.to_str().unwrap_or("").replace("\\", "/") != file.name().replace("\\", "/")
 				|| !expected(&san_name)
 			{

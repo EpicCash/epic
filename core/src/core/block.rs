@@ -17,8 +17,8 @@
 pub mod feijoada;
 
 use chrono;
-use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 use chrono::Duration;
+use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use keccak_hash::keccak_256;
 use std::collections::HashSet;
 use std::convert::TryInto;
@@ -251,9 +251,9 @@ impl Default for BlockHeader {
 		BlockHeader {
 			version: HeaderVersion::default(),
 			height: 0,
-			timestamp: DateTime::<Utc>::from_utc(
-				NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
-				Utc,
+			timestamp: TimeZone::from_utc_datetime(
+				&Utc,
+				&NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
 			),
 			prev_hash: ZERO_HASH,
 			prev_root: ZERO_HASH,
@@ -343,9 +343,9 @@ fn read_block_header(reader: &mut dyn Reader) -> Result<BlockHeader, ser::Error>
 	Ok(BlockHeader {
 		version,
 		height,
-		timestamp: DateTime::<Utc>::from_utc(
-			NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap(),
-			Utc,
+		timestamp: TimeZone::from_utc_datetime(
+			&Utc,
+			&NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap(),
 		),
 		prev_hash,
 		prev_root,
@@ -685,7 +685,7 @@ impl Block {
 
 		let now = Utc::now().timestamp();
 		let timestamp =
-			DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp_opt(now, 0).unwrap(), Utc);
+			TimeZone::from_utc_datetime(&Utc, &NaiveDateTime::from_timestamp_opt(now, 0).unwrap());
 
 		// Now build the block with all the above information.
 		// Note: We have not validated the block here.
@@ -735,7 +735,7 @@ impl Block {
 		let height = prev.height + 1;
 		let now = Utc::now().timestamp();
 		let timestamp =
-			DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp_opt(now, 0).unwrap(), Utc);
+			TimeZone::from_utc_datetime(&Utc, &NaiveDateTime::from_timestamp_opt(now, 0).unwrap());
 
 		// Now build the block with all the above information.
 		// Note: We have not validated the block here.

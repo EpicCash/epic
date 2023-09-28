@@ -47,7 +47,7 @@ mod types;
 use crate::core::{Block, BlockHeader};
 use crate::genesis;
 use crate::global;
-use chrono::prelude::{DateTime, NaiveDateTime, Utc};
+use chrono::{NaiveDateTime, TimeZone, Utc};
 
 pub use self::common::EdgeType;
 pub use self::types::*;
@@ -144,8 +144,10 @@ pub fn pow_size(
 		// and if we're back where we started, update the time (changes the hash as
 		// well)
 		if bh.pow.nonce == start_nonce {
-			bh.timestamp =
-				DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp_opt(0, 0).unwrap(), Utc);
+			bh.timestamp = TimeZone::from_utc_datetime(
+				&Utc,
+				&NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
+			);
 		}
 	}
 }
