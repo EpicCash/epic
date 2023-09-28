@@ -27,8 +27,7 @@ use cursive::traits::Boxable;
 use cursive::traits::Identifiable;
 use cursive::utils::markup::StyledString;
 use cursive::views::{BoxedView, CircularFocus, Dialog, LinearLayout, Panel, StackView, TextView};
-use cursive::Cursive;
-use cursive::CursiveRunner;
+use cursive::{CursiveRunnable, CursiveRunner};
 use std::sync::mpsc;
 
 use crate::built_info;
@@ -39,7 +38,7 @@ use crate::tui::{logs, menu, mining, peers, status, version};
 use epic_util::logger::LogEntry;
 
 pub struct UI {
-	cursive: CursiveRunner<Cursive>,
+	cursive: CursiveRunner<CursiveRunnable>,
 	ui_rx: mpsc::Receiver<UIMessage>,
 	ui_tx: mpsc::Sender<UIMessage>,
 	controller_tx: mpsc::Sender<ControllerMessage>,
@@ -66,10 +65,8 @@ impl UI {
 	) -> UI {
 		let (ui_tx, ui_rx) = mpsc::channel::<UIMessage>();
 
-		let backend = cursive::backends::curses::pan::Backend::init().unwrap();
-
 		let mut epic_ui = UI {
-			cursive: cursive::CursiveRunner::new(cursive::Cursive::new(), backend),
+			cursive: cursive::default().into_runner(),
 			ui_tx,
 			ui_rx,
 			controller_tx,
