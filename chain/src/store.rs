@@ -520,8 +520,6 @@ impl<'a> Iterator for DifficultyIter<'a> {
 					} else {
 						if let Some(ref store) = self.store {
 							prev_header = store.get_previous_header(&head).ok();
-						} else {
-							prev_header = None;
 						}
 					}
 
@@ -763,8 +761,6 @@ impl<'a> Iterator for BottleIter<'a> {
 					} else {
 						if let Some(ref store) = self.store {
 							prev_header = store.get_previous_header(&head).ok();
-						} else {
-							prev_header = None;
 						}
 					}
 
