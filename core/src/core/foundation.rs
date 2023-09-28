@@ -6,7 +6,6 @@ use crate::global::get_foundation_path;
 use crate::keychain::Identifier;
 use crate::serde::{Deserialize, Serialize};
 use serde_json;
-use std::error::Error;
 use std::fs::{create_dir, File};
 use std::io::prelude::*;
 use std::io::SeekFrom;
@@ -49,7 +48,7 @@ pub fn save_in_disk(serialization: String, path: &Path) {
 	path = path.join("foundation.json");
 	println!("Saving the file as: {}", path.display());
 	let mut file = match File::create(&path) {
-		Err(why) => panic!("Couldn't create {}: {}", path.display(), why.description()),
+		Err(why) => panic!("Couldn't create {}: {}", path.display(), why.to_string()),
 		Ok(file) => file,
 	};
 	file.write_all(serialization.as_bytes())

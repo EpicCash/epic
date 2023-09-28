@@ -37,7 +37,6 @@ use util::secp::pedersen::{Commitment, RangeProof};
 use util::secp::Signature;
 use util::secp::{ContextFlag, Secp256k1};
 
-
 pub use std::result::Result::{self, Err, Ok};
 
 /// Possible errors deriving from serializing or deserializing.
@@ -103,24 +102,12 @@ impl fmt::Display for Error {
 }
 
 impl error::Error for Error {
+	// TODO: 'cause' has also been deprecated in favor of 'source()'
+	// leaving this here because we do not use it
 	fn cause(&self) -> Option<&dyn error::Error> {
 		match *self {
 			Error::IOErr(ref _e, ref _k) => Some(self),
 			_ => None,
-		}
-	}
-
-	fn description(&self) -> &str {
-		match *self {
-			Error::IOErr(ref e, _) => e,
-			Error::UnexpectedData { .. } => "unexpected data",
-			Error::CorruptedData => "corrupted data",
-			Error::CountError => "count error",
-			Error::SortError => "sort order",
-			Error::DuplicateError => "duplicate error",
-			Error::TooLargeReadErr => "too large read",
-			Error::HexError(_) => "hex error",
-			Error::InvalidBlockVersion => "invalid block version(YOU NEED UPDATE YOUR NODE)",
 		}
 	}
 }
@@ -868,7 +855,6 @@ pub trait PMMRable: Writeable + Clone + Debug + DefaultHashable {
 	fn elmt_size() -> Option<u16>;
 }
 
-
 /// Generic trait to ensure PMMR elements can be hashed with an index
 pub trait PMMRIndexHashable {
 	/// Hash with a given index
@@ -967,7 +953,6 @@ impl AsFixedBytes for keychain::Identifier {
 		IDENTIFIER_SIZE
 	}
 }
-
 
 //std::fmt::Result
 
@@ -1096,10 +1081,7 @@ where
 	struct FieldVisitor;
 	impl<'de> serde::de::Visitor<'de> for FieldVisitor {
 		type Value = Field;
-		fn expecting(
-			&self,
-			formatter: &mut std::fmt::Formatter,
-		) -> std::fmt::Result {
+		fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
 			std::fmt::Formatter::write_str(formatter, "variant identifier")
 		}
 		fn visit_u64<E>(self, value: u64) -> std::result::Result<Self::Value, E>
@@ -1202,10 +1184,7 @@ where
 	}
 	impl<'de> serde::de::Visitor<'de> for Visitor<'de> {
 		type Value = io::ErrorKind;
-		fn expecting(
-			&self,
-			formatter: &mut std::fmt::Formatter,
-		) -> std::fmt::Result {
+		fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
 			std::fmt::Formatter::write_str(formatter, "enum io::ErrorKind")
 		}
 		fn visit_enum<A>(self, data: A) -> std::result::Result<Self::Value, A::Error>

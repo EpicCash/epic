@@ -252,11 +252,9 @@ pub enum Error {
 }
 
 impl error::Error for Error {
-	fn description(&self) -> &str {
-		match *self {
-			_ => "some kind of keychain error",
-		}
-	}
+	// placeholder for better error messaging
+	// TODO: investigate using source() fn in std::error
+	// to better propogate errors through
 }
 
 impl fmt::Display for Error {
