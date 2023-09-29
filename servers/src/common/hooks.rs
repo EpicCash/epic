@@ -31,6 +31,7 @@ use hyper::header::HeaderValue;
 use hyper::Client;
 use hyper::{Body, Method, Request};
 use hyper_rustls::HttpsConnector;
+use rustls::{OwnedTrustAnchor, RootCertStore};
 use serde::Serialize;
 use serde_json::{json, to_string};
 use std::time::Duration;
@@ -199,7 +200,26 @@ impl WebHook {
 		);
 
 		//nthreads as usize
-		let https = HttpsConnector::new();
+		let mut root_store = RootCertStore::empty();
+		root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
+			OwnedTrustAnchor::from_subject_spki_name_constraints(
+				ta.subject,
+				ta.spki,
+				ta.name_constraints,
+			)
+		}));
+
+		let tls = rustls::ClientConfig::builder()
+			.with_safe_defaults()
+			.with_root_certificates(root_store)
+			.with_no_client_auth();
+
+		let https = hyper_rustls::HttpsConnectorBuilder::new()
+			.with_tls_config(tls)
+			.https_or_http()
+			.enable_http1()
+			.build();
+
 		let client = Client::builder()
 			.pool_idle_timeout(keep_alive)
 			.build::<_, hyper::Body>(https);

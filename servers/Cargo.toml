@@ -10,8 +10,13 @@ workspace = ".."
 edition = "2018"
 
 [dependencies]
-hyper = "0.13"
-hyper-rustls = "0.20"
+hyper = { version = "0.14.27", features = ["full"]}
+hyper-rustls = "0.24.1"
+rustls = "0.21.7"
+rustls-pemfile = "1.0.3"
+webpki-roots = "0.25.1"
+
+
 fs2 = "0.4"
 futures = "0.3"
 http = "0.2"
