@@ -115,10 +115,10 @@ pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
 
 #[cfg(target_family = "unix")]
 pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
-	"5a3a7584127dd31fba18eaeff1c551bfaa74b4e50e537a1e1904fe6730b17f5c";
+	"503a4d5ccf214df86722d14cc93c1779c54e5b827773c8a2f65888a06f2efbad";
 #[cfg(target_family = "windows")]
 pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
-	"8ef0a84b35ec04576e583b7ed2f8a0d1becf4ee6ce67f9f3608deff8ad2ad103";
+	"503a4d5ccf214df86722d14cc93c1779c54e5b827773c8a2f65888a06f2efbad";
 
 /// Types of chain a server can run with, dictates the genesis block and
 /// and mining parameters used.
@@ -292,6 +292,13 @@ pub fn get_foundation_path() -> Option<String> {
 pub fn check_foundation(path_str: String) -> bool {
 	let hash_to_compare = foundation_json_sha256();
 	let hash = get_file_sha256(&path_str);
+
+	println!(
+		"################ foundation sha: {:?},{:?}",
+		path_str, hash_to_compare
+	);
+	println!("################ file sha: {:?}", hash);
+
 	if hash.as_str() != hash_to_compare {
 		false
 	} else {
