@@ -47,6 +47,9 @@ use std::time::{Duration, Instant};
 /// Orphan pool size is limited by MAX_ORPHAN_SIZE
 pub const MAX_ORPHAN_SIZE: usize = 60;
 
+/// How many blocks from chaintip to start looping through orphans
+pub const ORPHAN_LOOP_THRESHOLD: u64 = 120;
+
 /// When evicting, very old orphans are evicted first
 const MAX_ORPHAN_AGE_SECS: u64 = 300;
 
@@ -285,14 +288,41 @@ impl Chain {
 
 	/// Processes a single block, then checks for an orphan, regardless
 	/// of first block processing successfully. Ensures we check orphans
-	/// once, each time we receive a new block from peers
+	/// once, each time we receive a new block from peers. Behavior is
+	/// to loop through orphan list continually, if we are near chaintip
+	/// or if our OrphanBlockPool is nearly full.
 	pub fn process_block(&self, b: Block, opts: Options) -> Result<Option<Tip>, Error> {
 		let block_height = b.header.height;
 		let orphan_height;
+		let loop_height = std::cmp::max(block_height, ORPHAN_LOOP_THRESHOLD);
+		let header_head = self.header_head()?;
+		let mut loop_orphans = false;
+		if header_head.height > ORPHAN_LOOP_THRESHOLD {
+			debug!(
+				"loop_height({}), ORPHAN_LOOP_THRESHOLD({}), subtracted({})",
+				loop_height,
+				ORPHAN_LOOP_THRESHOLD,
+				(loop_height - ORPHAN_LOOP_THRESHOLD)
+			);
+			debug!("header_head.height({})", header_head.height);
+			if loop_height >= (header_head.height - ORPHAN_LOOP_THRESHOLD) {
+				debug!("threshold check conditon met!");
+				loop_orphans = true;
+			}
+			if self.orphans.len() >= (MAX_ORPHAN_SIZE - 3) {
+				debug!("orphan.len() conditon met!");
+				loop_orphans = true;
+			}
+		}
 		let mut res = self.process_block_single(b, opts);
 		match res {
 			Ok(_) => {
 				orphan_height = block_height + 1;
+				if loop_orphans {
+					debug!("looping through orphans!");
+					self.check_orphans_loop(orphan_height);
+					return res;
+				}
 			}
 			_ => {
 				orphan_height = self.head()?.height + 1;
@@ -490,6 +520,67 @@ impl Chain {
 	/// Get the OrphanBlockPool accumulated evicted number of blocks
 	pub fn orphans_evicted_len(&self) -> usize {
 		self.orphans.len_evicted()
+	}
+
+	/// Check for ophans, loop through OrphanBlockPool, adding each
+	/// orphan that we can, consecutively. Returns once we we do not
+	/// have the next height block in our OrphanBlockPool.
+	fn check_orphans_loop(&self, mut height: u64) {
+		let initial_height = height;
+
+		let mut loop_iters = 0;
+		// Is there an orphan in our orphans that we can now process?
+		loop {
+			trace!(
+				"check_orphans: at {}, # orphans {}",
+				height,
+				self.orphans.len(),
+			);
+
+			loop_iters += 1;
+			debug!("check_orphans_loop, iters = {}", loop_iters);
+
+			let mut orphan_accepted = false;
+			let mut height_accepted = height;
+
+			if let Some(orphans) = self.orphans.remove_by_height(&height) {
+				let orphans_len = orphans.len();
+				for (i, orphan) in orphans.into_iter().enumerate() {
+					debug!(
+						"check_orphans: get block {} at {}{}",
+						orphan.block.hash(),
+						height,
+						if orphans_len > 1 {
+							format!(", no.{} of {} orphans", i, orphans_len)
+						} else {
+							String::new()
+						},
+					);
+					let height = orphan.block.header.height;
+					let res = self.process_block_single(orphan.block, orphan.opts);
+					if res.is_ok() {
+						orphan_accepted = true;
+						height_accepted = height;
+					}
+				}
+
+				if orphan_accepted {
+					// We accepted a block, so see if we can accept any orphans
+					height = height_accepted + 1;
+					continue;
+				}
+			}
+			break;
+		}
+
+		if initial_height != height {
+			debug!(
+				"check_orphans: {} blocks accepted since height {}, remaining # orphans {}",
+				height - initial_height,
+				initial_height,
+				self.orphans.len(),
+			);
+		}
 	}
 
 	/// Check for orphans, once a block is successfully added
