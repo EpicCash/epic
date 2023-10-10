@@ -27,7 +27,7 @@ use crate::core::pow::randomx::rx_current_seed_height;
 use crate::core::pow::PoWType;
 use crate::core::{consensus, core, global};
 use crate::keychain::{ExtKeychain, Identifier, Keychain};
-use chrono::prelude::{DateTime, NaiveDateTime, Utc};
+use chrono::{NaiveDateTime, TimeZone, Utc};
 use rand::{thread_rng, Rng};
 use serde_json::{json, Value};
 use std::sync::Arc;
