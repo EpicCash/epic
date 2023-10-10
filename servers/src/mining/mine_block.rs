@@ -15,10 +15,6 @@
 //! Build a block to mine: gathers transactions from the pool, assembles
 //! them into a block and returns it.
 
-<<<<<<< HEAD
-use crate::util::RwLock;
-use chrono::{NaiveDateTime, TimeZone, Utc};
-=======
 use crate::api;
 use crate::chain;
 use crate::common::types::Error;
@@ -32,7 +28,6 @@ use crate::core::pow::PoWType;
 use crate::core::{consensus, core, global};
 use crate::keychain::{ExtKeychain, Identifier, Keychain};
 use chrono::prelude::{DateTime, NaiveDateTime, Utc};
->>>>>>> fc1a273 (update node apis future and hyper)
 use rand::{thread_rng, Rng};
 use serde_json::{json, Value};
 use std::sync::Arc;

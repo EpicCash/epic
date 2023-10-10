@@ -33,7 +33,7 @@ path = "src/bin/epic.rs"
 
 [dependencies]
 blake2-rfc = "0.2"
-chrono = "0.4.4"
+chrono = "0.4.31"
 clap = { version = "2.31", features = ["yaml"] }
 ctrlc = { version = "3.1", features = ["termination"] }
 cursive_table_view = "0.13.2"
