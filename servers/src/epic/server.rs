@@ -219,7 +219,9 @@ impl Server {
 	/// Instantiates a new server associated with the provided future reactor.
 	pub fn new(
 		config: ServerConfig,
-		stop_state: Option<Arc<StopState>>,
+		//TODO: see if below should be used instead of defining new var in function
+		// had to add underscore to silence compiler warnings
+		_stop_state: Option<Arc<StopState>>,
 		api_chan: &'static mut (
 			tokio::sync::oneshot::Sender<()>,
 			tokio::sync::oneshot::Receiver<()>,
