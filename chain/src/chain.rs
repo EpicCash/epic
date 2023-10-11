@@ -309,7 +309,7 @@ impl Chain {
 				debug!("threshold check conditon met!");
 				loop_orphans = true;
 			}
-			if self.orphans.len() >= (MAX_ORPHAN_SIZE - 3) {
+			if self.orphans.len() >= (MAX_ORPHAN_SIZE - 10) {
 				debug!("orphan.len() conditon met!");
 				loop_orphans = true;
 			}
@@ -332,6 +332,10 @@ impl Chain {
 		if !orphans.is_empty() {
 			for orphan in orphans {
 				res = self.process_block_single(orphan.block, orphan.opts);
+			}
+			if loop_orphans && res.is_ok() {
+				warn!("looping through orphans!");
+				self.check_orphans_loop(orphan_height + 1);
 			}
 		}
 		res
@@ -567,7 +571,15 @@ impl Chain {
 				if orphan_accepted {
 					// We accepted a block, so see if we can accept any orphans
 					height = height_accepted + 1;
-					continue;
+					if loop_iters >= (MAX_ORPHAN_SIZE / 2) {
+						// we want to exit loop early to keep locking cheap here
+						// so break loop & exit func if iters exceed this
+						break;
+					} else {
+						// otherwise keep looping until we hit 30 or fail to find
+						// next block in orphan list
+						continue;
+					}
 				}
 			}
 			break;
