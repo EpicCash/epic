@@ -95,7 +95,12 @@ impl HeaderSync {
 		} else {
 			peer_blocks = self.header_sync_due();
 		}
-		Ok((self.peer.info.get_headers().clone(), peer_blocks))
+
+		//remove headers that are lower than our current height.
+		let mut clean_headers: Vec<_> = self.peer.info.get_headers().clone();
+		clean_headers.retain(|x| x.height > self.header_head_height);
+
+		Ok((clean_headers, peer_blocks))
 	}
 
 	fn header_sync_due(&mut self) -> bool {
