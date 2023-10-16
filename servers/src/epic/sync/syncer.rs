@@ -31,6 +31,8 @@ use crate::util::StopState;
 use crate::core::core::BlockHeader;
 use crate::p2p::PeerInfo;
 use std::collections::HashMap;
+
+#[derive(Clone)]
 pub struct FastsyncHeaderQueue {
 	offset: u8,
 	peer_info: PeerInfo,
@@ -325,10 +327,14 @@ impl SyncRunner {
 				download_headers = false;
 
 				// just for stats
-				if let Ok(fastsync_headers) = fastsync_header_queue.try_lock() {
+				if let Ok(mut fastsync_headers) = fastsync_header_queue.try_lock() {
 					info!("------------ Downloaded headers in queue ------------");
 
-					let mut sorted: Vec<_> = fastsync_headers.iter().collect();
+					let mut sorted: Vec<_> = fastsync_headers
+						.clone()
+						.into_iter()
+						.collect::<Vec<_>>()
+						.clone();
 					sorted.sort_by_key(|a| a.0);
 					for (key, value) in sorted.iter() {
 						info!(
@@ -338,11 +344,8 @@ impl SyncRunner {
 							value.offset
 						);
 					}
-					drop(fastsync_headers);
 					info!("------------------ <-------------> ------------------");
-				}
 
-				if let Ok(mut fastsync_headers) = fastsync_header_queue.try_lock() {
 					//reset if all queue items are processed or get stuck because items in queue can not be added
 					if fastsync_headers.len() == 0 || tochain_attemps > 10 {
 						download_headers = true;
@@ -354,45 +357,47 @@ impl SyncRunner {
 						continue;
 					}
 
+					let lowest_height = sorted.iter().next().clone().unwrap().0;
 					let current_height = chainsync.adapter.total_header_height().unwrap();
-					if let Some(fastsync_header) = fastsync_headers.get(&(current_height + 1)) {
-						let headers = fastsync_header.headers.clone();
-						let peer_info = fastsync_header.peer_info.clone();
+					//warn!("current_height({}), lowest_height in fastsync_headers({})", current_height, lowest_height);
 
-						match chainsync
-							.adapter
-							.headers_received(&headers.clone(), &peer_info.clone())
-						{
-							Ok(added) => {
-								if !added {
-									// if the peer sent us a block header that's intrinsically bad
-									// they are either mistaken or malevolent, both of which require a ban
+					let fastsync_header = sorted.get(0);
+					let headers = &fastsync_header.unwrap().1.headers;
+					//warn!("first header height ({}), hash({:?})", headers[0].height, headers[0].hash());
+					let peer_info = &fastsync_header.unwrap().1.peer_info;
 
-									chainsync
-										.ban_peer(
-											peer_info.addr,
-											p2p::types::ReasonForBan::BadBlockHeader,
-										)
-										.map_err(|e| {
-											let err: chain::Error = chain::ErrorKind::Other(
-												format!("ban peer error :{:?}", e),
-											)
-											.into();
-											err
-										})
-										.unwrap();
-								}
-								fastsync_headers.remove(&(current_height + 1));
+					match chainsync
+						.adapter
+						.headers_received(&headers.clone(), &peer_info.clone())
+					{
+						Ok(added) => {
+							if !added {
+								// if the peer sent us a block header that's intrinsically bad
+								// they are either mistaken or malevolent, both of which require a ban
+								chainsync
+									.ban_peer(
+										peer_info.addr,
+										p2p::types::ReasonForBan::BadBlockHeader,
+									)
+									.map_err(|e| {
+										let err: chain::Error = chain::ErrorKind::Other(format!(
+											"ban peer error :{:?}",
+											e
+										))
+										.into();
+										err
+									})
+									.unwrap();
 							}
-							Err(err) => {
-								error!("chainsync {:?}", err);
-							}
+							fastsync_headers.remove(&lowest_height);
 						}
-					} else {
-						tochain_attemps += 1;
+						Err(err) => {
+							error!("chainsync {:?}", err);
+						}
 					}
-					//end if fastsync_header
-				}
+				} else {
+					tochain_attemps += 1;
+				} //end if fastsync_header
 			}
 
 			match self.sync_state.status() {
