@@ -330,12 +330,10 @@ impl SyncRunner {
 				if let Ok(mut fastsync_headers) = fastsync_header_queue.try_lock() {
 					info!("------------ Downloaded headers in queue ------------");
 
-					let mut sorted: Vec<_> = fastsync_headers
-						.clone()
-						.into_iter()
-						.collect::<Vec<_>>()
-						.clone();
+					let mut sorted: Vec<_> =
+						fastsync_headers.clone().into_iter().collect::<Vec<_>>();
 					sorted.sort_by_key(|a| a.0);
+
 					for (key, value) in sorted.iter() {
 						info!(
 							"Start height: {:?}, Headers: {:?}, offset: {:?}",
@@ -358,12 +356,8 @@ impl SyncRunner {
 					}
 
 					let lowest_height = sorted.iter().next().clone().unwrap().0;
-					let current_height = chainsync.adapter.total_header_height().unwrap();
-					//warn!("current_height({}), lowest_height in fastsync_headers({})", current_height, lowest_height);
-
 					let fastsync_header = sorted.get(0);
 					let headers = &fastsync_header.unwrap().1.headers;
-					//warn!("first header height ({}), hash({:?})", headers[0].height, headers[0].hash());
 					let peer_info = &fastsync_header.unwrap().1.peer_info;
 
 					match chainsync
