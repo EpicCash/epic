@@ -100,7 +100,7 @@ fn real_main() -> i32 {
 				panic!("The generate value must be a positive integer: {}", e);
 			});
 
-		let url = taxes_args.value_of("from_wallet").unwrap().clone();
+		let url = taxes_args.value_of("from_wallet").unwrap();
 		let mut wallet_url = String::new();
 		if !url.contains("http") {
 			wallet_url.push_str("http://");
