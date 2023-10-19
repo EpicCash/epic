@@ -185,7 +185,7 @@ impl Server {
 	// This uses fs2 and should be safe cross-platform unless somebody abuses the file itself.
 	fn one_epic_at_a_time(config: &ServerConfig) -> Result<Arc<File>, Error> {
 		let path = Path::new(&config.db_root);
-		fs::create_dir_all(path.clone())?;
+		fs::create_dir_all(path)?;
 		let path = path.join("epic.lock");
 		let lock_file = fs::OpenOptions::new()
 			.read(true)
