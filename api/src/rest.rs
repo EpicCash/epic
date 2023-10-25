@@ -53,6 +53,12 @@ pub enum Error {
 	},
 }
 
+impl From<hyper::http::Error> for Error {
+	fn from(error: hyper::http::Error) -> Error {
+		Error::RequestError(error.to_string())
+	}
+}
+
 impl From<crate::chain::Error> for Error {
 	fn from(error: crate::chain::Error) -> Error {
 		Error::Internal(error.to_string())

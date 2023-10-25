@@ -20,7 +20,6 @@ use hyper::body;
 use hyper::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use hyper::http::uri::{InvalidUri, Uri};
 use hyper::{Body, Client, Request};
-
 use hyper_timeout::TimeoutConnector;
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -170,7 +169,8 @@ fn build_request(
 	let uri = url
 		.parse::<Uri>()
 		.map_err::<Error, _>(|_e: InvalidUri| Error::Argument(format!("Invalid url {}", url)))?;
-	let mut request = hyper::Request::builder()
+
+	let mut request = Request::builder()
 		.method(method)
 		.uri(uri)
 		.header(USER_AGENT, "epic-client")
@@ -179,13 +179,8 @@ fn build_request(
 		.body(match body {
 			None => hyper::Body::empty(),
 			Some(json) => json.into(),
-		})
-		.unwrap();
+		})?;
 
-	/*
-	.map_err(|e| {
-		Error::RequestError(format!("Bad request {} {}: {}", method, url, e)).into()
-	});*/
 	if let Some(api_secret) = api_secret {
 		let basic_auth = format!("Basic {}", to_base64(&format!("epic:{}", api_secret)));
 		request
