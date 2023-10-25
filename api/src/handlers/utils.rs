@@ -25,7 +25,7 @@ use std::sync::{Arc, Weak};
 // boilerplate of dealing with `Weak`.
 pub fn w<T>(weak: &Weak<T>) -> Result<Arc<T>, Error> {
 	weak.upgrade()
-		.ok_or_else(|| Error::Internal("failed to upgrade weak refernce".to_owned()).into())
+		.ok_or_else(|| Error::Internal("failed to upgrade weak reference".to_owned()))
 }
 
 /// Retrieves an output from the chain given a commit id (a tiny bit iteratively)
@@ -34,7 +34,7 @@ pub fn get_output(
 	id: &str,
 ) -> Result<(Output, OutputIdentifier), Error> {
 	let c = util::from_hex(String::from(id))
-		.map_err(|_e| Error::Argument(format!("Not a valid commitment: {}", id)))?;
+		.map_err(|_| Error::Argument(format!("Not a valid commitment: {}", id)))?;
 	let commit = Commitment::from_vec(c);
 
 	// We need the features here to be able to generate the necessary hash
@@ -67,7 +67,7 @@ pub fn get_output(
 			}
 		}
 	}
-	Err(Error::NotFound)?
+	Err(Error::NotFound)
 }
 
 /// Retrieves an output from the chain given a commit id (a tiny bit iteratively)
@@ -78,7 +78,7 @@ pub fn get_output_v2(
 	include_merkle_proof: bool,
 ) -> Result<(OutputPrintable, OutputIdentifier), Error> {
 	let c = util::from_hex(String::from(id))
-		.map_err(|_e| Error::Argument(format!("Not a valid commitment: {}", id)))?;
+		.map_err(|_| Error::Argument(format!("Not a valid commitment, id: {}", id)))?;
 	let commit = Commitment::from_vec(c);
 
 	// We need the features here to be able to generate the necessary hash
@@ -119,7 +119,7 @@ pub fn get_output_v2(
 						}
 					}
 				}
-				Err(_) => return Err(Error::NotFound)?,
+				Err(_) => return Err(Error::NotFound),
 			},
 			Err(e) => {
 				trace!(
@@ -131,5 +131,5 @@ pub fn get_output_v2(
 			}
 		}
 	}
-	Err(Error::NotFound)?
+	Err(Error::NotFound)
 }

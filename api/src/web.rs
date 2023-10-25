@@ -147,7 +147,7 @@ macro_rules! must_get_query(
 	($req: expr) =>(
 		match $req.uri().query() {
 			Some(q) => q,
-			None => return Err(Error::RequestError("no query string".to_owned()))?,
+			None => return Err(Error::RequestError("no query string".to_owned())),
 		}
 	));
 
@@ -158,7 +158,7 @@ macro_rules! parse_param(
 		None => $default,
 		Some(val) =>  match val.parse() {
 			Ok(val) => val,
-			Err(_) => return Err(Error::RequestError(format!("invalid value of parameter {}", $name)))?,
+			Err(_) => return Err(Error::RequestError(format!("invalid value of parameter {}", $name))),
 		}
 	}
 	));

@@ -98,10 +98,10 @@ where
 		let header = tx_pool
 			.blockchain
 			.chain_head()
-			.map_err(|_e| Error::Internal("Failed to get chain head".to_owned()))?;
+			.map_err(|e| Error::Internal(format!("Failed to get chain head: {}", e)))?;
 		let res = tx_pool
 			.add_to_pool(source, tx, !fluff.unwrap_or(false), &header)
-			.map_err(|_e| Error::Internal("Failed to update pool".to_owned()))?;
+			.map_err(|e| Error::Internal(format!("Failed to update pool: {}", e)))?;
 		Ok(res)
 	}
 }

@@ -49,6 +49,7 @@ use crate::owner::Owner;
 use crate::owner_rpc::OwnerRpc;
 use crate::p2p;
 use crate::pool;
+use crate::pool::{BlockChain, PoolAdapter};
 use crate::rest::{ApiServer, Error, TLSConfig};
 
 use crate::router::{ResponseFuture, Router};
@@ -62,8 +63,6 @@ use hyper::{Body, Request, Response, StatusCode};
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Weak};
-
-use crate::pool::{BlockChain, PoolAdapter};
 
 use std::thread;
 
@@ -220,7 +219,6 @@ impl crate::router::Handler for OwnerAPIHandlerV2 {
 	}
 }
 
-/// V2 API Handler/Wrapper for foreign functions
 /// V2 API Handler/Wrapper for foreign functions
 pub struct ForeignAPIHandlerV2<B, P>
 where

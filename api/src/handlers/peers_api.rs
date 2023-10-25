@@ -73,7 +73,7 @@ impl PeerHandler {
 		if let Some(addr) = addr {
 			let peer_addr = PeerAddr(addr);
 			let peer_data: PeerData = w(&self.peers)?.get_peer(peer_addr).map_err(|e| {
-				let e: Error = Error::Internal(format!("get peer error: {:?}", e)).into();
+				let e: Error = Error::Internal(format!("get peer error: {:?}", e));
 				e
 			})?;
 			return Ok(vec![peer_data]);

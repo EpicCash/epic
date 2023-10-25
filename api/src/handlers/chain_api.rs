@@ -57,7 +57,7 @@ impl ChainValidationHandler {
 	pub fn validate_chain(&self) -> Result<(), Error> {
 		w(&self.chain)?
 			.validate(true)
-			.map_err(|_| Error::Internal("chain error".to_owned()).into())
+			.map_err(|_| Error::Internal("chain error".to_owned()))
 	}
 }
 
@@ -82,9 +82,9 @@ pub struct ChainCompactHandler {
 
 impl ChainCompactHandler {
 	pub fn compact_chain(&self) -> Result<(), Error> {
-		w(&self.chain)?
-			.compact()
-			.map_err(|_| Error::Internal("chain error".to_owned()).into())
+		let chain = w(&self.chain)?;
+		chain.compact()?;
+		Ok(())
 	}
 }
 
@@ -171,7 +171,7 @@ impl OutputHandler {
 				outputs = [&outputs[..], &block_output_batch[..]].concat();
 			}
 		}
-		return Ok(outputs);
+		Ok(outputs)
 	}
 
 	// allows traversal of utxo set
@@ -189,7 +189,7 @@ impl OutputHandler {
 		let chain = w(&self.chain)?;
 		let outputs = chain
 			.unspent_outputs_by_pmmr_index(start_index, max, end_index)
-			.map_err(|_e| Error::NotFound)?;
+			.map_err(|_| Error::NotFound)?;
 		let out = OutputListing {
 			last_retrieved_index: outputs.0,
 			highest_index: outputs.1,
@@ -206,7 +206,7 @@ impl OutputHandler {
 					)
 				})
 				.collect::<Result<Vec<_>, _>>()
-				.map_err(|_e| Error::Internal("chain error".to_owned()))?,
+				.map_err(|_| Error::Internal("chain error".to_owned()))?,
 		};
 		Ok(out)
 	}
@@ -261,7 +261,7 @@ impl OutputHandler {
 				)
 			})
 			.collect::<Result<Vec<_>, _>>()
-			.map_err(|_e| Error::Internal("cain error".to_owned()))?;
+			.map_err(|_| Error::Internal("chain error".to_owned()))?;
 
 		Ok(BlockOutputs {
 			header: BlockHeaderInfo::from_header(&header),
@@ -300,7 +300,7 @@ impl OutputHandler {
 				)
 			})
 			.collect::<Result<Vec<_>, _>>()
-			.map_err(|_e| Error::Internal("cain error".to_owned()))?;
+			.map_err(|_| Error::Internal("chain error".to_owned()))?;
 
 		Ok(outputs)
 	}
@@ -475,7 +475,7 @@ impl KernelHandler {
 			let tx_kernel = k.1.clone();
 			tx_kernels.push(tx_kernel);
 		}
-		return Ok(tx_kernels);
+		Ok(tx_kernels)
 	}
 }
 

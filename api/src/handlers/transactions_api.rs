@@ -21,7 +21,6 @@ use crate::util;
 use crate::util::secp::pedersen::Commitment;
 use crate::web::*;
 use hyper::{Body, Request, StatusCode};
-
 use std::sync::Weak;
 
 // Sum tree handler. Retrieve the roots:
@@ -47,27 +46,27 @@ pub struct TxHashSetHandler {
 impl TxHashSetHandler {
 	// gets roots
 	fn get_roots(&self) -> Result<TxHashSet, Error> {
-		let res = TxHashSet::from_head(w(&self.chain)?)
-			.map_err(|_e| Error::Internal("failed to read roots from txhashset".to_owned()))?;
-		Ok(res)
+		let chain = w(&self.chain)?;
+		TxHashSet::from_head(chain)
+			.map_err(|e| Error::Internal(format!("failed to read roots from txhashset: {}", e)))
 	}
 
 	// gets last n outputs inserted in to the tree
 	fn get_last_n_output(&self, distance: u64) -> Result<Vec<TxHashSetNode>, Error> {
-		Ok(TxHashSetNode::get_last_n_output(w(&self.chain)?, distance))
+		let chain = w(&self.chain)?;
+		Ok(TxHashSetNode::get_last_n_output(chain, distance))
 	}
 
 	// gets last n rangeproofs inserted in to the tree
 	fn get_last_n_rangeproof(&self, distance: u64) -> Result<Vec<TxHashSetNode>, Error> {
-		Ok(TxHashSetNode::get_last_n_rangeproof(
-			w(&self.chain)?,
-			distance,
-		))
+		let chain = w(&self.chain)?;
+		Ok(TxHashSetNode::get_last_n_rangeproof(chain, distance))
 	}
 
 	// gets last n kernels inserted in to the tree
 	fn get_last_n_kernel(&self, distance: u64) -> Result<Vec<TxHashSetNode>, Error> {
-		Ok(TxHashSetNode::get_last_n_kernel(w(&self.chain)?, distance))
+		let chain = w(&self.chain)?;
+		Ok(TxHashSetNode::get_last_n_kernel(chain, distance))
 	}
 
 	// allows traversal of utxo set
@@ -84,7 +83,7 @@ impl TxHashSetHandler {
 		let chain = w(&self.chain)?;
 		let outputs = chain
 			.unspent_outputs_by_pmmr_index(start_index, max, end_index)
-			.map_err(|_e| Error::NotFound)?;
+			.map_err(|_| Error::NotFound)?;
 		let out = OutputListing {
 			last_retrieved_index: outputs.0,
 			highest_index: outputs.1,
@@ -93,7 +92,7 @@ impl TxHashSetHandler {
 				.iter()
 				.map(|x| OutputPrintable::from_output(x, chain.clone(), None, true, true))
 				.collect::<Result<Vec<_>, _>>()
-				.map_err(|_e| Error::Internal("chain error".to_owned()))?,
+				.map_err(|e| Error::Internal(format!("chain error: {}", e)))?,
 		};
 		Ok(out)
 	}
@@ -107,7 +106,7 @@ impl TxHashSetHandler {
 		let chain = w(&self.chain)?;
 		let range = chain
 			.block_height_range_to_pmmr_indices(start_block_height, end_block_height)
-			.map_err(|_e| Error::NotFound)?;
+			.map_err(|_| Error::NotFound)?;
 		let out = OutputListing {
 			last_retrieved_index: range.0,
 			highest_index: range.1,
@@ -120,12 +119,10 @@ impl TxHashSetHandler {
 	// (to avoid having to create a new type to pass around)
 	fn get_merkle_proof_for_output(&self, id: &str) -> Result<OutputPrintable, Error> {
 		let c = util::from_hex(String::from(id))
-			.map_err(|_e| Error::Argument(format!("Not a valid commitment: {}", id)))?;
+			.map_err(|_| Error::Argument(format!("Not a valid commitment: {}", id)))?;
 		let commit = Commitment::from_vec(c);
 		let chain = w(&self.chain)?;
-		let output_pos = chain
-			.get_output_pos(&commit)
-			.map_err(|_e| Error::NotFound)?;
+		let output_pos = chain.get_output_pos(&commit).map_err(|_| Error::NotFound)?;
 		let merkle_proof =
 			chain::Chain::get_merkle_proof_for_pos(&chain, commit).map_err(|_| Error::NotFound)?;
 		Ok(OutputPrintable {
