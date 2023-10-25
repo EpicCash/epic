@@ -221,7 +221,7 @@ impl Server {
 		config: ServerConfig,
 		//TODO: see if below should be used instead of defining new var in function
 		// had to add underscore to silence compiler warnings
-		_stop_state: Option<Arc<StopState>>,
+		stop_state: Option<Arc<StopState>>,
 		api_chan: &'static mut (
 			tokio::sync::oneshot::Sender<()>,
 			tokio::sync::oneshot::Receiver<()>,
@@ -237,7 +237,11 @@ impl Server {
 			Some(b) => b,
 		};
 
-		let stop_state = Arc::new(StopState::new());
+		let stop_state = if stop_state.is_some() {
+			stop_state.unwrap()
+		} else {
+			Arc::new(StopState::new())
+		};
 
 		let pool_adapter = Arc::new(PoolToChainAdapter::new());
 		let pool_net_adapter = Arc::new(PoolToNetAdapter::new(config.dandelion_config.clone()));
