@@ -298,19 +298,18 @@ impl Chain {
 		let header_head = self.header_head()?;
 		let mut loop_orphans = false;
 		if header_head.height > ORPHAN_LOOP_THRESHOLD {
-			debug!(
+			trace!(
 				"loop_height({}), ORPHAN_LOOP_THRESHOLD({}), subtracted({})",
 				loop_height,
 				ORPHAN_LOOP_THRESHOLD,
 				(loop_height - ORPHAN_LOOP_THRESHOLD)
 			);
-			debug!("header_head.height({})", header_head.height);
 			if loop_height >= (header_head.height - ORPHAN_LOOP_THRESHOLD) {
-				debug!("threshold check conditon met!");
+				trace!("threshold check conditon met!");
 				loop_orphans = true;
 			}
 			if self.orphans.len() >= (MAX_ORPHAN_SIZE - 10) {
-				debug!("orphan.len() conditon met!");
+				trace!("orphan.len() conditon met!");
 				loop_orphans = true;
 			}
 		}
@@ -319,7 +318,7 @@ impl Chain {
 			Ok(_) => {
 				orphan_height = block_height + 1;
 				if loop_orphans {
-					debug!("looping through orphans!");
+					trace!("looping through orphans!");
 					self.check_orphans_loop(orphan_height);
 					return res;
 				}
@@ -334,7 +333,7 @@ impl Chain {
 				res = self.process_block_single(orphan.block, orphan.opts);
 			}
 			if loop_orphans && res.is_ok() {
-				warn!("looping through orphans!");
+				trace!("looping through orphans!");
 				self.check_orphans_loop(orphan_height + 1);
 			}
 		}
