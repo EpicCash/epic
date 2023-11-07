@@ -323,7 +323,7 @@ pub const MAINNET_FIRST_HARD_FORK: u64 = 9000000;
 pub const FLOONET_FIRST_HARD_FORK: u64 = 25800;
 
 /// AutomatedTesting and UserTesting first hard fork height.
-pub const TESTING_FIRST_HARD_FORK: u64 = 25800;
+pub const TESTING_FIRST_HARD_FORK: u64 = 6;
 
 /// Get the height of the first epic hard fork
 pub fn first_fork_height() -> u64 {
@@ -352,7 +352,7 @@ pub fn valid_header_version(height: u64, version: HeaderVersion) -> bool {
 }
 
 ///defines the block height at wich the difficulty adjustment era changes for testing
-pub const TESTING_DIFFICULTY_ERA: u64 = 1;
+pub const TESTING_DIFFICULTY_ERA: u64 = 50;
 ///defines the block height at wich the difficulty adjustment era changes for floonet
 pub const FLOONET_DIFFICULTY_ERA: u64 = 200;
 ///defines the block height at wich the difficulty adjustment era changes

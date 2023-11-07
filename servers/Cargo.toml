@@ -10,10 +10,16 @@ workspace = ".."
 edition = "2018"
 
 [dependencies]
-hyper = "0.12"
+hyper = { version = "0.14.27", features = ["full"]}
+hyper-rustls = "0.24.1"
+rustls = "0.21.7"
+rustls-pemfile = "1.0.3"
+webpki-roots = "0.25.1"
+
+
 fs2 = "0.4"
-futures = "0.1"
-http = "0.1"
+futures = "0.3"
+http = "0.2"
 itertools = "0.7"
 lmdb-zero = "0.4.4"
 rand = "0.6"
@@ -21,13 +27,15 @@ serde = "1"
 log = "0.4"
 serde_derive = "1"
 serde_json = "1"
-chrono = "0.4.4"
-tokio = "0.1.11"
+chrono = "0.4.31"
+tokio = { version = "1.32", features = ["full"] }
+tokio-util = { version = "0.7.8", features = ["codec"] }
+tokio-stream = "0.1.14"
 bigint = "4.4.1"
 clokwerk = "0.2.1"
 trust-dns-resolver = "0.11.1"
 walkdir = "2.2.9"
-hyper-rustls = "0.17.1"
+
 
 epic_api = { path = "../api", version = "3.4.0" }
 epic_chain = { path = "../chain", version = "3.4.0" }

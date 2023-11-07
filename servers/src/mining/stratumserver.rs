@@ -14,19 +14,19 @@
 
 //! Mining Stratum Server
 
-use futures::future::Future;
-use futures::stream::Stream;
-use tokio::io::AsyncRead;
-use tokio::io::{lines, write_all};
-use tokio::net::TcpListener;
-
 use crate::util::RwLock;
 use chrono::prelude::Utc;
+use futures::channel::mpsc;
+use futures::pin_mut;
+use futures::{SinkExt, StreamExt, TryStreamExt};
 use serde;
 use serde_json;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::io::BufReader;
+use tokio::net::TcpListener;
+//use tokio::runtime::Runtime;
+use tokio_util::codec::{Framed, LinesCodec};
+
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
@@ -42,14 +42,15 @@ use crate::core::pow::{DifficultyNumber, PoWType};
 use crate::core::{pow, ser};
 use crate::keychain;
 use crate::mining::mine_block;
-use crate::pool;
+
 use crate::util;
 
 //use bigint::uint::U256;
+use crate::ServerTxPool;
 use epic_core::pow::Proof;
 use epic_core::ser::Writeable;
 
-use futures::sync::mpsc;
+//->olduse futures::sync::mpsc;
 
 type Tx = mpsc::UnboundedSender<String>;
 
@@ -251,10 +252,10 @@ impl Handler {
 		chain: Arc<chain::Chain>,
 	) -> Self {
 		Handler {
-			id: id,
+			id,
 			workers: Arc::new(WorkersList::new(stratum_stats.clone())),
-			sync_state: sync_state,
-			chain: chain,
+			sync_state,
+			chain,
 			current_state: Arc::new(RwLock::new(State::new(minimum_share_difficulty))),
 		}
 	}
@@ -284,9 +285,9 @@ impl Handler {
 			stratum.chain.clone(),
 		)
 	}
-	fn handle_rpc_requests(&self, request: RpcRequest, worker_id: usize) -> String {
+	async fn handle_rpc_requests(&self, request: RpcRequest, worker_id: usize) -> String {
 		self.workers.last_seen(worker_id);
-		info!("request: {:?}", request);
+		debug!("request: {:?}", request);
 		// Call the handler function for requested method
 		let response = match request.method.as_str() {
 			"login" => self.handle_login(request.params, worker_id),
@@ -665,7 +666,7 @@ impl Handler {
 		self.workers.broadcast(job_request_json.clone());
 	}
 
-	pub fn run(&self, config: &StratumServerConfig, tx_pool: &Arc<RwLock<pool::TransactionPool>>) {
+	pub fn run(&self, config: &StratumServerConfig, tx_pool: &ServerTxPool) {
 		debug!("Run main loop");
 		let mut deadline: i64 = 0;
 		let mut head = self.chain.head().unwrap();
@@ -783,56 +784,76 @@ impl Handler {
 
 // ----------------------------------------
 // Worker Factory Thread Function
-fn accept_connections(listen_addr: SocketAddr, handler: Arc<Handler>) {
+async fn handle_worker_respo(h: Arc<Handler>, request: RpcRequest, worker_id: usize) {
+	let resp = h.handle_rpc_requests(request, worker_id).await;
+	h.workers.send_to(worker_id, resp).await;
+}
+
+// ----------------------------------------
+// Worker Factory Thread Function
+#[tokio::main]
+async fn accept_connections(listen_addr: SocketAddr, handler: Arc<Handler>) {
 	info!("Start tokio stratum server");
-	let listener = TcpListener::bind(&listen_addr).expect(&format!(
-		"Stratum: Failed to bind to listen address {}",
-		listen_addr
-	));
-	let server = listener
-		.incoming()
-		.for_each(move |socket| {
-			// Spawn a task to process the connection
-			let (tx, rx) = mpsc::unbounded();
 
-			let worker_id = handler.workers.add_worker(tx);
-			info!("Worker {} connected", worker_id);
+	let listener = TcpListener::bind(&listen_addr)
+		.await
+		.unwrap_or_else(|_| panic!("Stratum: Failed to bind to listen address {}", listen_addr));
 
-			let (reader, writer) = socket.split();
-			let reader = BufReader::new(reader);
-			let h = handler.clone();
-			let workers = h.workers.clone();
-			let input = lines(reader)
-				.for_each(move |line| {
-					let request = serde_json::from_str(&line)?;
-					let resp = h.handle_rpc_requests(request, worker_id);
-					info!("Worker resp {:?}", resp);
-					workers.send_to(worker_id, resp);
-					Ok(())
-				})
-				.map_err(|e| error!("error {}", e));
+	loop {
+		let handler = handler.clone();
+		let (socket, _) = listener.accept().await.unwrap();
+		// Spawn a task to process the connection
+		let (tx, mut rx) = mpsc::unbounded();
 
-			let output = rx.fold(writer, |writer, s| {
-				let s2 = s + "\n";
-				write_all(writer, s2.into_bytes())
-					.map(|(writer, _)| writer)
-					.map_err(|e| error!("cannot send {}", e))
-			});
+		let worker_id = handler.workers.add_worker(tx).await;
+		match socket.peer_addr() {
+			Ok(addr) => {
+				info!("Worker {}/{:?} connected", worker_id, addr);
+			}
+			Err(e) => {
+				error!("Error on Socket {:?}", e);
+			}
+		};
+		let framed = Framed::new(socket, LinesCodec::new());
+		let (mut writer, mut reader) = framed.split();
 
-			let workers = handler.workers.clone();
-			let both = output.map(|_| ()).select(input);
-			tokio::spawn(both.then(move |_| {
-				workers.remove_worker(worker_id);
-				info!("Worker {} disconnected", worker_id);
-				Ok(())
-			}));
+		let h = handler.clone();
+		let read = async move {
+			while let Some(line) = reader.try_next().await.unwrap() {
+				let request = serde_json::from_str(&line)
+					.map_err(|e| error!("error serializing line: {}", e))?;
 
-			Ok(())
-		})
-		.map_err(|err| {
-			error!("accept error = {:?}", err);
-		});
-	tokio::run(server.map(|_| ()).map_err(|_| ()));
+				tokio::task::spawn(handle_worker_respo(h.clone(), request, worker_id));
+			}
+
+			Result::<_, ()>::Ok(())
+		};
+
+		let write = async move {
+			while let Some(line) = rx.next().await {
+				writer
+					.send(line)
+					.await
+					.map_err(|e| error!("error writing line: {}", e))?;
+			}
+
+			Result::<_, ()>::Ok(())
+		};
+
+		let task = async move {
+			pin_mut!(read, write);
+			match futures::future::select(read, write).await {
+				futures::future::Either::Left(_) => {
+					trace!("Worker {} disconnected", worker_id);
+				}
+				futures::future::Either::Right(_) => {
+					trace!("Worker {} disconnected", worker_id);
+					handler.workers.remove_worker(worker_id);
+				}
+			};
+		};
+		tokio::spawn(task);
+	}
 }
 
 // ----------------------------------------
@@ -851,11 +872,11 @@ impl Worker {
 	/// Creates a new Stratum Worker.
 	pub fn new(id: usize, tx: Tx) -> Worker {
 		Worker {
-			id: id,
+			id,
 			agent: String::from(""),
 			login: None,
 			authenticated: false,
-			tx: tx,
+			tx,
 		}
 	}
 } // impl Worker
@@ -869,11 +890,11 @@ impl WorkersList {
 	pub fn new(stratum_stats: Arc<RwLock<StratumStats>>) -> Self {
 		WorkersList {
 			workers_list: Arc::new(RwLock::new(HashMap::new())),
-			stratum_stats: stratum_stats,
+			stratum_stats,
 		}
 	}
 
-	pub fn add_worker(&self, tx: Tx) -> usize {
+	pub async fn add_worker(&self, tx: Tx) -> usize {
 		let mut stratum_stats = self.stratum_stats.write();
 		let worker_id = stratum_stats.worker_stats.len();
 		let worker = Worker::new(worker_id, tx);
@@ -937,7 +958,7 @@ impl WorkersList {
 		f(&mut stratum_stats.worker_stats[worker_id]);
 	}
 
-	pub fn send_to(&self, worker_id: usize, msg: String) {
+	pub async fn send_to(&self, worker_id: usize, msg: String) {
 		let _ = self
 			.workers_list
 			.read()
@@ -975,7 +996,7 @@ pub struct StratumServer {
 	id: String,
 	config: StratumServerConfig,
 	chain: Arc<chain::Chain>,
-	tx_pool: Arc<RwLock<pool::TransactionPool>>,
+	pub tx_pool: ServerTxPool,
 	sync_state: Arc<SyncState>,
 	stratum_stats: Arc<RwLock<StratumStats>>,
 }
@@ -985,7 +1006,7 @@ impl StratumServer {
 	pub fn new(
 		config: StratumServerConfig,
 		chain: Arc<chain::Chain>,
-		tx_pool: Arc<RwLock<pool::TransactionPool>>,
+		tx_pool: ServerTxPool,
 		stratum_stats: Arc<RwLock<StratumStats>>,
 	) -> StratumServer {
 		StratumServer {
@@ -994,7 +1015,7 @@ impl StratumServer {
 			chain,
 			tx_pool,
 			sync_state: Arc::new(SyncState::new()),
-			stratum_stats: stratum_stats,
+			stratum_stats,
 		}
 	}
 

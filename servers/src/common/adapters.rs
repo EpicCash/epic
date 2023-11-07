@@ -35,7 +35,7 @@ use crate::core::pow::Difficulty;
 use crate::core::{core, global};
 use crate::p2p;
 use crate::p2p::types::PeerInfo;
-use crate::pool;
+use crate::pool::{self, BlockChain, PoolAdapter};
 use crate::util::OneTime;
 use chrono::prelude::*;
 use chrono::Duration;
@@ -44,16 +44,24 @@ use rand::prelude::*;
 /// Implementation of the NetAdapter for the . Gets notified when new
 /// blocks and transactions are received and forwards to the chain and pool
 /// implementations.
-pub struct NetToChainAdapter {
+pub struct NetToChainAdapter<B, P>
+where
+	B: BlockChain,
+	P: PoolAdapter,
+{
 	sync_state: Arc<SyncState>,
 	chain: Weak<chain::Chain>,
-	tx_pool: Arc<RwLock<pool::TransactionPool>>,
+	tx_pool: Arc<RwLock<pool::TransactionPool<B, P>>>,
 	peers: OneTime<Weak<p2p::Peers>>,
 	config: ServerConfig,
 	hooks: Vec<Box<dyn NetEvents + Send + Sync>>,
 }
 
-impl p2p::ChainAdapter for NetToChainAdapter {
+impl<B, P> p2p::ChainAdapter for NetToChainAdapter<B, P>
+where
+	B: BlockChain,
+	P: PoolAdapter,
+{
 	fn total_difficulty(&self) -> Result<Difficulty, chain::Error> {
 		Ok(self.chain().head()?.total_difficulty)
 	}
@@ -103,7 +111,7 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 		let header = self.chain().head_header()?;
 
 		for hook in &self.hooks {
-			hook.on_transaction_received(&tx);
+			let _ = hook.on_transaction_received(&tx);
 		}
 
 		let tx_hash = tx.hash();
@@ -166,7 +174,7 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 				Ok(block) => {
 					if !self.sync_state.is_syncing() {
 						for hook in &self.hooks {
-							hook.on_block_received(&block, &peer_info.addr);
+							let _ = hook.on_block_received(&block, &peer_info.addr);
 						}
 					}
 					self.process_block(block, peer_info, chain::Options::NONE)
@@ -208,7 +216,7 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 				Ok(block) => {
 					if !self.sync_state.is_syncing() {
 						for hook in &self.hooks {
-							hook.on_block_received(&block, &peer_info.addr);
+							let _ = hook.on_block_received(&block, &peer_info.addr);
 						}
 					}
 					block
@@ -258,7 +266,7 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 
 		if !self.sync_state.is_syncing() {
 			for hook in &self.hooks {
-				hook.on_header_received(&bh, &peer_info.addr);
+				let _ = hook.on_header_received(&bh, &peer_info.addr);
 			}
 		}
 
@@ -532,15 +540,19 @@ impl p2p::ChainAdapter for NetToChainAdapter {
 	}
 }
 
-impl NetToChainAdapter {
+impl<B, P> NetToChainAdapter<B, P>
+where
+	B: BlockChain,
+	P: PoolAdapter,
+{
 	/// Construct a new NetToChainAdapter instance
 	pub fn new(
 		sync_state: Arc<SyncState>,
 		chain: Arc<chain::Chain>,
-		tx_pool: Arc<RwLock<pool::TransactionPool>>,
+		tx_pool: Arc<RwLock<pool::TransactionPool<B, P>>>,
 		config: ServerConfig,
 		hooks: Vec<Box<dyn NetEvents + Send + Sync>>,
-	) -> NetToChainAdapter {
+	) -> Self {
 		NetToChainAdapter {
 			sync_state,
 			chain: Arc::downgrade(&chain),
@@ -765,18 +777,26 @@ impl NetToChainAdapter {
 /// Implementation of the ChainAdapter for the network. Gets notified when the
 ///  accepted a new block, asking the pool to update its state and
 /// the network to broadcast the block
-pub struct ChainToPoolAndNetAdapter {
-	tx_pool: Arc<RwLock<pool::TransactionPool>>,
+pub struct ChainToPoolAndNetAdapter<B, P>
+where
+	B: BlockChain,
+	P: PoolAdapter,
+{
+	tx_pool: Arc<RwLock<pool::TransactionPool<B, P>>>,
 	peers: OneTime<Weak<p2p::Peers>>,
 	hooks: Vec<Box<dyn ChainEvents + Send + Sync>>,
 }
 
-impl ChainAdapter for ChainToPoolAndNetAdapter {
+impl<B, P> ChainAdapter for ChainToPoolAndNetAdapter<B, P>
+where
+	B: BlockChain,
+	P: PoolAdapter,
+{
 	fn block_accepted(&self, b: &core::Block, status: BlockStatus, opts: Options) {
 		// not broadcasting blocks received through sync
 		if !opts.contains(chain::Options::SYNC) {
 			for hook in &self.hooks {
-				hook.on_block_accepted(b, &status);
+				let _ = hook.on_block_accepted(b, &status);
 			}
 			// If we mined the block then we want to broadcast the compact block.
 			// If we received the block from another node then broadcast "header first"
@@ -815,12 +835,16 @@ impl ChainAdapter for ChainToPoolAndNetAdapter {
 	}
 }
 
-impl ChainToPoolAndNetAdapter {
+impl<B, P> ChainToPoolAndNetAdapter<B, P>
+where
+	B: BlockChain,
+	P: PoolAdapter,
+{
 	/// Construct a ChainToPoolAndNetAdapter instance.
 	pub fn new(
-		tx_pool: Arc<RwLock<pool::TransactionPool>>,
+		tx_pool: Arc<RwLock<pool::TransactionPool<B, P>>>,
 		hooks: Vec<Box<dyn ChainEvents + Send + Sync>>,
-	) -> ChainToPoolAndNetAdapter {
+	) -> Self {
 		ChainToPoolAndNetAdapter {
 			tx_pool,
 			peers: OneTime::new(),

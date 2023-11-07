@@ -10,32 +10,37 @@ workspace = ".."
 edition = "2018"
 
 [dependencies]
-easy-jsonrpc-mw = "0.5.3"
-failure = "0.1.1"
-failure_derive = "0.1.1"
-hyper = "0.12"
+easy-jsonrpc-mw = "0.5.4"
+hyper = { version = "0.14.27", features = ["full"]}
 lazy_static = "1"
 regex = "1"
-
+ring = "0.16.20"
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
+thiserror = "1"
 log = "0.4"
-tokio = "0.1"
-tokio-core = "0.1.17"
-tokio-tcp = "0.1"
+tokio = { version = "1.32", features = ["full"] }
+tokio-rustls = "0.24.1"
 
-http = "0.1.5"
-hyper-timeout = "0.2"
-futures = "0.1.21"
+http = "0.2"
 
-url = "1.7.0"
+futures = "0.3"
+
+url = "2.1"
 bigint = "4.4.1"
 
-ring = "^0.16.20"
-hyper-rustls = "0.17.1"
-rustls = "0.16.0"
-tokio-rustls = "^0.10"
+
+hyper-rustls = "0.24.1"
+hyper-tls = "0.5"
+hyper-timeout = "0.4"
+rustls-pemfile = "1.0.3"
+
+rustls = "0.21.7"
+
+bytes = "0.5"
+
+
 
 epic_core = { path = "../core", version = "3.4.0" }
 epic_chain = { path = "../chain", version = "3.4.0" }

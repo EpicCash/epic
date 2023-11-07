@@ -14,7 +14,6 @@
 
 //! Foreign API External Definition
 
-use epic_core::core::TxKernel;
 use crate::chain::{Chain, SyncState};
 use crate::core::core::hash::Hash;
 use crate::core::core::transaction::Transaction;
@@ -23,13 +22,14 @@ use crate::handlers::chain_api::{ChainHandler, KernelHandler, OutputHandler};
 use crate::handlers::pool_api::PoolHandler;
 use crate::handlers::transactions_api::TxHashSetHandler;
 use crate::handlers::version_api::VersionHandler;
-use crate::pool::{self, PoolEntry};
+use crate::pool::{self, BlockChain, PoolAdapter, PoolEntry};
 use crate::rest::*;
 use crate::types::{
 	BlockHeaderPrintable, BlockPrintable, LocatedTxKernel, OutputListing, OutputPrintable, Tip,
 	Version,
 };
 use crate::util::RwLock;
+use epic_core::core::TxKernel;
 use std::sync::Weak;
 
 /// Main interface into all node API functions.
@@ -39,13 +39,21 @@ use std::sync::Weak;
 /// Methods in this API are intended to be 'single use'.
 ///
 
-pub struct Foreign {
+pub struct Foreign<B, P>
+where
+	B: BlockChain,
+	P: PoolAdapter,
+{
 	pub chain: Weak<Chain>,
-	pub tx_pool: Weak<RwLock<pool::TransactionPool>>,
+	pub tx_pool: Weak<RwLock<pool::TransactionPool<B, P>>>,
 	pub sync_state: Weak<SyncState>,
 }
 
-impl Foreign {
+impl<B, P> Foreign<B, P>
+where
+	B: BlockChain,
+	P: PoolAdapter,
+{
 	/// Create a new API instance with the chain, transaction pool, peers and `sync_state`. All subsequent
 	/// API calls will operate on this instance of node API.
 	///
@@ -61,7 +69,7 @@ impl Foreign {
 
 	pub fn new(
 		chain: Weak<Chain>,
-		tx_pool: Weak<RwLock<pool::TransactionPool>>,
+		tx_pool: Weak<RwLock<pool::TransactionPool<B, P>>>,
 		sync_state: Weak<SyncState>,
 	) -> Self {
 		Foreign {
@@ -184,17 +192,14 @@ impl Foreign {
 		kernel_handler.get_kernel_v2(excess, min_height, max_height)
 	}
 
-	pub fn get_last_n_kernels(
-		&self,
-		distance: u64,
-	) -> Result<Vec<TxKernel>, Error>{
+	pub fn get_last_n_kernels(&self, distance: u64) -> Result<Vec<TxKernel>, Error> {
 		let kernel_handler = KernelHandler {
-			chain: self.chain.clone()
+			chain: self.chain.clone(),
 		};
 		let kernels = kernel_handler.get_last_n_kernels(distance);
 		match kernels {
 			Ok(k) => Ok(k),
-			Err(k) => Err(k)
+			Err(k) => Err(k),
 		}
 	}
 

@@ -63,6 +63,9 @@ fn is_test_network() -> bool {
 	}
 }
 
+/// Arcified  thread-safe TransactionPool with type parameters used by server components
+pub type ServerTxPool = Arc<RwLock<pool::TransactionPool<PoolToChainAdapter, PoolToNetAdapter>>>;
+
 /// Epic server holding internal structures.
 pub struct Server {
 	/// server config
@@ -72,7 +75,7 @@ pub struct Server {
 	/// data store access
 	pub chain: Arc<chain::Chain>,
 	/// in-memory transaction pool
-	pub tx_pool: Arc<RwLock<pool::TransactionPool>>,
+	pub tx_pool: ServerTxPool,
 	/// Whether we're currently syncing
 	pub sync_state: Arc<SyncState>,
 	/// To be passed around to collect stats and info
@@ -94,6 +97,11 @@ impl Server {
 		config: ServerConfig,
 		logs_rx: Option<mpsc::Receiver<LogEntry>>,
 		mut info_callback: F,
+		stop_state: Option<Arc<StopState>>,
+		api_chan: &'static mut (
+			tokio::sync::oneshot::Sender<()>,
+			tokio::sync::oneshot::Receiver<()>,
+		),
 	) -> Result<(), Error>
 	where
 		F: FnMut(Server, Option<mpsc::Receiver<LogEntry>>),
@@ -132,6 +140,7 @@ impl Server {
 		}
 
 		global::set_foundation_path(config.foundation_path.clone().to_owned());
+
 		info!(
 			"The policy configuration is: {:?}",
 			global::get_policy_config()
@@ -140,6 +149,7 @@ impl Server {
 			"The foundation.json is being read from {:?}",
 			global::get_foundation_path().unwrap()
 		);
+
 		let hash_to_compare = global::foundation_json_sha256();
 		let hash = global::get_file_sha256(global::get_foundation_path().unwrap().as_str());
 		if hash.as_str() != hash_to_compare {
@@ -151,11 +161,12 @@ impl Server {
 			);
 			std::process::exit(1);
 		}
+
 		let mining_config = config.stratum_mining_config.clone();
 		let enable_test_miner = config.run_test_miner;
 		let test_miner_wallet_url = config.test_miner_wallet_url.clone();
 
-		let serv = Server::new(config)?;
+		let serv = Server::new(config, stop_state, api_chan)?;
 
 		if let Some(c) = mining_config {
 			let enable_stratum_server = c.enable_stratum_server;
@@ -206,7 +217,16 @@ impl Server {
 	}
 
 	/// Instantiates a new server associated with the provided future reactor.
-	pub fn new(config: ServerConfig) -> Result<Server, Error> {
+	pub fn new(
+		config: ServerConfig,
+		//TODO: see if below should be used instead of defining new var in function
+		// had to add underscore to silence compiler warnings
+		stop_state: Option<Arc<StopState>>,
+		api_chan: &'static mut (
+			tokio::sync::oneshot::Sender<()>,
+			tokio::sync::oneshot::Receiver<()>,
+		),
+	) -> Result<Server, Error> {
 		// Obtain our lock_file or fail immediately with an error.
 		let lock_file = Server::one_epic_at_a_time(&config)?;
 
@@ -217,7 +237,11 @@ impl Server {
 			Some(b) => b,
 		};
 
-		let stop_state = Arc::new(StopState::new());
+		let stop_state = if stop_state.is_some() {
+			stop_state.unwrap()
+		} else {
+			Arc::new(StopState::new())
+		};
 
 		let pool_adapter = Arc::new(PoolToChainAdapter::new());
 		let pool_net_adapter = Arc::new(PoolToNetAdapter::new(config.dandelion_config.clone()));
@@ -354,6 +378,8 @@ impl Server {
 			api_secret.clone(),
 			foreign_api_secret.clone(),
 			tls_conf.clone(),
+			api_chan,
+			stop_state.clone(),
 		)?;
 
 		info!("Starting dandelion monitor: {}", &config.api_http_addr);
@@ -390,6 +416,7 @@ impl Server {
 		let _version_checker_thread = scheduler.watch_thread(Duration::from_millis(100));
 
 		warn!("Epic server started.");
+
 		Ok(Server {
 			config,
 			p2p: p2p_server,
@@ -559,7 +586,7 @@ impl Server {
 						block_hash: hash,
 						difficulty: next.difficulty.to_num(algo_type),
 						time: next.timestamp,
-						duration: duration,
+						duration,
 						secondary_scaling: next.secondary_scaling,
 						is_secondary: next.is_secondary,
 						algorithm: algo_name.to_owned(),
@@ -648,13 +675,13 @@ impl Server {
 		Ok(ServerStats {
 			peer_count: self.peer_count(),
 			chain_stats: head_stats,
-			header_stats: header_stats,
+			header_stats,
 			sync_status: self.sync_state.status(),
-			disk_usage_gb: disk_usage_gb,
-			stratum_stats: stratum_stats,
-			peer_stats: peer_stats,
-			diff_stats: diff_stats,
-			tx_stats: tx_stats,
+			disk_usage_gb,
+			stratum_stats,
+			peer_stats,
+			diff_stats,
+			tx_stats,
 		})
 	}
 

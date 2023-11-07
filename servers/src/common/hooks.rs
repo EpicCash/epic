@@ -24,16 +24,18 @@ use crate::common::types::{ServerConfig, WebHooksConfig};
 use crate::core::core;
 use crate::core::core::hash::Hashed;
 use crate::p2p::types::PeerAddr;
-use futures::future::Future;
+
+use futures::TryFutureExt;
 use hyper::client::HttpConnector;
 use hyper::header::HeaderValue;
 use hyper::Client;
 use hyper::{Body, Method, Request};
 use hyper_rustls::HttpsConnector;
+use rustls::{OwnedTrustAnchor, RootCertStore};
 use serde::Serialize;
 use serde_json::{json, to_string};
 use std::time::Duration;
-use tokio::runtime::Runtime;
+use tokio::runtime::{Builder, Runtime};
 
 /// Returns the list of event hooks that will be initialized for network events
 pub fn init_net_hooks(config: &ServerConfig) -> Vec<Box<dyn NetEvents + Send + Sync>> {
@@ -58,24 +60,22 @@ pub fn init_chain_hooks(config: &ServerConfig) -> Vec<Box<dyn ChainEvents + Send
 	list
 }
 
-#[allow(unused_variables)]
 /// Trait to be implemented by Network Event Hooks
 pub trait NetEvents {
 	/// Triggers when a new transaction arrives
-	fn on_transaction_received(&self, tx: &core::Transaction) {}
+	fn on_transaction_received(&self, _tx: &core::Transaction) {}
 
 	/// Triggers when a new block arrives
-	fn on_block_received(&self, block: &core::Block, addr: &PeerAddr) {}
+	fn on_block_received(&self, _block: &core::Block, _addr: &PeerAddr) {}
 
 	/// Triggers when a new block header arrives
-	fn on_header_received(&self, header: &core::BlockHeader, addr: &PeerAddr) {}
+	fn on_header_received(&self, _header: &core::BlockHeader, _addr: &PeerAddr) {}
 }
 
-#[allow(unused_variables)]
 /// Trait to be implemented by Chain Event Hooks
 pub trait ChainEvents {
 	/// Triggers when a new block is accepted by the chain (might be a Reorg or a Fork)
-	fn on_block_accepted(&self, block: &core::Block, status: &BlockStatus) {}
+	fn on_block_accepted(&self, _block: &core::Block, _status: &BlockStatus) {}
 }
 
 /// Basic Logger
@@ -153,7 +153,7 @@ fn parse_url(value: &Option<String>) -> Option<hyper::Uri> {
 				Ok(value) => value,
 				Err(_) => panic!("Invalid url : {}", url),
 			};
-			let scheme = uri.scheme_part().map(|s| s.as_str());
+			let scheme = uri.scheme().map(|s| s.as_str());
 			if (scheme != Some("http")) && (scheme != Some("https")) {
 				panic!(
 					"Invalid url scheme {}, expected one of ['http', https']",
@@ -199,9 +199,29 @@ impl WebHook {
 			nthreads, timeout
 		);
 
-		let https = HttpsConnector::new(nthreads as usize);
+		//nthreads as usize
+		let mut root_store = RootCertStore::empty();
+		root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
+			OwnedTrustAnchor::from_subject_spki_name_constraints(
+				ta.subject,
+				ta.spki,
+				ta.name_constraints,
+			)
+		}));
+
+		let tls = rustls::ClientConfig::builder()
+			.with_safe_defaults()
+			.with_root_certificates(root_store)
+			.with_no_client_auth();
+
+		let https = hyper_rustls::HttpsConnectorBuilder::new()
+			.with_tls_config(tls)
+			.https_or_http()
+			.enable_http1()
+			.build();
+
 		let client = Client::builder()
-			.keep_alive_timeout(keep_alive)
+			.pool_idle_timeout(keep_alive)
 			.build::<_, hyper::Body>(https);
 
 		WebHook {
@@ -210,7 +230,11 @@ impl WebHook {
 			header_received_url,
 			block_accepted_url,
 			client,
-			runtime: Runtime::new().unwrap(),
+			runtime: Builder::new_multi_thread()
+				.worker_threads(nthreads as usize)
+				.enable_all()
+				.build()
+				.unwrap(),
 		}
 	}
 
@@ -235,17 +259,13 @@ impl WebHook {
 			HeaderValue::from_static("application/json"),
 		);
 
-		let future = self
-			.client
-			.request(req)
-			.map(|_res| {})
-			.map_err(move |_res| {
-				warn!("Error sending POST request to {}", url);
-			});
+		let future = self.client.request(req).map_err(move |_res| {
+			warn!("Error sending POST request to {}", url);
+		});
 
-		let handle = self.runtime.executor();
-		handle.spawn(future);
+		self.runtime.spawn(future);
 	}
+
 	fn make_request<T: Serialize>(&self, payload: &T, uri: &Option<hyper::Uri>) -> bool {
 		if let Some(url) = uri {
 			let payload = match to_string(payload) {

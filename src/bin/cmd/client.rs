@@ -18,6 +18,7 @@ use std::net::SocketAddr;
 use clap::ArgMatches;
 
 use crate::api;
+
 use crate::config::GlobalConfig;
 use crate::p2p;
 use crate::servers::ServerConfig;
@@ -132,7 +133,7 @@ pub fn list_connected_peers(config: &ServerConfig, api_secret: Option<String>) {
 
 	let peers_info = api::client::get::<Vec<p2p::types::PeerInfoDisplay>>(url.as_str(), api_secret);
 
-	match peers_info.map_err(|e| Error::API(e)) {
+	match peers_info {
 		Ok(connected_peers) => {
 			let mut index = 0;
 			for connected_peer in connected_peers {
@@ -159,7 +160,10 @@ fn get_status_from_node(
 	api_secret: Option<String>,
 ) -> Result<api::Status, Error> {
 	let url = format!("http://{}/v1/status", config.api_http_addr);
-	api::client::get::<api::Status>(url.as_str(), api_secret).map_err(|e| Error::API(e))
+	match api::client::get::<api::Status>(url.as_str(), api_secret) {
+		Ok(status) => Ok(status),
+		Err(e) => Err(Error::API(e)),
+	}
 }
 
 /// Error type wrapping underlying module errors.

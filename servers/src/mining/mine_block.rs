@@ -15,7 +15,18 @@
 //! Build a block to mine: gathers transactions from the pool, assembles
 //! them into a block and returns it.
 
-use crate::util::RwLock;
+use crate::api;
+use crate::chain;
+use crate::common::types::Error;
+use crate::core::consensus::is_foundation_height;
+use crate::core::core::foundation::load_foundation_output;
+pub use crate::core::core::foundation::CbData;
+use crate::core::global::get_emitted_policy;
+use crate::core::libtx::ProofBuilder;
+use crate::core::pow::randomx::rx_current_seed_height;
+use crate::core::pow::PoWType;
+use crate::core::{consensus, core, global};
+use crate::keychain::{ExtKeychain, Identifier, Keychain};
 use chrono::{NaiveDateTime, TimeZone, Utc};
 use rand::{thread_rng, Rng};
 use serde_json::{json, Value};
@@ -23,42 +34,15 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use crate::api;
-use crate::chain;
-use crate::common::types::Error;
-use crate::core::consensus::is_foundation_height;
-//use crate::core::core::block::feijoada::{next_block_bottles, Deterministic, Feijoada};
-use crate::core::core::foundation::load_foundation_output;
-pub use crate::core::core::foundation::CbData;
-//use crate::core::core::hash::{Hash, Hashed};
-//use crate::core::core::{Output, TxKernel};
-use crate::core::global::get_emitted_policy;
-use crate::core::libtx::ProofBuilder;
-use crate::core::pow::randomx::rx_current_seed_height;
-use crate::core::pow::PoWType;
-use crate::core::{consensus, core, global};
-use crate::keychain::{ExtKeychain, Identifier, Keychain};
-use crate::pool;
-
 use crate::core::core::block_fees::BlockFees;
-
-/// Response to build a coinbase output.
-/*#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct CbData {
-	/// Output
-	pub output: Output,
-	/// Kernel
-	pub kernel: TxKernel,
-	/// Key Id
-	pub key_id: Option<Identifier>,
-}*/
+use crate::ServerTxPool;
 
 // Ensure a block suitable for mining is built and returned
 // If a wallet listener URL is not provided the reward will be "burnt"
 // Warning: This call does not return until/unless a new block can be built
 pub fn get_block(
 	chain: &Arc<chain::Chain>,
-	tx_pool: &Arc<RwLock<pool::TransactionPool>>,
+	tx_pool: &ServerTxPool,
 	key_id: Option<Identifier>,
 	wallet_listener_url: Option<String>,
 ) -> (core::Block, BlockFees, PoWType) {
@@ -107,7 +91,7 @@ pub fn get_block(
 /// transactions from the pool.
 fn build_block(
 	chain: &Arc<chain::Chain>,
-	tx_pool: &Arc<RwLock<pool::TransactionPool>>,
+	tx_pool: &ServerTxPool,
 	key_id: Option<Identifier>,
 	wallet_listener_url: Option<String>,
 ) -> Result<(core::Block, BlockFees, PoWType), Error> {
@@ -272,7 +256,7 @@ fn get_coinbase(
 			let kernel = res.kernel;
 			let key_id = res.key_id;
 			let block_fees = BlockFees {
-				key_id: key_id,
+				key_id,
 				..block_fees
 			};
 
@@ -297,7 +281,8 @@ fn build_coinbase(dest: &str, block_fees: &BlockFees, method: &str) -> Result<Cb
 
 	trace!("Sending build_coinbase request: {}", req_body);
 	let req = api::client::create_post_request(url.as_str(), None, &req_body)?;
-	let res: String = api::client::send_request(req).map_err(|e| {
+	let timeout = api::client::TimeOut::default();
+	let res: String = api::client::send_request(req, timeout).map_err(|e| {
 		let report = format!(
 			"Failed to get coinbase from {}. Is the wallet listening? {}",
 			dest, e

@@ -19,6 +19,7 @@ use crate::rest::*;
 use crate::router::{Handler, ResponseFuture};
 use crate::types::*;
 use crate::web::*;
+
 use hyper::{Body, Request, StatusCode};
 use serde_json::json;
 use std::sync::Weak;
@@ -72,7 +73,7 @@ impl StatusHandler {
 	pub fn get_status(&self) -> Result<Status, Error> {
 		let head = w(&self.chain)?
 			.head()
-			.map_err(|e| ErrorKind::Internal(format!("can't get head: {}", e)))?;
+			.map_err(|e| Error::Internal(format!("can't get head: {}", e)))?;
 		let sync_status = w(&self.sync_state)?.status();
 		let (api_sync_status, api_sync_info) = sync_status_to_api(sync_status);
 		Ok(Status::from_tip_and_peers(
