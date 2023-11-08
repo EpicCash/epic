@@ -645,6 +645,7 @@ where
 		let previous = self.chain().get_previous_header(&b.header);
 		let within_checkpointed_range;
 		let mut disable_checkpoints = false;
+		let mut outside_forced_pow_threshold = false;
 		let mut options = opts;
 
 		let network_height = self.chain().header_head()?.height;
@@ -653,9 +654,10 @@ where
 
 		if self.config.disable_checkpoints.is_some() {
 			if self.config.disable_checkpoints.unwrap() {
-				// don't honor disable_checkpoints once we hit dynamic threshold
+				disable_checkpoints = true;
 				if b.header.height < check_pow_dyn_threshold {
-					disable_checkpoints = true;
+					// don't honor disable_checkpoints once we hit dynamic threshold
+					outside_forced_pow_threshold = true;
 				}
 			}
 		}
@@ -671,10 +673,13 @@ where
 
 		if self.config.skip_pow_validation.is_some() {
 			if self.config.skip_pow_validation.unwrap() {
-				if within_checkpointed_range || disable_checkpoints {
-					// skip pow validation if we are within checkpointed range OR
-					// if we have disable_checkpoints = true AND we are outside of
-					// dynamic chaintip threshold, otherwise fully verify
+				if within_checkpointed_range
+					|| (disable_checkpoints && outside_forced_pow_threshold)
+				{
+					// skip pow validation if skip_pow_validation = true, and 1 of 2 conditions holds:
+					// 1.) we are within checkpointed range
+					// 2.) we have disable_checkpoints = true AND we are more than 1k blocks from chaintip
+					// Fully verify proof-of-work, for all other cases
 					options = chain::Options::SKIP_POW;
 				}
 				//warn!("b.header.height({}), dyn_threshold({}), options({:?})", b.header.height, check_pow_dyn_threshold, options);
