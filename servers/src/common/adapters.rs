@@ -25,9 +25,7 @@ use std::time::Instant;
 
 use crate::chain::{self, BlockStatus, ChainAdapter, Options, SyncState, SyncStatus};
 use crate::common::hooks::{ChainEvents, NetEvents};
-use crate::common::types::{
-	BlockchainCheckpoints, ChainValidationMode, DandelionEpoch, ServerConfig,
-};
+use crate::common::types::{ChainValidationMode, DandelionEpoch, ServerConfig};
 use crate::core::core::hash::{Hash, Hashed};
 use crate::core::core::transaction::Transaction;
 use crate::core::core::{BlockHeader, BlockSums, CompactBlock};
@@ -40,6 +38,13 @@ use crate::util::OneTime;
 use chrono::prelude::*;
 use chrono::Duration;
 use rand::prelude::*;
+
+/// Force full pow verification this many blocks from chaintip
+pub const POW_VERIFICATION_THRESHOLD: u64 = 1000;
+
+/// Ignore block broadcasts from chaintip, until we are less than
+/// this many blocks from chaintip, while syncing
+pub const BLOCK_BROADCAST_IGNORE_THRESHOLD: u64 = 200;
 
 /// Implementation of the NetAdapter for the . Gets notified when new
 /// blocks and transactions are received and forwards to the chain and pool
@@ -132,6 +137,20 @@ where
 		peer_info: &PeerInfo,
 		opts: chain::Options,
 	) -> Result<bool, chain::Error> {
+		// TODO: guard against panic on unwrap, in case someone changes this constant
+		if self.sync_state.is_syncing() {
+			if b.header.height.clone()
+				> (self.chain().head()?.height + BLOCK_BROADCAST_IGNORE_THRESHOLD)
+			{
+				debug!(
+					"Ignoring full block {}, height({}), delivered during sync",
+					b.hash(),
+					b.header.height.clone()
+				);
+				return Ok(true);
+			}
+		}
+
 		if self.chain().block_exists(b.hash())? {
 			return Ok(true);
 		}
@@ -152,6 +171,18 @@ where
 		cb: core::CompactBlock,
 		peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
+		if self.sync_state.is_syncing() {
+			if cb.header.height.clone()
+				> (self.chain().head()?.height + BLOCK_BROADCAST_IGNORE_THRESHOLD)
+			{
+				debug!(
+					"Ignoring compact block {}, height({}), delivered during sync",
+					cb.hash(),
+					cb.header.height.clone()
+				);
+				return Ok(true);
+			}
+		}
 		// No need to process this compact block if we have previously accepted the _full block_.
 		if self.chain().block_exists(cb.hash())? {
 			return Ok(true);
@@ -316,27 +347,17 @@ where
 		);
 
 		let mut ctx_option = Options::SYNC;
-		let mut within_checkpointed_range = true;
+		let mut within_checkpointed_range = false;
 		let mut disable_checkpoints = false;
 
-		let checkpoints = BlockchainCheckpoints::new().checkpoints;
-
 		for header in bhs {
-			for c in &checkpoints {
-				if header.height == c.height {
-					if header.hash() == c.block_hash {
-						info!("Checkpoint successfully passed at height({})! Hashes: header({:?}), checkpoint({:?})",
-                                	        	c.height,
-                                        	 	header.hash(),
-                                        		c.block_hash
-                                		);
-					} else {
-						return Err(chain::ErrorKind::CheckpointFailure.into());
-					}
+			match self.chain().check_header_against_checkpoints(header) {
+				Ok(in_range) => {
+					within_checkpointed_range = in_range;
 				}
-			}
-			if header.height > checkpoints.last().unwrap().height {
-				within_checkpointed_range = false;
+				Err(e) => {
+					return Err(e);
+				}
 			}
 		}
 
@@ -622,8 +643,50 @@ where
 
 		let bhash = b.hash();
 		let previous = self.chain().get_previous_header(&b.header);
+		let within_checkpointed_range;
+		let mut disable_checkpoints = false;
+		let mut outside_forced_pow_threshold = false;
+		let mut options = opts;
 
-		match self.chain().process_block(b, opts) {
+		let network_height = self.chain().header_head()?.height;
+		// ensure we check proof-of-work for last (POW_VERIFICATION_THRESHOLD) blocks from network chaintip
+		let check_pow_dyn_threshold = network_height - POW_VERIFICATION_THRESHOLD;
+
+		if self.config.disable_checkpoints.is_some() {
+			if self.config.disable_checkpoints.unwrap() {
+				disable_checkpoints = true;
+				if b.header.height < check_pow_dyn_threshold {
+					// don't honor disable_checkpoints once we hit dynamic threshold
+					outside_forced_pow_threshold = true;
+				}
+			}
+		}
+
+		match self.chain().check_header_against_checkpoints(&b.header) {
+			Ok(in_range) => {
+				within_checkpointed_range = in_range;
+			}
+			Err(e) => {
+				return Err(e);
+			}
+		}
+
+		if self.config.skip_pow_validation.is_some() {
+			if self.config.skip_pow_validation.unwrap() {
+				if within_checkpointed_range
+					|| (disable_checkpoints && outside_forced_pow_threshold)
+				{
+					// skip pow validation if skip_pow_validation = true, and 1 of 2 conditions holds:
+					// 1.) we are within checkpointed range
+					// 2.) we have disable_checkpoints = true AND we are more than 1k blocks from chaintip
+					// Fully verify proof-of-work, for all other cases
+					options = chain::Options::SKIP_POW;
+				}
+				//warn!("b.header.height({}), dyn_threshold({}), options({:?})", b.header.height, check_pow_dyn_threshold, options);
+			}
+		}
+
+		match self.chain().process_block(b, options) {
 			Ok(_) => {
 				self.validate_chain(bhash);
 				self.check_compact();
@@ -794,7 +857,7 @@ where
 {
 	fn block_accepted(&self, b: &core::Block, status: BlockStatus, opts: Options) {
 		// not broadcasting blocks received through sync
-		if !opts.contains(chain::Options::SYNC) {
+		if !opts.contains(chain::Options::SYNC) && !opts.contains(chain::Options::SKIP_POW) {
 			for hook in &self.hooks {
 				let _ = hook.on_block_accepted(b, &status);
 			}

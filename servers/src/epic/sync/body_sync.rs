@@ -135,7 +135,8 @@ impl BodySync {
 			self.blocks_requested = 0;
 			self.receive_timeout = Utc::now() + Duration::seconds(6);
 
-			let mut peers_iter = peers.iter().cycle();
+			let mut peers_iter = peers.iter();
+			//let mut peers_iter = peers.iter().cycle();
 			for hash in hashes_to_get.clone() {
 				if let Some(peer) = peers_iter.next() {
 					if let Err(e) = peer.send_block_request(*hash, chain::Options::SYNC) {

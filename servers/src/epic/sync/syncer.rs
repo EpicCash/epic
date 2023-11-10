@@ -423,6 +423,35 @@ impl SyncRunner {
 				_ => {
 					// skip body sync if header chain is not synced.
 					if header_head.height < highest_network_height {
+						/*warn!(
+							">>> DEFAULT_CASE portion of sync_state, continue case met. header_height({}), highest_network_height({})",
+							header_head.height,
+							highest_network_height
+						);
+						warn!("<<< sync_state({:?})", self.sync_state.status());*/
+
+						match self.sync_state.status() {
+							SyncStatus::BodySync { .. } => {
+								download_headers = true;
+								match self.chain.reset_sync_head() {
+									Ok(_) => (),
+									Err(e) => {
+										error!(
+											"Unable to reset sync head, error: {:?}",
+											e.to_string()
+										);
+									}
+								}
+								{
+									if !self.chain.clear_orphans() {
+										error!(
+											"Failed to fully clear ophan hashmap, continuing anyway!"
+										);
+									}
+								} // scope for RwLock
+							}
+							_ => {}
+						}
 						continue;
 					}
 
