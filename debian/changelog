@@ -1,3 +1,18 @@
+epic (3.5.0) focal; urgency=high
+
+  [ Epic Team ]
+  * Numerous dependency updates and refactoring
+  * Greatly reduced blockchain sync time
+  * Options to customize how much PoW to verify while syncing
+  * Reduce CPU usage for node server
+  * Fixes compiler warnings
+  * Improved stratum async code
+  * Greatly improved handling of OrphanBlockPool
+  * Addition of blockchain checkpoints for fastsync mode
+  * Tolerate reorgs in HeaderSync, fix endless loop
+
+ -- Epic Team <admin@epic.tech>  Wed, 21 Nov 2023 12:00:00 +0000
+
 epic (3.4.0) focal; urgency=high
 
   [ Epic Team ]
