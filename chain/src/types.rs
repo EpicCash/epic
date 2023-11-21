@@ -505,9 +505,9 @@ impl BlockchainCheckpoints {
 				.unwrap(),
 			},
 			Checkpoint {
-				height: 2050000,
+				height: 2200000,
 				block_hash: Hash::from_hex(
-					"1a51bb18562e120f33783e53a70c449fd14197ac77082dc23d664c7f47a744c9",
+					"1243520890d08026daba8207ed3d67186da64d2b71b5c1e2dd26d34092dee6ba",
 				)
 				.unwrap(),
 			},
