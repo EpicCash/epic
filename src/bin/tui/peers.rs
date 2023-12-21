@@ -23,10 +23,10 @@ use chrono::prelude::*;
 
 use cursive::direction::Orientation;
 use cursive::event::Key;
-use cursive::traits::{Boxable, Identifiable};
-use cursive::view::View;
+use cursive::view::{Nameable, Resizable};
 use cursive::views::{Dialog, LinearLayout, OnEventView, ResizedView, TextView};
 use cursive::Cursive;
+use cursive::View;
 
 use crate::tui::constants::{MAIN_MENU, TABLE_PEER_STATUS, VIEW_PEER_SYNC};
 use crate::tui::types::TUIStatusListener;

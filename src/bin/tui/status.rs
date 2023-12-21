@@ -16,8 +16,7 @@
 
 use chrono::prelude::Utc;
 use cursive::direction::Orientation;
-use cursive::traits::Identifiable;
-use cursive::view::View;
+use cursive::view::{Nameable, View};
 use cursive::views::{LinearLayout, ResizedView, TextView};
 use cursive::Cursive;
 
@@ -253,6 +252,7 @@ impl TUIStatusListener for TUIStatusView {
 		let cuckoo_diff = stats.chain_stats.total_difficulty.to_num(PoWType::Cuckatoo);
 		let progpow_diff = stats.chain_stats.total_difficulty.to_num(PoWType::ProgPow);
 		let randomx_diff = stats.chain_stats.total_difficulty.to_num(PoWType::RandomX);
+
 		let head_total_difficulty = format!(
 			"Cuckatoo: {}, ProgPow: {}, RandomX: {}",
 			cuckoo_diff, progpow_diff, randomx_diff,
@@ -286,6 +286,7 @@ impl TUIStatusListener for TUIStatusView {
 			.to_num(PoWType::Cuckatoo);
 		let progpow_header_diff = stats.header_stats.total_difficulty.to_num(PoWType::ProgPow);
 		let randomx_header_diff = stats.header_stats.total_difficulty.to_num(PoWType::RandomX);
+
 		let header_total_difficulty = format!(
 			"Cuckatoo: {}, ProgPow: {}, RandomX: {}",
 			cuckoo_header_diff, progpow_header_diff, randomx_header_diff,
