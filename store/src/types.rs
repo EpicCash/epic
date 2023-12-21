@@ -16,8 +16,7 @@ use memmap;
 use tempfile::tempfile;
 
 use crate::core::ser::{
-	self, BinWriter, ProtocolVersion, Readable, Reader, StreamingReader, Writeable,
-	Writer,
+	self, BinWriter, ProtocolVersion, Readable, Reader, StreamingReader, Writeable, Writer,
 };
 use std::fmt::Debug;
 use std::fs::{self, File, OpenOptions};

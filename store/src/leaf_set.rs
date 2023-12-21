@@ -17,7 +17,7 @@
 
 use std::path::{Path, PathBuf};
 
-use croaring::Bitmap;
+use croaring::{Bitmap, Portable};
 
 use crate::core::core::hash::Hashed;
 use crate::core::core::pmmr;
@@ -44,14 +44,14 @@ impl LeafSet {
 		let bitmap = if file_path.exists() {
 			read_bitmap(&file_path)?
 		} else {
-			Bitmap::create()
+			Bitmap::new()
 		};
 
 		if !bitmap.is_empty() {
 			debug!(
 				"bitmap {} pos ({} bytes)",
 				bitmap.cardinality(),
-				bitmap.get_serialized_size_in_bytes(),
+				bitmap.get_serialized_size_in_bytes::<Portable>(),
 			);
 		}
 
@@ -115,8 +115,8 @@ impl LeafSet {
 
 		// First remove pos from leaf_set that were
 		// added after the point we are rewinding to.
-		let to_remove = ((cutoff_pos + 1) as u32)..bitmap.maximum();
-		bitmap.remove_range_closed(to_remove);
+		let to_remove = ((cutoff_pos + 1) as u32)..bitmap.maximum().unwrap_or_default();
+		bitmap.remove_range(to_remove);
 
 		// Then add back output pos to the leaf_set
 		// that were removed.
@@ -124,7 +124,7 @@ impl LeafSet {
 
 		// Invert bitmap for the leaf pos and return the resulting bitmap.
 		bitmap
-			.flip(1..(cutoff_pos + 1))
+			.flip(1..(cutoff_pos + 1) as u32)
 			.and(&self.unpruned_pre_cutoff(cutoff_pos, prune_list))
 	}
 
@@ -134,8 +134,8 @@ impl LeafSet {
 	pub fn rewind(&mut self, cutoff_pos: u64, rewind_rm_pos: &Bitmap) {
 		// First remove pos from leaf_set that were
 		// added after the point we are rewinding to.
-		let to_remove = ((cutoff_pos + 1) as u32)..self.bitmap.maximum();
-		self.bitmap.remove_range_closed(to_remove);
+		let to_remove = ((cutoff_pos + 1) as u32)..self.bitmap.maximum().unwrap_or_default();
+		self.bitmap.remove_range(to_remove);
 
 		// Then add back output pos to the leaf_set
 		// that were removed.
@@ -161,7 +161,7 @@ impl LeafSet {
 
 		let cp_path = format!("{}.{}", self.path.to_str().unwrap(), header.hash());
 		let mut file = BufWriter::new(File::create(cp_path)?);
-		file.write_all(&cp_bitmap.serialize())?;
+		file.write_all(&cp_bitmap.serialize::<Portable>())?;
 		file.flush()?;
 		Ok(())
 	}
@@ -174,7 +174,7 @@ impl LeafSet {
 		// Write the updated bitmap file to disk.
 		save_via_temp_file(&self.path, ".tmp", |w| {
 			let mut w = BufWriter::new(w);
-			w.write_all(&self.bitmap.serialize())?;
+			w.write_all(&self.bitmap.serialize::<Portable>())?;
 			w.flush()
 		})?;
 

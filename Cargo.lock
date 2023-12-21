@@ -503,21 +503,21 @@ dependencies = [
 
 [[package]]
 name = "croaring"
-version = "0.3.10"
-source = "git+https://github.com/EricShimizuKarbstein/croaring-rs.git?branch=not-native-march#59e23d8d8b0cef377d6dc506a1b872b09eebba47"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7266f0a7275b00ce4c4f4753e8c31afdefe93828101ece83a06e2ddab1dd1010"
 dependencies = [
+ "byteorder 1.5.0",
  "croaring-sys",
- "libc",
 ]
 
 [[package]]
 name = "croaring-sys"
-version = "0.3.10"
-source = "git+https://github.com/EricShimizuKarbstein/croaring-rs.git?branch=not-native-march#59e23d8d8b0cef377d6dc506a1b872b09eebba47"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e47112498c394a7067949ebc07ef429b7384a413cf0efcf675846a47bcd307fb"
 dependencies = [
- "bindgen",
  "cc",
- "libc",
 ]
 
 [[package]]

@@ -22,7 +22,7 @@ use crate::core::pow::{Difficulty, PoWType};
 use crate::core::ser::ProtocolVersion;
 use crate::types::{CommitPos, Tip};
 use crate::util::secp::pedersen::Commitment;
-use croaring::Bitmap;
+use croaring::{Bitmap, Portable};
 use epic_store as store;
 use epic_store::{option_to_not_found, to_key, Error, SerIterator};
 use std::convert::TryInto;
@@ -402,7 +402,7 @@ impl<'a> Batch<'a> {
 			.db
 			.get(&to_key(BLOCK_INPUT_BITMAP_PREFIX, &mut bh.to_vec()))
 		{
-			Ok(Bitmap::deserialize(&bytes))
+			Ok(Bitmap::deserialize::<Portable>(&bytes))
 		} else {
 			Err(Error::NotFoundErr("legacy block input bitmap".to_string()).into())
 		}
