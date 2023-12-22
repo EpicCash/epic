@@ -15,9 +15,7 @@ bitflags = "1"
 byteorder = "1"
 failure = "0.1"
 failure_derive = "0.1"
-# FIRME: In the long run we should fix the conflicts and use a recent version of croaring
-# croaring = "0.4.5"
-croaring = { git = "https://github.com/EricShimizuKarbstein/croaring-rs.git", branch = "not-native-march", version = "0.3.10" }
+croaring = "1.0.1"
 log = "0.4"
 serde = "1"
 serde_derive = "1"

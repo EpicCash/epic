@@ -24,7 +24,7 @@
 use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
-use croaring::Bitmap;
+use croaring::{Bitmap, Portable};
 
 use crate::core::core::pmmr::{bintree_postorder_height, family, path};
 use crate::{read_bitmap, save_via_temp_file};
@@ -59,7 +59,7 @@ impl PruneList {
 		PruneList {
 			path,
 			bitmap,
-			pruned_cache: Bitmap::create(),
+			pruned_cache: Bitmap::new(),
 			shift_cache: vec![],
 			leaf_shift_cache: vec![],
 		}
@@ -67,7 +67,7 @@ impl PruneList {
 
 	/// Instatiate a new empty prune list.
 	pub fn empty() -> PruneList {
-		PruneList::new(None, Bitmap::create())
+		PruneList::new(None, Bitmap::new())
 	}
 
 	/// Open an existing prune_list or create a new one.
@@ -76,7 +76,7 @@ impl PruneList {
 		let bitmap = if file_path.exists() {
 			read_bitmap(&file_path)?
 		} else {
-			Bitmap::create()
+			Bitmap::new()
 		};
 
 		let mut prune_list = PruneList::new(Some(file_path), bitmap);
@@ -87,9 +87,9 @@ impl PruneList {
 		if !prune_list.bitmap.is_empty() {
 			debug!("bitmap {} pos ({} bytes), pruned_cache {} pos ({} bytes), shift_cache {}, leaf_shift_cache {}",
 				prune_list.bitmap.cardinality(),
-				prune_list.bitmap.get_serialized_size_in_bytes(),
+				prune_list.bitmap.get_serialized_size_in_bytes::<Portable>(),
 				prune_list.pruned_cache.cardinality(),
-				prune_list.pruned_cache.get_serialized_size_in_bytes(),
+				prune_list.pruned_cache.get_serialized_size_in_bytes::<Portable>(),
 				prune_list.shift_cache.len(),
 				prune_list.leaf_shift_cache.len(),
 			);
@@ -116,7 +116,7 @@ impl PruneList {
 		if let Some(ref path) = self.path {
 			save_via_temp_file(path, ".tmp", |w| {
 				let mut w = BufWriter::new(w);
-				w.write_all(&self.bitmap.serialize())?;
+				w.write_all(&self.bitmap.serialize::<Portable>())?;
 				w.flush()
 			})?;
 		}
@@ -131,13 +131,13 @@ impl PruneList {
 	/// Return the total shift from all entries in the prune_list.
 	/// This is the shift we need to account for when adding new entries to our PMMR.
 	pub fn get_total_shift(&self) -> u64 {
-		self.get_shift(self.bitmap.maximum() as u64)
+		self.get_shift(self.bitmap.maximum().unwrap_or_default() as u64)
 	}
 
 	/// Return the total leaf_shift from all entries in the prune_list.
 	/// This is the leaf_shift we need to account for when adding new entries to our PMMR.
 	pub fn get_total_leaf_shift(&self) -> u64 {
-		self.get_leaf_shift(self.bitmap.maximum() as u64)
+		self.get_leaf_shift(self.bitmap.maximum().unwrap_or_default() as u64)
 	}
 
 	/// Computes by how many positions a node at pos should be shifted given the
@@ -276,9 +276,10 @@ impl PruneList {
 		if self.bitmap.is_empty() {
 			return;
 		}
-		self.pruned_cache = Bitmap::create_with_capacity(self.bitmap.maximum());
-		for pos in 1..=self.bitmap.maximum() {
-			let path = path(pos as u64, self.bitmap.maximum() as u64);
+		self.pruned_cache =
+			Bitmap::with_container_capacity(self.bitmap.maximum().unwrap_or_default());
+		for pos in 1..=self.bitmap.maximum().unwrap_or_default() {
+			let path = path(pos as u64, self.bitmap.maximum().unwrap_or_default() as u64);
 			let pruned = path.into_iter().any(|x| self.bitmap.contains(x as u32));
 			if pruned {
 				self.pruned_cache.add(pos as u32)

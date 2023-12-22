@@ -774,7 +774,7 @@ impl<'a> HeaderExtension<'a> {
 
 		let header_pos = pmmr::insertion_to_pmmr_index(header.height + 1);
 		self.pmmr
-			.rewind(header_pos, &Bitmap::create())
+			.rewind(header_pos, &Bitmap::new())
 			.map_err(&ErrorKind::TxHashSetErr)?;
 
 		// Update our head to reflect the header we rewound to.
@@ -1193,7 +1193,7 @@ impl<'a> Extension<'a> {
 			.rewind(output_pos, &bitmap)
 			.map_err(&ErrorKind::TxHashSetErr)?;
 		self.kernel_pmmr
-			.rewind(kernel_pos, &Bitmap::create())
+			.rewind(kernel_pos, &Bitmap::new())
 			.map_err(&ErrorKind::TxHashSetErr)?;
 		Ok(())
 	}
@@ -1627,7 +1627,7 @@ fn input_pos_to_rewind(
 	head_header: &BlockHeader,
 	batch: &Batch<'_>,
 ) -> Result<Bitmap, Error> {
-	let mut bitmap = Bitmap::create();
+	let mut bitmap = Bitmap::new();
 	let mut current = head_header.clone();
 	while current.height > block_header.height {
 		if let Ok(block_bitmap) = batch.get_block_input_bitmap(&current.hash()) {

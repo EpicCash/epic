@@ -11,9 +11,7 @@ edition = "2018"
 
 [dependencies]
 byteorder = "1"
-# FIRME: In the long run we should fix the conflicts and use a recent version of croaring
-# croaring = "0.4.5"
-croaring = { git = "https://github.com/EricShimizuKarbstein/croaring-rs.git", branch = "not-native-march", version = "0.3.10" }
+croaring = "1.0.1"
 env_logger = "0.5"
 libc = "0.2"
 failure = "0.1"
