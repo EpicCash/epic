@@ -19,8 +19,7 @@ use std::cmp::Ordering;
 use crate::tui::chrono::prelude::{NaiveDateTime, TimeZone, Utc};
 use cursive::direction::Orientation;
 use cursive::event::Key;
-use cursive::traits::{Boxable, Identifiable};
-use cursive::view::View;
+use cursive::view::{Nameable, Resizable, View};
 use cursive::views::{
 	Button, Dialog, LinearLayout, OnEventView, Panel, ResizedView, StackView, TextView,
 };
@@ -365,11 +364,11 @@ impl TUIStatusListener for TUIMiningView {
 			} else {
 				"NaN".to_owned()
 			};
+
 		let stratum_network_difficulty = format!(
 			"Current Difficulty:    Cuckatoo: {}, ProgPow: {}, RandomX: {}",
 			cuckoo_diff, progpow_diff, randomx_diff,
 		);
-		// let stratum_edge_bits = format!("Cuckoo Size:           {}", stratum_stats.edge_bits);
 
 		c.call_on_name("stratum_config_status", |t: &mut TextView| {
 			t.set_content(stratum_enabled);

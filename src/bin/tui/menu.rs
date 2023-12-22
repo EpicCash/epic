@@ -17,8 +17,7 @@
 use cursive::align::HAlign;
 use cursive::direction::Orientation;
 use cursive::event::{EventResult, Key};
-use cursive::view::Identifiable;
-use cursive::view::View;
+use cursive::view::{Nameable, View};
 use cursive::views::{
 	LinearLayout, OnEventView, ResizedView, SelectView, StackView, TextView, ViewRef,
 };

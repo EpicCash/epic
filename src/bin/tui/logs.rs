@@ -13,8 +13,7 @@
 // limitations under the License.
 
 use cursive::theme::{BaseColor, Color, ColorStyle};
-use cursive::traits::Identifiable;
-use cursive::view::View;
+use cursive::view::{Nameable, View};
 use cursive::views::ResizedView;
 use cursive::{Cursive, Printer};
 
