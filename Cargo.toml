@@ -72,7 +72,7 @@ name = "cucumber"
 harness = false
 
 [build-dependencies]
-built = "0.3"
+built = { version = "0.7.1", features = ["git2", "cargo-lock"] }
 
 [dev-dependencies]
 epic_store = { path = "./store", version = "3.5.0" }
