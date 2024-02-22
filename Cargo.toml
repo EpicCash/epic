@@ -1,7 +1,7 @@
 [package]
 name = "epic"
 version = "3.5.2"
-authors = ["Epic Foundation <epiccash@brickabode.com>"]
+authors = ["Epic Foundation <info@epiccash.com>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
 repository = "https://github.com/EpicCash/epic"
