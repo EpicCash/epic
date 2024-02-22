@@ -1,13 +1,13 @@
 [package]
 name = "epic_chain"
-version = "3.5.0"
+version = "3.5.2"
 authors = ["Epic Foundation <epiccash@brickabode.com>"]
 description = "Chain implementation for epic, a simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
 repository = "https://github.com/EpicCash/epic"
 keywords = ["crypto", "epic", "mimblewimble"]
 workspace = ".."
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 bit-vec = "0.6"
@@ -25,10 +25,10 @@ lazy_static = "1"
 regex = "1"
 bigint = "4.4.1"
 
-epic_core = { path = "../core", version = "3.5.0" }
-epic_keychain = { path = "../keychain", version = "3.5.0" }
-epic_store = { path = "../store", version = "3.5.0" }
-epic_util = { path = "../util", version = "3.5.0" }
+epic_core = { path = "../core", version = "3.5.2" }
+epic_keychain = { path = "../keychain", version = "3.5.2" }
+epic_store = { path = "../store", version = "3.5.2" }
+epic_util = { path = "../util", version = "3.5.2" }
 
 [dev-dependencies]
 env_logger = "0.5"

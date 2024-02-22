@@ -1,13 +1,13 @@
 [package]
 name = "epic_config"
-version = "3.5.0"
+version = "3.5.2"
 authors = ["Epic Foundation <epiccash@brickabode.com>"]
 description = "Configuration for epic, a simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
 repository = "https://github.com/EpicCash/epic"
 keywords = ["crypto", "epic", "mimblewimble"]
 workspace = ".."
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 rand = "0.6"
@@ -16,10 +16,10 @@ serde_derive = "1"
 toml = "0.4"
 dirs = "1.0.3"
 
-epic_core = { path = "../core", version = "3.5.0" }
-epic_servers = { path = "../servers", version = "3.5.0" }
-epic_p2p = { path = "../p2p", version = "3.5.0" }
-epic_util = { path = "../util", version = "3.5.0" }
+epic_core = { path = "../core", version = "3.5.2" }
+epic_servers = { path = "../servers", version = "3.5.2" }
+epic_p2p = { path = "../p2p", version = "3.5.2" }
+epic_util = { path = "../util", version = "3.5.2" }
 
 [dev-dependencies]
 pretty_assertions = "0.5.1"
