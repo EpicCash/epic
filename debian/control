@@ -1,10 +1,10 @@
 Source: epic
 Section: utils
 Priority: optional
-Maintainer: Epic Team <admin@epic.tech>
+Maintainer: Epic Team <info@epiccash.com>
 Build-Depends: build-essential, debhelper, cmake, libclang-dev, libncurses5-dev, clang, libncursesw5-dev, cargo, rustc
 Standards-Version: 4.0.0
-Homepage: http://brickabode.com/
+Homepage: https://epiccash.com
 
 Package: epic
 Architecture: amd64
