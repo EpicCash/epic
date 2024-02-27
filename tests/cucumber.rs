@@ -715,7 +715,7 @@ mod mine_chain {
 					(FType::ProgPow, 0),
 				]
 				.into_iter()
-				.map(|&x| x)
+				.map(|x| x)
 				.collect();
 
 				let policies2 = [
@@ -725,7 +725,7 @@ mod mine_chain {
 					(FType::ProgPow, 0),
 				]
 				.into_iter()
-				.map(|&x| x)
+				.map(|x| x)
 				.collect();
 
 				let policies3 = [
@@ -735,7 +735,7 @@ mod mine_chain {
 					(FType::ProgPow, 100),
 				]
 				.into_iter()
-				.map(|&x| x)
+				.map(|x| x)
 				.collect();
 
 				set_policy_config(PolicyConfig {
@@ -1867,7 +1867,7 @@ fn setup() {
 		(FType::ProgPow, 0),
 	]
 	.into_iter()
-	.map(|&x| x)
+	.map(|x| x)
 	.collect();
 
 	let policies2 = [
@@ -1877,7 +1877,7 @@ fn setup() {
 		(FType::ProgPow, 0),
 	]
 	.into_iter()
-	.map(|&x| x)
+	.map(|x| x)
 	.collect();
 
 	let policies3 = [
@@ -1887,7 +1887,7 @@ fn setup() {
 		(FType::ProgPow, 100),
 	]
 	.into_iter()
-	.map(|&x| x)
+	.map(|x| x)
 	.collect();
 
 	set_policy_config(PolicyConfig {
@@ -1896,7 +1896,8 @@ fn setup() {
 	});
 	util::init_test_logger();
 }
-/// To run cucumber test: cargo test --package epic --test cucumber
+
+// To run cucumber test: cargo test --package epic --test cucumber
 cucumber! {
 	features: "./features", // Path to our feature files
 	world: crate::EdnaWorld, // The world needs to be the same for steps and the main cucumber call
