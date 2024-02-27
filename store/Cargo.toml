@@ -1,6 +1,6 @@
 [package]
 name = "epic_store"
-version = "3.5.2"
+version = "3.6.0"
 authors = ["Epic Foundation <info@epiccash.com>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
@@ -23,8 +23,8 @@ serde = "1"
 serde_derive = "1"
 log = "0.4"
 
-epic_core = { path = "../core", version = "3.5.2" }
-epic_util = { path = "../util", version = "3.5.2" }
+epic_core = { path = "../core", version = "3.6.0" }
+epic_util = { path = "../util", version = "3.6.0" }
 
 [dev-dependencies]
 chrono = "0.4.31"

@@ -1,6 +1,6 @@
 [package]
 name = "epic_keychain"
-version = "3.5.2"
+version = "3.6.0"
 authors = ["Epic Foundation <info@epiccash.com>"]
 description = "Chain implementation for epic, a simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
@@ -27,4 +27,4 @@ ripemd160 = "0.9"
 sha2 = "0.9"
 pbkdf2 = "0.8"
 
-epic_util = { path = "../util", version = "3.5.2" }
+epic_util = { path = "../util", version = "3.6.0" }
