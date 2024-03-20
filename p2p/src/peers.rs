@@ -72,9 +72,30 @@ impl Peers {
 			last_connected: Utc::now().timestamp(),
 			local_timestamp: Utc::now().timestamp(),
 		};
-		debug!("Saving newly connected peer {}.", peer_data.addr);
-		self.save_peer(&peer_data)?;
-		peers.insert(peer_data.addr, peer.clone());
+
+		let version_agent: String = peer_data.user_agent.chars().skip(8).collect();
+		let version_numbers: Vec<&str> = version_agent.split(".").collect();
+		let agent_major_version: u32 = version_numbers[0].parse().unwrap();
+		let agent_minor_version: u32 = version_numbers[1].parse().unwrap();
+
+		if agent_major_version >= self.config.peer_min_major()
+			&& agent_minor_version >= self.config.peer_min_minor()
+		{
+			debug!(
+				"Saving newly connected peer {} - {}.",
+				peer_data.addr, peer_data.user_agent
+			);
+			self.save_peer(&peer_data)?;
+			peers.insert(peer_data.addr, peer.clone());
+		} else {
+			debug!(
+				"Peer version to old {:?} - {:?}. Require min version {}.{}",
+				peer_data.addr,
+				peer.info.user_agent,
+				self.config.peer_min_major(),
+				self.config.peer_min_minor()
+			);
+		};
 
 		Ok(())
 	}
