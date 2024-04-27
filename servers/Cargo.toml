@@ -12,7 +12,7 @@ edition = "2021"
 [dependencies]
 hyper = { version = "0.14.27", features = ["full"]}
 hyper-rustls = "0.24.1"
-rustls = "0.21.7"
+rustls = "0.21.11"
 rustls-pemfile = "1.0.3"
 webpki-roots = "0.25.1"
 
