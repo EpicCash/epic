@@ -1,35 +1,24 @@
-name: Epic Master Branch
+name: Rust
 
 on:
   push:
-    branches:
-      - master
-
+    branches: [ "master" ]
   pull_request:
-    branches:
-      - master
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Install recommended rust toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: stable
-          override: true
-    - name: build
-      run: cargo test
   build:
+
     runs-on: ubuntu-latest
-    needs: test
+
     steps:
-    - uses: actions/checkout@v3
-    - name: Install recommended rust toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: stable
-          override: true
-    - name: build
-      run: cargo build --release --locked
+    - uses: actions/checkout@v4
+    - name: Cargo
+      run: argo update
+    - name: Build
+      run: cargo build --verbose
+    - name: Run tests
+      run: cargo test --verbose
