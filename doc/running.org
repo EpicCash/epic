@@ -99,7 +99,7 @@ The following steps explain how to install and run the epic server:
       foundation_path = "/home/user/.epic/main/foundation.json"
     #+end_src
 
-    Also edit the same .toml file to change seeding_type to "List" and uncomment/update seeds to ["95.217.197.180:3517"]:    
+    Also edit the same .toml file to change seeding_type to "List" and uncomment/update seeds to ["95.217.197.180:3414"]:    
   
 
 #+CAPTION: Epic Server toml changes
