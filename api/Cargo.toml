@@ -36,7 +36,7 @@ hyper-tls = "0.5"
 hyper-timeout = "0.4"
 rustls-pemfile = "1.0.3"
 
-rustls = "0.21.7"
+rustls = "0.21.11"
 
 bytes = "0.5"
 
