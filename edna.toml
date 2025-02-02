@@ -116,6 +116,9 @@ seeding_type = "DNSSeed"
 # A preferred dandelion_peer, mainly used for testing dandelion
 # dandelion_peer = "10.0.0.1:13144"
 
+peer_min_major = 3
+peer_min_minor = 4
+
 [server.p2p_config.capabilities]
 bits = 31
 
@@ -220,4 +223,3 @@ log_max_size = 16777216
 
 #maximum count of the log files to rotate over
 log_max_files = 32
-
