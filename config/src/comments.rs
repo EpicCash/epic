@@ -269,7 +269,7 @@ fn comments() -> HashMap<String, String> {
 		"[server.p2p_config.capabilities]".to_string(),
 		"#If the seeding type is List, the list of peers to connect to can
 #be specified as follows:
-seeds = [\"95.217.197.180:3517\",\"5.161.127.56:3414\",\"5.75.242.4:3414\",\"5.78.71.29:3414\"]
+seeds = [\"95.217.197.180:3414\",\"5.161.127.56:3414\",\"5.75.242.4:3414\",\"5.78.71.29:3414\"]
 
 #hardcoded peer lists for allow/deny
 #will *only* connect to peers in allow list
