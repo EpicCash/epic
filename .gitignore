@@ -16,3 +16,14 @@ wallet/db
 .idea/
 /build/
 release/
+
+# Standard Rust exclusions
+/target/
+/**/target/
+/Cargo.lock
+**/*.rs.bk
+
+# Standard Visual Studio Code exclusions
+.vscode/
+.vscode/*
+*.code-workspace

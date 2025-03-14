@@ -21,7 +21,8 @@ use self::core::core::{Block, BlockHeader, BlockSums, Committed, KernelFeatures,
 use self::core::libtx;
 use self::keychain::{ExtKeychain, Keychain};
 use self::pool::types::*;
-use self::pool::TransactionPool;
+use self::pool::{BlockChain, TransactionPool};
+
 use self::util::secp::pedersen::Commitment;
 use self::util::RwLock;
 use epic_chain as chain;
@@ -147,7 +148,7 @@ impl BlockChain for ChainAdapter {
 	}
 }
 
-pub fn test_setup(chain: Arc<dyn BlockChain>) -> TransactionPool {
+pub fn test_setup<B: BlockChain>(chain: Arc<B>) -> TransactionPool<B, NoopAdapter> {
 	TransactionPool::new(
 		PoolConfig {
 			accept_fee_base: 0,

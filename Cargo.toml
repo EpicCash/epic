@@ -32,11 +32,12 @@ name = "epic"
 path = "src/bin/epic.rs"
 
 [dependencies]
+time = "0.3.39"
 blake2-rfc = "0.2"
 chrono = "0.4.31"
 clap = { version = "2.31", features = ["yaml"] }
 ctrlc = { version = "3.1", features = ["termination"] }
-cursive_table_view = "0.14.0"
+cursive_table_view = "0.15.0"
 humansize = "1.1.0"
 serde = "1"
 futures = "0.3.28"
@@ -59,7 +60,7 @@ epic_servers = { path = "./servers", version = "3.6.0" }
 epic_util = { path = "./util", version = "3.6.0" }
 epic_chain = { path = "./chain", version = "3.6.0" }
 
-cursive = { version = "0.17", default-features = false, features = [
+cursive = { version = "0.21.1", default-features = false, features = [
     "pancurses-backend",
 ] }
 
@@ -77,3 +78,4 @@ built = { version = "0.7.1", features = ["git2", "cargo-lock"] }
 [dev-dependencies]
 epic_store = { path = "./store", version = "3.6.0" }
 cucumber_rust = { version = "^0.5.1", default-features = false }
+
