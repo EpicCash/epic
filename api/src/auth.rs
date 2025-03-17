@@ -18,7 +18,7 @@ use crate::web::response;
 use futures::future::ok;
 use hyper::header::{HeaderValue, AUTHORIZATION, WWW_AUTHENTICATE};
 use hyper::{Body, Request, Response, StatusCode};
-use ring::constant_time::verify_slices_are_equal;
+use subtle::ConstantTimeEq;
 
 lazy_static! {
 	pub static ref EPIC_BASIC_REALM: HeaderValue =
@@ -67,11 +67,10 @@ impl Handler for BasicAuthMiddleware {
 			}
 		}
 		if req.headers().contains_key(AUTHORIZATION)
-			&& verify_slices_are_equal(
-				req.headers()[AUTHORIZATION].as_bytes(),
-				&self.api_basic_auth.as_bytes(),
-			)
-			.is_ok()
+			&& req.headers()[AUTHORIZATION]
+				.as_bytes()
+				.ct_eq(&self.api_basic_auth.as_bytes())
+				.unwrap_u8() == 1
 		{
 			next_handler.call(req, handlers)
 		} else {
@@ -117,11 +116,10 @@ impl Handler for BasicAuthURIMiddleware {
 		}
 		if req.uri().path() == self.target_uri {
 			if req.headers().contains_key(AUTHORIZATION)
-				&& verify_slices_are_equal(
-					req.headers()[AUTHORIZATION].as_bytes(),
-					&self.api_basic_auth.as_bytes(),
-				)
-				.is_ok()
+				&& req.headers()[AUTHORIZATION]
+					.as_bytes()
+					.ct_eq(&self.api_basic_auth.as_bytes())
+					.unwrap_u8() == 1
 			{
 				next_handler.call(req, handlers)
 			} else {

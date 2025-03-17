@@ -2,7 +2,6 @@ use epic_api as api;
 use epic_util as util;
 
 use crate::api::*;
-use futures::channel::oneshot;
 use hyper::{Body, Request, StatusCode};
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
