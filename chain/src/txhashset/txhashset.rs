@@ -1425,8 +1425,8 @@ impl<'a> Extension<'a> {
 						proof, pos
 					);
 				}
-				(None, proof) => return Err(ErrorKind::OutputNotFound.into()),
-				(_, None) => return Err(ErrorKind::RangeproofNotFound.into()),
+				(None, _proof) => return Err(ErrorKind::OutputNotFound.into()),
+				(_output, None) => return Err(ErrorKind::RangeproofNotFound.into()),
 				(Some(output), Some(proof)) => {
 					commits.push(output.commit);
 					proofs.push(proof);
