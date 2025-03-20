@@ -1419,7 +1419,13 @@ impl<'a> Extension<'a> {
 			// Output and corresponding rangeproof *must* exist.
 			// It is invalid for either to be missing and we fail immediately in this case.
 			match (output, proof) {
-				(None, _) => return Err(ErrorKind::OutputNotFound.into()),
+				(None, None) => {
+					warn!(
+						"output not found proof not found: {:?}, pos: {:?}",
+						proof, pos
+					);
+				}
+				(None, proof) => return Err(ErrorKind::OutputNotFound.into()),
 				(_, None) => return Err(ErrorKind::RangeproofNotFound.into()),
 				(Some(output), Some(proof)) => {
 					commits.push(output.commit);
