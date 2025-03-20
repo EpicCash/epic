@@ -141,7 +141,6 @@ pub struct CuckooParams<T>
 where
 	T: EdgeType,
 {
-	pub edge_bits: u8,
 	pub proof_size: usize,
 	pub num_edges: u64,
 	pub siphash_keys: [u64; 4],
@@ -157,7 +156,6 @@ where
 		let num_edges = (1 as u64) << edge_bits;
 		let edge_mask = to_edge!(num_edges - 1);
 		Ok(CuckooParams {
-			edge_bits,
 			proof_size,
 			num_edges,
 			siphash_keys: [0; 4],

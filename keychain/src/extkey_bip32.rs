@@ -30,8 +30,6 @@
 //! Modified from above to integrate into epic and allow for different
 //! hashing algorithms if desired
 
-#[cfg(feature = "serde")]
-use serde;
 use std::default::Default;
 use std::io::Cursor;
 use std::str::FromStr;
@@ -271,26 +269,6 @@ impl fmt::Display for ChildNumber {
 			ChildNumber::Hardened { index } => write!(f, "{}'", index),
 			ChildNumber::Normal { index } => write!(f, "{}", index),
 		}
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for ChildNumber {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: serde::Deserializer<'de>,
-	{
-		u32::deserialize(deserializer).map(ChildNumber::from)
-	}
-}
-
-#[cfg(feature = "serde")]
-impl serde::Serialize for ChildNumber {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: serde::Serializer,
-	{
-		u32::from(*self).serialize(serializer)
 	}
 }
 

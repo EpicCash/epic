@@ -246,8 +246,6 @@ where
 // Just a simple test, most exhaustive tests in the core.
 #[cfg(test)]
 mod test {
-	use std::sync::Arc;
-	use util::RwLock;
 
 	use super::*;
 	use crate::core::transaction::Weighting;

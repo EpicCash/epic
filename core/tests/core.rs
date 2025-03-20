@@ -28,9 +28,7 @@ use self::core::ser;
 use crate::common::{new_block, tx1i1o, tx1i2o, tx2i1o};
 use epic_core as core;
 use keychain::{BlindingFactor, ExtKeychain, Keychain};
-use std::sync::Arc;
 use util::static_secp_instance;
-use util::RwLock;
 
 #[test]
 fn simple_tx_ser() {

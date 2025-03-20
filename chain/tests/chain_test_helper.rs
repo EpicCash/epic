@@ -22,13 +22,13 @@ use self::core::global::ChainTypes;
 use self::core::libtx::{self, reward};
 use self::core::pow::PoWType;
 use self::core::{consensus, global, pow};
-use self::keychain::{ExtKeychainPath, Keychain};
-use self::util::RwLock;
+
+use self::keychain::{ExtKeychain, ExtKeychainPath, Keychain};
 use chrono::Duration;
 use epic_chain as chain;
 use epic_core as core;
 use epic_keychain as keychain;
-use epic_util as util;
+
 use std::fs;
 use std::sync::Arc;
 
@@ -37,7 +37,6 @@ pub fn clean_output_dir(dir_name: &str) {
 }
 
 pub fn init_chain(dir_name: &str, genesis: Block) -> Chain {
-
 	Chain::init(
 		dir_name.to_string(),
 		Arc::new(NoopAdapter {}),
@@ -53,7 +52,7 @@ fn genesis_block<K>(keychain: &K) -> Block
 where
 	K: Keychain,
 {
-	let key_id = keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
+	let key_id = ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
 	let reward = reward::output(
 		keychain,
 		&libtx::ProofBuilder::new(keychain),
@@ -71,7 +70,7 @@ where
 /// Probably a good idea to call clean_output_dir at the beginning and end of each test.
 pub fn mine_chain(dir_name: &str, chain_length: u64) -> Chain {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	let keychain = keychain::ExtKeychain::from_random_seed(false).unwrap();
+	let keychain = ExtKeychain::from_random_seed(false).unwrap();
 	let genesis = genesis_block(&keychain);
 	let mut chain = init_chain(dir_name, genesis.clone());
 	mine_some_on_top(&mut chain, chain_length, &keychain);

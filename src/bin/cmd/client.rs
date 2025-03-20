@@ -18,7 +18,6 @@ use std::net::SocketAddr;
 use clap::ArgMatches;
 
 use crate::api;
-
 use crate::config::GlobalConfig;
 use crate::p2p;
 use crate::servers::ServerConfig;
@@ -101,7 +100,7 @@ pub fn ban_peer(config: &ServerConfig, peer_addr: &SocketAddr, api_secret: Optio
 		config.api_http_addr,
 		peer_addr.to_string()
 	);
-	match api::client::post_no_ret(url.as_str(), api_secret, &params).map_err(|e| Error::API(e)) {
+	match api::client::post_no_ret(url.as_str(), api_secret, &params) {
 		Ok(_) => writeln!(e, "Successfully banned peer {}", peer_addr.to_string()).unwrap(),
 		Err(_) => writeln!(e, "Failed to ban peer {}", peer_addr).unwrap(),
 	};
@@ -116,10 +115,7 @@ pub fn unban_peer(config: &ServerConfig, peer_addr: &SocketAddr, api_secret: Opt
 		config.api_http_addr,
 		peer_addr.to_string()
 	);
-	let res: Result<(), api::Error>;
-	res = api::client::post_no_ret(url.as_str(), api_secret, &params);
-
-	match res.map_err(|e| Error::API(e)) {
+	match api::client::post_no_ret(url.as_str(), api_secret, &params) {
 		Ok(_) => writeln!(e, "Successfully unbanned peer {}", peer_addr).unwrap(),
 		Err(_) => writeln!(e, "Failed to unban peer {}", peer_addr).unwrap(),
 	};
@@ -129,8 +125,6 @@ pub fn unban_peer(config: &ServerConfig, peer_addr: &SocketAddr, api_secret: Opt
 pub fn list_connected_peers(config: &ServerConfig, api_secret: Option<String>) {
 	let mut e = term::stdout().unwrap();
 	let url = format!("http://{}/v1/peers/connected", config.api_http_addr);
-	// let peers_info: Result<Vec<p2p::PeerInfoDisplay>, api::Error>;
-
 	let peers_info = api::client::get::<Vec<p2p::types::PeerInfoDisplay>>(url.as_str(), api_secret);
 
 	match peers_info {
@@ -146,7 +140,7 @@ pub fn list_connected_peers(config: &ServerConfig, api_secret: Option<String>) {
 				writeln!(e, "Total difficulty: {}", connected_peer.total_difficulty).unwrap();
 				writeln!(e, "Direction: {:?}", connected_peer.direction).unwrap();
 				println!();
-				index = index + 1;
+				index += 1;
 			}
 		}
 		Err(_) => writeln!(e, "Failed to get connected peers").unwrap(),
@@ -158,17 +152,7 @@ pub fn list_connected_peers(config: &ServerConfig, api_secret: Option<String>) {
 fn get_status_from_node(
 	config: &ServerConfig,
 	api_secret: Option<String>,
-) -> Result<api::Status, Error> {
+) -> Result<api::Status, api::Error> {
 	let url = format!("http://{}/v1/status", config.api_http_addr);
-	match api::client::get::<api::Status>(url.as_str(), api_secret) {
-		Ok(status) => Ok(status),
-		Err(e) => Err(Error::API(e)),
-	}
-}
-
-/// Error type wrapping underlying module errors.
-#[derive(Debug)]
-enum Error {
-	/// Error originating from HTTP API calls.
-	API(api::Error),
+	api::client::get::<api::Status>(url.as_str(), api_secret)
 }

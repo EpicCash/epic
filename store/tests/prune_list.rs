@@ -22,7 +22,7 @@ use croaring::Bitmap;
 #[test]
 fn test_zero_value() {
 	// Create a bitmap with a 0 value in it.
-	let mut bitmap = Bitmap::create();
+	let mut bitmap = Bitmap::new();
 	bitmap.add(0);
 
 	// Instantiate a prune list from our existing bitmap.

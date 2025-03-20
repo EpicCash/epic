@@ -26,7 +26,8 @@ use crate::error::{Error, ErrorKind};
 use crate::util::RwLock;
 
 bitflags! {
-/// Options for block validation
+	#[derive(Debug, Clone, Copy)]
+	/// Options for block validation
 	pub struct Options: u32 {
 		/// No flags
 		const NONE = 0b0000_0000;

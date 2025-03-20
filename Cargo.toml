@@ -23,7 +23,7 @@ members = [
     "store",
     "util",
     "pool",
-    "bugreport",
+   
 ]
 exclude = ["etc/gen_gen"]
 

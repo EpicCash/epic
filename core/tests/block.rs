@@ -31,10 +31,7 @@ use chrono::Duration;
 use epic_core as core;
 use epic_core::global::ChainTypes;
 use keychain::{BlindingFactor, ExtKeychain, Keychain};
-use std::sync::Arc;
 use util::secp;
-use util::RwLock;
-
 
 #[test]
 fn too_large_block() {
@@ -60,9 +57,7 @@ fn too_large_block() {
 	let prev = BlockHeader::default();
 	let key_id = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 	let b = new_block(vec![&tx], &keychain, &builder, &prev, &key_id, 1);
-	assert!(b
-		.validate(&BlindingFactor::zero())
-		.is_err());
+	assert!(b.validate(&BlindingFactor::zero()).is_err());
 }
 
 #[test]
@@ -111,8 +106,7 @@ fn block_with_cut_through() {
 
 	// block should have been automatically compacted (including reward
 	// output) and should still be valid
-	b.validate(&BlindingFactor::zero())
-		.unwrap();
+	b.validate(&BlindingFactor::zero()).unwrap();
 	assert_eq!(b.inputs().len(), 3);
 	assert_eq!(b.outputs().len(), 3);
 }
@@ -147,9 +141,7 @@ fn empty_block_with_coinbase_is_valid() {
 
 	// the block should be valid here (single coinbase output with corresponding
 	// txn kernel)
-	assert!(b
-		.validate(&BlindingFactor::zero())
-		.is_ok());
+	assert!(b.validate(&BlindingFactor::zero()).is_ok());
 }
 
 #[test]

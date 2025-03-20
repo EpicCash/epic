@@ -20,13 +20,13 @@ use self::core::libtx::{self, build, ProofBuilder};
 use self::core::pow::{Difficulty, PoWType};
 use self::core::{consensus, pow};
 use self::keychain::{ExtKeychain, ExtKeychainPath, Keychain};
-use self::util::RwLock;
+
 use chrono::Duration;
 use env_logger;
 use epic_chain as chain;
 use epic_core as core;
 use epic_keychain as keychain;
-use epic_util as util;
+
 use std::fs;
 use std::sync::Arc;
 
@@ -42,8 +42,6 @@ fn test_coinbase_maturity() {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
 
 	let genesis_block = pow::mine_genesis_block().unwrap();
-
-
 
 	{
 		let chain = chain::Chain::init(
