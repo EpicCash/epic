@@ -1420,10 +1420,7 @@ impl<'a> Extension<'a> {
 			// It is invalid for either to be missing and we fail immediately in this case.
 			match (output, proof) {
 				(None, None) => {
-					warn!(
-						"output not found proof not found: {:?}, pos: {:?}",
-						proof, pos
-					);
+					warn!("output and proof not found: {:?}, pos: {:?}", proof, pos);
 				}
 				(None, _proof) => return Err(ErrorKind::OutputNotFound.into()),
 				(_output, None) => return Err(ErrorKind::RangeproofNotFound.into()),

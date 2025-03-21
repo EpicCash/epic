@@ -67,14 +67,14 @@ pub fn create_secnonce(secp: &Secp256k1) -> Result<SecretKey, Error> {
 /// ```
 /// # extern crate epic_core as core;
 /// # extern crate rand;
-/// use rand::thread_rng;
+/// use rand::rng;
 /// use core::libtx::aggsig;
 /// use util::secp::key::{PublicKey, SecretKey};
 /// use util::secp::{ContextFlag, Secp256k1, Message};
 ///
 /// let secp = Secp256k1::with_caps(ContextFlag::SignOnly);
 /// let secret_nonce = aggsig::create_secnonce(&secp).unwrap();
-/// let secret_key = SecretKey::new(&secp, &mut thread_rng());
+/// let secret_key = SecretKey::new(&secp, &mut rng());
 /// let pub_nonce_sum = PublicKey::from_secret_key(&secp, &secret_nonce).unwrap();
 /// // ... Add all other participating nonces
 /// let pub_key_sum = PublicKey::from_secret_key(&secp, &secret_key).unwrap();
@@ -137,14 +137,14 @@ pub fn calculate_partial_sig(
 /// ```
 /// # extern crate epic_core as core;
 /// # extern crate rand;
-/// use rand::thread_rng;
+/// use rand::rng;
 /// use core::libtx::aggsig;
 /// use util::secp::key::{PublicKey, SecretKey};
 /// use util::secp::{ContextFlag, Secp256k1, Message};
 ///
 /// let secp = Secp256k1::with_caps(ContextFlag::Full);
 /// let secret_nonce = aggsig::create_secnonce(&secp).unwrap();
-/// let secret_key = SecretKey::new(&secp, &mut thread_rng());
+/// let secret_key = SecretKey::new(&secp, &mut rng());
 /// let pub_nonce_sum = PublicKey::from_secret_key(&secp, &secret_nonce).unwrap();
 /// // ... Add all other participating nonces
 /// let pub_key_sum = PublicKey::from_secret_key(&secp, &secret_key).unwrap();
@@ -231,7 +231,7 @@ pub fn verify_partial_sig(
 /// let secp = Secp256k1::with_caps(ContextFlag::Commit);
 /// let keychain = ExtKeychain::from_random_seed(false).unwrap();
 /// let fees = 10_000;
-/// let value = reward(fees);
+/// let value = reward(fees, 0);
 /// let key_id = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 /// let switch = &SwitchCommitmentType::Regular;
 /// let commit = keychain.commit(value, &key_id, switch).unwrap();
@@ -243,7 +243,7 @@ pub fn verify_partial_sig(
 ///		proof: rproof,
 /// };
 /// let height = 20;
-/// let over_commit = secp.commit_value(reward(fees)).unwrap();
+/// let over_commit = secp.commit_value(reward(fees, height)).unwrap();
 /// let out_commit = output.commitment();
 /// let features = KernelFeatures::HeightLocked{fee: 0, lock_height: height};
 /// let msg = features.kernel_sig_msg().unwrap();
@@ -298,7 +298,7 @@ where
 /// let secp = Secp256k1::with_caps(ContextFlag::Commit);
 /// let keychain = ExtKeychain::from_random_seed(false).unwrap();
 /// let fees = 10_000;
-/// let value = reward(fees);
+/// let value = 0;
 /// let key_id = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 /// let switch = &SwitchCommitmentType::Regular;
 /// let commit = keychain.commit(value, &key_id, switch).unwrap();
@@ -310,7 +310,7 @@ where
 ///		proof: rproof,
 /// };
 /// let height = 20;
-/// let over_commit = secp.commit_value(reward(fees)).unwrap();
+/// let over_commit = secp.commit_value(0cd ..).unwrap();
 /// let out_commit = output.commitment();
 /// let features = KernelFeatures::HeightLocked{fee: 0, lock_height: height};
 /// let msg = features.kernel_sig_msg().unwrap();
@@ -360,14 +360,14 @@ pub fn verify_single_from_commit(
 /// ```
 /// # extern crate epic_core as core;
 /// # extern crate rand;
-/// use rand::thread_rng;
+/// use rand::rng;
 /// use core::libtx::aggsig;
 /// use util::secp::key::{PublicKey, SecretKey};
 /// use util::secp::{ContextFlag, Secp256k1, Message};
 ///
 /// let secp = Secp256k1::with_caps(ContextFlag::Full);
 /// let secret_nonce = aggsig::create_secnonce(&secp).unwrap();
-/// let secret_key = SecretKey::new(&secp, &mut thread_rng());
+/// let secret_key = SecretKey::new(&secp, &mut rng());
 /// let pub_nonce_sum = PublicKey::from_secret_key(&secp, &secret_nonce).unwrap();
 /// // ... Add all other participating nonces
 /// let pub_key_sum = PublicKey::from_secret_key(&secp, &secret_key).unwrap();

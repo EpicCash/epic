@@ -132,16 +132,6 @@ checksum = "6b4930d2cb77ce62f89ee5d5289b4ac049559b1c45539271f5ed4fdc7db34545"
 
 [[package]]
 name = "arrayvec"
-version = "0.3.25"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06f59fe10306bb78facd90d28c2038ad23ffaaefa85bac43c8a434cde383334f"
-dependencies = [
- "nodrop",
- "odds",
-]
-
-[[package]]
-name = "arrayvec"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd9fd44efafa8690358b7408d253adf110036b88f55672a933f01d616ad9b1b9"
@@ -154,6 +144,12 @@ name = "arrayvec"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
+
+[[package]]
+name = "arrayvec"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 
 [[package]]
 name = "atty"
@@ -1169,7 +1165,7 @@ dependencies = [
  "num 0.2.1",
  "num-bigint 0.2.6",
  "progpow",
- "rand 0.6.5",
+ "rand 0.9.0",
  "randomx",
  "serde",
  "serde_derive",
@@ -1192,7 +1188,7 @@ dependencies = [
  "lazy_static",
  "log",
  "pbkdf2",
- "rand 0.6.5",
+ "rand 0.9.0",
  "ripemd160",
  "serde",
  "serde_derive",
@@ -1219,7 +1215,7 @@ dependencies = [
  "lru-cache",
  "net2",
  "num 0.1.42",
- "rand 0.6.5",
+ "rand 0.9.0",
  "serde",
  "serde_derive",
  "tempfile",
@@ -1239,7 +1235,7 @@ dependencies = [
  "failure",
  "failure_derive",
  "log",
- "rand 0.6.5",
+ "rand 0.9.0",
  "serde",
  "serde_derive",
 ]
@@ -1267,7 +1263,7 @@ dependencies = [
  "itertools",
  "lmdb-zero",
  "log",
- "rand 0.6.5",
+ "rand 0.9.0",
  "rustls",
  "rustls-pemfile",
  "serde",
@@ -1298,7 +1294,7 @@ dependencies = [
  "lmdb-zero",
  "log",
  "memmap",
- "rand 0.6.5",
+ "rand 0.9.0",
  "serde",
  "serde_derive",
  "tempfile",
@@ -1316,7 +1312,7 @@ dependencies = [
  "log",
  "log4rs",
  "parking_lot 0.6.4",
- "rand 0.6.5",
+ "rand 0.9.0",
  "serde",
  "serde_derive",
  "serde_test",
@@ -1686,15 +1682,12 @@ dependencies = [
 
 [[package]]
 name = "grin_secp256k1zkp"
-version = "0.7.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b04798e32404c0af082b6a209ad4df1ab1d9ec3a5a5056f284cfa32f74e59ce6"
+version = "0.7.14"
 dependencies = [
- "arrayvec 0.3.25",
+ "arrayvec 0.7.6",
  "cc",
  "libc",
- "rand 0.5.6",
- "rustc-serialize",
+ "rand 0.9.0",
  "serde",
  "serde_json",
  "zeroize",
@@ -2688,12 +2681,6 @@ checksum = "a6a622008b6e321afc04970976f62ee297fdbaa6f95318ca343e3eebb9648441"
 dependencies = [
  "memchr 2.7.1",
 ]
-
-[[package]]
-name = "odds"
-version = "0.2.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4eae0151b9dacf24fcc170d9995e511669a082856a91f958a2fe380bfab3fb22"
 
 [[package]]
 name = "once_cell"

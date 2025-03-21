@@ -759,8 +759,8 @@ where
 
 		// Roll the dice to trigger compaction at 1/COMPACTION_CHECK chance per block,
 		// uses a different thread to avoid blocking the caller thread (likely a peer)
-		let mut rng = thread_rng();
-		if 0 == rng.gen_range(0, global::COMPACTION_CHECK) {
+		let mut rng = rand::rng();
+		if 0 == rng.random_range(0..global::COMPACTION_CHECK) {
 			let chain = self.chain().clone();
 			let _ = thread::Builder::new()
 				.name("compactor".to_string())

@@ -16,8 +16,8 @@
 
 use chrono::Utc;
 use num::FromPrimitive;
+use rand::rng;
 use rand::seq::SliceRandom;
-use rand::thread_rng;
 
 use crate::core::ser::{self, Readable, Reader, Writeable, Writer};
 use crate::types::{Capabilities, PeerAddr, ReasonForBan};
@@ -168,7 +168,7 @@ impl PeerStore {
 			.map(|(_, v)| v)
 			.filter(|p| p.flags == state && p.capabilities.contains(cap))
 			.collect::<Vec<_>>();
-		peers[..].shuffle(&mut thread_rng());
+		peers[..].shuffle(&mut rng());
 		Ok(peers.iter().take(count).cloned().collect())
 	}
 

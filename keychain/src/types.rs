@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rand::thread_rng;
+use rand::rng;
 use std::cmp::min;
 use std::convert::TryFrom;
 use std::io::Cursor;
@@ -315,7 +315,7 @@ impl BlindingFactor {
 	/// and kernels from a block to identify and reconstruct a particular tx
 	/// from a block. You would need both k1, k2 to do this.
 	pub fn split(&self, secp: &Secp256k1) -> Result<SplitBlindingFactor, Error> {
-		let skey_1 = secp::key::SecretKey::new(secp, &mut thread_rng());
+		let skey_1 = secp::key::SecretKey::new(secp, &mut rng());
 
 		// use blind_sum to subtract skey_1 from our key (to give k = k1 + k2)
 		let skey = self.secret_key(secp)?;
@@ -529,7 +529,7 @@ impl From<&SwitchCommitmentType> for u8 {
 
 #[cfg(test)]
 mod test {
-	use rand::thread_rng;
+	use rand::rng;
 
 	use crate::types::{BlindingFactor, ExtKeychainPath, Identifier};
 	use crate::util::secp::constants::SECRET_KEY_SIZE;
@@ -568,7 +568,7 @@ mod test {
 	#[test]
 	fn split_blinding_factor() {
 		let secp = Secp256k1::new();
-		let skey_in = SecretKey::new(&secp, &mut thread_rng());
+		let skey_in = SecretKey::new(&secp, &mut rng());
 		let blind = BlindingFactor::from_secret_key(skey_in.clone());
 		let split = blind.split(&secp).unwrap();
 
@@ -584,7 +584,7 @@ mod test {
 	#[test]
 	fn zero_key_addition() {
 		let secp = Secp256k1::new();
-		let skey_in = SecretKey::new(&secp, &mut thread_rng());
+		let skey_in = SecretKey::new(&secp, &mut rng());
 		let skey_zero = ZERO_KEY;
 
 		let mut skey_out = skey_in.clone();

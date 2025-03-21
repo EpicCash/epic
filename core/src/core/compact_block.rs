@@ -19,7 +19,7 @@ use crate::core::hash::{DefaultHashable, Hashed};
 use crate::core::id::ShortIdentifiable;
 use crate::core::{Output, ShortId, TxKernel};
 use crate::ser::{self, read_multi, Readable, Reader, VerifySortedAndUnique, Writeable, Writer};
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 
 /// Container for full (full) outputs and kernels and kern_ids for a compact block.
 #[derive(Debug, Clone)]
@@ -164,7 +164,7 @@ impl CompactBlock {
 impl From<Block> for CompactBlock {
 	fn from(block: Block) -> Self {
 		let header = block.header.clone();
-		let nonce = thread_rng().gen();
+		let nonce = rng().random();
 
 		let out_full = block
 			.outputs()

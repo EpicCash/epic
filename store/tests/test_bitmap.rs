@@ -65,7 +65,7 @@ fn test_a_small_bitmap() {
 
 #[test]
 fn test_1000_inputs() {
-	let mut rng = rand::thread_rng();
+	let mut rng = rand::rng();
 	let mut bitmap = Bitmap::new();
 	for _ in 1..1_000 {
 		let n = rng.gen_range(0, 1_000_000);
@@ -108,7 +108,7 @@ fn bench_fast_or() {
 	let size_of_each_bitmap = 1_000;
 
 	let init_bitmaps = || -> Vec<Bitmap> {
-		let mut rng = rand::thread_rng();
+		let mut rng = rand::rng();
 		let mut bitmaps = vec![];
 		for _ in 0..bitmaps_number {
 			let mut bitmap = Bitmap::new();

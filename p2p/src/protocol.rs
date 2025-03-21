@@ -22,7 +22,7 @@ use crate::msg::{
 };
 use crate::types::{Error, NetAdapter, PeerInfo};
 use chrono::prelude::Utc;
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use std::cmp;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufWriter, Seek, SeekFrom};
@@ -410,7 +410,7 @@ impl MessageHandler for Protocol {
 				self.adapter
 					.txhashset_download_update(download_start_time, 0, sm_arch.bytes);
 
-				let nonce: u32 = thread_rng().gen_range(0, 1_000_000);
+				let nonce: u32 = rng().random_range(1..1_000_000);
 				let tmp = self.adapter.get_tmpfile_pathname(format!(
 					"txhashset-{}-{}.zip",
 					download_start_time.timestamp(),

@@ -404,9 +404,9 @@ impl DandelionEpoch {
 		self.relay_peer = peers.outgoing_connected_peers().first().cloned();
 
 		// If stem_probability == 90 then we stem 90% of the time.
-		let mut rng = rand::thread_rng();
+		let mut rng = rand::rng();
 		let stem_probability = self.config.stem_probability;
-		self.is_stem = rng.gen_range(0, 100) < stem_probability;
+		self.is_stem = rng.random_range(0..100) < stem_probability;
 
 		let addr = self.relay_peer.clone().map(|p| p.info.addr);
 		info!(

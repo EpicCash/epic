@@ -20,7 +20,7 @@ use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Sub};
 use std::{fmt, iter};
 
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use serde::ser::SerializeMap;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -616,10 +616,10 @@ impl Proof {
 	pub fn random(proof_size: usize) -> Proof {
 		let edge_bits = global::min_edge_bits();
 		let nonce_mask = (1 << edge_bits) - 1;
-		let mut rng = thread_rng();
+		let mut rng = rng();
 		// force the random num to be within edge_bits bits
 		let mut v: Vec<u64> = iter::repeat(())
-			.map(|()| (rng.gen::<u32>() & nonce_mask) as u64)
+			.map(|()| (rng.random::<u32>() & nonce_mask) as u64)
 			.take(proof_size)
 			.collect();
 		v.sort_unstable();

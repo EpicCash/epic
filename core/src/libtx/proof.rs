@@ -442,15 +442,15 @@ mod tests {
 	use super::*;
 	use keychain::ChildNumber;
 	use keychain::ExtKeychain;
-	use rand::{thread_rng, Rng};
+	use rand::{rng, Rng};
 
 	#[test]
 	fn legacy_builder() {
-		let rng = &mut thread_rng();
+		let rng = &mut rng();
 		let keychain = ExtKeychain::from_random_seed(false).unwrap();
 		let builder = LegacyProofBuilder::new(&keychain);
-		let amount = rng.gen();
-		let id = ExtKeychain::derive_key_id(3, rng.gen(), rng.gen(), rng.gen(), 0);
+		let amount = rng.random();
+		let id = ExtKeychain::derive_key_id(3, rng.random(), rng.random(), rng.random(), 0);
 		let switch = SwitchCommitmentType::Regular;
 		let commit = keychain.commit(amount, &id, &switch).unwrap();
 		let proof = create(
@@ -474,11 +474,11 @@ mod tests {
 
 	#[test]
 	fn builder() {
-		let rng = &mut thread_rng();
+		let rng = &mut rng();
 		let keychain = ExtKeychain::from_random_seed(false).unwrap();
 		let builder = ProofBuilder::new(&keychain);
-		let amount = rng.gen();
-		let id = ExtKeychain::derive_key_id(3, rng.gen(), rng.gen(), rng.gen(), 0);
+		let amount = rng.random();
+		let id = ExtKeychain::derive_key_id(3, rng.random(), rng.random(), rng.random(), 0);
 		// With switch commitment
 		let commit_a = {
 			let switch = SwitchCommitmentType::Regular;
@@ -532,7 +532,7 @@ mod tests {
 	#[test]
 	fn view_key() {
 		// TODO
-		/*let rng = &mut thread_rng();
+		/*let rng = &mut rng();
 		let keychain = ExtKeychain::from_random_seed(false).unwrap();
 
 		let builder = ProofBuilder::new(&keychain);
@@ -540,8 +540,8 @@ mod tests {
 		let view_key = ViewKey::create(&keychain, keychain.master.clone(), &mut hasher, false).unwrap();
 		assert_eq!(builder.rewind_hash, view_key.rewind_hash);
 
-		let amount = rng.gen();
-		//let id = ExtKeychain::derive_key_id(3, rng.gen::<u16>() as u32, rng.gen::<u16>() as u32, rng.gen::<u16>() as u32, 0);
+		let amount = rng.random();
+		//let id = ExtKeychain::derive_key_id(3, rng.random::<u16>() as u32, rng.random::<u16>() as u32, rng.random::<u16>() as u32, 0);
 		let id = ExtKeychain::derive_key_id(0, 0, 0, 0, 0);
 		let switch = SwitchCommitmentType::Regular;
 		println!("commit_0 = {:?}", keychain.commit(amount, &id, &SwitchCommitmentType::None).unwrap().0.to_vec());
@@ -563,7 +563,7 @@ mod tests {
 
 	#[test]
 	fn view_key_no_switch() {
-		let rng = &mut thread_rng();
+		let rng = &mut rng();
 		let keychain = ExtKeychain::from_random_seed(false).unwrap();
 
 		let builder = ProofBuilder::new(&keychain);
@@ -572,12 +572,12 @@ mod tests {
 			ViewKey::create(&keychain, keychain.master.clone(), &mut hasher, false).unwrap();
 		assert_eq!(builder.rewind_hash, view_key.rewind_hash);
 
-		let amount = rng.gen();
+		let amount = rng.random();
 		let id = ExtKeychain::derive_key_id(
 			3,
-			rng.gen::<u16>() as u32,
-			rng.gen::<u16>() as u32,
-			rng.gen::<u16>() as u32,
+			rng.random::<u16>() as u32,
+			rng.random::<u16>() as u32,
+			rng.random::<u16>() as u32,
 			0,
 		);
 		let switch = SwitchCommitmentType::None;
@@ -608,7 +608,7 @@ mod tests {
 
 	#[test]
 	fn view_key_hardened() {
-		let rng = &mut thread_rng();
+		let rng = &mut rng();
 		let keychain = ExtKeychain::from_random_seed(false).unwrap();
 
 		let builder = ProofBuilder::new(&keychain);
@@ -617,12 +617,12 @@ mod tests {
 			ViewKey::create(&keychain, keychain.master.clone(), &mut hasher, false).unwrap();
 		assert_eq!(builder.rewind_hash, view_key.rewind_hash);
 
-		let amount = rng.gen();
+		let amount = rng.random();
 		let id = ExtKeychain::derive_key_id(
 			3,
-			rng.gen::<u16>() as u32,
+			rng.random::<u16>() as u32,
 			u32::max_value() - 2,
-			rng.gen::<u16>() as u32,
+			rng.random::<u16>() as u32,
 			0,
 		);
 		let switch = SwitchCommitmentType::None;
@@ -649,7 +649,7 @@ mod tests {
 
 	#[test]
 	fn view_key_child() {
-		let rng = &mut thread_rng();
+		let rng = &mut rng();
 		let keychain = ExtKeychain::from_random_seed(false).unwrap();
 
 		let builder = ProofBuilder::new(&keychain);
@@ -669,12 +669,12 @@ mod tests {
 				.unwrap();
 			assert_eq!(child_view_key.depth, 1);
 
-			let amount = rng.gen();
+			let amount = rng.random();
 			let id = ExtKeychain::derive_key_id(
 				3,
 				10,
-				rng.gen::<u16>() as u32,
-				rng.gen::<u16>() as u32,
+				rng.random::<u16>() as u32,
+				rng.random::<u16>() as u32,
 				0,
 			);
 			let switch = SwitchCommitmentType::None;
@@ -720,12 +720,12 @@ mod tests {
 				.unwrap();
 			assert_eq!(child_view_key.depth, 1);
 
-			let amount = rng.gen();
+			let amount = rng.random();
 			let id = ExtKeychain::derive_key_id(
 				3,
 				10,
-				rng.gen::<u16>() as u32,
-				rng.gen::<u16>() as u32,
+				rng.random::<u16>() as u32,
+				rng.random::<u16>() as u32,
 				0,
 			);
 			let switch = SwitchCommitmentType::None;

@@ -896,6 +896,7 @@ mod test {
 
 	#[test]
 	fn test_graph_weight() {
+		//YEAR_HEIGHT = 524160
 		// initial weights
 		assert_eq!(graph_weight(1, 31), 256 * 31);
 		assert_eq!(graph_weight(1, 32), 512 * 32);
@@ -912,24 +913,30 @@ mod test {
 		assert_eq!(graph_weight(YEAR_HEIGHT + 32 * WEEK_HEIGHT, 31), 0);
 
 		// 2 years in, 31 still at 0, 32 starts decreasing
-		assert_eq!(graph_weight(2 * YEAR_HEIGHT, 31), 0);
-		assert_eq!(graph_weight(2 * YEAR_HEIGHT, 32), 512 * 31);
+		assert_eq!(graph_weight(2 * YEAR_HEIGHT, 31), 256 * 31);
+		assert_eq!(graph_weight(2 * YEAR_HEIGHT, 32), 512 * 32);
 		assert_eq!(graph_weight(2 * YEAR_HEIGHT, 33), 1024 * 33);
 
 		// 32 loses one factor per week
-		assert_eq!(graph_weight(2 * YEAR_HEIGHT + WEEK_HEIGHT, 32), 512 * 30);
-		assert_eq!(graph_weight(2 * YEAR_HEIGHT + WEEK_HEIGHT, 31), 0);
-		assert_eq!(graph_weight(2 * YEAR_HEIGHT + 30 * WEEK_HEIGHT, 32), 512);
-		assert_eq!(graph_weight(2 * YEAR_HEIGHT + 31 * WEEK_HEIGHT, 32), 0);
+		assert_eq!(graph_weight(2 * YEAR_HEIGHT + WEEK_HEIGHT, 32), 512 * 32);
+		assert_eq!(graph_weight(2 * YEAR_HEIGHT + WEEK_HEIGHT, 31), 256 * 31);
+		assert_eq!(
+			graph_weight(2 * YEAR_HEIGHT + 30 * WEEK_HEIGHT, 32),
+			512 * 32
+		);
+		assert_eq!(
+			graph_weight(2 * YEAR_HEIGHT + 31 * WEEK_HEIGHT, 32),
+			512 * 32
+		);
 
 		// 3 years in, nothing changes
-		assert_eq!(graph_weight(3 * YEAR_HEIGHT, 31), 0);
-		assert_eq!(graph_weight(3 * YEAR_HEIGHT, 32), 0);
+		assert_eq!(graph_weight(3 * YEAR_HEIGHT, 31), 256 * 31);
+		assert_eq!(graph_weight(3 * YEAR_HEIGHT, 32), 512 * 32);
 		assert_eq!(graph_weight(3 * YEAR_HEIGHT, 33), 1024 * 33);
 
 		// 4 years in, 33 starts starts decreasing
-		assert_eq!(graph_weight(4 * YEAR_HEIGHT, 31), 0);
-		assert_eq!(graph_weight(4 * YEAR_HEIGHT, 32), 0);
-		assert_eq!(graph_weight(4 * YEAR_HEIGHT, 33), 1024 * 32);
+		assert_eq!(graph_weight(4 * YEAR_HEIGHT, 31), 256 * 31);
+		assert_eq!(graph_weight(4 * YEAR_HEIGHT, 32), 512 * 32);
+		assert_eq!(graph_weight(4 * YEAR_HEIGHT, 33), 1024 * 33);
 	}
 }

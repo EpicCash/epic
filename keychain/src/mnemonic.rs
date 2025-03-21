@@ -173,7 +173,7 @@ where
 mod tests {
 	use super::{from_entropy, to_entropy, to_seed};
 	use crate::util::{from_hex, to_hex};
-	use rand::{thread_rng, Rng};
+	use rand::{rng, Rng};
 
 	struct Test<'a> {
 		mnemonic: &'a str,
@@ -330,7 +330,7 @@ mod tests {
 		use rand::seq::SliceRandom;
 		let sizes: [usize; 5] = [16, 20, 24, 28, 32];
 
-		let mut rng = thread_rng();
+		let mut rng = rng();
 		let size = *sizes.choose(&mut rng).unwrap();
 		let mut entropy: Vec<u8> = Vec::with_capacity(size);
 

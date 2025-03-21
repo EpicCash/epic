@@ -17,7 +17,7 @@
 
 use crate::secp;
 use crate::Mutex;
-use rand::thread_rng;
+use rand::rng;
 use std::sync::Arc;
 
 lazy_static! {
@@ -30,7 +30,7 @@ lazy_static! {
 /// (Recommended to avoid side channel attacks
 pub fn static_secp_instance() -> Arc<Mutex<secp::Secp256k1>> {
 	let mut secp_inst = SECP256K1.lock();
-	secp_inst.randomize(&mut thread_rng());
+	secp_inst.randomize(&mut rng());
 	SECP256K1.clone()
 }
 

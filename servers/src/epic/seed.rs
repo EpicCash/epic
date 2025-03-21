@@ -19,8 +19,8 @@
 
 use chrono::prelude::{DateTime, Utc};
 use chrono::{Duration, NaiveDate};
+use rand::rng;
 use rand::seq::SliceRandom;
-use rand::thread_rng;
 use std::collections::HashMap;
 use std::net::ToSocketAddrs;
 use std::sync::{mpsc, Arc};
@@ -226,7 +226,7 @@ fn monitor_peers(
 	// take a random defunct peer and mark it healthy: over a long period any
 	// peer will see another as defunct eventually, gives us a chance to retry
 	if defuncts.len() > 0 {
-		defuncts.shuffle(&mut thread_rng());
+		defuncts.shuffle(&mut rng());
 		let _ = peers.update_state(defuncts[0].addr, p2p::State::Healthy);
 	}
 

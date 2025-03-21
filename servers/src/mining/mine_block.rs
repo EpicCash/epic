@@ -28,7 +28,7 @@ use crate::core::pow::PoWType;
 use crate::core::{consensus, core, global};
 use crate::keychain::{ExtKeychain, Identifier, Keychain};
 use chrono::{NaiveDateTime, TimeZone, Utc};
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use std::thread;
@@ -172,7 +172,7 @@ fn build_block(
 	seed_u8.copy_from_slice(&seed.as_bytes()[0..32]);
 
 	b.header.pow.seed = seed_u8;
-	b.header.pow.nonce = thread_rng().gen();
+	b.header.pow.nonce = rng().random();
 	b.header.pow.secondary_scaling = difficulty.secondary_scaling;
 	b.header.timestamp = TimeZone::from_utc_datetime(
 		&Utc,
