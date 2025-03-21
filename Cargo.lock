@@ -1683,6 +1683,7 @@ dependencies = [
 [[package]]
 name = "grin_secp256k1zkp"
 version = "0.7.14"
+source = "git+https://github.com/EpicCash/rust-secp256k1-zkp?branch=rand_update#18f836b51143f70517aaeaab42b95494d9c95a79"
 dependencies = [
  "arrayvec 0.7.6",
  "cc",
