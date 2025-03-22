@@ -359,6 +359,7 @@ where
 		.name("peer_write".to_string())
 		.spawn(move || {
 			let mut retry_send = Err(());
+			let mut failcount = 0;
 			writer
 				.set_write_timeout(Some(BODY_IO_TIMEOUT))
 				.expect("set timeout");
@@ -366,12 +367,21 @@ where
 				let maybe_data = retry_send.or_else(|_| send_rx.recv_timeout(CHANNEL_TIMEOUT));
 				retry_send = Err(());
 				if let Ok(data) = maybe_data {
+					failcount = 0;
 					let written =
 						try_break!(write_message(&mut writer, &data, writer_tracker.clone()));
 					if written.is_none() {
 						retry_send = Ok(data);
 					}
 				}
+
+				if failcount >= 100 {
+					error!("Too many failures, closing connection");
+					break;
+				}
+
+				failcount += 1;
+
 				// check the close channel
 				if stopped.load(Ordering::Relaxed) {
 					break;
