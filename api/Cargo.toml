@@ -34,7 +34,7 @@ pki-types = { package = "rustls-pki-types", version = "1" }
 
 
 rustls-pemfile = "1.0.4"
-rustls = "0.21.6"
+rustls = "0.21.7"
 
 subtle = "2.6.1"
 

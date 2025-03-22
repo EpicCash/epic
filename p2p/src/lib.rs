@@ -20,7 +20,6 @@
 #![deny(non_snake_case)]
 #![deny(unused_mut)]
 
-#[macro_use]
 extern crate bitflags;
 
 #[macro_use]

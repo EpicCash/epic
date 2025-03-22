@@ -65,7 +65,8 @@ pub mod zip;
 
 mod rate_counter;
 pub use crate::rate_counter::RateCounter;
-
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
 /// Encapsulation of a RwLock<Option<T>> for one-time initialization.
 /// This implementation will purposefully fail hard if not used
 /// properly, for example if not initialized before being first used
@@ -107,7 +108,7 @@ where
 
 /// Encode an utf8 string to a base64 string
 pub fn to_base64(s: &str) -> String {
-	base64::encode(s)
+	STANDARD.encode(s)
 }
 
 /// Global stopped/paused state shared across various subcomponents of Epic.

@@ -42,8 +42,8 @@ use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
 
 use digest::generic_array::GenericArray;
 use digest::Digest;
-use hmac::{Hmac, Mac, NewMac};
-use ripemd160::Ripemd160;
+use hmac::{Hmac, Mac};
+use ripemd::Ripemd160;
 use sha2::{Sha256, Sha512};
 
 use crate::base58;
@@ -654,7 +654,7 @@ mod tests {
 	use digest::generic_array::GenericArray;
 	use digest::Digest;
 	use hmac::{Hmac, Mac};
-	use ripemd160::Ripemd160;
+	use ripemd::Ripemd160;
 	use sha2::{Sha256, Sha512};
 
 	/// Implementation of the above that uses the standard BIP32 Hash algorithms

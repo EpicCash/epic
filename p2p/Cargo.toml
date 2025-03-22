@@ -10,12 +10,12 @@ workspace = ".."
 edition = "2021"
 
 [dependencies]
-bitflags = "1"
-bytes = "0.4"
+bitflags = { version = "2.9.0", features = ["serde"] }
+bytes = "1.10.1"
 enum_primitive = "0.1"
 lru-cache = "0.1"
 net2 = "0.2"
-num = "0.1"
+num = "0.4.3"
 rand = "0.9.0"
 serde = "1"
 serde_derive = "1"

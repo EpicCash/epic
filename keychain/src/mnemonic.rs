@@ -164,7 +164,7 @@ where
 	let data = mnemonic.as_bytes();
 	let mut seed = [0; 64];
 
-	pbkdf2::<Hmac<Sha512>>(data, &salt[..], 2048, &mut seed);
+	let _ = pbkdf2::<Hmac<Sha512>>(data, &salt[..], 2048, &mut seed);
 
 	Ok(seed)
 }

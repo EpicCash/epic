@@ -31,6 +31,9 @@ use crate::core::pow::Difficulty;
 use crate::core::ser::{self, ProtocolVersion, Readable, Reader, Writeable, Writer};
 use epic_store;
 
+use bitflags::bitflags;
+use serde::{Deserialize, Serialize};
+
 /// Maximum number of block headers a peer should ever send
 pub const MAX_BLOCK_HEADERS: u32 = 512;
 
@@ -333,7 +336,7 @@ impl Default for Seeding {
 
 bitflags! {
 	/// Options for what type of interaction a peer supports
-	#[derive(Serialize, Deserialize)]
+	#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 	pub struct Capabilities: u32 {
 		/// We don't know (yet) what the peer can do.
 		const UNKNOWN = 0b00000000;
@@ -354,11 +357,11 @@ bitflags! {
 		/// Some nodes internally may maintain longer block histories (archival_mode)
 		/// but we do not advertise this to other nodes.
 		/// All nodes by default will accept lightweight "kernel first" tx broadcast.
-		const FULL_NODE = Capabilities::HEADER_HIST.bits
-			| Capabilities::TXHASHSET_HIST.bits
-			| Capabilities::PEER_LIST.bits
-			| Capabilities::TX_KERNEL_HASH.bits
-			| Capabilities::HEADER_FASTSYNC.bits
+		const FULL_NODE = Capabilities::HEADER_HIST.bits()
+			| Capabilities::TXHASHSET_HIST.bits()
+			| Capabilities::PEER_LIST.bits()
+			| Capabilities::TX_KERNEL_HASH.bits()
+			| Capabilities::HEADER_FASTSYNC.bits()
 			;
 	}
 }
