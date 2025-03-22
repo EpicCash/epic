@@ -3,9 +3,7 @@ extern crate cucumber_rust;
 
 use epic_chain::Chain;
 use epic_core::core::block::feijoada::PoWType as FType;
-use epic_core::core::block::feijoada::{
-	get_bottles_default, Deterministic, Feijoada, Policy, PolicyConfig,
-};
+use epic_core::core::block::feijoada::{get_bottles_default, Policy, PolicyConfig};
 use epic_core::core::Block;
 use epic_core::global;
 use epic_core::global::set_policy_config;
@@ -41,20 +39,17 @@ impl std::default::Default for EdnaWorld {
 }
 
 mod mine_chain {
-	use std::path::Path;
 
 	use cucumber_rust::steps;
 	use epic_chain as chain;
 	use epic_core as core;
 	use epic_util as util;
 
-	use epic_chain::store::{self, BottleIter};
 	use epic_chain::types::NoopAdapter;
 	use epic_chain::Chain;
 	use epic_core::core::block::feijoada::PoWType as FType;
 	use epic_core::core::block::feijoada::{
-		count_beans, get_bottles_default, next_block_bottles, Deterministic, Feijoada, Policy,
-		PolicyConfig,
+		count_beans, get_bottles_default, next_block_bottles, Deterministic, Feijoada, PolicyConfig,
 	};
 	use epic_core::core::foundation;
 	use epic_core::core::foundation::load_foundation_output;
@@ -80,7 +75,6 @@ mod mine_chain {
 	use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 	use chrono::Duration;
 
-	use epic_util::{Mutex, RwLock, StopState};
 	use std::collections::HashMap;
 	use std::fs;
 	use std::sync::Arc;
@@ -128,7 +122,7 @@ mod mine_chain {
 			};
 
 			then regex "I mine <([a-zA-Z0-9]+)>" |world, matches, _step| {
-				let chain = world.chain.as_ref().unwrap();
+				let _chain = world.chain.as_ref().unwrap();
 				//let prev_header = chain.head_header().unwrap();
 				//let prev = chain.get_block(&prev_header.hash()).unwrap();
 				let pow_type = match matches[1].as_str() {
@@ -244,9 +238,9 @@ mod mine_chain {
 				let num: u64 = matches[1].parse().unwrap();
 				let chain = world.chain.as_ref().unwrap();
 				let kc = world.keychain.as_ref().unwrap();
-				let height = chain.head_header().unwrap().height;
+				let _height = chain.head_header().unwrap().height;
 
-				for i in 0..num {
+				for _i in 0..num {
 					let prev = chain.head_header().unwrap();
 					let block = prepare_block(kc, &prev, &chain, prev.height + 1);
 					chain.process_block(block, chain::Options::SKIP_POW).unwrap();
@@ -282,7 +276,7 @@ mod mine_chain {
 					"legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth title",
 					"", false).unwrap();
 				let head = chain.head_header().unwrap();
-				let height = head.height + 1;
+				let _height = head.height + 1;
 
 				let proof_name = matches[1].as_str();
 
@@ -355,7 +349,7 @@ mod mine_chain {
 
 				let hash = chain.header_pmmr().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(head.height + 1)).unwrap();
 				let mut block = prepare_block_pow(&kc, &head, Difficulty::from_dic_number(diff), vec![], proof, hash);
-				chain.set_txhashset_roots(&mut block);
+				let _ = chain.set_txhashset_roots(&mut block);
 
 				if let Err(e) = chain.process_block(block, chain::Options::MINE) {
 					panic!("The proof need to be valid: {}", e);
@@ -557,7 +551,7 @@ mod mine_chain {
 
 					b.header.pow.seed = seed;
 
-					chain.set_txhashset_roots(&mut b);
+					let _ = chain.set_txhashset_roots(&mut b);
 
 					let edge_bits = if n == 2 {
 						global::min_edge_bits() + 1
@@ -701,13 +695,13 @@ mod mine_chain {
 				world.keychain_foundation = Some(kc);
 			};
 
-			given regex "I set the allowed policy on the height <([0-9]+)> with value <([0-9]+)>" |world, matches, _step| {
+			given regex "I set the allowed policy on the height <([0-9]+)> with value <([0-9]+)>" |_world, matches, _step| {
 				let height: u64 = matches[1].parse().unwrap();
 				let value: u64 = matches[2].parse().unwrap();
 				add_allowed_policy(height, value);
 			};
 
-			given "I set default policy config" |world, _step| {
+			given "I set default policy config" |_world, _step| {
 				let policies = [
 					(FType::Cuckaroo, 100),
 					(FType::Cuckatoo, 0),
@@ -745,11 +739,11 @@ mod mine_chain {
 			};
 
 			then regex "I add block with foundation reward following the policy <([0-9]+)>" |world, matches, _step| {
-				let num: u64 = matches[1].parse().unwrap();
+				let _num: u64 = matches[1].parse().unwrap();
 				// The policy index is ignored for now, as we are only using a unique policy.
 				// index = matches[2].parse().unwrap();
 				let chain = world.chain.as_ref().unwrap();
-				let kc_foundation = world.keychain_foundation.as_ref().unwrap();
+				let _kc_foundation = world.keychain_foundation.as_ref().unwrap();
 				let kc = world.keychain.as_ref().unwrap();
 				let prev = chain.head_header().unwrap();
 				let height = prev.height + 1;
@@ -863,7 +857,7 @@ mod mine_chain {
 					let kc = epic_keychain::ExtKeychain::from_seed(&[i as u8], false).unwrap().clone();
 					let prev = chain.head_header().unwrap();
 					let mut block = prepare_block(&kc, &prev, &chain, height + i);
-					let policy = get_policies(emitted_policy).unwrap();
+					let _policy = get_policies(emitted_policy).unwrap();
 					let cursor = chain.bottles_iter(emitted_policy).unwrap();
 					let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
 					block.header.bottles = bottles;
@@ -876,7 +870,7 @@ mod mine_chain {
 			given regex "I create the genesis block with initial timestamp of <([0-9]+)> and mined with <([a-zA-Z0-9]+)>" |world, matches, _step| {
 				let algo = get_fw_type(matches[2].as_str());
 				let initial_timestamp: i64 = matches[1].parse().unwrap();
-				let key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
+				let _key_id = epic_keychain::ExtKeychain::derive_key_id(0, 1, 0, 0, 0);
 				// creating a placeholder for the genesis block
 				let mut genesis = genesis::genesis_dev();
 				genesis.header.timestamp = timestamp_from_num(initial_timestamp);
@@ -908,7 +902,7 @@ mod mine_chain {
 				let emitted_policy: u8 = matches[2].parse().unwrap();
 				let chain = world.chain.as_ref().unwrap();
 
-				for i in 1..=num {
+				for _i in 1..=num {
 					let prev = chain.head_header().unwrap();
 					let kc = epic_keychain::ExtKeychain::from_seed(&[(prev.height + 1) as u8], false).unwrap().clone();
 					let hash = chain
@@ -988,7 +982,7 @@ mod mine_chain {
 				let timespan: i64 = matches[2].parse().unwrap();
 				let chain = world.chain.as_ref().unwrap();
 				let kc = world.keychain.as_ref().unwrap();
-				let height = chain.head_header().unwrap().height;
+				let _height = chain.head_header().unwrap().height;
 				let prev = chain.head_header().unwrap();
 
 				let hash = chain
@@ -1004,10 +998,10 @@ mod mine_chain {
 				let mut block = prepare_block_with_timestamp(
 					kc, &prev, next_difficulty.difficulty, vec![], hash, timespan);
 
-				chain.set_txhashset_roots(&mut block);
+				let _ = chain.set_txhashset_roots(&mut block);
 
 				// policy
-				let policy = get_policies(0).unwrap();
+				let _policy = get_policies(0).unwrap();
 				let cursor = chain.bottles_iter(0).unwrap();
 				let (_, bottles) = consensus::next_policy(0, cursor);
 				let algo = get_fw_type(algorithm.as_str());
@@ -1015,7 +1009,7 @@ mod mine_chain {
 				block.header.pow.proof = get_pow_type(&algo, prev.height);
 				block.header.policy = 0;
 
-				chain.process_block(block, chain::Options::SKIP_POW);
+				let _ = chain.process_block(block, chain::Options::SKIP_POW);
 			};
 
 			then regex "The block on the height <([0-9]+)> need have a time delta of <([0-9]+)>" |world, matches, _step| {
@@ -1128,12 +1122,12 @@ mod mine_chain {
 				assert_eq!(count_beans(&bottles), 1);
 			};
 
-			given regex "The file foundation <([0-9a-z.//]+)>" |world, matches, _step| {
+			given regex "The file foundation <([0-9a-z.//]+)>" |_world, matches, _step| {
 				let path = matches[1].as_str();
 				global::set_foundation_path(path.to_string());
 			};
 
-			then regex "I try to load the foundation on the height <([0-9]+)> with commit <([A-Za-z0-9]+)>" |world, matches, _step| {
+			then regex "I try to load the foundation on the height <([0-9]+)> with commit <([A-Za-z0-9]+)>" |_world, matches, _step| {
 				let height = matches[1].parse().unwrap();
 				let cb_data = load_foundation_output(height);
 				let commit = matches[2].as_str();
@@ -1158,11 +1152,11 @@ mod mine_chain {
 				let chain = world.chain.as_ref().unwrap();
 				let prev = chain.get_header_by_height(height).unwrap();
 				let kc = world.keychain.as_ref().unwrap();
-				let header = chain.head_header().unwrap();
+				let _header = chain.head_header().unwrap();
 				let emitted_policy = 0;
 
 				let mut block = prepare_fork_block(kc, &prev, &chain, diff);
-				let policy = get_policies(emitted_policy).unwrap();
+				let _policy = get_policies(emitted_policy).unwrap();
 				let cursor = chain.bottles_iter(emitted_policy).unwrap();
 				let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
 				block.header.bottles = bottles;
@@ -1197,7 +1191,7 @@ mod mine_chain {
 				let emitted_policy = 0;
 
 				let mut block = prepare_fork_block(kc, &prev, &chain, diff);
-				let policy = get_policies(emitted_policy).unwrap();
+				let _policy = get_policies(emitted_policy).unwrap();
 				let cursor = chain.bottles_iter(emitted_policy).unwrap();
 				let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
 				block.header.bottles = bottles;
@@ -1223,7 +1217,7 @@ mod mine_chain {
 				assert_eq!(hash.as_str(), global::foundation_json_sha256());
 			};
 
-			given "I generate new foundation's transactions" |world, step| {
+			given "I generate new foundation's transactions" |world, _step| {
 				let kc = world.keychain_foundation.as_ref().unwrap();
 				let mut foundations = vec![];
 
@@ -1246,7 +1240,7 @@ mod mine_chain {
 				global::set_foundation_path("./tests/assets/foundation/foundation.json".to_string());
 			};
 
-		then regex "I try to spend the foundation's transaction on the height <([0-9]+)> plus <([0-9]+)>, should be <([A-Za-z]+)>" |world, matches, step| {
+		then regex "I try to spend the foundation's transaction on the height <([0-9]+)> plus <([0-9]+)>, should be <([A-Za-z]+)>" |world, matches, _step| {
 			  let kc = world.keychain.as_ref().unwrap();
 				let kc_foundation = world.keychain_foundation.as_ref().unwrap();
 				let chain = world.chain.as_ref().unwrap();
@@ -1303,7 +1297,7 @@ mod mine_chain {
 			};
 		});
 
-	fn difficulty_to_timespan(algo: &FType, difficulty: &Difficulty, height: u64) -> u64 {
+	/*fn difficulty_to_timespan(algo: &FType, difficulty: &Difficulty, height: u64) -> u64 {
 		let diff_num: u64 = difficulty.to_num(algo.clone()).into();
 		let diff_base = match algo {
 			FType::Cuckaroo => 4,
@@ -1313,7 +1307,7 @@ mod mine_chain {
 			_ => panic!("algorithm not supported"),
 		};
 		diff_num * 40 / diff_base
-	}
+	}*/
 
 	fn timestamp_from_num(num: i64) -> DateTime<Utc> {
 		assert!(
@@ -1321,7 +1315,11 @@ mod mine_chain {
 			"The num value {} has to be greater than zero",
 			num
 		);
-		DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(num, 0), Utc)
+		DateTime::from_naive_utc_and_offset(
+			NaiveDateTime::from_timestamp_opt(num, 0)
+				.unwrap_or_else(|| panic!("Invalid timestamp: {}", num)),
+			Utc,
+		)
 	}
 
 	fn cumulative_reward_block_mining(height: u64) -> (u64, u64) {
@@ -1352,7 +1350,6 @@ mod mine_chain {
 			FType::ProgPow => pow::Proof::ProgPowProof {
 				mix: [seed as u8; 32],
 			},
-			_ => panic!("algorithm not supported"),
 		}
 	}
 
@@ -1439,7 +1436,11 @@ mod mine_chain {
 			// and if we're back where we started, update the time (changes the hash as
 			// well)
 			if bh.pow.nonce == start_nonce {
-				bh.timestamp = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(0, 0), Utc);
+				bh.timestamp = DateTime::from_naive_utc_and_offset(
+					NaiveDateTime::from_timestamp_opt(0, 0)
+						.unwrap_or_else(|| panic!("Invalid timestamp: {}", 0)),
+					Utc,
+				)
 			}
 		}
 	}
@@ -1583,7 +1584,7 @@ mod mine_chain {
 			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 			.unwrap();
 		let mut b = prepare_block_nosum(kc, prev, Difficulty::from_num(diff), vec![], hash);
-		chain.set_txhashset_roots(&mut b);
+		let _ = chain.set_txhashset_roots(&mut b);
 		b
 	}
 
@@ -1796,7 +1797,7 @@ mod mine_chain {
 	where
 		K: Keychain,
 	{
-		let proof_size = global::proofsize();
+		let _proof_size = global::proofsize();
 		let key_id = epic_keychain::ExtKeychainPath::new(1, 3, 0, 0, 0).to_identifier();
 
 		let fees = txs.iter().map(|tx| tx.fee()).sum();

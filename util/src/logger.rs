@@ -460,7 +460,7 @@ mod logging_config {
 	use super::{LoggingConfig, DEFAULT_ROTATE_LOG_FILES};
 
 	use log::Level;
-	use serde_test::{assert_de_tokens, assert_de_tokens_error, assert_tokens, Token};
+	use serde_test::{assert_de_tokens, Token};
 
 	macro_rules! config_tokens {
 		($stdout_log_level_name:expr, $file_log_level_name:expr) => {
@@ -502,11 +502,11 @@ mod logging_config {
 
 	fn level_from_str(s: &str) -> Level {
 		match &s.to_ascii_lowercase()[..] {
-			"error" => (Level::Error),
-			"warn" | "warning" => (Level::Warn),
-			"info" => (Level::Info),
-			"debug" => (Level::Debug),
-			"trace" => (Level::Trace),
+			"error" => Level::Error,
+			"warn" | "warning" => Level::Warn,
+			"info" => Level::Info,
+			"debug" => Level::Debug,
+			"trace" => Level::Trace,
 			_ => panic!("Not known level from string {}", s),
 		}
 	}

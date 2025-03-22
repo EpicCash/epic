@@ -860,13 +860,21 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(all(feature = "serde", feature = "strason"))]
 	pub fn encode_decode_childnumber() {
-		serde_round_trip!(ChildNumber::from_normal_idx(0));
-		serde_round_trip!(ChildNumber::from_normal_idx(1));
-		serde_round_trip!(ChildNumber::from_normal_idx((1 << 31) - 1));
-		serde_round_trip!(ChildNumber::from_hardened_idx(0));
-		serde_round_trip!(ChildNumber::from_hardened_idx(1));
-		serde_round_trip!(ChildNumber::from_hardened_idx((1 << 31) - 1));
+		fn serde_round_trip<T>(value: T)
+		where
+			T: serde::Serialize + serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
+		{
+			let serialized = serde_json::to_string(&value).unwrap();
+			let deserialized: T = serde_json::from_str(&serialized).unwrap();
+			assert_eq!(value, deserialized);
+		}
+
+		serde_round_trip(ChildNumber::from_normal_idx(0));
+		serde_round_trip(ChildNumber::from_normal_idx(1));
+		serde_round_trip(ChildNumber::from_normal_idx((1 << 31) - 1));
+		serde_round_trip(ChildNumber::from_hardened_idx(0));
+		serde_round_trip(ChildNumber::from_hardened_idx(1));
+		serde_round_trip(ChildNumber::from_hardened_idx((1 << 31) - 1));
 	}
 }
