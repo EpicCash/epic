@@ -68,7 +68,7 @@ fn test_1000_inputs() {
 	let mut rng = rand::rng();
 	let mut bitmap = Bitmap::new();
 	for _ in 1..1_000 {
-		let n = rng.gen_range(0, 1_000_000);
+		let n = rng.random_range(0..1_000_000);
 		bitmap.add(n);
 	}
 	let serialized_buffer = bitmap.serialize::<Portable>();
@@ -113,7 +113,7 @@ fn bench_fast_or() {
 		for _ in 0..bitmaps_number {
 			let mut bitmap = Bitmap::new();
 			for _ in 0..size_of_each_bitmap {
-				let n = rng.gen_range(0, 1_000_000);
+				let n = rng.random_range(0..1_000_000);
 				bitmap.add(n);
 			}
 			bitmaps.push(bitmap);
@@ -123,11 +123,11 @@ fn bench_fast_or() {
 
 	let mut bitmaps = init_bitmaps();
 	let mut bitmap = Bitmap::new();
-	let start = Utc::now().timestamp_nanos();
+	let start = Utc::now().timestamp_nanos_opt().unwrap();
 	for _ in 0..bitmaps_number {
 		bitmap.or_inplace(&bitmaps.pop().unwrap());
 	}
-	let fin = Utc::now().timestamp_nanos();
+	let fin = Utc::now().timestamp_nanos_opt().unwrap();
 	let dur_ms = (fin - start) as f64 * nano_to_millis;
 	println!(
 		"  or_inplace(): {:9.3?}ms. bitmap cardinality: {}",
@@ -136,9 +136,9 @@ fn bench_fast_or() {
 	);
 
 	let bitmaps = init_bitmaps();
-	let start = Utc::now().timestamp_nanos();
+	let start = Utc::now().timestamp_nanos_opt().unwrap();
 	let bitmap = Bitmap::fast_or(&bitmaps.iter().map(|x| x).collect::<Vec<&Bitmap>>());
-	let fin = Utc::now().timestamp_nanos();
+	let fin = Utc::now().timestamp_nanos_opt().unwrap();
 	let dur_ms = (fin - start) as f64 * nano_to_millis;
 	println!(
 		"     fast_or(): {:9.3?}ms. bitmap cardinality: {}",
@@ -147,9 +147,9 @@ fn bench_fast_or() {
 	);
 
 	let bitmaps = init_bitmaps();
-	let start = Utc::now().timestamp_nanos();
+	let start = Utc::now().timestamp_nanos_opt().unwrap();
 	let bitmap = Bitmap::fast_or_heap(&bitmaps.iter().map(|x| x).collect::<Vec<&Bitmap>>());
-	let fin = Utc::now().timestamp_nanos();
+	let fin = Utc::now().timestamp_nanos_opt().unwrap();
 	let dur_ms = (fin - start) as f64 * nano_to_millis;
 	println!(
 		"fast_or_heap(): {:9.3?}ms. bitmap cardinality: {}",

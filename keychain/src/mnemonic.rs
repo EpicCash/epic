@@ -327,7 +327,6 @@ mod tests {
 
 	#[test]
 	fn test_bip39_random() {
-		use rand::seq::SliceRandom;
 		let sizes: [usize; 5] = [16, 20, 24, 28, 32];
 
 		let mut rng = rng();
@@ -335,7 +334,7 @@ mod tests {
 		let mut entropy: Vec<u8> = Vec::with_capacity(size);
 
 		for _ in 0..size {
-			let val: u8 = rng.gen();
+			let val: u8 = rng.random();
 			entropy.push(val);
 		}
 
