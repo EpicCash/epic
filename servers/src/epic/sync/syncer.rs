@@ -225,8 +225,8 @@ impl SyncRunner {
 						.capabilities
 						.contains(p2p::types::Capabilities::HEADER_FASTSYNC)
 						|| offset == 0) && peer.is_connected()
-						&& !peer.is_banned() && (header_head.height + (offset as u64 * 512))
-						< highest_network_height
+						&& !peer.is_banned()
+						&& (header_head.height + (offset as u64 * 512)) < highest_network_height
 					{
 						let mut remove_peer_from_sync = false;
 						match header_syncs.get(&peer_addr) {
@@ -432,7 +432,7 @@ impl SyncRunner {
 
 						match self.sync_state.status() {
 							SyncStatus::BodySync { .. } => {
-								download_headers = true;
+								//download_headers = true;
 								match self.chain.reset_sync_head() {
 									Ok(_) => (),
 									Err(e) => {

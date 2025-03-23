@@ -154,7 +154,7 @@ where
 		if self.chain().block_exists(b.hash())? {
 			return Ok(true);
 		}
-		debug!(
+		info!(
 			"Received block {} at {} from {} [in/out/kern: {}/{}/{}] going to process.",
 			b.hash(),
 			b.header.height,

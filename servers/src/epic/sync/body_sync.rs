@@ -12,14 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use chrono::prelude::{DateTime, Utc};
-use chrono::Duration;
 use std::cmp;
 use std::sync::Arc;
+use std::thread;
+use std::time;
+
+use chrono::prelude::{DateTime, Utc};
+use chrono::Duration;
 
 use crate::chain::{self, SyncState, SyncStatus};
 use crate::core::core::hash::Hash;
 use crate::p2p;
+use epic_p2p::PeerAddr;
 
 pub struct BodySync {
 	chain: Arc<chain::Chain>,
@@ -30,6 +34,7 @@ pub struct BodySync {
 
 	receive_timeout: DateTime<Utc>,
 	prev_blocks_received: u64,
+	requested_peers: std::collections::HashSet<(PeerAddr, Hash)>,
 }
 
 impl BodySync {
@@ -45,6 +50,7 @@ impl BodySync {
 			blocks_requested: 0,
 			receive_timeout: Utc::now(),
 			prev_blocks_received: 0,
+			requested_peers: std::collections::HashSet::new(),
 		}
 	}
 
@@ -69,7 +75,6 @@ impl BodySync {
 		Ok(false)
 	}
 
-	/// Return true if txhashset download is needed (when requested block is under the horizon).
 	fn body_sync(&mut self) -> Result<bool, chain::Error> {
 		let mut hashes: Option<Vec<Hash>> = Some(vec![]);
 		let txhashset_needed = match self
@@ -100,12 +105,17 @@ impl BodySync {
 		hashes.reverse();
 
 		let peers = self.peers.more_work_peers()?;
+		if peers.is_empty() {
+			debug!("body_sync: no peers, nothing to do");
+			thread::sleep(time::Duration::from_secs(10));
+			return Ok(false);
+		}
 
 		// if we have 5 peers to sync from then ask for 50 blocks total (peer_count *
 		// 10) max will be 80 if all 8 peers are advertising more work
 		// also if the chain is already saturated with orphans, throttle
 		let block_count = cmp::min(
-			cmp::min(100, peers.len() * 10),
+			cmp::min(100, cmp::max(peers.len(), 1) * 1),
 			chain::MAX_ORPHAN_SIZE.saturating_sub(self.chain.orphans_len()) + 1,
 		);
 
@@ -123,27 +133,35 @@ impl BodySync {
 			let body_head = self.chain.head()?;
 			let header_head = self.chain.header_head()?;
 
-			debug!(
-				"block_sync: {}/{} requesting blocks {:?} from {} peers",
+			info!(
+				"Block Sync: {}/{} requesting {} more block(s)",
 				body_head.height,
 				header_head.height,
-				hashes_to_get,
-				peers.len(),
+				hashes_to_get.len()
 			);
 
 			// reinitialize download tracking state
 			self.blocks_requested = 0;
-			self.receive_timeout = Utc::now() + Duration::seconds(6);
+			self.receive_timeout = Utc::now() + Duration::seconds(120);
 
 			let mut peers_iter = peers.iter();
 			//let mut peers_iter = peers.iter().cycle();
 			for hash in hashes_to_get.clone() {
-				if let Some(peer) = peers_iter.next() {
+				while let Some(peer) = peers_iter.next() {
+					if self
+						.requested_peers
+						.contains(&(peer.info.addr.clone(), *hash))
+					{
+						error!("Skipped request to {}: already requested", peer.info.addr);
+						continue;
+					}
 					if let Err(e) = peer.send_block_request(*hash, chain::Options::SYNC) {
-						debug!("Skipped request to {}: {:?}", peer.info.addr, e);
+						error!("Skipped request to {}: {:?}", peer.info.addr, e);
 						peer.stop();
 					} else {
 						self.blocks_requested += 1;
+						self.requested_peers.insert((peer.info.addr.clone(), *hash)); // Track the requested peer and hash
+						break;
 					}
 				}
 			}
@@ -160,8 +178,8 @@ impl BodySync {
 			// but none received since timeout, ask again
 			let timeout = Utc::now() > self.receive_timeout;
 			if timeout && blocks_received <= self.prev_blocks_received {
-				debug!(
-					"body_sync: expecting {} more blocks and none received for a while",
+				warn!(
+					"Block Sync: expecting {} more blocks and none received for a while.",
 					self.blocks_requested,
 				);
 				return Ok(true);
@@ -170,7 +188,7 @@ impl BodySync {
 
 		if blocks_received > self.prev_blocks_received {
 			// some received, update for next check
-			self.receive_timeout = Utc::now() + Duration::seconds(1);
+			self.receive_timeout = Utc::now() + Duration::seconds(120);
 			self.blocks_requested = self
 				.blocks_requested
 				.saturating_sub(blocks_received - self.prev_blocks_received);
@@ -180,7 +198,7 @@ impl BodySync {
 		// off by one to account for broadcast adding a couple orphans
 		if self.blocks_requested < 2 {
 			// no pending block requests, ask more
-			debug!("body_sync: no pending block request, asking more");
+			//info!("Block Sync: no pending block request, asking more");
 			return Ok(true);
 		}
 
@@ -188,9 +206,23 @@ impl BodySync {
 	}
 
 	// Total numbers received on this chain, including the head and orphans
-	fn blocks_received(&self) -> Result<u64, chain::Error> {
-		Ok((self.chain.head()?).height
+	fn blocks_received(&mut self) -> Result<u64, chain::Error> {
+		let blocks_received = (self.chain.head()?).height
 			+ self.chain.orphans_len() as u64
-			+ self.chain.orphans_evicted_len() as u64)
+			+ self.chain.orphans_evicted_len() as u64;
+
+		// Remove peers from requested_peers when a block is received
+		let mut received_hashes = vec![];
+		for (peer_addr, hash) in &self.requested_peers {
+			if self.chain.get_block(hash).is_ok() {
+				received_hashes.push((*peer_addr, *hash));
+			}
+		}
+
+		for (peer_addr, hash) in received_hashes {
+			self.requested_peers.remove(&(peer_addr, hash));
+		}
+
+		Ok(blocks_received)
 	}
 }

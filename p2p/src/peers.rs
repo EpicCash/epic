@@ -181,6 +181,7 @@ impl Peers {
 
 		let mut max_peers = peers
 			.into_iter()
+			.filter(|x| x.info.is_outbound())
 			.filter(|x| x.info.total_difficulty() > total_difficulty)
 			.collect::<Vec<_>>();
 
