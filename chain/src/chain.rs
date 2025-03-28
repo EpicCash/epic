@@ -1075,7 +1075,7 @@ impl Chain {
 		debug!("txhashset_write: rewinding a 2nd time (writeable)");
 
 		let mut header_pmmr = self.header_pmmr.write();
-		let mut batch = self.store.batch()?;f
+		let mut batch = self.store.batch()?;
 		txhashset::extending(
 			&mut header_pmmr,
 			&mut txhashset,
@@ -1102,7 +1102,7 @@ impl Chain {
 			},
 		)?;
 
-		debug!("txhashset_write: finished validating and rebuilding");
+		info!("finished validating txhashset and rebuilding");
 
 		status.on_save();
 

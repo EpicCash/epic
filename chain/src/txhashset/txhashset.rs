@@ -1394,8 +1394,8 @@ impl<'a> Extension<'a> {
 			}
 		}
 
-		debug!(
-			"txhashset: verified {} kernel signatures, pmmr size {}, took {}s",
+		info!(
+			"verified {} kernel signatures, pmmr size {}, took {}s",
 			kern_count,
 			self.kernel_pmmr.unpruned_size(),
 			now.elapsed().as_secs(),
