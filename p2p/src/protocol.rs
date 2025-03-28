@@ -335,7 +335,7 @@ impl MessageHandler for Protocol {
 			Type::TxHashSetRequest => {
 				let sm_req: TxHashSetRequest = msg.body()?;
 				info!(
-					"Requesting Txhashset for {} at {}",
+					"SetRequest Txhashset for {} at {}",
 					sm_req.hash, sm_req.height
 				);
 
@@ -343,6 +343,10 @@ impl MessageHandler for Protocol {
 				let txhashset_header_hash = txhashset_header.hash();
 				let txhashset = self.adapter.txhashset_read(txhashset_header_hash);
 
+				// Note: Investigate why the last rangeproof is empty (None, None) when importing txhashset data.
+				//Its always the last rangeproof that is empty.
+				// This is maybe a bug in the code that creates the txhashset archive below.
+				//# see commit 10debf500ad1a2ef87f9ded11a6b2fb2e49669d6
 				if let Some(txhashset) = txhashset {
 					let file_sz = txhashset.reader.metadata()?.len();
 					let mut resp = Msg::new(
@@ -360,7 +364,8 @@ impl MessageHandler for Protocol {
 					Ok(None)
 				}
 			}
-
+			//TODO: partial download (resume)
+			//prompt: Is it possible to resume a TxHashSet download, or is it impossible because it's a zip file?
 			Type::TxHashSetArchive => {
 				let sm_arch: TxHashSetArchive = msg.body()?;
 				info!(
@@ -376,7 +381,7 @@ impl MessageHandler for Protocol {
 					return Err(Error::BadMessage);
 				}
 				// Update the sync state requested status
-				self.state_sync_requested.store(false, Ordering::Relaxed);
+				self.state_sync_requested.store(true, Ordering::Relaxed);
 
 				let download_start_time = Utc::now();
 				self.adapter
@@ -388,43 +393,75 @@ impl MessageHandler for Protocol {
 					download_start_time.timestamp(),
 					nonce
 				));
-				let mut now = Instant::now();
+
 				let mut save_txhashset_to_file = |file| -> Result<(), Error> {
-					let mut tmp_zip =
-						BufWriter::new(OpenOptions::new().write(true).create_new(true).open(file)?);
+					let mut tmp_zip = BufWriter::with_capacity(
+						1_048_576, // 1 MB buffer
+						OpenOptions::new().write(true).create_new(true).open(file)?,
+					);
 					let total_size = sm_arch.bytes as usize;
+					let target_time = 600; // 10 minutes in seconds
+					let average_upload_speed = 1_398_101; // 1.4 MB/s in bytes
+
+					// Calculate optimal request_size
+					let mut request_size = cmp::min(1_048_576, total_size); // Start with 1 MB
+					if total_size > average_upload_speed * target_time {
+						request_size = cmp::min(512_000, total_size); // Adjust to 512 KB for slower connections
+					}
+
 					let mut downloaded_size: usize = 0;
-					let mut request_size = cmp::min(48_000, total_size);
+					let mut now = Instant::now();
+					let download_start_time = Instant::now();
+
 					while request_size > 0 {
 						let size = msg.copy_attachment(request_size, &mut tmp_zip)?;
 						downloaded_size += size;
-						request_size = cmp::min(48_000, total_size - downloaded_size);
-						self.adapter.txhashset_download_update(
-							download_start_time,
-							downloaded_size as u64,
-							total_size as u64,
-						);
-						if now.elapsed().as_secs() > 10 {
+						request_size = cmp::min(request_size, total_size - downloaded_size);
+
+						// Calculate elapsed time and download speed
+						let elapsed_time = download_start_time.elapsed().as_secs_f64();
+						let download_speed = downloaded_size as f64 / elapsed_time; // Bytes per second
+						let remaining_size = total_size - downloaded_size;
+						let remaining_time = if download_speed > 0.0 {
+							remaining_size as f64 / download_speed
+						} else {
+							0.0
+						};
+
+						// Update progress less frequently
+						if downloaded_size % 1_000_000 == 0 || now.elapsed().as_secs() > 10 {
+							self.adapter.txhashset_download_update(
+								Utc::now(), // Use the current UTC time instead
+								downloaded_size as u64,
+								total_size as u64,
+							);
 							now = Instant::now();
 							info!(
-								"Downloading Txhashset archive: {}/{}",
-								downloaded_size, total_size
+								"Downloading Txhashset archive: {}/{} from peer {}. Speed: {:.2} KB/s, Remaining time: {:.2} seconds",
+								downloaded_size,
+								total_size,
+								self.peer_info.addr,
+								download_speed / 1024.0, // Convert to KB/s
+								remaining_time
 							);
 						}
 
-						// Increase received bytes quietly (without affecting the counters).
-						// Otherwise we risk banning a peer as "abusive".
+						// Increase received bytes quietly
 						tracker.inc_quiet_received(size as u64);
 
-						// check the close channel
+						// Check the close channel
 						if stopped.load(Ordering::Relaxed) {
-							debug!("Stopping txhashset download early");
+							debug!(
+								"Stopping txhashset download early from peer {}",
+								self.peer_info.addr
+							);
 							return Err(Error::ConnectionClose);
 						}
 					}
+
 					info!(
-						"Txhashset archive: {}/{} ... DONE",
-						downloaded_size, total_size
+						"Txhashset archive: {}/{} ... DONE from peer {}",
+						downloaded_size, total_size, self.peer_info.addr
 					);
 					tmp_zip
 						.into_inner()
@@ -434,11 +471,18 @@ impl MessageHandler for Protocol {
 				};
 
 				if let Err(e) = save_txhashset_to_file(tmp.clone()) {
-					error!("Txhashset archive save to file fail. err={:?}", e);
+					error!(
+						"Txhashset archive save to file fail from peer {}. err={:?}",
+						self.peer_info.addr, e
+					);
 					return Err(e);
 				}
 
-				trace!("Txhashset archive save to file {:?} success", tmp,);
+				trace!(
+					"Txhashset archive save to file {:?} success from peer {}",
+					tmp,
+					self.peer_info.addr
+				);
 
 				let tmp_zip = File::open(tmp.clone())?;
 				let res = self
@@ -446,14 +490,14 @@ impl MessageHandler for Protocol {
 					.txhashset_write(sm_arch.hash, tmp_zip, &self.peer_info)?;
 
 				info!(
-					"Txhashset archive for {} at {}, DONE. Data Ok: {}",
-					sm_arch.hash, sm_arch.height, !res
+					"Txhashset archive for {} at {}, DONE. Data Ok: {} from peer {}",
+					sm_arch.hash, sm_arch.height, !res, self.peer_info.addr
 				);
 
 				if let Err(e) = fs::remove_file(tmp.clone()) {
 					warn!(
-						"Txhashset archive fail to remove tmp file: {:?}. err: {}",
-						tmp, e
+						"Txhashset archive fail to remove tmp file: {:?}. err: {} from peer {}",
+						tmp, e, self.peer_info.addr
 					);
 				}
 

@@ -869,8 +869,8 @@ impl Chain {
 			Ok(())
 		})?;
 
-		debug!(
-			"validate_kernel_history: validated kernel root on {} headers",
+		info!(
+			"Validate kernel history: validated kernel root on {} headers",
 			count,
 		);
 
@@ -1075,7 +1075,7 @@ impl Chain {
 		debug!("txhashset_write: rewinding a 2nd time (writeable)");
 
 		let mut header_pmmr = self.header_pmmr.write();
-		let mut batch = self.store.batch()?;
+		let mut batch = self.store.batch()?;f
 		txhashset::extending(
 			&mut header_pmmr,
 			&mut txhashset,

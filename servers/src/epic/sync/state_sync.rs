@@ -82,11 +82,14 @@ impl StateSync {
 		}
 
 		// check peer connection status of this sync
-		if let Some(ref peer) = self.state_sync_peer {
-			if let SyncStatus::TxHashsetDownload { .. } = self.sync_state.status() {
-				if !peer.is_connected() {
+		if let SyncStatus::TxHashsetDownload { .. } = self.sync_state.status() {
+			if let Some(ref peer) = self.state_sync_peer {
+				if peer.is_connected() {
+					return false; // Skip further requests if the peer is connected
+				} else {
+					// If the peer is disconnected, set sync_need_restart to true
 					sync_need_restart = true;
-					warn!("Peer connection lost: {:?}. restart", peer.info.addr,);
+					warn!("Peer connection lost: {}. Restarting sync.", peer.info.addr);
 				}
 			}
 		}
@@ -136,18 +139,7 @@ impl StateSync {
 						.set_sync_error(chain::ErrorKind::SyncError(format!("{:?}", e)).into()),
 				}
 
-				// to avoid the confusing log,
-				// update the final HeaderSync state mainly for 'current_height'
-				{
-					let status = self.sync_state.status();
-					if let SyncStatus::HeaderSync { .. } = status {
-						self.sync_state.update(SyncStatus::HeaderSync {
-							current_height: header_head.height,
-							highest_height,
-						});
-					}
-				}
-
+				// Update the sync state to TxHashsetDownload
 				self.sync_state.update(SyncStatus::TxHashsetDownload {
 					start_time: Utc::now(),
 					prev_update_time: Utc::now(),
@@ -168,7 +160,7 @@ impl StateSync {
 		txhashset_height = txhashset_height.saturating_sub(txhashset_height % archive_interval);
 
 		if let Some(peer) = self.peers.most_work_peer() {
-			// ask for txhashset at state_sync_threshold
+			// Determine the block header for the TxHashSet
 			let mut txhashset_head = self
 				.chain
 				.get_block_header(&header_head.prev_block_h)
@@ -211,18 +203,32 @@ impl StateSync {
 		let now = Utc::now();
 		let mut download_timeout = false;
 
-		match self.prev_state_sync {
-			None => {
-				self.prev_state_sync = Some(now);
-				(true, download_timeout)
-			}
-			//TODO: download time timeout should be reset by download progress
-			Some(prev) => {
-				if now - prev > Duration::minutes(20) {
-					download_timeout = true;
+		match self.sync_state.status() {
+			SyncStatus::TxHashsetDownload {
+				prev_downloaded_size,
+				downloaded_size,
+				..
+			} => {
+				// Reset timeout if progress is made
+				if downloaded_size > prev_downloaded_size {
+					self.prev_state_sync = Some(now);
 				}
-				(false, download_timeout)
+
+				// Check for timeout
+				match self.prev_state_sync {
+					None => {
+						self.prev_state_sync = Some(now);
+						(true, download_timeout)
+					}
+					Some(prev) => {
+						if now - prev > Duration::minutes(20) {
+							download_timeout = true;
+						}
+						(false, download_timeout)
+					}
+				}
 			}
+			_ => (true, download_timeout), // Default case for other SyncStatus variants
 		}
 	}
 

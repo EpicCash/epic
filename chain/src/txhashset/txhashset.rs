@@ -156,20 +156,20 @@ impl TxHashSet {
 			let kernel: Option<TxKernel> = ReadonlyPMMR::at(&handle.backend, 1).get_data(1);
 			if let Some(kernel) = kernel {
 				if kernel.verify().is_ok() {
-					debug!(
+					info!(
 						"attempting to open kernel PMMR using {:?} - SUCCESS",
 						version
 					);
 					maybe_kernel_handle = Some(handle);
 					break;
 				} else {
-					debug!(
+					warn!(
 						"attempting to open kernel PMMR using {:?} - FAIL (verify failed)",
 						version
 					);
 				}
 			} else {
-				debug!(
+				error!(
 					"attempting to open kernel PMMR using {:?} - FAIL (read failed)",
 					version
 				);
@@ -436,8 +436,8 @@ impl TxHashSet {
 				i += 1;
 			}
 		}
-		debug!(
-			"init_height_pos_index: added entries for {} utxos, took {}s",
+		info!(
+			"Init height PosIndex: added entries for {} utxos, took {}s",
 			total_outputs,
 			now.elapsed().as_secs(),
 		);
@@ -765,7 +765,7 @@ impl<'a> HeaderExtension<'a> {
 	/// Note the close relationship between header height and insertion index.
 	pub fn rewind(&mut self, header: &BlockHeader) -> Result<(), Error> {
 		debug!(
-			"Rewind header extension to {} at {} from {} at {}",
+			"Rewinding header extension to {} at {} from {} at {}",
 			header.hash(),
 			header.height,
 			self.head.hash(),
@@ -1259,8 +1259,8 @@ impl<'a> Extension<'a> {
 			return Err(ErrorKind::InvalidTxHashSet(e).into());
 		}
 
-		debug!(
-			"txhashset: validated the output {}, rproof {}, kernel {} mmrs, took {}s",
+		info!(
+			"Validated the output {}, rproof {}, kernel {} mmrs, took {}s",
 			self.output_pmmr.unpruned_size(),
 			self.rproof_pmmr.unpruned_size(),
 			self.kernel_pmmr.unpruned_size(),
@@ -1386,9 +1386,10 @@ impl<'a> Extension<'a> {
 				kern_count += tx_kernels.len() as u64;
 				tx_kernels.clear();
 				status.on_validation_kernels(kern_count, total_kernels);
-				debug!(
-					"txhashset: verify_kernel_signatures: verified {} signatures",
+				info!(
+					"Kernel signature verification: processed {} signatures out of {} total kernels",
 					kern_count,
+					total_kernels,
 				);
 			}
 		}
@@ -1418,6 +1419,7 @@ impl<'a> Extension<'a> {
 
 			// Output and corresponding rangeproof *must* exist.
 			// It is invalid for either to be missing and we fail immediately in this case.
+			//# see commit 10debf500ad1a2ef87f9ded11a6b2fb2e49669d6
 			match (output, proof) {
 				(None, None) => {
 					warn!("output and proof not found: {:?}, pos: {:?}", proof, pos);
@@ -1436,7 +1438,7 @@ impl<'a> Extension<'a> {
 				Output::batch_verify_proofs(&commits, &proofs)?;
 				commits.clear();
 				proofs.clear();
-				debug!(
+				info!(
 					"txhashset: verify_rangeproofs: verified {} rangeproofs",
 					proof_count,
 				);
@@ -1451,14 +1453,14 @@ impl<'a> Extension<'a> {
 			Output::batch_verify_proofs(&commits, &proofs)?;
 			commits.clear();
 			proofs.clear();
-			debug!(
+			info!(
 				"txhashset: verify_rangeproofs: verified {} rangeproofs",
 				proof_count,
 			);
 		}
 
-		debug!(
-			"txhashset: verified {} rangeproofs, pmmr size {}, took {}s",
+		info!(
+			"verified {} rangeproofs, pmmr size {}, took {}s",
 			proof_count,
 			self.rproof_pmmr.unpruned_size(),
 			now.elapsed().as_secs(),
@@ -1478,7 +1480,7 @@ pub fn zip_read(root_dir: String, header: &BlockHeader) -> Result<File, Error> {
 	// if file exist, just re-use it
 	let zip_file = File::open(zip_path.clone());
 	if let Ok(zip) = zip_file {
-		debug!(
+		warn!(
 			"zip_read: {} at {}: reusing existing zip file: {:?}",
 			header.hash(),
 			header.height,

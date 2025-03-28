@@ -406,7 +406,7 @@ impl SyncRunner {
 					if !download_headers {
 						let sync_head = self.chain.get_sync_head().unwrap();
 						info!(
-        					"sync: initial transition to HeaderSync. sync_head: {} at {}, resetting to: {} at {}",
+        					"Initial transition to HeaderSync. Head {} at {}, resetting to: {} at {}",
         					sync_head.hash(),
         					sync_head.height,
         					header_head.hash(),

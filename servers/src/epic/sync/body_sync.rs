@@ -88,9 +88,7 @@ impl BodySync {
 			}
 		};
 		if txhashset_needed {
-			debug!(
-				"body_sync: cannot sync full blocks earlier than horizon. will request txhashset",
-			);
+			info!("Block synchronization is out of range. Starting txhashset download.",);
 			return Ok(true);
 		}
 
