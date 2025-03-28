@@ -65,7 +65,7 @@ impl MessageHandler for Protocol {
 		// banned peers up correctly?
 		if adapter.is_banned(self.peer_info.addr) {
 			debug!(
-				"handler: consume: peer {:?} banned, received: {:?}, dropping.",
+				"Handler: consume: peer {:?} banned, received: {:?}, dropping.",
 				self.peer_info.addr, msg.header.msg_type,
 			);
 			return Ok(None);
@@ -105,26 +105,20 @@ impl MessageHandler for Protocol {
 
 			Type::BanReason => {
 				let ban_reason: BanReason = msg.body()?;
-				error!("handle_payload: BanReason {:?}", ban_reason);
+				error!("BanReason {:?}", ban_reason);
 				Ok(None)
 			}
 
 			Type::TransactionKernel => {
 				let h: Hash = msg.body()?;
-				debug!(
-					"handle_payload: received tx kernel: {}, msg_len: {}",
-					h, msg.header.msg_len
-				);
+				debug!("Received tx kernel: {}, msg_len: {}", h, msg.header.msg_len);
 				adapter.tx_kernel_received(h, &self.peer_info)?;
 				Ok(None)
 			}
 
 			Type::GetTransaction => {
 				let h: Hash = msg.body()?;
-				debug!(
-					"handle_payload: GetTransaction: {}, msg_len: {}",
-					h, msg.header.msg_len,
-				);
+				debug!("GetTransaction: {}, msg_len: {}", h, msg.header.msg_len,);
 				let tx = adapter.get_transaction(h);
 				if let Some(tx) = tx {
 					Ok(Some(Msg::new(
@@ -138,20 +132,14 @@ impl MessageHandler for Protocol {
 			}
 
 			Type::Transaction => {
-				debug!(
-					"handle_payload: received tx: msg_len: {}",
-					msg.header.msg_len
-				);
+				debug!("Received tx: msg_len: {}", msg.header.msg_len);
 				let tx: core::Transaction = msg.body()?;
 				adapter.transaction_received(tx, false)?;
 				Ok(None)
 			}
 
 			Type::StemTransaction => {
-				debug!(
-					"handle_payload: received stem tx: msg_len: {}",
-					msg.header.msg_len
-				);
+				debug!("Received stem tx: msg_len: {}", msg.header.msg_len);
 				let tx: core::Transaction = msg.body()?;
 				adapter.transaction_received(tx, true)?;
 				Ok(None)
@@ -159,11 +147,7 @@ impl MessageHandler for Protocol {
 
 			Type::GetBlock => {
 				let h: Hash = msg.body()?;
-				trace!(
-					"handle_payload: GetBlock: {}, msg_len: {}",
-					h,
-					msg.header.msg_len,
-				);
+				trace!("GetBlock: {}, msg_len: {}", h, msg.header.msg_len,);
 
 				let bo = adapter.get_block(h);
 				if let Some(b) = bo {
@@ -173,10 +157,7 @@ impl MessageHandler for Protocol {
 			}
 
 			Type::Block => {
-				debug!(
-					"handle_payload: received block: msg_len: {}",
-					msg.header.msg_len
-				);
+				debug!("Received block: msg_len: {}", msg.header.msg_len);
 				let b: core::UntrustedBlock = msg.body()?;
 
 				// We default to NONE opts here as we do not know know yet why this block was
@@ -202,10 +183,7 @@ impl MessageHandler for Protocol {
 			}
 
 			Type::CompactBlock => {
-				debug!(
-					"handle_payload: received compact block: msg_len: {}",
-					msg.header.msg_len
-				);
+				debug!("Received compact block: msg_len: {}", msg.header.msg_len);
 				let b: core::UntrustedCompactBlock = msg.body()?;
 
 				adapter.compact_block_received(b.into(), &self.peer_info)?;
@@ -308,7 +286,6 @@ impl MessageHandler for Protocol {
 			}
 
 			Type::KernelDataRequest => {
-				debug!("handle_payload: kernel_data_request");
 				let kernel_data = self.adapter.kernel_data_read()?;
 				let bytes = kernel_data.metadata()?.len();
 				let kernel_data_response = KernelDataResponse { bytes };
@@ -323,10 +300,7 @@ impl MessageHandler for Protocol {
 
 			Type::KernelDataResponse => {
 				let response: KernelDataResponse = msg.body()?;
-				debug!(
-					"handle_payload: kernel_data_response: bytes: {}",
-					response.bytes
-				);
+				debug!("Kerneldata response bytes: {}", response.bytes);
 
 				let mut writer = BufWriter::new(tempfile()?);
 
@@ -349,7 +323,7 @@ impl MessageHandler for Protocol {
 				let mut file = writer.into_inner().map_err(|_| Error::Internal)?;
 
 				debug!(
-					"handle_payload: kernel_data_response: file size: {}",
+					"Kerneldata response file size: {}",
 					file.metadata().unwrap().len()
 				);
 
@@ -360,8 +334,8 @@ impl MessageHandler for Protocol {
 
 			Type::TxHashSetRequest => {
 				let sm_req: TxHashSetRequest = msg.body()?;
-				debug!(
-					"handle_payload: txhashset req for {} at {}",
+				info!(
+					"Requesting Txhashset for {} at {}",
 					sm_req.hash, sm_req.height
 				);
 
@@ -389,18 +363,16 @@ impl MessageHandler for Protocol {
 
 			Type::TxHashSetArchive => {
 				let sm_arch: TxHashSetArchive = msg.body()?;
-				debug!(
-					"handle_payload: txhashset archive for {} at {}. size={}",
+				info!(
+					"Looking for Txhashset archive  {} at {}. size={}",
 					sm_arch.hash, sm_arch.height, sm_arch.bytes,
 				);
 				if !self.adapter.txhashset_receive_ready() {
-					error!(
-						"handle_payload: txhashset archive received but SyncStatus not on TxHashsetDownload",
-					);
+					error!("Txhashset archive received but SyncStatus not on TxHashsetDownload",);
 					return Err(Error::BadMessage);
 				}
 				if !self.state_sync_requested.load(Ordering::Relaxed) {
-					error!("handle_payload: txhashset archive received but from the wrong peer",);
+					error!("Txhashset archive received but from the wrong peer",);
 					return Err(Error::BadMessage);
 				}
 				// Update the sync state requested status
@@ -434,23 +406,24 @@ impl MessageHandler for Protocol {
 						);
 						if now.elapsed().as_secs() > 10 {
 							now = Instant::now();
-							debug!(
-								"handle_payload: txhashset archive: {}/{}",
+							info!(
+								"Downloading Txhashset archive: {}/{}",
 								downloaded_size, total_size
 							);
 						}
+
 						// Increase received bytes quietly (without affecting the counters).
 						// Otherwise we risk banning a peer as "abusive".
 						tracker.inc_quiet_received(size as u64);
 
 						// check the close channel
 						if stopped.load(Ordering::Relaxed) {
-							debug!("stopping txhashset download early");
+							debug!("Stopping txhashset download early");
 							return Err(Error::ConnectionClose);
 						}
 					}
-					debug!(
-						"handle_payload: txhashset archive: {}/{} ... DONE",
+					info!(
+						"Txhashset archive: {}/{} ... DONE",
 						downloaded_size, total_size
 					);
 					tmp_zip
@@ -461,30 +434,27 @@ impl MessageHandler for Protocol {
 				};
 
 				if let Err(e) = save_txhashset_to_file(tmp.clone()) {
-					error!(
-						"handle_payload: txhashset archive save to file fail. err={:?}",
-						e
-					);
+					error!("Txhashset archive save to file fail. err={:?}", e);
 					return Err(e);
 				}
 
-				trace!(
-					"handle_payload: txhashset archive save to file {:?} success",
-					tmp,
-				);
+				trace!("Txhashset archive save to file {:?} success", tmp,);
 
 				let tmp_zip = File::open(tmp.clone())?;
 				let res = self
 					.adapter
 					.txhashset_write(sm_arch.hash, tmp_zip, &self.peer_info)?;
 
-				debug!(
-					"handle_payload: txhashset archive for {} at {}, DONE. Data Ok: {}",
+				info!(
+					"Txhashset archive for {} at {}, DONE. Data Ok: {}",
 					sm_arch.hash, sm_arch.height, !res
 				);
 
 				if let Err(e) = fs::remove_file(tmp.clone()) {
-					warn!("fail to remove tmp file: {:?}. err: {}", tmp, e);
+					warn!(
+						"Txhashset archive fail to remove tmp file: {:?}. err: {}",
+						tmp, e
+					);
 				}
 
 				Ok(None)

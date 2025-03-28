@@ -534,9 +534,9 @@ where
 			Ok(is_bad_data) => {
 				if is_bad_data {
 					self.chain().clean_txhashset_sandbox();
-					error!("Failed to save txhashset archive: bad data");
+					error!("Failed to save Txhashset archive: bad data");
 					self.sync_state.set_sync_error(
-						chain::ErrorKind::TxHashSetErr("bad txhashset data".to_string()).into(),
+						chain::ErrorKind::TxHashSetErr("bad Txhashset data".to_string()).into(),
 					);
 				} else {
 					info!("Received valid txhashset data for {}.", h);
@@ -545,7 +545,7 @@ where
 			}
 			Err(e) => {
 				self.chain().clean_txhashset_sandbox();
-				error!("Failed to save txhashset archive: {}", e);
+				error!("Failed to save Txhashset archive: {}", e);
 				self.sync_state.set_sync_error(e);
 				Ok(false)
 			}
@@ -704,18 +704,17 @@ where
 							if !self.chain().is_orphan(&previous.hash())
 								&& !self.sync_state.is_syncing()
 							{
-								debug!("process_block: received an orphan block, checking the parent: {:}", previous.hash());
+								debug!(
+									"Received an orphan block, checking the parent: {:}",
+									previous.hash()
+								);
 								self.request_block(&previous, peer_info, chain::Options::NONE)
 							}
 						}
 						Ok(true)
 					}
 					_ => {
-						debug!(
-							"process_block: block {} refused by chain: {}",
-							bhash,
-							e.kind()
-						);
+						debug!("Block {} refused by chain: {}", bhash, e.kind());
 						Ok(true)
 					}
 				}
@@ -801,7 +800,7 @@ where
 	{
 		match self.peers().get_connected_peer(peer_info.addr) {
 			None => debug!(
-				"send_tx_request_to_peer: can't send request to peer {:?}, not connected",
+				"Can't send request to peer {:?}, not connected",
 				peer_info.addr
 			),
 			Some(peer) => {
@@ -819,18 +818,18 @@ where
 		match self.chain().block_exists(h) {
 			Ok(false) => match self.peers().get_connected_peer(peer_info.addr) {
 				None => debug!(
-					"send_block_request_to_peer: can't send request to peer {:?}, not connected",
+					"Can't send request to peer {:?}, not connected",
 					peer_info.addr
 				),
 				Some(peer) => {
 					if let Err(e) = f(&peer, h) {
-						error!("send_block_request_to_peer: failed: {:?}", e)
+						error!("Send block request to peer failed: {:?}", e)
 					}
 				}
 			},
-			Ok(true) => debug!("send_block_request_to_peer: block {} already known", h),
+			Ok(true) => debug!("Send block request to peer. Block {} already known", h),
 			Err(e) => error!(
-				"send_block_request_to_peer: failed to check block exists: {:?}",
+				"Send block request to peer. failed to check block exists: {:?}",
 				e
 			),
 		}

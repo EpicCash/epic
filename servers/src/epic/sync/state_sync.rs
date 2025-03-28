@@ -61,8 +61,12 @@ impl StateSync {
 		tail: &chain::Tip,
 		highest_height: u64,
 	) -> bool {
-		trace!("state_sync: head.height: {}, tail.height: {}. header_head.height: {}, highest_height: {}",
-			   head.height, tail.height, header_head.height, highest_height,
+		trace!(
+			"head.height: {}, tail.height: {}. header_head.height: {}, highest_height: {}",
+			head.height,
+			tail.height,
+			header_head.height,
+			highest_height,
 		);
 
 		let mut sync_need_restart = false;
@@ -71,7 +75,7 @@ impl StateSync {
 		{
 			let clone = self.sync_state.sync_error();
 			if let Some(ref sync_error) = *clone.read() {
-				error!("state_sync: error = {:?}. restart fast sync", sync_error);
+				error!("Error = {:?}. restart fast sync", sync_error);
 				sync_need_restart = true;
 			}
 			drop(clone);
@@ -82,10 +86,7 @@ impl StateSync {
 			if let SyncStatus::TxHashsetDownload { .. } = self.sync_state.status() {
 				if !peer.is_connected() {
 					sync_need_restart = true;
-					info!(
-						"state_sync: peer connection lost: {:?}. restart",
-						peer.info.addr,
-					);
+					warn!("Peer connection lost: {:?}. restart", peer.info.addr,);
 				}
 			}
 		}
@@ -117,7 +118,7 @@ impl StateSync {
 
 			if let SyncStatus::TxHashsetDownload { .. } = self.sync_state.status() {
 				if download_timeout {
-					error!("state_sync: TxHashsetDownload status timeout in 10 minutes!");
+					error!("TxHashset Download timeout in 20 minutes!");
 					self.sync_state.set_sync_error(
 						chain::ErrorKind::SyncError(format!("{:?}", p2p::Error::Timeout)).into(),
 					);
@@ -173,7 +174,7 @@ impl StateSync {
 				.get_block_header(&header_head.prev_block_h)
 				.map_err(|e| {
 					error!(
-						"chain error during getting a block header {}: {:?}",
+						"Chain error during getting a block header {}: {:?}",
 						&header_head.prev_block_h, e
 					);
 					p2p::Error::Internal
@@ -184,7 +185,7 @@ impl StateSync {
 					.get_previous_header(&txhashset_head)
 					.map_err(|e| {
 						error!(
-							"chain error during getting a previous block header {}: {:?}",
+							"Chain error during getting a previous block header {}: {:?}",
 							txhashset_head.hash(),
 							e
 						);
@@ -193,14 +194,11 @@ impl StateSync {
 			}
 			let bhash = txhashset_head.hash();
 			debug!(
-				"state_sync: before txhashset request, header head: {} / {}, txhashset_head: {} / {}",
-				header_head.height,
-				header_head.last_block_h,
-				txhashset_head.height,
-				bhash
+				"Before txhashset request, header head: {} / {}, txhashset_head: {} / {}",
+				header_head.height, header_head.last_block_h, txhashset_head.height, bhash
 			);
 			if let Err(e) = peer.send_txhashset_request(txhashset_head.height, bhash) {
-				error!("state_sync: send_txhashset_request err! {:?}", e);
+				error!("Send Txhashset request: {:?}", e);
 				return Err(e);
 			}
 			return Ok(peer.clone());
@@ -218,8 +216,9 @@ impl StateSync {
 				self.prev_state_sync = Some(now);
 				(true, download_timeout)
 			}
+			//TODO: download time timeout should be reset by download progress
 			Some(prev) => {
-				if now - prev > Duration::minutes(10) {
+				if now - prev > Duration::minutes(20) {
 					download_timeout = true;
 				}
 				(false, download_timeout)
