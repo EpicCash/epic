@@ -23,7 +23,7 @@ use crate::p2p::{self, Peer};
 
 /// Fast sync has 3 "states":
 /// * syncing headers
-/// * once all headers are sync'd, requesting the txhashset state
+/// * once all headers are sync'd, requesting the txhashset state if its over horizon of 2880 blocks (2 day heights)
 /// * once we have the state, get blocks after that
 ///
 /// The StateSync struct implements and monitors the middle step.
@@ -94,13 +94,18 @@ impl StateSync {
 			}
 		}
 
-		// if txhashset downloaded and validated successfully, we switch to BodySync state,
-		// and we need call state_sync_reset() to make it ready for next possible state sync.
+		//TODO: effect
+		// check if we are in the middle of a txhashset validation
+		/*if let SyncStatus::TxHashsetKernelsValidation { .. } = self.sync_state.status() {
+			// If the sync status is TxHashsetKernelsValidation, skip further requests
+			warn!("SyncStatus is TxHashsetKernelsValidation. Skipping download requests.");
+			return false;
+		}*/
+
+		// if txhashset downloaded and validated successfully, we switch to Initial state
+		// to ask for new headers during download and validation time.
 		let done = if let SyncStatus::TxHashsetDone = self.sync_state.status() {
-			self.sync_state.update(SyncStatus::BodySync {
-				current_height: 0,
-				highest_height: 0,
-			});
+			self.sync_state.update(SyncStatus::Initial);
 			true
 		} else {
 			false
