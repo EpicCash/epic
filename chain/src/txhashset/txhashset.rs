@@ -164,7 +164,7 @@ impl TxHashSet {
 					break;
 				} else {
 					warn!(
-						"attempting to open kernel PMMR using {:?} - FAIL (verify failed)",
+						"attempting to open kernel PMMR using {:?} - FAIL (verify failed), going to check other version ...",
 						version
 					);
 				}

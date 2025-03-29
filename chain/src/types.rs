@@ -204,7 +204,7 @@ impl TxHashSetRoots {
 
 	/// Validate roots against the provided block header.
 	pub fn validate(&self, header: &BlockHeader) -> Result<(), Error> {
-		info!(
+		debug!(
 			"validate roots: {} at {}, {} vs. {} (original: {}, merged: {})",
 			header.hash(),
 			header.height,

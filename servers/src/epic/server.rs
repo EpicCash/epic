@@ -267,7 +267,10 @@ impl Server {
 			global::ChainTypes::Mainnet => genesis::genesis_main(),
 		};
 
-		info!("Starting server, genesis block: {}", genesis.hash());
+		info!(
+			"Warm up Epic node server from genesis({}), ...",
+			genesis.hash()
+		);
 
 		let shared_chain = Arc::new(chain::Chain::init(
 			config.db_root.clone(),
