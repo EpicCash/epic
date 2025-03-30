@@ -131,11 +131,17 @@ impl BodySync {
 			let body_head = self.chain.head()?;
 			let header_head = self.chain.header_head()?;
 
+			let remaining_blocks = header_head.height - body_head.height;
+			let total_blocks = header_head.height;
+			let percentage_synced =
+				(((total_blocks - remaining_blocks) as f64 / total_blocks as f64) * 10_000.0)
+					.trunc() / 100.0;
+
 			info!(
-				"Block Sync: {}/{} requesting {} more block(s)",
-				body_head.height,
-				header_head.height,
-				hashes_to_get.len()
+				"Block Sync: Requested {} more block(s), {} block(s) remaining, {:.2}% completed",
+				hashes_to_get.len(),
+				remaining_blocks,
+				percentage_synced
 			);
 
 			// reinitialize download tracking state
@@ -150,7 +156,7 @@ impl BodySync {
 						.requested_peers
 						.contains(&(peer.info.addr.clone(), *hash))
 					{
-						error!("Skipped request to {}: already requested", peer.info.addr);
+						debug!("Skipped request to {}: already requested", peer.info.addr);
 						continue;
 					}
 					if let Err(e) = peer.send_block_request(*hash, chain::Options::SYNC) {

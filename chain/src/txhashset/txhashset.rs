@@ -1439,8 +1439,8 @@ impl<'a> Extension<'a> {
 				commits.clear();
 				proofs.clear();
 				info!(
-					"txhashset: verify_rangeproofs: verified {} rangeproofs",
-					proof_count,
+					"Rangeproofs verification: processed {} proofs out of {} total rangeproofs",
+					proof_count, total_rproofs
 				);
 				if proof_count % 1_000 == 0 {
 					status.on_validation_rproofs(proof_count, total_rproofs);
@@ -1454,8 +1454,8 @@ impl<'a> Extension<'a> {
 			commits.clear();
 			proofs.clear();
 			info!(
-				"txhashset: verify_rangeproofs: verified {} rangeproofs",
-				proof_count,
+				"Rangeproofs verification: processed {} proofs out of {} total rangeproofs",
+				proof_count, total_rproofs
 			);
 		}
 
@@ -1480,7 +1480,7 @@ pub fn zip_read(root_dir: String, header: &BlockHeader) -> Result<File, Error> {
 	// if file exist, just re-use it
 	let zip_file = File::open(zip_path.clone());
 	if let Ok(zip) = zip_file {
-		warn!(
+		debug!(
 			"zip_read: {} at {}: reusing existing zip file: {:?}",
 			header.hash(),
 			header.height,
