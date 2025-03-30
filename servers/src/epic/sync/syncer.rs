@@ -172,8 +172,6 @@ impl SyncRunner {
 				break;
 			}
 
-			thread::sleep(time::Duration::from_millis(10));
-
 			let currently_syncing = self.sync_state.is_syncing();
 
 			// check whether syncing is generally needed, when we compare our state with others
@@ -208,11 +206,19 @@ impl SyncRunner {
 				continue;
 			}
 
+			let sleep_duration = match self.sync_state.status() {
+				SyncStatus::HeaderSync { .. }
+				| SyncStatus::Initial
+				| SyncStatus::BodySync { .. } => time::Duration::from_millis(50),
+				_ => time::Duration::from_secs(10),
+			};
+			thread::sleep(sleep_duration);
+
 			// if syncing is needed
 			let head = unwrap_or_restart_loop!(self.chain.head());
 			let tail = self.chain.tail().unwrap_or_else(|_| head.clone());
 			let header_head = unwrap_or_restart_loop!(self.chain.header_head());
-			let mut check_state_sync = false;
+			let mut txhashset_sync = false;
 			// run each sync stage, each of them deciding whether they're needed
 			// except for state sync that only runs if body sync return true (means txhashset is needed)
 			//add new header_sync peer if we found a new peer which is not in list
@@ -395,12 +401,34 @@ impl SyncRunner {
 			}
 
 			match self.sync_state.status() {
+				SyncStatus::Shutdown => {
+					download_headers = false;
+					continue;
+				}
+
 				SyncStatus::TxHashsetDownload { .. }
 				| SyncStatus::TxHashsetSetup
 				| SyncStatus::TxHashsetRangeProofsValidation { .. }
 				| SyncStatus::TxHashsetKernelsValidation { .. }
-				| SyncStatus::TxHashsetSave
-				| SyncStatus::TxHashsetDone => check_state_sync = true,
+				| SyncStatus::TxHashsetSave => txhashset_sync = true,
+				SyncStatus::TxHashsetDone => {
+					// if we are done with txhashset sync, we can start header sync
+					// reset sync head to header_head
+					// and start header sync
+					let sync_head = self.chain.get_sync_head().unwrap();
+					info!(
+						"Check transition to HeaderSync. Head {} at {}, resetting to: {} at {}",
+						sync_head.hash(),
+						sync_head.height,
+						header_head.hash(),
+						header_head.height,
+					);
+					// Rebuild the sync MMR to match our updated sync_head.
+					let _ = self.chain.rebuild_sync_mmr(&header_head);
+					//asking peers for headers and start header sync tasks
+					download_headers = true;
+					continue;
+				}
 				SyncStatus::AwaitingPeers(_) => {
 					//apply only on startup
 					if !download_headers {
@@ -455,7 +483,7 @@ impl SyncRunner {
 						continue;
 					}
 
-					//if all headers synced close pending header sync tasks and stop aksing peers
+					//if all headers synced close pending header sync tasks and stop asking peers
 					download_headers = false;
 					for header_sync in header_syncs.clone() {
 						let _ = header_sync.1.send(false);
@@ -470,12 +498,15 @@ impl SyncRunner {
 					};
 
 					if check_run {
-						check_state_sync = true;
+						txhashset_sync = true;
 					}
 				}
 			}
 
-			if check_state_sync {
+			//txhashset download
+			//TODO: rename state_sync to txhashset_sync
+			//if we are in txhashset sync state and we are not in body sync state, run state sync
+			if txhashset_sync {
 				state_sync.check_run(&header_head, &head, &tail, highest_network_height);
 			}
 		}

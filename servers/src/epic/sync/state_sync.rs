@@ -69,13 +69,22 @@ impl StateSync {
 			highest_height,
 		);
 
+		match self.sync_state.status() {
+			SyncStatus::TxHashsetDone
+			| SyncStatus::TxHashsetKernelsValidation { .. }
+			| SyncStatus::TxHashsetRangeProofsValidation { .. } => {
+				return false;
+			}
+			_ => {}
+		}
+
 		let mut sync_need_restart = false;
 
 		// check sync error
 		{
 			let clone = self.sync_state.sync_error();
 			if let Some(ref sync_error) = *clone.read() {
-				error!("Error = {:?}. restart fast sync", sync_error);
+				error!("Error = {:?}. restart txhashset sync", sync_error);
 				sync_need_restart = true;
 			}
 			drop(clone);
@@ -94,33 +103,12 @@ impl StateSync {
 			}
 		}
 
-		//TODO: effect
-		// check if we are in the middle of a txhashset validation
-		/*if let SyncStatus::TxHashsetKernelsValidation { .. } = self.sync_state.status() {
-			// If the sync status is TxHashsetKernelsValidation, skip further requests
-			warn!("SyncStatus is TxHashsetKernelsValidation. Skipping download requests.");
-			return false;
-		}*/
-
-		// if txhashset downloaded and validated successfully, we switch to Initial state
-		// to ask for new headers during download and validation time.
-		let done = if let SyncStatus::TxHashsetDone = self.sync_state.status() {
-			self.sync_state.update(SyncStatus::Initial);
-			true
-		} else {
-			false
-		};
-
-		if sync_need_restart || done {
+		if sync_need_restart {
 			self.state_sync_reset();
 			self.sync_state.clear_sync_error();
 		}
 
-		if done {
-			return false;
-		}
-
-		// run fast sync if applicable, normally only run one-time, except restart in error
+		// run txhashset sync if applicable, normally only run one-time, except restart in error
 		if sync_need_restart || header_head.height == highest_height {
 			let (go, download_timeout) = self.state_sync_due();
 
