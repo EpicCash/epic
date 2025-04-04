@@ -22,7 +22,7 @@
 //#![warn(missing_docs)]
 
 use blake2;
-extern crate bigint;
+
 extern crate keccak_hash;
 #[macro_use]
 extern crate enum_primitive;

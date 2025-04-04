@@ -13,8 +13,6 @@ use keccak_hash::keccak_256;
 use progpow::hardware::cpu::PpCPU;
 use progpow::types::PpCompute;
 
-//use bigint::uint::U256;
-
 lazy_static! {
 	pub static ref PP_CPU: RwLock<PpCPU> = RwLock::new(PpCPU::new());
 }

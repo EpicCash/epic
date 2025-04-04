@@ -18,8 +18,10 @@ use crate::blake2::blake2b::blake2b;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::pow::error::{Error, ErrorKind};
-use crate::pow::num::{PrimInt, ToPrimitive};
+
 use crate::pow::siphash::siphash24;
+use num_traits::PrimInt;
+use num_traits::ToPrimitive;
 use std::fmt;
 use std::hash::Hash;
 use std::io::Cursor;

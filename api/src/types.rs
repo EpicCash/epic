@@ -23,7 +23,6 @@ use crate::core::{core, ser};
 use crate::p2p;
 use crate::util;
 use crate::util::secp::pedersen;
-use bigint::uint::U256;
 use epic_core::pow::Proof;
 use serde;
 use serde::de::MapAccess;
@@ -464,7 +463,8 @@ impl<'de> serde::de::Deserialize<'de> for OutputPrintable {
 				}
 
 				if output_type.is_none()
-					|| commit.is_none() || spent.is_none()
+					|| commit.is_none()
+					|| spent.is_none()
 					|| proof_hash.is_none()
 					|| mmr_index.is_none()
 				{
@@ -624,7 +624,7 @@ impl BlockHeaderPrintable {
 				Proof::CuckooProof { ref nonces, .. } => Solution::Cuckoo(nonces.clone()),
 				Proof::MD5Proof { ref proof, .. } => Solution::MD5(proof.clone()),
 				Proof::RandomXProof { ref hash } => {
-					let h: U256 = hash.into();
+					let h = num_bigint::BigUint::from_bytes_be(hash);
 					Solution::RandomX(format!("{}", h))
 				}
 				Proof::ProgPowProof { ref mix } => Solution::ProgPow(mix.clone()),

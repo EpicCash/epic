@@ -24,7 +24,7 @@ use serde_json;
 use serde_json::Value;
 use std::collections::HashMap;
 use tokio::net::TcpListener;
-//use tokio::runtime::Runtime;
+
 use tokio_util::codec::{Framed, LinesCodec};
 
 use std::net::SocketAddr;
@@ -35,7 +35,7 @@ use std::{cmp, thread};
 use crate::chain::{self, SyncState};
 use crate::common::stats::{StratumStats, WorkerStats};
 use crate::common::types::StratumServerConfig;
-//use crate::core::core::block::feijoada::{next_block_bottles, Deterministic};
+
 use crate::core::core::hash::Hashed;
 use crate::core::core::Block;
 use crate::core::pow::{DifficultyNumber, PoWType};
@@ -45,12 +45,9 @@ use crate::mining::mine_block;
 
 use crate::util;
 
-//use bigint::uint::U256;
 use crate::ServerTxPool;
 use epic_core::pow::Proof;
 use epic_core::ser::Writeable;
-
-//->olduse futures::sync::mpsc;
 
 type Tx = mpsc::UnboundedSender<String>;
 

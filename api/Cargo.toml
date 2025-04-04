@@ -23,7 +23,7 @@ log = "0.4"
 tokio = { version = "1.32", features = ["full"] }
 futures = "0.3"
 url = "2.1"
-bigint = "4.4.1"
+num-bigint = "0.4"
 bytes = "1.10.1"
 
 hyper = { version = "0.14.32", features = ["full"]}

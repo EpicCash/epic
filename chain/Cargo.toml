@@ -23,7 +23,7 @@ chrono = "0.4.31"
 lru-cache = "0.1"
 lazy_static = "1"
 regex = "1"
-bigint = "4.4.1"
+
 
 epic_core = { path = "../core", version = "3.6.0" }
 epic_keychain = { path = "../keychain", version = "3.6.0" }
