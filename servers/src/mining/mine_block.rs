@@ -27,7 +27,7 @@ use crate::core::pow::randomx::rx_current_seed_height;
 use crate::core::pow::PoWType;
 use crate::core::{consensus, core, global};
 use crate::keychain::{ExtKeychain, Identifier, Keychain};
-use chrono::{NaiveDateTime, TimeZone, Utc};
+use chrono::{TimeZone, Utc};
 use rand::{rng, Rng};
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -102,11 +102,12 @@ fn build_block(
 		.get_header_hash_by_height(rx_current_seed_height(head.height + 1))?;
 
 	// prepare the block header timestamp
-	let mut now_sec = Utc::now().timestamp();
-	let head_sec = head.timestamp.timestamp();
-	if now_sec <= head_sec {
-		now_sec = head_sec + 1;
-	}
+	//let mut now_sec = Utc::now().timestamp();
+	//let head_sec = head.timestamp.timestamp();
+	//if now_sec <= head_sec {
+	//	now_sec = head_sec + 1;
+	//}
+	//-> was never used
 
 	// Determine the difficulty our block should be at.
 	// Note: do not keep the difficulty_iter in scope (it has an active batch).
@@ -174,10 +175,7 @@ fn build_block(
 	b.header.pow.seed = seed_u8;
 	b.header.pow.nonce = rng().random();
 	b.header.pow.secondary_scaling = difficulty.secondary_scaling;
-	b.header.timestamp = TimeZone::from_utc_datetime(
-		&Utc,
-		&NaiveDateTime::from_timestamp_opt(now_sec, 0).unwrap(),
-	);
+	b.header.timestamp = Utc.timestamp_opt(0, 0).single().expect("Invalid timestamp");
 	b.header.policy = get_emitted_policy(b.header.height);
 
 	let bottle_cursor = chain.bottles_iter(get_emitted_policy(b.header.height))?;

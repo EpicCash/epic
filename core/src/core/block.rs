@@ -18,7 +18,7 @@ pub mod feijoada;
 
 use chrono;
 use chrono::Duration;
-use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, TimeZone, Utc};
 use keccak_hash::keccak_256;
 use std::collections::HashSet;
 use std::convert::TryInto;
@@ -251,10 +251,7 @@ impl Default for BlockHeader {
 		BlockHeader {
 			version: HeaderVersion::default(),
 			height: 0,
-			timestamp: TimeZone::from_utc_datetime(
-				&Utc,
-				&NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
-			),
+			timestamp: Utc.timestamp_opt(0, 0).single().expect("Invalid timestamp"),
 			prev_hash: ZERO_HASH,
 			prev_root: ZERO_HASH,
 			output_root: ZERO_HASH,
@@ -320,13 +317,15 @@ fn read_block_header(reader: &mut dyn Reader) -> Result<BlockHeader, ser::Error>
 
 	if timestamp
 		> chrono::NaiveDate::MAX
-			.and_hms_opt(0, 0, 0)
+			.and_hms_opt(23, 59, 59)
 			.unwrap()
+			.and_utc()
 			.timestamp()
 		|| timestamp
 			< chrono::NaiveDate::MIN
 				.and_hms_opt(0, 0, 0)
 				.unwrap()
+				.and_utc()
 				.timestamp()
 	{
 		return Err(ser::Error::CorruptedData);
@@ -343,10 +342,10 @@ fn read_block_header(reader: &mut dyn Reader) -> Result<BlockHeader, ser::Error>
 	Ok(BlockHeader {
 		version,
 		height,
-		timestamp: TimeZone::from_utc_datetime(
-			&Utc,
-			&NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap(),
-		),
+		timestamp: Utc
+			.timestamp_opt(timestamp, 0)
+			.single()
+			.expect("Invalid timestamp"),
 		prev_hash,
 		prev_root,
 		output_root,
@@ -684,8 +683,10 @@ impl Block {
 		let version = consensus::header_version(height);
 
 		let now = Utc::now().timestamp();
-		let timestamp =
-			TimeZone::from_utc_datetime(&Utc, &NaiveDateTime::from_timestamp_opt(now, 0).unwrap());
+		let timestamp = Utc
+			.timestamp_opt(now, 0)
+			.single()
+			.expect("Invalid timestamp");
 
 		// Now build the block with all the above information.
 		// Note: We have not validated the block here.
@@ -734,8 +735,10 @@ impl Block {
 
 		let height = prev.height + 1;
 		let now = Utc::now().timestamp();
-		let timestamp =
-			TimeZone::from_utc_datetime(&Utc, &NaiveDateTime::from_timestamp_opt(now, 0).unwrap());
+		let timestamp = Utc
+			.timestamp_opt(now, 0)
+			.single()
+			.expect("Invalid timestamp");
 
 		// Now build the block with all the above information.
 		// Note: We have not validated the block here.
@@ -976,5 +979,44 @@ impl Readable for UntrustedBlock {
 			body,
 		};
 		Ok(UntrustedBlock(block))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use crate::core::block::BlockHeader;
+	use chrono::{DateTime, TimeZone, Utc};
+	#[test]
+	fn test_blockheader_default_timestamp() {
+		// Expected timestamp (Unix epoch start)
+		let expected_timestamp = Utc.timestamp_opt(0, 0).single().expect("Invalid timestamp");
+
+		// Create a default BlockHeader
+		let block_header = BlockHeader::default();
+
+		// Assert that the timestamp matches the expected value
+		assert_eq!(block_header.timestamp, expected_timestamp);
+
+		// Validate that the timestamp converts back to the correct Unix timestamp
+		assert_eq!(block_header.timestamp.timestamp(), 0);
+	}
+	#[test]
+	fn test_from_timestamp_opt() {
+		// Example timestamp (seconds since Unix epoch)
+		let timestamp: i64 = 1_615_000_000; // Corresponds to 2021-03-08T00:00:00Z
+
+		// Convert timestamp to NaiveDateTime using from_timestamp_opt
+		let naive_datetime =
+			DateTime::from_timestamp(timestamp, 0).expect("Failed to create NaiveDateTime");
+
+		// Convert back to timestamp
+		let converted_timestamp = naive_datetime.timestamp();
+
+		// Assert that the original and converted timestamps match
+		assert_eq!(timestamp, converted_timestamp);
+
+		// Optional: Validate against Utc DateTime
+		let utc_datetime = Utc.timestamp_opt(timestamp, 0).single().unwrap();
+		assert_eq!(naive_datetime, utc_datetime);
 	}
 }
