@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '**' # Matches all branches
+  pull_request:
+    branches:
+      - '**' # Matches all branches
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Set up Rust
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      # Cache Cargo dependencies
+      - name: Cache Cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache Cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-
+
+      # Build the project
+      - name: Build
+        run: cargo build --workspace --all-targets
+
+      # Run tests
+      - name: Run tests
+        run: cargo test --workspace -- --nocapture
+
+      # Run cucumber tests
+      - name: Run cucumber tests
+        run: cargo test --test cucumber -- --nocapture

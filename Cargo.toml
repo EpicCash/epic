@@ -80,3 +80,6 @@ built = { version = "0.7.1", features = ["git2", "cargo-lock"] }
 epic_store = { path = "./store", version = "3.6.0" }
 cucumber_rust = { version = "^0.5.1", default-features = false }
 
+[profile.test]
+panic = "abort"
+
