@@ -83,7 +83,7 @@ macro_rules! try_header {
 		match $conn.set_read_timeout(Some(HEADER_IO_TIMEOUT)) {
 			Ok(v) => v,
 			Err(e) => {
-				error!("try_header error: {:?}", e);
+				debug!("try_header error: {:?}", e);
 			}
 		}
 		try_break!($res)

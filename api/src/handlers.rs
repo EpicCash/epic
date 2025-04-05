@@ -135,13 +135,12 @@ where
 	);
 	router.add_route("/v2/foreign", Arc::new(api_handler))?;
 
-	warn!("Starting HTTP Node APIs server at {}.", addr);
 	let mut apis = ApiServer::new();
 
 	let socket_addr: SocketAddr = addr.parse().expect("unable to parse socket address");
 	let api_thread = apis.start(socket_addr, router, tls_config, api_chan);
-
-	warn!("HTTP Node listener started.");
+	info!("Starting HTTP Node APIs server at {}.", addr);
+	//warn!("HTTP Node listener started.");
 
 	thread::Builder::new()
 		.name("api_monitor".to_string())

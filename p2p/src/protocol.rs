@@ -368,18 +368,21 @@ impl MessageHandler for Protocol {
 			//prompt: Is it possible to resume a TxHashSet download, or is it impossible because it's a zip file?
 			Type::TxHashSetArchive => {
 				let sm_arch: TxHashSetArchive = msg.body()?;
+
+				if !self.adapter.txhashset_receive_ready() {
+					debug!("Txhashset archive received but SyncStatus not on TxHashsetDownload",);
+					return Err(Error::BadMessage);
+				}
+				if !self.state_sync_requested.load(Ordering::Relaxed) {
+					debug!("Txhashset archive received but from the wrong peer",);
+					return Err(Error::BadMessage);
+				}
+
 				info!(
 					"Looking for Txhashset archive  {} at {}. size={}",
 					sm_arch.hash, sm_arch.height, sm_arch.bytes,
 				);
-				if !self.adapter.txhashset_receive_ready() {
-					error!("Txhashset archive received but SyncStatus not on TxHashsetDownload",);
-					return Err(Error::BadMessage);
-				}
-				if !self.state_sync_requested.load(Ordering::Relaxed) {
-					error!("Txhashset archive received but from the wrong peer",);
-					return Err(Error::BadMessage);
-				}
+
 				// Update the sync state requested status
 				self.state_sync_requested.store(true, Ordering::Relaxed);
 
@@ -460,7 +463,7 @@ impl MessageHandler for Protocol {
 					}
 
 					info!(
-						"Txhashset archive: {}/{} ... DONE from peer {}",
+						"Txhashset archive: {}/{} ... DOWNLOAD DONE from peer {}",
 						downloaded_size, total_size, self.peer_info.addr
 					);
 					tmp_zip

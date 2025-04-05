@@ -59,7 +59,7 @@ impl Peers {
 	/// returned so the server can run it.
 	pub fn add_connected(&self, peer: Arc<Peer>) -> Result<(), Error> {
 		let mut peers = self.peers.try_write_for(LOCK_TIMEOUT).ok_or_else(|| {
-			error!("add_connected: failed to get peers lock");
+			debug!("add_connected: failed to get peers lock");
 			Error::Timeout
 		})?;
 		let peer_data = PeerData {
@@ -72,7 +72,7 @@ impl Peers {
 			last_connected: Utc::now().timestamp(),
 			local_timestamp: Utc::now().timestamp(),
 		};
-		debug!("Saving newly connected peer {}.", peer_data.addr);
+		info!("Saving newly connected peer {}.", peer_data.addr);
 		self.save_peer(&peer_data)?;
 		peers.insert(peer_data.addr, peer.clone());
 
@@ -92,7 +92,7 @@ impl Peers {
 			last_connected: Utc::now().timestamp(),
 			local_timestamp: Utc::now().timestamp(),
 		};
-		debug!("Banning peer {}.", addr);
+		warn!("Banning peer {}.", addr);
 		self.save_peer(&peer_data)
 	}
 
@@ -102,7 +102,7 @@ impl Peers {
 	/// to decide how best to handle this.
 	pub fn is_known(&self, addr: PeerAddr) -> Result<bool, Error> {
 		let peers = self.peers.try_read_for(LOCK_TIMEOUT).ok_or_else(|| {
-			error!("is_known: failed to get peers lock");
+			debug!("is_known: failed to get peers lock");
 			Error::Internal
 		})?;
 		Ok(peers.contains_key(&addr))
@@ -113,7 +113,7 @@ impl Peers {
 		let peers = match self.peers.try_read_for(LOCK_TIMEOUT) {
 			Some(peers) => peers,
 			None => {
-				error!("connected_peers: failed to get peers lock");
+				debug!("connected_peers: failed to get peers lock");
 				return vec![];
 			}
 		};
@@ -147,7 +147,7 @@ impl Peers {
 		let peers = match self.peers.try_read_for(LOCK_TIMEOUT) {
 			Some(peers) => peers,
 			None => {
-				error!("get_connected_peer: failed to get peers lock");
+				debug!("Failed to get peers lock for peer {}", addr);
 				return None;
 			}
 		};
@@ -210,7 +210,7 @@ impl Peers {
 		match self.more_work_peers() {
 			Ok(mut peers) => peers.pop(),
 			Err(e) => {
-				error!("failed to get more work peers: {:?}", e);
+				debug!("failed to get more work peers: {:?}", e);
 				None
 			}
 		}
@@ -256,13 +256,13 @@ impl Peers {
 
 		match self.get_connected_peer(peer_addr) {
 			Some(peer) => {
-				debug!("Banning peer {}", peer_addr);
+				warn!("Banning peer {}", peer_addr);
 				// setting peer status will get it removed at the next clean_peer
 				peer.send_ban_reason(ban_reason)?;
 				peer.set_banned();
 				peer.stop();
 				let mut peers = self.peers.try_write_for(LOCK_TIMEOUT).ok_or_else(|| {
-					error!("ban_peer: failed to get peers lock");
+					debug!("ban_peer: failed to get peers lock");
 					Error::PeerException
 				})?;
 				peers.remove(&peer.info.addr);
@@ -276,23 +276,31 @@ impl Peers {
 	pub fn disconnect_peer(&self, peer_addr: PeerAddr) -> Result<(), Error> {
 		match self.get_connected_peer(peer_addr) {
 			Some(peer) => {
-				debug!("Disconnect peer {}", peer_addr);
-				// setting peer status will get it removed at the next clean_peer
+				warn!("Disconnecting peer {}", peer_addr);
+
+				// Stoppe die Verbindung zum Peer
 				peer.stop();
+
+				// Setze den Zeitstempel für "zuletzt gesehen" zurück
+				let mut live_info = peer.info.live_info.write();
+				live_info.last_seen = Utc::now();
+
+				// Entferne den Peer aus der Liste der verbundenen Peers
 				let mut peers = self.peers.try_write_for(LOCK_TIMEOUT).ok_or_else(|| {
-					error!("disconnect_peer: failed to get peers lock");
+					debug!("disconnect_peer: failed to get peers lock");
 					Error::PeerException
 				})?;
 				peers.remove(&peer.info.addr);
+
 				Ok(())
 			}
-			None => return Err(Error::PeerNotFound),
+			None => Err(Error::PeerNotFound),
 		}
 	}
 
 	/// Unban a peer, checks if it exists and banned then unban
 	pub fn unban_peer(&self, peer_addr: PeerAddr) -> Result<(), Error> {
-		debug!("unban_peer: peer {}", peer_addr);
+		info!("Unban peer {}", peer_addr);
 		// check if peer exist
 		self.get_peer(peer_addr)?;
 		if self.is_banned(peer_addr) {
@@ -321,7 +329,7 @@ impl Peers {
 					let mut peers = match self.peers.try_write_for(LOCK_TIMEOUT) {
 						Some(peers) => peers,
 						None => {
-							error!("broadcast: failed to get peers lock");
+							debug!("broadcast: failed to get peers lock");
 							break;
 						}
 					};
@@ -377,11 +385,11 @@ impl Peers {
 	pub fn check_all(&self, total_difficulty: Difficulty, height: u64) {
 		for p in self.connected_peers().iter() {
 			if let Err(e) = p.send_ping(total_difficulty.clone(), height, Utc::now().timestamp()) {
-				debug!("Error pinging peer {:?}: {:?}", &p.info.addr, e);
+				warn!("Error pinging peer {}", &p.info.addr);
 				let mut peers = match self.peers.try_write_for(LOCK_TIMEOUT) {
 					Some(peers) => peers,
 					None => {
-						error!("check_all: failed to get peers lock");
+						debug!("check_all: failed to get peers lock: {:?}", e);
 						break;
 					}
 				};
@@ -396,7 +404,7 @@ impl Peers {
 		match self.store.all_peers() {
 			Ok(peers) => peers,
 			Err(e) => {
-				error!("all_peers failed: {:?}", e);
+				debug!("all_peers failed: {:?}", e);
 				vec![]
 			}
 		}
@@ -407,7 +415,7 @@ impl Peers {
 		match self.store.find_peers(state, cap, count) {
 			Ok(peers) => peers,
 			Err(e) => {
-				error!("failed to find peers: {:?}", e);
+				debug!("failed to find peers: {:?}", e);
 				vec![]
 			}
 		}
@@ -446,7 +454,7 @@ impl Peers {
 			let peers = match self.peers.try_read_for(LOCK_TIMEOUT) {
 				Some(peers) => peers,
 				None => {
-					error!("clean_peers: can't get peers lock");
+					debug!("clean_peers: can't get peers lock");
 					return;
 				}
 			};
@@ -513,7 +521,7 @@ impl Peers {
 			let mut peers = match self.peers.try_write_for(LOCK_TIMEOUT) {
 				Some(peers) => peers,
 				None => {
-					error!("clean_peers: failed to get peers lock");
+					debug!("clean_peers: failed to get peers lock");
 					return;
 				}
 			};
@@ -551,8 +559,8 @@ impl Peers {
 				&& diff > Duration::seconds(global::PEER_EXPIRATION_REMOVE_TIME);
 
 			if should_remove {
-				debug!(
-					"removing peer {:?}: last connected {} days {} hours {} minutes ago.",
+				info!(
+					"Removing peer {:?}: last connected {} days {} hours {} minutes ago.",
 					peer.addr,
 					diff.num_days(),
 					diff.num_hours(),
@@ -608,7 +616,7 @@ impl ChainAdapter for Peers {
 		if !self.adapter.block_received(b, peer_info, opts)? {
 			// if the peer sent us a block that's intrinsically bad
 			// they are either mistaken or malevolent, both of which require a ban
-			debug!(
+			warn!(
 				"Received a bad block {} from  {}, the peer will be banned",
 				hash, peer_info.addr,
 			);
@@ -633,7 +641,7 @@ impl ChainAdapter for Peers {
 		if !self.adapter.compact_block_received(cb, peer_info)? {
 			// if the peer sent us a block that's intrinsically bad
 			// they are either mistaken or malevolent, both of which require a ban
-			debug!(
+			warn!(
 				"Received a bad compact block {} from  {}, the peer will be banned",
 				hash, peer_info.addr
 			);
@@ -727,7 +735,7 @@ impl ChainAdapter for Peers {
 		peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
 		if self.adapter.txhashset_write(h, txhashset_data, peer_info)? {
-			debug!(
+			warn!(
 				"Received a bad txhashset data from {}, the peer will be banned",
 				peer_info.addr
 			);

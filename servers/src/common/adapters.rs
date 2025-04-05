@@ -142,10 +142,11 @@ where
 			if b.header.height.clone()
 				> (self.chain().head()?.height + BLOCK_BROADCAST_IGNORE_THRESHOLD)
 			{
-				debug!(
-					"Ignoring full block {}, height({}), delivered during sync",
+				warn!(
+					"Ignoring full block {}, height({}), delivered during sync from peer {}",
 					b.hash(),
-					b.header.height.clone()
+					b.header.height.clone(),
+					peer_info.addr
 				);
 				return Ok(true);
 			}
@@ -154,7 +155,7 @@ where
 		if self.chain().block_exists(b.hash())? {
 			return Ok(true);
 		}
-		info!(
+		debug!(
 			"Received block {} at {} from {} [in/out/kern: {}/{}/{}] going to process.",
 			b.hash(),
 			b.header.height,

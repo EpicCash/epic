@@ -84,7 +84,7 @@ struct EventLogger;
 impl NetEvents for EventLogger {
 	fn on_transaction_received(&self, tx: &core::Transaction) {
 		info!(
-			"Received tx {}, [in/out/kern: {}/{}/{}] going to process.",
+			"Sync: Received tx {}, [in/out/kern: {}/{}/{}]",
 			tx.hash(),
 			tx.inputs().len(),
 			tx.outputs().len(),
@@ -94,7 +94,7 @@ impl NetEvents for EventLogger {
 
 	fn on_block_received(&self, block: &core::Block, addr: &PeerAddr) {
 		info!(
-			"Received block {} at {} from {} [in/out/kern: {}/{}/{}] going to process.",
+			"Sync: Received block  {} at {} from {:<20}\t[in/out/kern: {}/{}/{}]",
 			block.hash(),
 			block.header.height,
 			addr,
@@ -106,7 +106,7 @@ impl NetEvents for EventLogger {
 
 	fn on_header_received(&self, header: &core::BlockHeader, addr: &PeerAddr) {
 		info!(
-			"Received block header {} at {} from {}, going to process.",
+			"Sync: Received header {} at {} from {}",
 			header.hash(),
 			header.height,
 			addr

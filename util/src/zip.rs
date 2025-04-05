@@ -83,7 +83,7 @@ pub fn extract_files(from_archive: File, dest: &Path, files: Vec<PathBuf>) -> io
 				io::copy(&mut BufReader::new(file), &mut BufWriter::new(outfile))
 					.expect("write to file");
 
-				info!("extract_files: {:?} -> {:?}", x, path);
+				info!("Extract files: {:?} -> {:?}", x, path);
 
 				// Set file permissions to "644" (Unix only).
 				#[cfg(unix)]

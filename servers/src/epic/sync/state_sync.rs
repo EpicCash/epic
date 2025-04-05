@@ -61,6 +61,16 @@ impl StateSync {
 		tail: &chain::Tip,
 		highest_height: u64,
 	) -> bool {
+		match self.sync_state.status() {
+			SyncStatus::TxHashsetSetup
+			| SyncStatus::TxHashsetDone
+			| SyncStatus::TxHashsetKernelsValidation { .. }
+			| SyncStatus::TxHashsetRangeProofsValidation { .. } => {
+				return false;
+			}
+			_ => {}
+		}
+
 		trace!(
 			"head.height: {}, tail.height: {}. header_head.height: {}, highest_height: {}",
 			head.height,
@@ -68,15 +78,6 @@ impl StateSync {
 			header_head.height,
 			highest_height,
 		);
-
-		match self.sync_state.status() {
-			SyncStatus::TxHashsetDone
-			| SyncStatus::TxHashsetKernelsValidation { .. }
-			| SyncStatus::TxHashsetRangeProofsValidation { .. } => {
-				return false;
-			}
-			_ => {}
-		}
 
 		let mut sync_need_restart = false;
 

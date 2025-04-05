@@ -76,7 +76,7 @@ impl LeafSet {
 
 		let bitmap = read_bitmap(&cp_file_path)?;
 		info!(
-			"leaf_set: copying rewound file {} to {}",
+			"Copying file {} to {}",
 			cp_file_path.display(),
 			path.as_ref().display()
 		);

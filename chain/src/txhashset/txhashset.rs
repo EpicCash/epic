@@ -344,22 +344,22 @@ impl TxHashSet {
 		horizon_header: &BlockHeader,
 		batch: &Batch<'_>,
 	) -> Result<(), Error> {
-		debug!("txhashset: starting compaction...");
+		info!("Starting txhashset compaction...");
 
 		let head_header = batch.head_header()?;
 		let rewind_rm_pos = input_pos_to_rewind(&horizon_header, &head_header, batch)?;
 
-		debug!("txhashset: check_compact output mmr backend...");
+		info!("Checking txhashset output mmr backend...");
 		self.output_pmmr_h
 			.backend
 			.check_compact(horizon_header.output_mmr_size, &rewind_rm_pos)?;
 
-		debug!("txhashset: check_compact rangeproof mmr backend...");
+		info!("Checking txhashset rangeproof mmr backend...");
 		self.rproof_pmmr_h
 			.backend
 			.check_compact(horizon_header.output_mmr_size, &rewind_rm_pos)?;
 
-		debug!("txhashset: ... compaction finished");
+		debug!("Succesfully finished txhashset compaction.");
 
 		Ok(())
 	}

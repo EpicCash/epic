@@ -790,7 +790,7 @@ async fn handle_worker_respo(h: Arc<Handler>, request: RpcRequest, worker_id: us
 // Worker Factory Thread Function
 #[tokio::main]
 async fn accept_connections(listen_addr: SocketAddr, handler: Arc<Handler>) {
-	info!("Start tokio stratum server");
+	//info!("Start tokio stratum server");
 
 	let listener = TcpListener::bind(&listen_addr)
 		.await

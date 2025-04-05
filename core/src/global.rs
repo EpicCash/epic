@@ -269,16 +269,11 @@ pub fn use_alternative_path(path_str: String) -> String {
 			"Invalid foundation file!\nCheck if the file `{}` was not changed!",
 			check_path.display()
 		);
-		println!(
-			"Invalid foundation file!\nCheck if the file `{}` was not changed!",
-			check_path.display()
-		);
 	} else {
 		warn!("The file `{}` was not found!", check_path.display());
-		println!("The file `{}` was not found!", check_path.display());
 	}
 	warn!("Will try to use the alternative file `{}`!", p.display());
-	println!("Will try to use the alternative file `{}`!", p.display());
+
 	return p.to_str().expect("Failed to get the executable's directory and no path to the foundation.json was provided!").to_owned();
 }
 

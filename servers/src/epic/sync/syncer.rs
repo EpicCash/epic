@@ -181,10 +181,16 @@ impl SyncRunner {
 				// we can occasionally get a most work height of 0 if read locks fail
 				highest_network_height = most_work_height;
 			}
-
+			let sleep_duration = match self.sync_state.status() {
+				SyncStatus::HeaderSync { .. }
+				| SyncStatus::Initial
+				| SyncStatus::BodySync { .. } => time::Duration::from_millis(50),
+				_ => time::Duration::from_secs(10),
+			};
 			//sync_slots = highest_network_height / sync_slot_size as u64;
 			//info!("current sync_slots: {:?}", sync_slots);
 			// quick short-circuit (and a decent sleep) if no syncing is needed
+
 			if !needs_syncing {
 				if currently_syncing {
 					self.sync_state.update(SyncStatus::NoSync);
@@ -204,20 +210,22 @@ impl SyncRunner {
 					}
 				}
 				continue;
+			} else if self.sync_state.status() == SyncStatus::NoSync {
+				warn!("Node is out of sync, switching to syncing mode");
+				self.sync_state.update(SyncStatus::AwaitingPeers(true));
+				download_headers = true;
+
+				continue;
 			}
 
-			let sleep_duration = match self.sync_state.status() {
-				SyncStatus::HeaderSync { .. }
-				| SyncStatus::Initial
-				| SyncStatus::BodySync { .. } => time::Duration::from_millis(50),
-				_ => time::Duration::from_secs(10),
-			};
 			thread::sleep(sleep_duration);
 
 			// if syncing is needed
 			let head = unwrap_or_restart_loop!(self.chain.head());
 			let tail = self.chain.tail().unwrap_or_else(|_| head.clone());
 			let header_head = unwrap_or_restart_loop!(self.chain.header_head());
+
+			#[allow(unused_assignments)]
 			let mut txhashset_sync = false;
 			// run each sync stage, each of them deciding whether they're needed
 			// except for state sync that only runs if body sync return true (means txhashset is needed)
@@ -411,7 +419,27 @@ impl SyncRunner {
 				| SyncStatus::TxHashsetRangeProofsValidation { .. }
 				| SyncStatus::TxHashsetKernelsValidation { .. }
 				| SyncStatus::TxHashsetSave => txhashset_sync = true,
+
 				SyncStatus::TxHashsetDone => {
+					// if txhashset is downloaded replaced with own txhashet we go to body sync.
+					// because download and validatet requires very long we missed new headers
+
+					// Update highest_network_height before transitioning to HeaderSync
+					let (_needs_syncing, most_work_height) =
+						unwrap_or_restart_loop!(self.needs_syncing());
+
+					if most_work_height > 0 {
+						highest_network_height = most_work_height;
+						info!(
+							"Updated highest_network_height to {} before transitioning to HeaderSync",
+							highest_network_height
+						);
+					} else {
+						warn!(
+							"Failed to update highest_network_height, keeping previous value: {}",
+							highest_network_height
+						);
+					}
 					// if we are done with txhashset sync, we can start header sync
 					// reset sync head to header_head
 					// and start header sync
@@ -423,44 +451,51 @@ impl SyncRunner {
 						header_head.hash(),
 						header_head.height,
 					);
+
+					let _ = self.chain.reset_sync_head();
+
 					// Rebuild the sync MMR to match our updated sync_head.
 					let _ = self.chain.rebuild_sync_mmr(&header_head);
-					//asking peers for headers and start header sync tasks
-					download_headers = true;
+					// Asking peers for headers and start header sync tasks
+					download_headers = false;
+
+					self.sync_state.update(SyncStatus::BodySync {
+						current_height: head.height,
+						highest_height: highest_network_height,
+					});
+
 					continue;
 				}
+
 				SyncStatus::AwaitingPeers(_) => {
-					//apply only on startup
+					info!(
+						"Sync status: AwaitingPeers. Waiting for min preferred peers to connect...",
+					);
+
+					// Apply only on startup
 					if !download_headers {
 						let sync_head = self.chain.get_sync_head().unwrap();
 						info!(
-        					"Initial transition to HeaderSync. Head {} at {}, resetting to: {} at {}",
-        					sync_head.hash(),
-        					sync_head.height,
-        					header_head.hash(),
-        					header_head.height,
-        				);
+								"Initial transition to HeaderSync. Head {} at {}, resetting to: {} at {}",
+								sync_head.hash(),
+								sync_head.height,
+								header_head.hash(),
+								header_head.height,
+							);
 						let _ = self.chain.reset_sync_head();
 
 						// Rebuild the sync MMR to match our updated sync_head.
 						let _ = self.chain.rebuild_sync_mmr(&header_head);
-						//asking peers for headers and start header sync tasks
+						// Asking peers for headers and start header sync tasks
 						download_headers = true;
 					}
 				}
-				_ => {
-					// skip body sync if header chain is not synced.
-					if header_head.height < highest_network_height {
-						/*warn!(
-							">>> DEFAULT_CASE portion of sync_state, continue case met. header_height({}), highest_network_height({})",
-							header_head.height,
-							highest_network_height
-						);
-						warn!("<<< sync_state({:?})", self.sync_state.status());*/
 
+				_ => {
+					// Skip body sync if header chain is not synced.
+					if header_head.height < highest_network_height {
 						match self.sync_state.status() {
 							SyncStatus::BodySync { .. } => {
-								//download_headers = true;
 								match self.chain.reset_sync_head() {
 									Ok(_) => (),
 									Err(e) => {
@@ -470,20 +505,18 @@ impl SyncRunner {
 										);
 									}
 								}
-								{
-									if !self.chain.clear_orphans() {
-										error!(
-											"Failed to fully clear ophan hashmap, continuing anyway!"
-										);
-									}
-								} // scope for RwLock
+								if !self.chain.clear_orphans() {
+									error!(
+										"Failed to fully clear orphan hashmap, continuing anyway!"
+									);
+								}
 							}
 							_ => {}
 						}
 						continue;
 					}
 
-					//if all headers synced close pending header sync tasks and stop asking peers
+					// If all headers are synced, close pending header sync tasks and stop asking peers
 					download_headers = false;
 					for header_sync in header_syncs.clone() {
 						let _ = header_sync.1.send(false);

@@ -1103,7 +1103,7 @@ impl Chain {
 		)?;
 		//todo check if we start new sync headerds again
 		//STxhashset archive for 52ff9eac60ba at 2939760, DONE. Data Ok: true from peer 13.235.100.148:3414
-		info!("finished validating txhashset and rebuilding");
+		info!("Finished validating txhashset and rebuilding. Going to replace...");
 
 		status.on_save();
 
@@ -1146,7 +1146,7 @@ impl Chain {
 			*txhashset_ref = txhashset;
 		}
 
-		info!("replaced our txhashset with the new one");
+		info!("Replaced txhashset with the new one");
 
 		status.on_done();
 

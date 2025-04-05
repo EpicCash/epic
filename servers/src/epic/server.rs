@@ -140,11 +140,15 @@ impl Server {
 		}
 
 		global::set_foundation_path(config.foundation_path.clone().to_owned());
+		let policy_config = global::get_policy_config();
 
-		info!(
-			"The policy configuration is: {:?}",
-			global::get_policy_config()
-		);
+		info!("Block policy:");
+		if let Some((_i, policy)) = policy_config.policies.iter().enumerate().last() {
+			for (key, value) in policy {
+				info!("\t{:>3}% {:?} blocks", value, key);
+			}
+		}
+
 		info!(
 			"The foundation.json is being read from {:?}",
 			global::get_foundation_path().unwrap()
@@ -354,7 +358,7 @@ impl Server {
 				}
 			})?;
 
-		info!("Starting rest apis at: {}", &config.api_http_addr);
+		//info!("Starting rest apis at: {}", &config.api_http_addr);
 		let api_secret = get_first_line(config.api_secret_path.clone());
 		let foreign_api_secret = get_first_line(config.foreign_api_secret_path.clone());
 		let tls_conf = match config.tls_certificate_file.clone() {
@@ -418,7 +422,7 @@ impl Server {
 		});
 		let _version_checker_thread = scheduler.watch_thread(Duration::from_millis(100));
 
-		warn!("Epic server started.");
+		info!("Epic node server started.");
 
 		Ok(Server {
 			config,
@@ -697,25 +701,25 @@ impl Server {
 			if let Some(connect_thread) = self.connect_thread {
 				match connect_thread.join() {
 					Err(e) => error!("failed to join to connect_and_monitor thread: {:?}", e),
-					Ok(_) => info!("connect_and_monitor thread stopped"),
+					Ok(_) => info!("Connect and monitor thread stopped"),
 				}
 			} else {
-				info!("No active connect_and_monitor thread")
+				info!("No active connect and monitor thread")
 			}
 
 			match self.sync_thread.join() {
 				Err(e) => error!("failed to join to sync thread: {:?}", e),
-				Ok(_) => info!("sync thread stopped"),
+				Ok(_) => info!("Sync thread stopped"),
 			}
 
 			match self.dandelion_thread.join() {
 				Err(e) => error!("failed to join to dandelion_monitor thread: {:?}", e),
-				Ok(_) => info!("dandelion_monitor thread stopped"),
+				Ok(_) => info!("Dandelion monitor thread stopped"),
 			}
 		}
 		self.p2p.stop();
 
-		let _ = self.lock_file.unlock();
+		let _ = self.lock_file;
 	}
 
 	/// Pause the p2p server.

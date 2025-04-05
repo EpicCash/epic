@@ -72,8 +72,8 @@ mod mine_chain {
 	use epic_core::{genesis, global};
 	use epic_keychain::{Identifier, Keychain};
 
-	use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 	use chrono::Duration;
+	use chrono::{DateTime, TimeZone, Utc};
 
 	use std::collections::HashMap;
 	use std::fs;
@@ -1315,11 +1315,9 @@ mod mine_chain {
 			"The num value {} has to be greater than zero",
 			num
 		);
-		DateTime::from_naive_utc_and_offset(
-			NaiveDateTime::from_timestamp_opt(num, 0)
-				.unwrap_or_else(|| panic!("Invalid timestamp: {}", num)),
-			Utc,
-		)
+		Utc.timestamp_opt(num, 0)
+			.single()
+			.expect("Invalid timestamp")
 	}
 
 	fn cumulative_reward_block_mining(height: u64) -> (u64, u64) {
@@ -1436,11 +1434,7 @@ mod mine_chain {
 			// and if we're back where we started, update the time (changes the hash as
 			// well)
 			if bh.pow.nonce == start_nonce {
-				bh.timestamp = DateTime::from_naive_utc_and_offset(
-					NaiveDateTime::from_timestamp_opt(0, 0)
-						.unwrap_or_else(|| panic!("Invalid timestamp: {}", 0)),
-					Utc,
-				)
+				bh.timestamp = Utc.timestamp_opt(0, 0).single().expect("Invalid timestamp");
 			}
 		}
 	}
