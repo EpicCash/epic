@@ -136,6 +136,7 @@ fn sync_status_to_api(sync_status: SyncStatus) -> (String, Option<serde_json::Va
 			Some(json!({ "current_height": current_height, "highest_height": highest_height })),
 		),
 		SyncStatus::Shutdown => ("shutdown".to_string(), None),
+		SyncStatus::Compacting => ("compacting".to_string(), None),
 		// any other status is considered syncing (should be unreachable)
 		_ => ("syncing".to_string(), None),
 	}

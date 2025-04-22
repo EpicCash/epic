@@ -359,7 +359,7 @@ impl TxHashSet {
 			.backend
 			.check_compact(horizon_header.output_mmr_size, &rewind_rm_pos)?;
 
-		debug!("Succesfully finished txhashset compaction.");
+		info!("Succesfully finished txhashset compaction.");
 
 		Ok(())
 	}

@@ -547,6 +547,11 @@ impl Peers {
 		self.peer_outbound_count() >= self.config.peer_min_preferred_outbound_count()
 	}
 
+	/// Returns the P2P configuration.
+	pub fn get_config(&self) -> &P2PConfig {
+		&self.config
+	}
+
 	/// Removes those peers that seem to have expired
 	pub fn remove_expired(&self) {
 		let now = Utc::now();

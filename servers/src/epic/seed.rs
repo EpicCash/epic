@@ -62,6 +62,14 @@ pub fn connect_and_monitor(
 			let mut start_attempt = 0;
 			let mut connecting_history: HashMap<PeerAddr, DateTime<Utc>> = HashMap::new();
 
+			// Reset all Defunct peers to Healthy on startup
+			for peer in peers.all_peers() {
+				if peer.flags == p2p::State::Defunct {
+					debug!("Resetting defunct peer {} to healthy on startup", peer.addr);
+					let _ = peers.update_state(peer.addr, p2p::State::Healthy);
+				}
+			}
+
 			loop {
 				if stop_state.is_stopped() {
 					break;
@@ -82,10 +90,10 @@ pub fn connect_and_monitor(
 
 				// try to connect to the remote seeds
 				// it helps when the remote seeds server are down during the startup
-				if peers.connected_peers().len() < 1
+				if !peers.enough_outbound_peers()
 					&& Utc::now().naive_utc() - prev_seed_check > Duration::seconds(10)
 				{
-					debug!("Trying to reconnect to seed and preferred peers");
+					info!("Trying to reconnect to seed and preferred peers");
 					connect_to_seeds_and_preferred_peers(
 						peers.clone(),
 						tx.clone(),
@@ -174,16 +182,18 @@ fn monitor_peers(
 	}
 
 	info!(
-		"Monitor peers on {}:{}, {} connected ({} most_work). \
+		"Monitor peers on {}:{}, [inbound/outbound/all] {}/{}/{} connected ({} on tip). \
 		 all {} = {} healthy + {} banned + {} defunct",
 		config.host,
 		config.port,
-		peers.peer_count(),
-		peers.most_work_peers().len(),
-		total_count,
-		healthy_count,
-		banned_count,
-		defuncts.len(),
+		peers.peer_inbound_count(),    // Anzahl der eingehenden Verbindungen
+		peers.peer_outbound_count(),   // Anzahl der ausgehenden Verbindungen
+		peers.peer_count(),            // Gesamtanzahl der verbundenen Peers
+		peers.most_work_peers().len(), // Anzahl der Peers mit der höchsten Arbeit
+		total_count,                   // Gesamtanzahl der bekannten Peers
+		healthy_count,                 // Anzahl der gesunden Peers
+		banned_count,                  // Anzahl der gesperrten Peers
+		defuncts.len(),                // Anzahl der defekten Peers
 	);
 
 	// maintenance step first, clean up p2p server peers

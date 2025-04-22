@@ -299,13 +299,15 @@ where
 	let reader_thread = thread::Builder::new()
 		.name("peer_read".to_string())
 		.spawn(move || {
+			if let Err(e) = reader.set_read_timeout(Some(BODY_IO_TIMEOUT)) {
+				error!("Failed to set read timeout: {:?}", e);
+				return; // Beende den Thread sauber
+			}
+
 			loop {
 				// check the read end
 				match try_header!(read_header(&mut reader, version), &mut reader) {
 					Some(MsgHeaderWrapper::Known(header)) => {
-						reader
-							.set_read_timeout(Some(BODY_IO_TIMEOUT))
-							.expect("set timeout");
 						let msg = Message::from_header(header, &mut reader, version);
 
 						trace!(
@@ -358,11 +360,14 @@ where
 	let writer_thread = thread::Builder::new()
 		.name("peer_write".to_string())
 		.spawn(move || {
+			if let Err(e) = writer.set_write_timeout(Some(BODY_IO_TIMEOUT)) {
+				error!("Failed to set write timeout: {:?}", e);
+				return; // Beende den Thread sauber
+			}
+
 			let mut retry_send = Err(());
 			let mut failcount = 0;
-			writer
-				.set_write_timeout(Some(BODY_IO_TIMEOUT))
-				.expect("set timeout");
+
 			loop {
 				let maybe_data = retry_send.or_else(|_| send_rx.recv_timeout(CHANNEL_TIMEOUT));
 				retry_send = Err(());

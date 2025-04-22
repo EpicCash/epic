@@ -129,6 +129,7 @@ impl TUIStatusView {
 				};
 				format!("Sync step 7/7: Downloading blocks: {}%", percent)
 			}
+			SyncStatus::Compacting => "Sync step 7/7: Compacting chain state".to_string(),
 			SyncStatus::Shutdown => "Shutting down, closing connections".to_string(),
 		}
 	}

@@ -290,7 +290,7 @@ seeds = [\"95.217.197.180:3414\",\"5.161.127.56:3414\",\"5.75.242.4:3414\",\"5.7
 
 #preferred minimum number of peers (we'll actively keep trying to add peers
 #until we get to at least this number
-#peer_min_preferred_count = 8
+#peer_min_preferred_outbound_count = 8
 
 # 31 = Bit flags for FULL_NODE, with HEADER_FASTSYNC capability
 #This structure needs to be changed internally, to make it more configurable

@@ -19,7 +19,7 @@ use std::{thread, thread::JoinHandle};
 
 use crate::chain::{self, SyncState, SyncStatus};
 use crate::core::core::hash::Hashed;
-use crate::core::global;
+
 use crate::core::pow::Difficulty;
 use crate::epic::sync::body_sync::BodySync;
 use crate::epic::sync::header_sync::HeaderSync;
@@ -77,40 +77,35 @@ impl SyncRunner {
 
 	fn wait_for_min_peers(&self) -> Result<(), chain::Error> {
 		// Initial sleep to give us time to peer with some nodes.
-		// Note: Even if we have skip peer wait we need to wait a
-		// short period of time for tests to do the right thing.
-		let wait_secs = if let SyncStatus::AwaitingPeers(true) = self.sync_state.status() {
-			30
-		} else {
-			3
-		};
-
-		let head = self.chain.head()?;
-
+		let wait_secs = 30;
+		let peers_config = self.peers.get_config();
 		let mut n = 0;
-		const MIN_PEERS: usize = 3;
 		loop {
 			if self.stop_state.is_stopped() {
 				break;
 			}
-			let wp = self.peers.more_or_same_work_peers()?;
-			// exit loop when:
-			// * we have more than MIN_PEERS more_or_same_work peers
-			// * we are synced already, e.g. epic was quickly restarted
-			// * timeout
-			if wp > MIN_PEERS
-				|| (wp == 0
-					&& self.peers.enough_outbound_peers()
-					&& head.total_difficulty > Difficulty::zero())
-				|| n > wait_secs
-			{
-				if wp > 0 || !global::is_production_mode() {
-					break;
-				}
+
+			// Überprüfe, ob genügend ausgehende Peers vorhanden sind
+			if self.peers.enough_outbound_peers() {
+				info!("Sufficient outbound peers connected, proceeding with sync.");
+				break;
 			}
+
+			// Wenn nicht genügend Peers vorhanden sind, warte und gib eine Info aus
+			if n > wait_secs {
+				n = 0;
+				let current_outbound_peers = self.peers.connected_peers().len();
+				warn!(
+					"Waiting for the minimum number of preferred outbound peers. required/current: {:?}/{:?} - see epic config: peer_min_preferred_outbound_count",
+					peers_config.peer_min_preferred_outbound_count.unwrap_or(0),
+					current_outbound_peers
+				);
+			}
+
 			thread::sleep(time::Duration::from_secs(1));
 			n += 1;
 		}
+
 		Ok(())
 	}
 
@@ -129,8 +124,17 @@ impl SyncRunner {
     	));
 
 		// Wait for connections reach at least MIN_PEERS
-		if let Err(e) = self.wait_for_min_peers() {
-			error!("wait_for_min_peers failed: {:?}", e);
+		// Ensure we have the minimum number of peers before proceeding
+
+		match self.wait_for_min_peers() {
+			Ok(_) => {
+				info!("Minimum peers requirement met, proceeding with sync.");
+			}
+			Err(e) => {
+				error!("wait_for_min_peers failed: {:?}", e);
+				// If the minimum peers requirement is not met, log and restart the loop
+				return; // Beende die aktuelle Iteration der Schleife
+			}
 		}
 
 		// Our 3 main sync stages
@@ -182,24 +186,26 @@ impl SyncRunner {
 				highest_network_height = most_work_height;
 			}
 			let sleep_duration = match self.sync_state.status() {
-				SyncStatus::HeaderSync { .. }
-				| SyncStatus::Initial
-				| SyncStatus::BodySync { .. } => time::Duration::from_millis(50),
+				SyncStatus::HeaderSync { .. } | SyncStatus::Initial => {
+					time::Duration::from_millis(100)
+				}
+				SyncStatus::BodySync { .. } => time::Duration::from_millis(100),
 				_ => time::Duration::from_secs(10),
 			};
 			//sync_slots = highest_network_height / sync_slot_size as u64;
 			//info!("current sync_slots: {:?}", sync_slots);
 			// quick short-circuit (and a decent sleep) if no syncing is needed
-
+			let mut needs_headersync = false;
 			if !needs_syncing {
 				if currently_syncing {
-					self.sync_state.update(SyncStatus::NoSync);
-
+					//self.sync_state.update(SyncStatus::NoSync);
+					self.sync_state.update(SyncStatus::Compacting);
 					// Initial transition out of a "syncing" state and into NoSync.
 					// This triggers a chain compaction to keep out local node tidy.
 					// Note: Chain compaction runs with an internal threshold
 					// so can be safely run even if the node is restarted frequently.
 					unwrap_or_restart_loop!(self.chain.compact());
+					self.sync_state.update(SyncStatus::NoSync);
 				}
 
 				// sleep for 10 secs but check stop signal every second
@@ -212,10 +218,7 @@ impl SyncRunner {
 				continue;
 			} else if self.sync_state.status() == SyncStatus::NoSync {
 				warn!("Node is out of sync, switching to syncing mode");
-				self.sync_state.update(SyncStatus::AwaitingPeers(true));
-				download_headers = true;
-
-				continue;
+				needs_headersync = true;
 			}
 
 			thread::sleep(sleep_duration);
@@ -225,11 +228,21 @@ impl SyncRunner {
 			let tail = self.chain.tail().unwrap_or_else(|_| head.clone());
 			let header_head = unwrap_or_restart_loop!(self.chain.header_head());
 
-			#[allow(unused_assignments)]
 			let mut txhashset_sync = false;
 			// run each sync stage, each of them deciding whether they're needed
 			// except for state sync that only runs if body sync return true (means txhashset is needed)
 			//add new header_sync peer if we found a new peer which is not in list
+			if needs_headersync {
+				self.sync_state.update(SyncStatus::HeaderSync {
+					current_height: head.height,
+					highest_height: highest_network_height,
+				});
+
+				let _ = self.chain.reset_sync_head();
+				// Rebuild the sync MMR to match our updated sync_head.
+				let _ = self.chain.rebuild_sync_mmr(&header_head);
+				download_headers = true;
+			}
 
 			if download_headers {
 				for peer in self.peers.clone().most_work_peers() {
@@ -409,6 +422,11 @@ impl SyncRunner {
 			}
 
 			match self.sync_state.status() {
+				SyncStatus::Compacting => {
+					// Während der Kompaktierung keine anderen Prozesse ausführen
+					thread::sleep(time::Duration::from_secs(1));
+					continue;
+				}
 				SyncStatus::Shutdown => {
 					download_headers = false;
 					continue;
@@ -468,10 +486,6 @@ impl SyncRunner {
 				}
 
 				SyncStatus::AwaitingPeers(_) => {
-					info!(
-						"Sync status: AwaitingPeers. Waiting for min preferred peers to connect...",
-					);
-
 					// Apply only on startup
 					if !download_headers {
 						let sync_head = self.chain.get_sync_head().unwrap();
@@ -482,56 +496,46 @@ impl SyncRunner {
 								header_head.hash(),
 								header_head.height,
 							);
-						let _ = self.chain.reset_sync_head();
 
+						let _ = self.chain.reset_sync_head();
 						// Rebuild the sync MMR to match our updated sync_head.
 						let _ = self.chain.rebuild_sync_mmr(&header_head);
 						// Asking peers for headers and start header sync tasks
 						download_headers = true;
+						//continue;
 					}
 				}
 
 				_ => {
-					// Skip body sync if header chain is not synced.
-					if header_head.height < highest_network_height {
-						match self.sync_state.status() {
-							SyncStatus::BodySync { .. } => {
-								match self.chain.reset_sync_head() {
-									Ok(_) => (),
-									Err(e) => {
-										error!(
-											"Unable to reset sync head, error: {:?}",
-											e.to_string()
-										);
-									}
-								}
-								if !self.chain.clear_orphans() {
-									error!(
-										"Failed to fully clear orphan hashmap, continuing anyway!"
-									);
-								}
+					if header_head.height >= highest_network_height {
+						// Header-Synchronisierung abgeschlossen
+
+						for header_sync in header_syncs.clone() {
+							let _ = header_sync.1.send(false);
+						}
+
+						// Wechsel zu Body-Synchronisierung
+						self.sync_state.update(SyncStatus::BodySync {
+							current_height: head.height,
+							highest_height: highest_network_height,
+						});
+						download_headers = false;
+
+						let check_run = match body_sync.check_run(&head, highest_network_height) {
+							Ok(v) => v,
+							Err(e) => {
+								error!("check_run failed: {:?}", e);
+								continue;
 							}
-							_ => {}
+						};
+
+						if check_run {
+							txhashset_sync = true;
 						}
+					} else {
+						// Header-Synchronisierung läuft noch
+						download_headers = true;
 						continue;
-					}
-
-					// If all headers are synced, close pending header sync tasks and stop asking peers
-					download_headers = false;
-					for header_sync in header_syncs.clone() {
-						let _ = header_sync.1.send(false);
-					}
-
-					let check_run = match body_sync.check_run(&head, highest_network_height) {
-						Ok(v) => v,
-						Err(e) => {
-							error!("check_run failed: {:?}", e);
-							continue;
-						}
-					};
-
-					if check_run {
-						txhashset_sync = true;
 					}
 				}
 			}

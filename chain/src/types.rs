@@ -86,6 +86,8 @@ pub enum SyncStatus {
 		current_height: u64,
 		highest_height: u64,
 	},
+
+	Compacting,
 	Shutdown,
 }
 
