@@ -86,6 +86,7 @@ pub enum Error {
 	PeerNotBanned,
 	PeerException,
 	Internal,
+	InvalidBanReason,
 }
 
 impl From<ser::Error> for Error {

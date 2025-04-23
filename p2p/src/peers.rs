@@ -252,6 +252,10 @@ impl Peers {
 	}
 	/// Ban a peer, disconnecting it if we're currently connected
 	pub fn ban_peer(&self, peer_addr: PeerAddr, ban_reason: ReasonForBan) -> Result<(), Error> {
+		if ban_reason == ReasonForBan::None {
+			return Err(Error::InvalidBanReason);
+		}
+
 		self.update_state(peer_addr, State::Banned)?;
 
 		match self.get_connected_peer(peer_addr) {

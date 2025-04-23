@@ -68,6 +68,15 @@ pub fn connect_and_monitor(
 					debug!("Resetting defunct peer {} to healthy on startup", peer.addr);
 					let _ = peers.update_state(peer.addr, p2p::State::Healthy);
 				}
+
+				// Unban peer if it was banned with no reason
+				// This is a workaround for the case when a peer was banned
+				if matches!(peer.ban_reason, p2p::ReasonForBan::None)
+					&& peer.flags == p2p::State::Banned
+				{
+					debug!("Unbanning peer {} with no ban reason", peer.addr);
+					let _ = peers.unban_peer(peer.addr);
+				}
 			}
 
 			loop {
