@@ -834,3 +834,55 @@ impl Readable for KernelDataResponse {
 		Ok(KernelDataResponse { bytes })
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::core::ser::{Readable, Writeable};
+
+	#[test]
+	fn test_ban_reason_serialization() {
+		// Test für alle Varianten von ReasonForBan
+		let reasons = vec![
+			ReasonForBan::None,
+			ReasonForBan::BadBlock,
+			ReasonForBan::BadCompactBlock,
+			ReasonForBan::BadBlockHeader,
+			ReasonForBan::BadTxHashSet,
+			ReasonForBan::ManualBan,
+			ReasonForBan::FraudHeight,
+			ReasonForBan::BadHandshake,
+		];
+
+		for reason in reasons {
+			let ban_reason = BanReason { ban_reason: reason };
+
+			// Serialisierung
+			let mut writer = Vec::new();
+			let mut bin_writer = ser::BinWriter::new(&mut writer, ProtocolVersion::local());
+			ban_reason.write(&mut bin_writer).unwrap();
+
+			// Deserialisierung
+			let mut reader = &writer[..];
+			let mut bin_reader = ser::BinReader::new(&mut reader, ProtocolVersion::local());
+			let deserialized_ban_reason = BanReason::read(&mut bin_reader).unwrap();
+
+			// Überprüfen, ob der ursprüngliche und der deserialisierte Wert übereinstimmen
+			assert_eq!(ban_reason.ban_reason, deserialized_ban_reason.ban_reason);
+		}
+	}
+
+	#[test]
+	fn test_invalid_ban_reason_deserialization() {
+		// Test für ungültige Werte
+		let invalid_bytes = vec![255, 0, 0, 0]; // Ein Wert, der keiner gültigen ReasonForBan-Variante entspricht
+		let mut reader = &invalid_bytes[..];
+
+		let mut bin_reader = ser::BinReader::new(&mut reader, ProtocolVersion::local());
+		let result = BanReason::read(&mut bin_reader);
+		assert!(
+			result.is_err(),
+			"Deserialization of invalid BanReason should fail"
+		);
+	}
+}

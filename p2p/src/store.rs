@@ -201,6 +201,29 @@ impl PeerStore {
 		batch.commit()
 	}
 
+	/// Convenience method to load a peer data, update its ban reason and save it
+	/// back. If the peer is banned, its last banned time will also be updated.
+	pub fn update_ban_reason(
+		&self,
+		peer_addr: PeerAddr,
+		ban_reason: ReasonForBan,
+	) -> Result<(), Error> {
+		let batch = self.db.batch()?;
+
+		let mut peer =
+			option_to_not_found(batch.get_ser::<PeerData>(&peer_key(peer_addr)[..]), || {
+				format!("Peer at address: {}", peer_addr)
+			})?;
+
+		// Aktualisiere den Bann-Grund und die Bann-Zeit
+		peer.ban_reason = ban_reason;
+		peer.last_banned = Utc::now().timestamp();
+		peer.flags = State::Banned;
+
+		batch.put_ser(&peer_key(peer_addr)[..], &peer)?;
+		batch.commit()
+	}
+
 	/// Deletes peers from the storage that satisfy some condition `predicate`
 	pub fn delete_peers<F>(&self, predicate: F) -> Result<(), Error>
 	where
@@ -232,4 +255,41 @@ impl PeerStore {
 // Ignore the port unless ip is loopback address.
 fn peer_key(peer_addr: PeerAddr) -> Vec<u8> {
 	to_key(PEER_PREFIX, &mut peer_addr.as_key().into_bytes())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::types::{PeerAddr, ReasonForBan};
+
+	#[test]
+	fn test_update_ban_reason() {
+		let peer_addr = "127.0.0.1:13414".parse().map(PeerAddr).unwrap();
+		let ban_reason = ReasonForBan::BadBlock;
+
+		// Erstelle einen PeerStore und füge einen Peer hinzu
+		let peer_store = PeerStore::new("/tmp/peer_store_test").unwrap();
+		let peer_data = PeerData {
+			addr: peer_addr.clone(),
+			capabilities: Capabilities::UNKNOWN,
+			user_agent: "test".to_string(),
+			flags: State::Healthy,
+			last_banned: 0,
+			ban_reason: ReasonForBan::None,
+			last_connected: Utc::now().timestamp(),
+			local_timestamp: Utc::now().timestamp(),
+		};
+		peer_store.save_peer(&peer_data).unwrap();
+
+		// Aktualisiere den Bann-Grund
+		peer_store
+			.update_ban_reason(peer_addr.clone(), ban_reason)
+			.unwrap();
+
+		// Überprüfe, ob der Bann-Grund korrekt gespeichert wurde
+		let updated_peer = peer_store.get_peer(peer_addr).unwrap();
+		assert_eq!(updated_peer.ban_reason, ban_reason);
+		assert_eq!(updated_peer.flags, State::Banned);
+		assert!(updated_peer.last_banned > 0);
+	}
 }

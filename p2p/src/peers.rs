@@ -257,7 +257,7 @@ impl Peers {
 		}
 
 		self.update_state(peer_addr, State::Banned)?;
-
+		self.update_ban_reason(peer_addr, ban_reason)?;
 		match self.get_connected_peer(peer_addr) {
 			Some(peer) => {
 				warn!("Banning peer {}", peer_addr);
@@ -444,6 +444,16 @@ impl Peers {
 	pub fn update_state(&self, peer_addr: PeerAddr, new_state: State) -> Result<(), Error> {
 		self.store
 			.update_state(peer_addr, new_state)
+			.map_err(From::from)
+	}
+	/// Updates the ban reason of a peer in store    
+	pub fn update_ban_reason(
+		&self,
+		peer_addr: PeerAddr,
+		ban_reason: ReasonForBan,
+	) -> Result<(), Error> {
+		self.store
+			.update_ban_reason(peer_addr, ban_reason)
 			.map_err(From::from)
 	}
 
