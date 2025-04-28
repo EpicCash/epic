@@ -58,8 +58,13 @@ use std::sync::Arc;
 mod hex;
 pub use crate::hex::*;
 
+/// Helper for checking network connectivity
+pub mod network;
+
 /// File util
 pub mod file;
+/// Helper for format like human_readable_size
+pub mod format;
 /// Compress and decompress zip bz2 archives
 pub mod zip;
 

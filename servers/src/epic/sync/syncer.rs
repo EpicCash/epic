@@ -169,20 +169,27 @@ impl SyncRunner {
 		// Main syncing loop
 		loop {
 			if self.stop_state.is_stopped() {
-				//close running header sync threads
+				// Close running header sync threads
 				for header_sync in header_syncs {
 					let _ = header_sync.1.send(false);
 				}
 				break;
 			}
 
+			// Check if there are enough outbound peers
+			if !self.peers.enough_outbound_peers() {
+				warn!("Not enough outbound peers available. Waiting for more peers to connect...");
+				thread::sleep(time::Duration::from_secs(5)); // Wait before checking again
+				continue; // Skip the current iteration of the loop
+			}
+
 			let currently_syncing = self.sync_state.is_syncing();
 
-			// check whether syncing is generally needed, when we compare our state with others
+			// Check whether syncing is generally needed by comparing our state with others
 			let (needs_syncing, most_work_height) = unwrap_or_restart_loop!(self.needs_syncing());
 
 			if most_work_height > 0 {
-				// we can occasionally get a most work height of 0 if read locks fail
+				// Occasionally, we can get a most work height of 0 if read locks fail
 				highest_network_height = most_work_height;
 			}
 			let sleep_duration = match self.sync_state.status() {
@@ -192,23 +199,22 @@ impl SyncRunner {
 				SyncStatus::BodySync { .. } => time::Duration::from_millis(100),
 				_ => time::Duration::from_secs(10),
 			};
-			//sync_slots = highest_network_height / sync_slot_size as u64;
-			//info!("current sync_slots: {:?}", sync_slots);
-			// quick short-circuit (and a decent sleep) if no syncing is needed
+
+			// Quick short-circuit (and a decent sleep) if no syncing is needed
 			let mut needs_headersync = false;
 			if !needs_syncing {
 				if currently_syncing {
-					//self.sync_state.update(SyncStatus::NoSync);
+					// Transition out of a "syncing" state and into NoSync
 					self.sync_state.update(SyncStatus::Compacting);
 					// Initial transition out of a "syncing" state and into NoSync.
-					// This triggers a chain compaction to keep out local node tidy.
+					// This triggers a chain compaction to keep our local node tidy.
 					// Note: Chain compaction runs with an internal threshold
-					// so can be safely run even if the node is restarted frequently.
+					// so it can be safely run even if the node is restarted frequently.
 					unwrap_or_restart_loop!(self.chain.compact());
 					self.sync_state.update(SyncStatus::NoSync);
 				}
 
-				// sleep for 10 secs but check stop signal every second
+				// Sleep for 10 seconds but check the stop signal every second
 				for _ in 1..10 {
 					thread::sleep(time::Duration::from_secs(1));
 					if self.stop_state.is_stopped() {
@@ -223,15 +229,14 @@ impl SyncRunner {
 
 			thread::sleep(sleep_duration);
 
-			// if syncing is needed
+			// If syncing is needed
 			let head = unwrap_or_restart_loop!(self.chain.head());
 			let tail = self.chain.tail().unwrap_or_else(|_| head.clone());
 			let header_head = unwrap_or_restart_loop!(self.chain.header_head());
 
 			let mut txhashset_sync = false;
-			// run each sync stage, each of them deciding whether they're needed
-			// except for state sync that only runs if body sync return true (means txhashset is needed)
-			//add new header_sync peer if we found a new peer which is not in list
+			// Run each sync stage, each of them deciding whether they're needed
+			// except for state sync that only runs if body sync returns true (meaning txhashset is needed)
 			if needs_headersync {
 				self.sync_state.update(SyncStatus::HeaderSync {
 					current_height: head.height,
@@ -290,14 +295,14 @@ impl SyncRunner {
 												Err(
 													std::sync::mpsc::TryRecvError::Disconnected,
 												) => {
-													println!("Terminating sync thread");
+													debug!("Terminating sync thread");
 
 													break;
 												}
 											};
 
 											if stop {
-												info!("Sync thread stop");
+												debug!("Sync header thread stopped");
 												break;
 											}
 
@@ -320,7 +325,7 @@ impl SyncRunner {
 									});
 
 								let feedback = handler.join().unwrap();
-								//dont process if headers are empty
+								// Don't process if headers are empty
 								if feedback.headers.len() <= 0 {
 									continue;
 								}
@@ -330,12 +335,12 @@ impl SyncRunner {
 										.insert(feedback.headers[0].height, feedback)
 									{
 										Some(_s) => {
-											error!("headers already in queue");
+											error!("Headers already in queue");
 										}
 										None => {}
 									}
 								} else {
-									error!("failed to get lock to insert headers to queue");
+									error!("Failed to get lock to insert headers to queue");
 								}
 
 								offset = offset + 1 as u8;
@@ -353,7 +358,7 @@ impl SyncRunner {
 			if header_syncs.len() > 0 {
 				download_headers = false;
 
-				// just for stats
+				// Just for stats
 				if let Ok(mut fastsync_headers) = fastsync_header_queue.try_lock() {
 					info!("------------ Downloaded headers in queue ------------");
 
@@ -371,7 +376,7 @@ impl SyncRunner {
 					}
 					info!("------------------ <-------------> ------------------");
 
-					//reset if all queue items are processed or get stuck because items in queue can not be added
+					// Reset if all queue items are processed or get stuck because items in queue cannot be added
 					if fastsync_headers.len() == 0 || tochain_attemps > 10 {
 						download_headers = true;
 						offset = 0;
@@ -393,7 +398,7 @@ impl SyncRunner {
 					{
 						Ok(added) => {
 							if !added {
-								// if the peer sent us a block header that's intrinsically bad
+								// If the peer sent us a block header that's intrinsically bad
 								// they are either mistaken or malevolent, both of which require a ban
 								chainsync
 									.ban_peer(
@@ -402,7 +407,7 @@ impl SyncRunner {
 									)
 									.map_err(|e| {
 										let err: chain::Error = chain::ErrorKind::Other(format!(
-											"ban peer error :{:?}",
+											"Ban peer error :{:?}",
 											e
 										))
 										.into();
@@ -413,12 +418,12 @@ impl SyncRunner {
 							fastsync_headers.remove(&lowest_height);
 						}
 						Err(err) => {
-							error!("chainsync {:?}", err);
+							error!("Chainsync {:?}", err);
 						}
 					}
 				} else {
 					tochain_attemps += 1;
-				} //end if fastsync_header
+				} // End if fastsync_header
 			}
 
 			match self.sync_state.status() {

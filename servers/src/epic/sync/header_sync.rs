@@ -12,14 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::Arc;
+
 use crate::core::core::BlockHeader;
 use chrono::prelude::Utc;
-use std::sync::Arc;
 
 use crate::chain::{self, SyncState, SyncStatus};
 use crate::common::types::Error;
 use crate::core::core::hash::{Hash, Hashed};
 use crate::p2p::{self, types::ReasonForBan, Peer, Peers};
+
+use crate::util::network::{is_network_stable, is_system_in_standby};
 
 pub struct HeaderSync {
 	sync_state: Arc<SyncState>,
@@ -101,20 +104,32 @@ impl HeaderSync {
 	fn header_sync_due(&mut self) -> bool {
 		let now = Utc::now().timestamp();
 
+		// Check if the network connection is unstable
+		if is_system_in_standby(self.start_time) || !is_network_stable() {
+			warn!(
+				"System was in standby mode or network is unstable, skipping fraud check for peer {}",
+				self.peer.info.addr
+			);
+
+			self.start_time = now; // Reset start time
+			return true;
+		}
+
 		if (now - self.start_time) > 180 {
 			let _ = self
 				.peers
 				.ban_peer(self.peer.info.addr, ReasonForBan::FraudHeight);
 
 			info!(
-				"sync: ban a fraud peer: {}, claimed height: {}, total difficulty: {}",
+				"sync: banning a fraudulent peer: {}, claimed height: {}, total difficulty: {}",
 				self.peer.info.addr,
 				self.peer.info.height(),
 				self.peer.info.total_difficulty(),
 			);
 			return true;
 		}
-		return false;
+
+		false
 	}
 
 	fn header_sync(&mut self) {
@@ -154,26 +169,26 @@ impl HeaderSync {
 	}
 
 	/// We build a locator based on sync_head.
-	/// Even if sync_head is significantly out of date we will "reset" it once we
+	/// Even if sync_head is significantly out of date, we will "reset" it once we
 	/// start getting headers back from a peer.
 	fn get_locator(&mut self) -> Result<Vec<Hash>, Error> {
 		let tip = self.chain.get_sync_head()?;
 		let heights = get_locator_heights(tip.height);
 
-		// for security, clear history_locator[] in any case of header chain rollback,
-		// the easiest way is to check whether the sync head and the header head are identical.
+		// For security, clear `history_locator[]` in any case of header chain rollback.
+		// The easiest way is to check whether the sync head and the header head are identical.
 		if self.history_locator.len() > 0 && tip.hash() != self.chain.header_head()?.hash() {
 			self.history_locator.retain(|&x| x.0 == 0);
 		}
 
-		// for each height we need, we either check if something is close enough from
-		// last locator, or go to the db
+		// For each height we need, we either check if something is close enough from
+		// the last locator or go to the database.
 		let mut locator: Vec<(u64, Hash)> = vec![(tip.height, tip.last_block_h)];
 		for h in heights {
 			if let Some(l) = close_enough(&self.history_locator, h) {
 				locator.push(l);
 			} else {
-				// start at last known hash and go backward
+				// Start at the last known hash and go backward
 				let last_loc = locator.last().unwrap().clone();
 				let mut header_cursor = self.chain.get_block_header(&last_loc.1);
 				while let Ok(header) = header_cursor {

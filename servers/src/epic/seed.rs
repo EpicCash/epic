@@ -97,12 +97,21 @@ pub fn connect_and_monitor(
 					prev_expire_check = Utc::now().naive_utc();
 				}
 
-				// try to connect to the remote seeds
-				// it helps when the remote seeds server are down during the startup
+				// Try to connect to the remote seeds
+				// This helps when the remote seed servers are down during startup
 				if !peers.enough_outbound_peers()
 					&& Utc::now().naive_utc() - prev_seed_check > Duration::seconds(10)
 				{
 					info!("Trying to reconnect to seed and preferred peers");
+
+					// Reset all defunct peers to "Healthy"
+					for peer in peers.all_peers() {
+						if peer.flags == p2p::State::Defunct {
+							debug!("Resetting defunct peer {} to healthy", peer.addr);
+							let _ = peers.update_state(peer.addr, p2p::State::Healthy);
+						}
+					}
+
 					connect_to_seeds_and_preferred_peers(
 						peers.clone(),
 						tx.clone(),
@@ -265,6 +274,7 @@ fn monitor_peers(
 	// The call to is_known() may fail due to contention on the peers map.
 	// Do not attempt any connection where is_known() fails for any reason.
 	for p in new_peers {
+		warn!("try connect new peer {}", p.addr);
 		if let Ok(false) = peers.is_known(p.addr) {
 			tx.send(p.addr).unwrap();
 		}

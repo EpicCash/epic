@@ -87,6 +87,7 @@ pub enum Error {
 	PeerException,
 	Internal,
 	InvalidBanReason,
+	IO(io::Error), // Fehler vom Typ io::Error
 }
 
 impl From<ser::Error> for Error {
