@@ -15,6 +15,7 @@
 use crate::chain;
 use crate::conn::{Message, MessageHandler, Tracker};
 use crate::core::core::{self, hash::Hash, hash::Hashed, CompactBlock};
+use crate::util::format::human_readable_size;
 
 use crate::msg::{
 	BanReason, FastHeaders, GetPeerAddrs, Headers, KernelDataResponse, Locator, LocatorFastSync,
@@ -378,9 +379,10 @@ impl MessageHandler for Protocol {
 					return Err(Error::BadMessage);
 				}
 
+				let size = human_readable_size(sm_arch.bytes);
 				info!(
 					"Looking for Txhashset archive  {} at {}. size={}",
-					sm_arch.hash, sm_arch.height, sm_arch.bytes,
+					sm_arch.hash, sm_arch.height, size,
 				);
 
 				// Update the sync state requested status

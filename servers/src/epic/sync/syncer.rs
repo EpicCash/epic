@@ -179,7 +179,10 @@ impl SyncRunner {
 			// Check if there are enough outbound peers
 			if !self.peers.enough_outbound_peers() {
 				warn!("Not enough outbound peers available. Waiting for more peers to connect...");
+				self.sync_state.update(SyncStatus::AwaitingPeers(false));
+
 				thread::sleep(time::Duration::from_secs(5)); // Wait before checking again
+
 				continue; // Skip the current iteration of the loop
 			}
 

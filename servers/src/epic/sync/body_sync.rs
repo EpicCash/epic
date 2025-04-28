@@ -92,13 +92,13 @@ impl BodySync {
 			return Ok(false);
 		}
 
-		// Prüfe, ob neue Blöcke empfangen wurden und aktualisiere den Status
+		// Check if new blocks have been received and update the status
 		self.update_blocks_received()?;
 
-		// Wenn keine neuen Hashes vorhanden sind, lade neue
+		// If no new hashes are available, fetch new ones
 		if self.hashes_to_get.is_empty() {
 			if self.fetch_new_hashes()? {
-				return Ok(true); // TxHashset-Download erforderlich
+				return Ok(true); // TxHashset download required
 			}
 		}
 
@@ -110,17 +110,16 @@ impl BodySync {
 			return Ok(false);
 		}
 
-		// Initialisiere den Fortschritt
+		// Initialize progress
 		self.blocks_requested = 0;
 
-		// Sende Anfragen an verfügbare Peers
-
+		// Send requests to available peers
 		self.request_blocks_from_peers()?;
 
-		// Warte auf den Empfang der Blöcke oder Timeout
+		// Wait for blocks to be received or timeout
 		self.wait_for_blocks()?;
 
-		// Aktualisiere den Timeout und logge den Fortschritt
+		// Update timeout and log progress
 		self.log_sync_progress()?;
 
 		Ok(false)
@@ -130,28 +129,29 @@ impl BodySync {
 	fn body_sync_due(&mut self) -> Result<bool, chain::Error> {
 		let blocks_received = self.blocks_received()?;
 
-		// Wenn Blöcke angefordert wurden, aber keine empfangen wurden, starte neu
+		// If blocks were requested but none were received, reset state
 		if self.blocks_requested > 0 {
 			let timeout = Utc::now() > self.receive_timeout;
 			if timeout && blocks_received <= self.prev_blocks_received {
 				warn!(
-					"Block Sync: expecting {} more blocks and none received for a while. Resetting state.",
-					self.blocks_requested,
-				);
+                    "Block Sync: expecting {} more blocks and none received for a while. Resetting state.",
+                    self.blocks_requested,
+                );
 
-				// Listen zurücksetzen
+				// Reset lists
 				self.hashes_to_get.clear();
 				self.requested_peers.clear();
 				self.hash_request_timestamps.clear();
 				self.blocks_requested = 0;
 				self.prev_blocks_received = 0;
+				self.receive_timeout = Utc::now(); // Reset timeout
 
-				// Synchronisierung erneut starten
+				// Restart synchronization
 				return Ok(true);
 			}
 		}
 
-		// Aktualisiere den Status, wenn Blöcke empfangen wurden
+		// Update status if blocks were received
 		if blocks_received > self.prev_blocks_received {
 			self.blocks_requested = self
 				.blocks_requested
@@ -159,7 +159,7 @@ impl BodySync {
 			self.prev_blocks_received = blocks_received;
 		}
 
-		// Überprüfe, ob ein Peer verfügbar ist, um neue Anfragen zu senden
+		// Check if a peer is available to send new requests
 		if self.peers.more_work_peers()?.iter().any(|peer| {
 			self.requested_peers
 				.iter()
@@ -173,19 +173,19 @@ impl BodySync {
 
 	// Total numbers received on this chain, including the head and orphans
 	fn blocks_received(&mut self) -> Result<u64, chain::Error> {
-		// Es wird nur ein Block gleichzeitig angefragt, daher prüfen wir direkt den ersten Eintrag
+		// Only one block is requested at a time, so we directly check the first entry
 		if let Some((peer_addr, hash)) = self.requested_peers.iter().next().cloned() {
 			if let Ok(header) = self.chain.get_block_header(&hash) {
-				// Prüfe, ob der Elternblock vorhanden ist
+				// Check if the parent block exists
 				if self.chain.get_block(&header.prev_hash).is_ok() {
-					self.requested_peers.remove(&(peer_addr, hash)); // Entferne den Eintrag
-					self.hash_request_timestamps.remove(&hash); // Entferne den Zeitstempel
-					return Ok(1); // Ein Block wurde erfolgreich empfangen
+					self.requested_peers.remove(&(peer_addr, hash)); // Remove the entry
+					self.hash_request_timestamps.remove(&hash); // Remove the timestamp
+					return Ok(1); // One block was successfully received
 				}
 			}
 		}
 
-		Ok(0) // Kein Block wurde erfolgreich empfangen
+		Ok(0) // No block was successfully received
 	}
 
 	fn update_blocks_received(&mut self) -> Result<(), chain::Error> {

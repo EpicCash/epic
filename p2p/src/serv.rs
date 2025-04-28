@@ -69,12 +69,33 @@ impl Server {
 	/// Starts a new TCP server and listen to incoming connections. This is a
 	/// blocking call until the TCP server stops.
 	pub fn listen(&self) -> Result<(), Error> {
-		// start TCP listener and handle incoming connections
+		// Start TCP listener and handle incoming connections
 		let addr = SocketAddr::new(self.config.host, self.config.port);
-		let listener = TcpListener::bind(addr)?;
+
+		let listener = match TcpListener::bind(addr) {
+			Ok(listener) => listener,
+			Err(ref e) if e.kind() == io::ErrorKind::AddrInUse => {
+				error!(
+					"Address {}:{} is already in use. Please check if another instance is running.",
+					self.config.host, self.config.port
+				);
+				return Err(Error::Connection(io::Error::new(
+					io::ErrorKind::AddrInUse,
+					"Address already in use",
+				)));
+			}
+			Err(e) => {
+				error!(
+					"Failed to bind to address {}:{}: {:?}",
+					self.config.host, self.config.port, e
+				);
+				return Err(Error::Connection(e));
+			}
+		};
+
 		listener.set_nonblocking(true)?;
 
-		let sleep_time = Duration::from_millis(5);
+		let sleep_time = Duration::from_millis(100);
 		loop {
 			// Pause peer ingress connection request. Only for tests.
 			if self.stop_state.is_paused() {
@@ -95,7 +116,6 @@ impl Server {
 					let peer_addr = PeerAddr(peer_addr);
 
 					if self.check_undesirable(&stream) {
-						// Shutdown the incoming TCP connection if it is not desired
 						if let Err(e) = stream.shutdown(Shutdown::Both) {
 							debug!("Error shutting down conn: {:?}", e);
 						}
