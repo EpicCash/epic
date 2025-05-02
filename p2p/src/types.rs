@@ -542,8 +542,12 @@ pub trait ChainAdapter: Sync + Send {
 	fn total_header_height(&self) -> Result<u64, chain::Error>;
 
 	/// A valid transaction has been received from one of our peers
-	fn transaction_received(&self, tx: core::Transaction, stem: bool)
-		-> Result<bool, chain::Error>;
+	fn transaction_received(
+		&self,
+		tx: core::Transaction,
+		stem: bool,
+		peer_info: &PeerInfo,
+	) -> Result<bool, chain::Error>;
 
 	fn get_transaction(&self, kernel_hash: Hash) -> Option<core::Transaction>;
 

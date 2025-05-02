@@ -24,6 +24,7 @@ use crate::common::types::{ServerConfig, WebHooksConfig};
 use crate::core::core;
 use crate::core::core::hash::Hashed;
 use crate::p2p::types::PeerAddr;
+use epic_p2p::PeerInfo;
 
 use futures::TryFutureExt;
 use hyper::client::HttpConnector;
@@ -63,13 +64,13 @@ pub fn init_chain_hooks(config: &ServerConfig) -> Vec<Box<dyn ChainEvents + Send
 /// Trait to be implemented by Network Event Hooks
 pub trait NetEvents {
 	/// Triggers when a new transaction arrives
-	fn on_transaction_received(&self, _tx: &core::Transaction) {}
+	fn on_transaction_received(&self, _tx: &core::Transaction, _peer_info: &PeerInfo) {}
 
 	/// Triggers when a new block arrives
-	fn on_block_received(&self, _block: &core::Block, _addr: &PeerAddr) {}
+	fn on_block_received(&self, _block: &core::Block, _peer_info: &PeerAddr) {}
 
 	/// Triggers when a new block header arrives
-	fn on_header_received(&self, _header: &core::BlockHeader, _addr: &PeerAddr) {}
+	fn on_header_received(&self, _header: &core::BlockHeader, _peer_info: &PeerAddr) {}
 }
 
 /// Trait to be implemented by Chain Event Hooks
@@ -82,19 +83,20 @@ pub trait ChainEvents {
 struct EventLogger;
 
 impl NetEvents for EventLogger {
-	fn on_transaction_received(&self, tx: &core::Transaction) {
+	fn on_transaction_received(&self, tx: &core::Transaction, peer_info: &PeerInfo) {
 		info!(
-			"Sync: Received tx {}, [in/out/kern: {}/{}/{}]",
+			"Sync: Received tx {} from {:<20}\t[in/out/kern: {}/{}/{}]",
 			tx.hash(),
+			peer_info.addr,
 			tx.inputs().len(),
 			tx.outputs().len(),
-			tx.kernels().len(),
+			tx.kernels().len()
 		);
 	}
 
 	fn on_block_received(&self, block: &core::Block, addr: &PeerAddr) {
 		info!(
-			"Sync: Received block  {} at {} from {:<20}\t[in/out/kern: {}/{}/{}]",
+			"Sync: Received block {} at {} from {:<20}\t[in/out/kern: {}/{}/{}]",
 			block.hash(),
 			block.header.height,
 			addr,
@@ -317,7 +319,7 @@ impl ChainEvents for WebHook {
 
 impl NetEvents for WebHook {
 	/// Triggers when a new transaction arrives
-	fn on_transaction_received(&self, tx: &core::Transaction) {
+	fn on_transaction_received(&self, tx: &core::Transaction, _peer_info: &PeerInfo) {
 		let payload = json!({
 			"hash": tx.hash().to_hex(),
 			"data": tx

@@ -517,6 +517,7 @@ impl ChainAdapter for TrackingAdapter {
 		&self,
 		tx: core::Transaction,
 		stem: bool,
+		peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
 		// Do not track the tx hash for stem txs.
 		// Otherwise we fail to handle the subsequent fluff or embargo expiration
@@ -525,7 +526,7 @@ impl ChainAdapter for TrackingAdapter {
 			let kernel = &tx.kernels()[0];
 			self.push_recv(kernel.hash());
 		}
-		self.adapter.transaction_received(tx, stem)
+		self.adapter.transaction_received(tx, stem, peer_info)
 	}
 
 	fn block_received(

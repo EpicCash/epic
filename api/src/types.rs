@@ -256,6 +256,17 @@ impl<'de> serde::de::Visitor<'de> for PrintableCommitmentVisitor {
 	}
 }
 
+/// Wrapper type for pedersen::Commitment to allow custom implementations.
+#[derive(Debug, Clone)]
+pub struct CommitmentWrapper(pub pedersen::Commitment);
+
+impl CommitmentWrapper {
+	/// Converts the commitment to a hexadecimal string representation.
+	pub fn to_hex(&self) -> String {
+		util::to_hex(self.0.as_ref().to_vec())
+	}
+}
+
 // As above, except formatted a bit better for human viewing
 #[derive(Debug, Clone)]
 pub struct OutputPrintable {

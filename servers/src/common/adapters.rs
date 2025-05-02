@@ -105,6 +105,7 @@ where
 		&self,
 		tx: core::Transaction,
 		stem: bool,
+		peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
 		// nothing much we can do with a new transaction while syncing
 		if self.sync_state.is_syncing() {
@@ -116,7 +117,7 @@ where
 		let header = self.chain().head_header()?;
 
 		for hook in &self.hooks {
-			let _ = hook.on_transaction_received(&tx);
+			let _ = hook.on_transaction_received(&tx, &peer_info);
 		}
 
 		let tx_hash = tx.hash();

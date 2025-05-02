@@ -621,8 +621,9 @@ impl ChainAdapter for Peers {
 		&self,
 		tx: core::Transaction,
 		stem: bool,
+		peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
-		self.adapter.transaction_received(tx, stem)
+		self.adapter.transaction_received(tx, stem, peer_info)
 	}
 
 	fn block_received(

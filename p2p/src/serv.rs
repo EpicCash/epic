@@ -310,6 +310,7 @@ impl ChainAdapter for DummyAdapter {
 		&self,
 		_: core::Transaction,
 		_stem: bool,
+		_peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
 		Ok(true)
 	}

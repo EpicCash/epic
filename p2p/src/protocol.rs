@@ -135,14 +135,14 @@ impl MessageHandler for Protocol {
 			Type::Transaction => {
 				debug!("Received tx: msg_len: {}", msg.header.msg_len);
 				let tx: core::Transaction = msg.body()?;
-				adapter.transaction_received(tx, false)?;
+				adapter.transaction_received(tx, false, &self.peer_info)?;
 				Ok(None)
 			}
 
 			Type::StemTransaction => {
 				debug!("Received stem tx: msg_len: {}", msg.header.msg_len);
 				let tx: core::Transaction = msg.body()?;
-				adapter.transaction_received(tx, true)?;
+				adapter.transaction_received(tx, true, &self.peer_info)?;
 				Ok(None)
 			}
 
