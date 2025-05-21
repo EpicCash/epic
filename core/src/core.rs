@@ -36,12 +36,12 @@ pub use self::committed::Committed;
 pub use self::compact_block::*;
 pub use self::id::ShortId;
 pub use self::transaction::*;
-
+use thiserror::Error; // <-- Add this
 /// Common errors
-#[derive(Fail, Debug)]
+#[derive(Error, Debug)]
 pub enum Error {
 	/// Human readable represenation of amount is invalid
-	#[fail(display = "Amount string was invalid")]
+	#[error("Amount string was invalid")]
 	InvalidAmountString,
 }
 

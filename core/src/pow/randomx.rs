@@ -2,7 +2,7 @@ use num_bigint::BigUint;
 use std::marker::PhantomData;
 
 use crate::pow::common::EdgeType;
-use crate::pow::error::{Error, ErrorKind};
+use crate::pow::error::Error;
 use crate::pow::{PoWContext, Proof};
 use crate::util::RwLock;
 
@@ -119,7 +119,7 @@ where
 			}
 		}
 
-		Err(ErrorKind::Verification("Hash randomx invalid!".to_string()))?
+		Err(Error::Verification("Hash randomx invalid!".to_string()))?
 	}
 }
 

@@ -15,13 +15,13 @@
 use rand::rng;
 use std::cmp::min;
 use std::convert::TryFrom;
-use std::io::Cursor;
-use std::ops::Add;
 /// Keychain trait and its main supporting types. The Identifier is a
 /// semi-opaque structure (just bytes) to track keys within the Keychain.
 /// BlindingFactor is a useful wrapper around a private key to help with
 /// commitment generation.
-use std::{error, fmt};
+use std::fmt;
+use std::io::Cursor;
+use std::ops::Add;
 
 use crate::blake2::blake2b::blake2b;
 use crate::extkey_bip32::{self, ChildNumber};
@@ -40,37 +40,19 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 // Size of an identifier in bytes
 pub const IDENTIFIER_SIZE: usize = 17;
 
-#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+use thiserror::Error;
+
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize, Error)]
 pub enum Error {
-	Secp(secp::Error),
-	KeyDerivation(extkey_bip32::Error),
-	Transaction(String),
+	#[error("Secp Error {0}")]
+	Secp(#[from] secp::Error),
+	#[error("KeyDerivation")]
+	KeyDerivation(#[from] extkey_bip32::Error),
+
+	#[error("Rangeproof Error {0}")]
 	RangeProof(String),
+	#[error("SwitchCommitment Error")]
 	SwitchCommitment,
-}
-
-impl From<secp::Error> for Error {
-	fn from(e: secp::Error) -> Error {
-		Error::Secp(e)
-	}
-}
-
-impl From<extkey_bip32::Error> for Error {
-	fn from(e: extkey_bip32::Error) -> Error {
-		Error::KeyDerivation(e)
-	}
-}
-
-impl error::Error for Error {
-	// placeholder for std::error members such as 'source()'
-}
-
-impl fmt::Display for Error {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match *self {
-			_ => write!(f, "some kind of keychain error"),
-		}
-	}
 }
 
 #[derive(Clone, PartialEq, Eq, Ord, Hash, PartialOrd)]

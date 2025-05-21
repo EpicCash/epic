@@ -24,7 +24,7 @@ use crate::core::global;
 use crate::core::pow;
 use crate::core::pow::PoWType;
 use crate::core::ser::{ProtocolVersion, Readable, StreamingReader};
-use crate::error::{Error, ErrorKind};
+use crate::error::Error;
 use crate::pipe;
 use crate::store;
 use crate::txhashset;
@@ -366,7 +366,7 @@ impl Chain {
 	pub fn is_known(&self, header: &BlockHeader) -> Result<(), Error> {
 		let head = self.head()?;
 		if head.hash() == header.hash() {
-			return Err(ErrorKind::Unfit("duplicate block".to_owned()).into());
+			return Err(Error::Unfit("duplicate block".to_owned()).into());
 		}
 		if header.total_difficulty() <= head.total_difficulty {
 			if self.block_exists(header.hash())? {
@@ -375,7 +375,7 @@ impl Chain {
 					header.hash(),
 					header.height,
 				);
-				return Err(ErrorKind::Unfit("duplicate block".to_owned()).into());
+				return Err(Error::Unfit("duplicate block".to_owned()).into());
 			}
 		}
 		Ok(())
@@ -411,7 +411,7 @@ impl Chain {
 			},
 		);
 
-		Err(ErrorKind::Orphan.into())
+		Err(Error::Orphan.into())
 	}
 
 	/// Attempt to add a new block to the chain.
@@ -684,7 +684,7 @@ impl Chain {
 		if tx.lock_height() <= height {
 			Ok(())
 		} else {
-			Err(ErrorKind::TxLockHeight.into())
+			Err(Error::TxLockHeight.into())
 		}
 	}
 
@@ -1042,7 +1042,7 @@ impl Chain {
 		let mut hashes: Option<Vec<Hash>> = None;
 		if !self.check_txhashset_needed("txhashset_write".to_owned(), &mut hashes)? {
 			warn!("txhashset_write: txhashset received but it's not needed! ignored.");
-			return Err(ErrorKind::InvalidTxHashSet("not needed".to_owned()).into());
+			return Err(Error::InvalidTxHashSet("not needed".to_owned()).into());
 		}
 
 		let header = match self.get_block_header(&h) {
@@ -1300,7 +1300,7 @@ impl Chain {
 		let rangeproofs =
 			txhashset.rangeproofs_by_pmmr_index(start_index, max_count, max_pmmr_index);
 		if outputs.0 != rangeproofs.0 || outputs.1.len() != rangeproofs.1.len() {
-			return Err(ErrorKind::TxHashSetErr(String::from(
+			return Err(Error::TxHashSetErr(String::from(
 				"Output and rangeproof sets don't match",
 			))
 			.into());
@@ -1347,55 +1347,55 @@ impl Chain {
 	pub fn head(&self) -> Result<Tip, Error> {
 		self.store
 			.head()
-			.map_err(|e| ErrorKind::StoreErr(e, "chain head".to_owned()).into())
+			.map_err(|e| Error::ChainStoreErr(e, "chain head".to_owned()).into())
 	}
 
 	/// Tail of the block chain in this node after compact (cross-block cut-through)
 	pub fn tail(&self) -> Result<Tip, Error> {
 		self.store
 			.tail()
-			.map_err(|e| ErrorKind::StoreErr(e, "chain tail".to_owned()).into())
+			.map_err(|e| Error::ChainStoreErr(e, "chain tail".to_owned()).into())
 	}
 
 	pub fn header_head(&self) -> Result<Tip, Error> {
 		self.store
 			.header_head()
-			.map_err(|e| ErrorKind::StoreErr(e, "header head".to_owned()).into())
+			.map_err(|e| Error::ChainStoreErr(e, "header head".to_owned()).into())
 	}
 
 	/// Block header for the chain head
 	pub fn head_header(&self) -> Result<BlockHeader, Error> {
 		self.store
 			.head_header()
-			.map_err(|e| ErrorKind::StoreErr(e, "chain head header".to_owned()).into())
+			.map_err(|e| Error::ChainStoreErr(e, "chain head header".to_owned()).into())
 	}
 
 	/// Gets a block by hash
 	pub fn get_block(&self, h: &Hash) -> Result<Block, Error> {
 		self.store
 			.get_block(h)
-			.map_err(|e| ErrorKind::StoreErr(e, "chain get block".to_owned()).into())
+			.map_err(|e| Error::ChainStoreErr(e, "chain get block".to_owned()).into())
 	}
 
 	/// Gets a block header by hash
 	pub fn get_block_header(&self, h: &Hash) -> Result<BlockHeader, Error> {
 		self.store
 			.get_block_header(h)
-			.map_err(|e| ErrorKind::StoreErr(e, "chain get header".to_owned()).into())
+			.map_err(|e| Error::ChainStoreErr(e, "chain get header".to_owned()).into())
 	}
 
 	/// Get previous block header.
 	pub fn get_previous_header(&self, header: &BlockHeader) -> Result<BlockHeader, Error> {
 		self.store
 			.get_previous_header(header)
-			.map_err(|e| ErrorKind::StoreErr(e, "chain get previous header".to_owned()).into())
+			.map_err(|e| Error::ChainStoreErr(e, "chain get previous header".to_owned()).into())
 	}
 
 	/// Get block_sums by header hash.
 	pub fn get_block_sums(&self, h: &Hash) -> Result<BlockSums, Error> {
 		self.store
 			.get_block_sums(h)
-			.map_err(|e| ErrorKind::StoreErr(e, "chain get block_sums".to_owned()).into())
+			.map_err(|e| Error::ChainStoreErr(e, "chain get block_sums".to_owned()).into())
 	}
 
 	/// Gets the block header at the provided height.
@@ -1511,7 +1511,7 @@ impl Chain {
 		if chain_header.hash() == header.hash() {
 			Ok(())
 		} else {
-			Err(ErrorKind::Other(format!("not on current chain")).into())
+			Err(Error::Other(format!("not on current chain")).into())
 		}
 	}
 
@@ -1520,7 +1520,7 @@ impl Chain {
 	pub fn get_sync_head(&self) -> Result<Tip, Error> {
 		self.store
 			.get_sync_head()
-			.map_err(|e| ErrorKind::StoreErr(e, "chain get sync head".to_owned()).into())
+			.map_err(|e| Error::ChainStoreErr(e, "chain get sync head".to_owned()).into())
 	}
 
 	/// Builds an iterator on blocks starting from the current chain head and
@@ -1555,7 +1555,7 @@ impl Chain {
 	pub fn block_exists(&self, h: Hash) -> Result<bool, Error> {
 		self.store
 			.block_exists(&h)
-			.map_err(|e| ErrorKind::StoreErr(e, "chain block exists".to_owned()).into())
+			.map_err(|e| Error::ChainStoreErr(e, "chain block exists".to_owned()).into())
 	}
 
 	/// Check block headers against checkpoints hash and height. Returns
@@ -1575,7 +1575,7 @@ impl Chain {
                                	        		c.block_hash
                                			);
 					} else {
-						return Err(ErrorKind::CheckpointFailure.into());
+						return Err(Error::CheckpointFailure.into());
 					}
 				}
 			}
@@ -1701,7 +1701,7 @@ fn setup_head(
 
 			info!("init: saved genesis: {:?}", genesis.hash());
 		}
-		Err(e) => return Err(ErrorKind::StoreErr(e, "chain init load head".to_owned()))?,
+		Err(e) => return Err(Error::ChainStoreErr(e, "chain init load head".to_owned()))?,
 	};
 
 	// Check we have the header corresponding to the header_head.

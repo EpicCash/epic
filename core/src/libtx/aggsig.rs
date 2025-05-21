@@ -16,7 +16,7 @@
 //! This module interfaces into the underlying
 //! [Rust Aggsig library](https://github.com/mimblewimble/rust-secp256k1-zkp/blob/master/src/aggsig.rs)
 
-use crate::libtx::error::{Error, ErrorKind};
+use crate::libtx::error::Error;
 use keychain::{BlindingFactor, Identifier, Keychain, SwitchCommitmentType};
 use util::secp::key::{PublicKey, SecretKey};
 use util::secp::pedersen::Commitment;
@@ -118,7 +118,7 @@ pub fn calculate_partial_sig(
 /// key sum values must be identical to those provided in the call to
 /// [`calculate_partial_sig`](fn.calculate_partial_sig.html). Returns
 /// `Result::Ok` if the signature is valid, or a Signature
-/// [ErrorKind](../enum.ErrorKind.html) otherwise
+/// [Error](../enum.Error.html) otherwise
 ///
 /// # Arguments
 ///
@@ -192,9 +192,7 @@ pub fn verify_partial_sig(
 		pubkey_sum,
 		true,
 	) {
-		Err(ErrorKind::Signature(
-			"Signature validation error".to_string(),
-		))?
+		Err(Error::Signature("Signature validation error".to_string()))?
 	}
 	Ok(())
 }
@@ -203,7 +201,7 @@ pub fn verify_partial_sig(
 /// this function is used to create transaction kernel signatures for
 /// coinbase outputs.
 /// Returns `Ok(Signature)` if the signature is valid, or a Signature
-/// [ErrorKind](../enum.ErrorKind.html) otherwise
+/// [Error](../enum.Error.html) otherwise
 ///
 /// # Arguments
 ///
@@ -272,7 +270,7 @@ where
 /// Simple verification a single signature from a commitment. The public
 /// key used to verify the signature is derived from the commit.
 /// Returns `Ok(())` if the signature is valid, or a Signature
-/// [ErrorKind](../enum.ErrorKind.html) otherwise
+/// [Error](../enum.Error.html) otherwise
 ///
 /// # Arguments
 ///
@@ -331,10 +329,9 @@ pub fn verify_single_from_commit(
 	commit: &Commitment,
 ) -> Result<(), Error> {
 	let pubkey = commit.to_pubkey(secp)?;
-	if !verify_single(secp, sig, msg, None, &pubkey, Some(&pubkey), false) {
-		Err(ErrorKind::Signature(
-			"Signature validation error".to_string(),
-		))?
+	match !verify_single(secp, sig, msg, None, &pubkey, Some(&pubkey), false) {
+		true => Err(Error::Signature("Signature validation error".to_string()))?,
+		false => (),
 	}
 	Ok(())
 }
@@ -343,7 +340,7 @@ pub fn verify_single_from_commit(
 /// and pubkey sum values that are used during signature creation time
 /// to create 'e'
 /// Returns `Ok(())` if the signature is valid, or a Signature
-/// [ErrorKind](../enum.ErrorKind.html) otherwise
+/// [Error](../enum.Error.html) otherwise
 ///
 /// # Arguments
 ///
@@ -402,9 +399,7 @@ pub fn verify_completed_sig(
 	msg: &secp::Message,
 ) -> Result<(), Error> {
 	if !verify_single(secp, sig, msg, None, pubkey, pubkey_sum, true) {
-		Err(ErrorKind::Signature(
-			"Signature validation error".to_string(),
-		))?
+		Err(Error::Signature("Signature validation error".to_string()))?
 	}
 	Ok(())
 }

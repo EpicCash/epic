@@ -19,15 +19,15 @@ use std::path::{Path, PathBuf};
 
 use croaring::{Bitmap, Portable};
 
-use crate::core::core::hash::Hashed;
-use crate::core::core::pmmr;
-use crate::core::core::BlockHeader;
 use crate::prune_list::PruneList;
 use crate::{read_bitmap, save_via_temp_file};
+use epic_core::core::hash::Hashed;
+use epic_core::core::pmmr;
+use epic_core::core::BlockHeader;
 
+use log::{debug, info};
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
-
 /// Compact (roaring) bitmap representing the set of positions of
 /// leaves that are currently unpruned in the MMR.
 pub struct LeafSet {

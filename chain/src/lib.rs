@@ -31,7 +31,6 @@ extern crate log;
 use epic_core as core;
 use epic_keychain as keychain;
 use epic_util as util;
-use failure;
 
 mod chain;
 mod error;
@@ -43,7 +42,7 @@ pub mod types;
 // Re-export the base interface
 
 pub use crate::chain::{Chain, MAX_ORPHAN_SIZE};
-pub use crate::error::{Error, ErrorKind};
+pub use crate::error::Error;
 pub use crate::store::ChainStore;
 pub use crate::types::{
 	BlockStatus, ChainAdapter, Options, SyncState, SyncStatus, Tip, TxHashsetWriteStatus,

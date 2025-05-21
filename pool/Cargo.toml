@@ -16,8 +16,7 @@ serde = "1"
 serde_derive = "1"
 log = "0.4"
 chrono = "0.4.31"
-failure = "0.1"
-failure_derive = "0.1"
+thiserror = "2.0.12"
 
 epic_core = { path = "../core", version = "3.6.0" }
 epic_keychain = { path = "../keychain", version = "3.6.0" }

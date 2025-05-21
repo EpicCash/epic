@@ -117,7 +117,7 @@ impl StateSync {
 				if download_timeout {
 					error!("TxHashset Download timeout in 20 minutes!");
 					self.sync_state.set_sync_error(
-						chain::ErrorKind::SyncError(format!("{:?}", p2p::Error::Timeout)).into(),
+						chain::Error::SyncError(format!("{:?}", p2p::Error::Timeout)).into(),
 					);
 				}
 			}
@@ -130,7 +130,7 @@ impl StateSync {
 					}
 					Err(e) => self
 						.sync_state
-						.set_sync_error(chain::ErrorKind::SyncError(format!("{:?}", e)).into()),
+						.set_sync_error(chain::Error::SyncError(format!("{:?}", e)).into()),
 				}
 
 				// Update the sync state to TxHashsetDownload

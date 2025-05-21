@@ -409,11 +409,9 @@ impl SyncRunner {
 										p2p::types::ReasonForBan::BadBlockHeader,
 									)
 									.map_err(|e| {
-										let err: chain::Error = chain::ErrorKind::Other(format!(
-											"Ban peer error :{:?}",
-											e
-										))
-										.into();
+										let err: chain::Error =
+											chain::Error::Other(format!("Ban peer error :{:?}", e))
+												.into();
 										err
 									})
 									.unwrap();

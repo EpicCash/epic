@@ -22,7 +22,6 @@ use chrono::{DateTime, TimeZone, Utc};
 use keccak_hash::keccak_256;
 use std::collections::HashSet;
 use std::convert::TryInto;
-use std::fmt;
 use std::iter::FromIterator;
 
 use crate::consensus::{
@@ -44,78 +43,61 @@ use crate::ser::{self, PMMRable, Readable, Reader, Writeable, Writer};
 use crate::util::{secp, static_secp_instance};
 
 use crate::core::foundation::load_foundation_output;
+use thiserror::Error; // <-- Add this
 
 /// Errors thrown by Block validation
-#[derive(Debug, Clone, Eq, PartialEq, Fail)]
+#[derive(Debug, Clone, Eq, PartialEq, Error)]
 pub enum Error {
 	/// The sum of output minus input commitments does not
 	/// match the sum of kernel commitments
+	#[error("Kernel sum mismatch")]
 	KernelSumMismatch,
 	/// The total kernel sum on the block header is wrong
+	#[error("Invalid total kernel sum")]
 	InvalidTotalKernelSum,
 	/// Same as above but for the coinbase part of a block, including reward
+	#[error("Coinbase sum mismatch")]
 	CoinbaseSumMismatch,
+
+	#[error("Invalid foundation output")]
 	InvalidFoundationOutput,
+
 	/// Restrict block total weight.
+	#[error("Block is too heavy")]
 	TooHeavy,
 	/// Block weight (based on inputs|outputs|kernels) exceeded.
+	#[error("Block weight exceeded")]
 	WeightExceeded,
 	/// Kernel not valid due to lock_height exceeding block header height
+	#[error("Kernel lock height exceeded {0}")]
 	KernelLockHeight(u64),
+
 	/// Underlying tx related error
-	Transaction(transaction::Error),
+	#[error("Transaction Error {0}")]
+	Transaction(#[from] transaction::Error),
 	/// Underlying Secp256k1 error (signature validation or invalid public key
 	/// typically)
-	Secp(secp::Error),
+	#[error("Secp error {0}")]
+	Secp(#[from] secp::Error),
 	/// Underlying keychain related error
-	Keychain(keychain::Error),
+	#[error("Keychain Error {0}")]
+	Keychain(#[from] keychain::Error),
 	/// Underlying Merkle proof error
+	#[error("Merkle proof error")]
 	MerkleProof,
 	/// Error when verifying kernel sums via committed trait.
-	Committed(committed::Error),
+	#[error("Committed Trait: Error summing and verifying kernel sums {0}")]
+	Committed(#[from] committed::Error),
 	/// Validation error relating to cut-through.
 	/// Specifically the tx is spending its own output, which is not valid.
+	#[error("Cut-through validation error")]
 	CutThrough,
 	/// Underlying serialization error.
-	Serialization(ser::Error),
+	#[error("Serialization Error {0}")]
+	Serialization(#[from] ser::Error),
 	/// Other unspecified error condition
+	#[error("Other Error")]
 	Other(String),
-}
-
-impl From<committed::Error> for Error {
-	fn from(e: committed::Error) -> Error {
-		Error::Committed(e)
-	}
-}
-
-impl From<transaction::Error> for Error {
-	fn from(e: transaction::Error) -> Error {
-		Error::Transaction(e)
-	}
-}
-
-impl From<ser::Error> for Error {
-	fn from(e: ser::Error) -> Error {
-		Error::Serialization(e)
-	}
-}
-
-impl From<secp::Error> for Error {
-	fn from(e: secp::Error) -> Error {
-		Error::Secp(e)
-	}
-}
-
-impl From<keychain::Error> for Error {
-	fn from(e: keychain::Error) -> Error {
-		Error::Keychain(e)
-	}
-}
-
-impl fmt::Display for Error {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "Block Error (display needs implementation")
-	}
 }
 
 /// Header entry for storing in the header MMR.

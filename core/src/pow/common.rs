@@ -17,8 +17,7 @@
 use crate::blake2::blake2b::blake2b;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::pow::error::{Error, ErrorKind};
-
+use crate::pow::error::Error;
 use crate::pow::siphash::siphash24;
 use num_traits::PrimInt;
 use num_traits::ToPrimitive;
@@ -26,7 +25,6 @@ use std::fmt;
 use std::hash::Hash;
 use std::io::Cursor;
 use std::ops::{BitOrAssign, Mul};
-
 /// Operations needed for edge type (going to be u32 or u64)
 pub trait EdgeType: PrimInt + ToPrimitive + Mul + BitOrAssign + Hash {}
 impl EdgeType for u32 {}
@@ -108,7 +106,7 @@ pub fn create_siphash_keys(header: &[u8]) -> Result<[u64; 4], Error> {
 #[macro_export]
 macro_rules! to_u64 {
 	($n:expr) => {
-		$n.to_u64().ok_or(ErrorKind::IntegerCast)?
+		$n.to_u64().ok_or(Error::IntegerCast)?
 	};
 }
 
@@ -116,7 +114,7 @@ macro_rules! to_u64 {
 #[macro_export]
 macro_rules! to_u32 {
 	($n:expr) => {
-		$n.to_u64().ok_or(ErrorKind::IntegerCast)? as u32
+		$n.to_u64().ok_or(Error::IntegerCast)? as u32
 	};
 }
 
@@ -124,7 +122,7 @@ macro_rules! to_u32 {
 #[macro_export]
 macro_rules! to_usize {
 	($n:expr) => {
-		$n.to_u64().ok_or(ErrorKind::IntegerCast)? as usize
+		$n.to_u64().ok_or(Error::IntegerCast)? as usize
 	};
 }
 
@@ -133,7 +131,7 @@ macro_rules! to_usize {
 #[macro_export]
 macro_rules! to_edge {
 	($n:expr) => {
-		T::from($n).ok_or(ErrorKind::IntegerCast)?
+		T::from($n).ok_or(Error::IntegerCast)?
 	};
 }
 
@@ -175,13 +173,13 @@ where
 	pub fn sipnode(&self, edge: T, uorv: u64, shift: bool) -> Result<T, Error> {
 		let hash_u64 = siphash24(
 			&self.siphash_keys,
-			2 * edge.to_u64().ok_or(ErrorKind::IntegerCast)? + uorv,
+			2 * edge.to_u64().ok_or(Error::IntegerCast)? + uorv,
 		);
-		let mut masked = hash_u64 & self.edge_mask.to_u64().ok_or(ErrorKind::IntegerCast)?;
+		let mut masked = hash_u64 & self.edge_mask.to_u64().ok_or(Error::IntegerCast)?;
 		if shift {
 			masked <<= 1;
 			masked |= uorv;
 		}
-		Ok(T::from(masked).ok_or(ErrorKind::IntegerCast)?)
+		Ok(T::from(masked).ok_or(Error::IntegerCast)?)
 	}
 }

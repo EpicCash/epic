@@ -1,10 +1,8 @@
-extern crate randomx;
-
 use std::marker::PhantomData;
 
 //use crate::core::block::BlockHeader;
 use crate::pow::common::EdgeType;
-use crate::pow::error::{Error, ErrorKind};
+use crate::pow::error::Error;
 use crate::pow::{PoWContext, Proof};
 use crate::util::RwLock;
 
@@ -110,6 +108,6 @@ where
 			}
 		}
 
-		Err(ErrorKind::Verification("Hash progpow invalid!".to_string()))?
+		Err(Error::Verification("Hash progpow invalid!".to_string()))?
 	}
 }

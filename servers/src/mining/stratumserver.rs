@@ -565,14 +565,14 @@ impl Handler {
 			if let Err(e) = res {
 				// Return error status
 				error!(
-						"(Server ID: {}) Failed to validate solution at height {}, hash {}, nonce {}, job_id {}, {}: {}",
+						"(Server ID: {}) Failed to validate solution at height {}, hash {}, nonce {}, job_id {}, {}",
 						self.id,
 						params.height,
 						b.hash(),
 						params.nonce,
 						params.job_id,
 						e,
-						e.backtrace().unwrap(),
+						
 					);
 				self.workers
 					.update_stats(worker_id, |worker_stats| worker_stats.num_rejected += 1);

@@ -25,7 +25,7 @@
 
 //use crate::global;
 use crate::pow::common::{CuckooParams, EdgeType};
-use crate::pow::error::{Error, ErrorKind};
+use crate::pow::error::Error;
 use crate::pow::siphash::siphash_block;
 use crate::pow::{PoWContext, Proof};
 
@@ -77,10 +77,10 @@ where
 
 			for n in 0..proof.proof_size() {
 				if nonces[n] > to_u64!(self.params.edge_mask) {
-					return Err(ErrorKind::Verification("edge too big".to_owned()))?;
+					return Err(Error::Verification("edge too big".to_owned()))?;
 				}
 				if n > 0 && nonces[n] <= nonces[n - 1] {
-					return Err(ErrorKind::Verification("edges not ascending".to_owned()))?;
+					return Err(Error::Verification("edges not ascending".to_owned()))?;
 				}
 				let edge = to_edge!(siphash_block(&self.params.siphash_keys, nonces[n]));
 				uvs[2 * n] = to_u64!(edge & self.params.edge_mask);
@@ -89,9 +89,7 @@ where
 				xor1 ^= uvs[2 * n + 1];
 			}
 			if xor0 | xor1 != 0 {
-				return Err(ErrorKind::Verification(
-					"endpoints don't match up".to_owned(),
-				))?;
+				return Err(Error::Verification("endpoints don't match up".to_owned()))?;
 			}
 			let mut n = 0;
 			let mut i = 0;
@@ -108,13 +106,13 @@ where
 					if uvs[k] == uvs[i] {
 						// find other edge endpoint matching one at i
 						if j != i {
-							return Err(ErrorKind::Verification("branch in cycle".to_owned()))?;
+							return Err(Error::Verification("branch in cycle".to_owned()))?;
 						}
 						j = k;
 					}
 				}
 				if j == i {
-					return Err(ErrorKind::Verification("cycle dead ends".to_owned()))?;
+					return Err(Error::Verification("cycle dead ends".to_owned()))?;
 				}
 				i = j ^ 1;
 				n += 1;
@@ -125,10 +123,10 @@ where
 			if n == self.params.proof_size {
 				Ok(())
 			} else {
-				Err(ErrorKind::Verification("cycle too short".to_owned()))?
+				Err(Error::Verification("cycle too short".to_owned()))?
 			}
 		} else {
-			Err(ErrorKind::Verification("wrong pow".to_owned()))?
+			Err(Error::Verification("wrong pow".to_owned()))?
 		}
 	}
 }

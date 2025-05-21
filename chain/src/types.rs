@@ -22,7 +22,7 @@ use crate::core::core::hash::{Hash, Hashed, ZERO_HASH};
 use crate::core::core::{Block, BlockHeader, HeaderVersion};
 use crate::core::pow::Difficulty;
 use crate::core::ser::{self, PMMRIndexHashable, Readable, Reader, Writeable, Writer};
-use crate::error::{Error, ErrorKind};
+use crate::error::Error;
 use crate::util::RwLock;
 
 bitflags! {
@@ -220,7 +220,7 @@ impl TxHashSetRoots {
 			|| header.range_proof_root != self.rproof_root
 			|| header.kernel_root != self.kernel_root
 		{
-			Err(ErrorKind::InvalidRoot.into())
+			Err(Error::InvalidRoot.into())
 		} else {
 			Ok(())
 		}

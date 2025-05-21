@@ -643,7 +643,7 @@ impl ChainAdapter for Peers {
 			self.ban_peer(peer_info.addr, ReasonForBan::BadBlock)
 				.map_err(|e| {
 					let err: chain::Error =
-						chain::ErrorKind::Other(format!("ban peer error :{:?}", e)).into();
+						chain::Error::Other(format!("ban peer error :{:?}", e)).into();
 					err
 				})?;
 			Ok(false)
@@ -668,7 +668,7 @@ impl ChainAdapter for Peers {
 			self.ban_peer(peer_info.addr, ReasonForBan::BadCompactBlock)
 				.map_err(|e| {
 					let err: chain::Error =
-						chain::ErrorKind::Other(format!("ban peer error :{:?}", e)).into();
+						chain::Error::Other(format!("ban peer error :{:?}", e)).into();
 					err
 				})?;
 			Ok(false)
@@ -688,7 +688,7 @@ impl ChainAdapter for Peers {
 			self.ban_peer(peer_info.addr, ReasonForBan::BadBlockHeader)
 				.map_err(|e| {
 					let err: chain::Error =
-						chain::ErrorKind::Other(format!("ban peer error :{:?}", e)).into();
+						chain::Error::Other(format!("ban peer error :{:?}", e)).into();
 					err
 				})?;
 			Ok(false)
@@ -709,7 +709,7 @@ impl ChainAdapter for Peers {
 			self.ban_peer(peer_info.addr.clone(), ReasonForBan::BadBlockHeader)
 				.map_err(|e| {
 					let err: chain::Error =
-						chain::ErrorKind::Other(format!("ban peer error :{:?}", e)).into();
+						chain::Error::Other(format!("ban peer error :{:?}", e)).into();
 					err
 				})?;
 			Ok(false)
@@ -762,7 +762,7 @@ impl ChainAdapter for Peers {
 			self.ban_peer(peer_info.addr, ReasonForBan::BadTxHashSet)
 				.map_err(|e| {
 					let err: chain::Error =
-						chain::ErrorKind::Other(format!("ban peer error :{:?}", e)).into();
+						chain::Error::Other(format!("ban peer error :{:?}", e)).into();
 					err
 				})?;
 			Ok(true)
