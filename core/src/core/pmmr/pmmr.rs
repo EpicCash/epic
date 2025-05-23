@@ -51,7 +51,7 @@ where
 	B: 'a + Backend<T>,
 {
 	/// Build a new prunable Merkle Mountain Range using the provided backend.
-	pub fn new(backend: &'a mut B) -> PMMR<'_, T, B> {
+	pub fn new(backend: &'a mut B) -> PMMR<'a, T, B> {
 		PMMR {
 			backend,
 			last_pos: 0,
@@ -61,7 +61,7 @@ where
 
 	/// Build a new prunable Merkle Mountain Range pre-initialized until
 	/// last_pos with the provided backend.
-	pub fn at(backend: &'a mut B, last_pos: u64) -> PMMR<'_, T, B> {
+	pub fn at(backend: &'a mut B, last_pos: u64) -> PMMR<'a, T, B> {
 		PMMR {
 			backend,
 			last_pos,

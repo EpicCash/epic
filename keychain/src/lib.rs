@@ -13,7 +13,7 @@
 // limitations under the License.
 
 //! Library module for the key holder functionalities provided by Epic.
-
+#![allow(unexpected_cfgs)]
 use blake2_rfc as blake2;
 
 #[macro_use]

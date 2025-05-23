@@ -124,6 +124,8 @@ macro_rules! impl_array_newtype {
 			}
 		}
 
+		// Note: #[cfg(feature = "serde")] in this macro applies to the crate where the macro is used.
+		// Downstream crates must enable the `serde` feature for these impls to be generated.
 		#[cfg_attr(feature = "clippy", allow(expl_impl_clone_on_copy))] // we don't define the `struct`, we have to explicitly impl
 		impl Clone for $thing {
 			#[inline]
@@ -159,6 +161,8 @@ macro_rules! impl_array_newtype {
 #[macro_export]
 macro_rules! impl_array_newtype_encodable {
 	($thing:ident, $ty:ty, $len:expr) => {
+		// Note: #[cfg(feature = "serde")] in this macro applies to the crate where the macro is used.
+		// Downstream crates must enable the `serde` feature for these impls to be generated.
 		#[cfg(feature = "serde")]
 		impl<'de> $crate::serde::Deserialize<'de> for $thing {
 			fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -197,6 +201,8 @@ macro_rules! impl_array_newtype_encodable {
 			}
 		}
 
+		// Note: #[cfg(feature = "serde")] in this macro applies to the crate where the macro is used.
+		// Downstream crates must enable the `serde` feature for these impls to be generated.
 		#[cfg(feature = "serde")]
 		impl $crate::serde::Serialize for $thing {
 			fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
