@@ -665,6 +665,6 @@ pub fn get_file_sha256(path: &str) -> String {
 		)
 		.as_str(),
 	);
-	let hash = sha256.result();
+	let hash = sha256.finalize();
 	format!("{:x}", hash)
 }

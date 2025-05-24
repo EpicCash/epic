@@ -17,8 +17,7 @@
 use std::cmp::Ordering;
 
 use crate::servers::{PeerStats, ServerStats};
-
-use crate::tui::humansize::{file_size_opts::CONVENTIONAL, FileSize};
+use crate::util::format::human_readable_size;
 use chrono::prelude::*;
 
 use cursive::direction::Orientation;
@@ -61,7 +60,7 @@ impl TableViewItem<PeerColumn> for PeerStats {
 	fn to_column(&self, column: PeerColumn) -> String {
 		// Converts optional size to human readable size
 		fn size_to_string(size: u64) -> String {
-			size.file_size(CONVENTIONAL).unwrap_or("-".to_string())
+			human_readable_size(size)
 		}
 
 		match column {
