@@ -1275,7 +1275,7 @@ mod mine_chain {
 						match result_process {
 							Err(e) => {
 								assert_eq!(expected, "Err");
-								assert!(format!("{:?}", e).contains("Attempt to spend immature coinbase"));
+								assert!(format!("{}", e).contains("Attempt to spend immature coinbase"));
 							},
 							Ok(_tip) => {
 								assert_eq!(expected, "Ok");
@@ -1291,7 +1291,7 @@ mod mine_chain {
 					},
 					Err(e) => {
 						assert_eq!(expected, "Err");
-						assert!(format!("{:?}", e).contains("Already Spent"));
+						assert!(format!("{}", e).contains("Already Spent"));
 					}
 				};
 			};
