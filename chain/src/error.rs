@@ -168,16 +168,15 @@ pub enum Error {
 }
 impl Error {
 	pub fn is_bad_data(&self) -> bool {
-		matches!(
-			self,
-			|Error::InvalidTxHashSet(_)| Error::Unfit(_)
-				| Error::Orphan
-				| Error::StoreErr(_)
-				| Error::ChainStoreErr(_, _)
-				| Error::PipeStoreErr(_, _)
-				| Error::SerErr(_)
-				| Error::TxHashSetErr(_)
-				| Error::GenesisBlockRequired // add any other variants you consider "bad data"
-		)
+		match self {
+			Error::Unfit(_)
+			| Error::Orphan
+			| Error::StoreErr(_)
+			| Error::SerErr(_)
+			| Error::TxHashSetErr(_)
+			| Error::GenesisBlockRequired
+			| Error::Other(_) => false,
+			_ => true,
+		}
 	}
 }

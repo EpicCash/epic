@@ -385,7 +385,11 @@ where
 				return Ok(true);
 			}
 			Err(e) => {
-				debug!("Block headers refused by chain: {:?}", e);
+				debug!(
+					"Block headers refused by chain: {:?} {}",
+					e,
+					e.is_bad_data()
+				);
 				if e.is_bad_data() {
 					return Ok(false);
 				} else {
