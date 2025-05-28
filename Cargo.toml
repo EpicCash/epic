@@ -32,23 +32,21 @@ name = "epic"
 path = "src/bin/epic.rs"
 
 [dependencies]
-time = "0.3.39"
+time = "0.3"
 blake2-rfc = "0.2"
-chrono = "0.4.31"
+chrono = "0.4"
 clap = { version = "2.31", features = ["yaml"] }
 ctrlc = { version = "3.1", features = ["termination"] }
-cursive_table_view = "0.15.0"
+cursive_table_view = "0.15"
 serde = "1"
-futures = "0.3.28"
+futures = "0.3"
 serde_json = "1"
 log = "0.4"
-term = "1.0.2"
-thiserror = "2.0.12"
-reqwest = "0.12.15"
+term = "1.0"
+thiserror = "2.0"
+reqwest = "0.12"
 num-bigint = "0.4"
-
-
-tokio = { version = "1.32", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
 
 epic_api = { path = "./api", version = "3.6.0" }
 epic_config = { path = "./config", version = "3.6.0" }

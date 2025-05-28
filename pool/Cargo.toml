@@ -11,12 +11,12 @@ edition = "2021"
 
 [dependencies]
 blake2-rfc = "0.2"
-rand = "0.9.0"
+rand = "0.9"
 serde = "1"
 serde_derive = "1"
 log = "0.4"
-chrono = "0.4.31"
-thiserror = "2.0.12"
+chrono = "0.4"
+thiserror = "2.0"
 
 epic_core = { path = "../core", version = "3.6.0" }
 epic_keychain = { path = "../keychain", version = "3.6.0" }

@@ -11,17 +11,17 @@ edition = "2021"
 
 [dependencies]
 bitflags = { version = "2.9.0", features = ["serde"] }
-bytes = "1.10.1"
+bytes = "1.10"
 enum_primitive = "0.1"
 lru-cache = "0.1"
 net2 = "0.2"
-num = "0.4.3"
-rand = "0.9.0"
+num = "0.4"
+rand = "0.9"
 serde = "1"
 serde_derive = "1"
-tempfile = "3.0.5"
+tempfile = "3.0"
 log = "0.4"
-chrono = { version = "0.4.31", features = ["serde"] }
+chrono = { version = "0.4", features = ["serde"] }
 
 epic_core = { path = "../core", version = "3.6.0" }
 epic_store = { path = "../store", version = "3.6.0" }
