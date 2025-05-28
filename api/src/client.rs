@@ -16,15 +16,21 @@
 
 use crate::rest::Error;
 use crate::util::to_base64;
-use hyper::body;
+
+use bytes::Bytes;
+use http_body_util::BodyExt;
 use hyper::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use hyper::http::uri::{InvalidUri, Uri};
-use hyper::{Body, Client, Request};
+use hyper::Request;
 use hyper_timeout::TimeoutConnector;
+use hyper_util::client::legacy::Client;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::time::Duration;
 use tokio::runtime::Builder;
+
+use crate::web::boxed_body;
+use crate::web::BoxBodyType;
 
 // Client Request Timeout
 pub struct TimeOut {
@@ -165,37 +171,35 @@ fn build_request(
 	method: &str,
 	api_secret: Option<String>,
 	body: Option<String>,
-) -> Result<Request<Body>, Error> {
+) -> Result<Request<BoxBodyType>, Error> {
 	let uri = url
 		.parse::<Uri>()
 		.map_err::<Error, _>(|_e: InvalidUri| Error::Argument(format!("Invalid url {}", url)))?;
 
-	let mut request = Request::builder()
+	let mut builder = Request::builder()
 		.method(method)
 		.uri(uri)
 		.header(USER_AGENT, "epic-client")
 		.header(ACCEPT, "application/json")
-		.header(CONTENT_TYPE, "application/json")
-		.body(match body {
-			None => hyper::Body::empty(),
-			Some(json) => json.into(),
-		})?;
+		.header(CONTENT_TYPE, "application/json");
 
 	if let Some(api_secret) = api_secret {
 		let basic_auth = format!("Basic {}", to_base64(&format!("epic:{}", api_secret)));
-		request
-			.headers_mut()
-			.insert(AUTHORIZATION, basic_auth.parse().unwrap());
+		builder = builder.header(AUTHORIZATION, basic_auth);
 	}
 
-	Ok(request)
+	let req = builder.body(match body {
+		None => boxed_body(Bytes::new()),
+		Some(json) => boxed_body(Bytes::from(json)),
+	})?;
+	Ok(req)
 }
 
 pub fn create_post_request<IN>(
 	url: &str,
 	api_secret: Option<String>,
 	input: &IN,
-) -> Result<Request<Body>, Error>
+) -> Result<Request<BoxBodyType>, Error>
 where
 	IN: Serialize,
 {
@@ -204,7 +208,7 @@ where
 	build_request(url, "POST", api_secret, Some(json))
 }
 
-fn handle_request<T>(req: Request<Body>, timeout: TimeOut) -> Result<T, Error>
+fn handle_request<T>(req: Request<BoxBodyType>, timeout: TimeOut) -> Result<T, Error>
 where
 	for<'de> T: Deserialize<'de>,
 {
@@ -213,7 +217,7 @@ where
 		.map_err(|e| Error::ResponseError(format!("Cannot parse response {}", e)))
 }
 
-async fn handle_request_async<T>(req: Request<Body>) -> Result<T, Error>
+async fn handle_request_async<T>(req: Request<BoxBodyType>) -> Result<T, Error>
 where
 	for<'de> T: Deserialize<'de> + Send + 'static,
 {
@@ -223,7 +227,7 @@ where
 	Ok(ser)
 }
 
-async fn send_request_async(req: Request<Body>, timeout: TimeOut) -> Result<String, Error> {
+async fn send_request_async(req: Request<BoxBodyType>, timeout: TimeOut) -> Result<String, Error> {
 	let https = hyper_tls::HttpsConnector::new();
 	let (connect, read, write) = (
 		Some(timeout.connect),
@@ -234,7 +238,7 @@ async fn send_request_async(req: Request<Body>, timeout: TimeOut) -> Result<Stri
 	connector.set_connect_timeout(connect);
 	connector.set_read_timeout(read);
 	connector.set_write_timeout(write);
-	let client = Client::builder().build::<_, Body>(connector);
+	let client = Client::builder(hyper_util::rt::TokioExecutor::new()).build(connector);
 
 	let resp = client
 		.request(req)
@@ -250,14 +254,17 @@ async fn send_request_async(req: Request<Body>, timeout: TimeOut) -> Result<Stri
 		.into());
 	}
 
-	let raw = body::to_bytes(resp)
+	let collected = resp
+		.into_body()
+		.collect()
 		.await
 		.map_err(|e| Error::RequestError(format!("Cannot read response body: {}", e)))?;
+	let raw = collected.to_bytes();
 
 	Ok(String::from_utf8_lossy(&raw).to_string())
 }
 
-pub fn send_request(req: Request<Body>, timeout: TimeOut) -> Result<String, Error> {
+pub fn send_request(req: Request<BoxBodyType>, timeout: TimeOut) -> Result<String, Error> {
 	let rt = Builder::new_multi_thread()
 		.enable_all()
 		.build()

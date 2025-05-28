@@ -1,26 +1,32 @@
 use crate::rest::*;
 use crate::router::ResponseFuture;
 
-use futures::future::ok;
-use hyper::body::Buf;
-use hyper::{Body, Request, Response, StatusCode};
+use hyper::{body::Incoming, Request, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
-use std::fmt::Debug;
+
+use bytes::Bytes;
+use http_body_util::{BodyExt, Full};
+use std::convert::Infallible;
 use url::form_urlencoded;
+
+pub type BoxBodyType = http_body_util::combinators::BoxBody<bytes::Bytes, hyper::Error>;
+
 /// Parse request body
-pub async fn parse_body<T>(req: Request<Body>) -> Result<T, Error>
+pub async fn parse_body<T>(req: Request<hyper::body::Incoming>) -> Result<T, Error>
 where
 	for<'de> T: Deserialize<'de> + Send + 'static,
 {
 	// Aggregate the body...
-	let whole_body = hyper::body::aggregate(req)
+	let body_bytes = req
+		.collect()
 		.await
-		.map_err(|e| Error::RequestError(format!("Failed to read request: {}", e)))?;
+		.map_err(|e| Error::RequestError(format!("Failed to read request: {}", e)))?
+		.to_bytes();
 
 	// Decode as JSON...
-	serde_json::from_reader(whole_body.reader())
+	serde_json::from_slice(&body_bytes)
 		.map_err(|e| Error::RequestError(format!("Invalid request body: {}", e)))
 }
 
@@ -69,16 +75,24 @@ where
 	}
 }
 
+/// Convert data into a boxed body
+pub fn boxed_body<T: Into<Bytes>>(data: T) -> BoxBodyType {
+	Full::new(data.into())
+		.map_err(|_inf: Infallible| unreachable!())
+		.boxed()
+}
+
 /// Text response as HTTP response
-pub fn just_response<T: Into<Body> + Debug>(status: StatusCode, text: T) -> Response<Body> {
-	let mut resp = Response::new(text.into());
+pub fn just_response(status: StatusCode, text: impl Into<Bytes>) -> Response<BoxBodyType> {
+	let body = boxed_body(text);
+	let mut resp = Response::new(body);
 	*resp.status_mut() = status;
 	resp
 }
 
 /// Text response as future
-pub fn response<T: Into<Body> + Debug>(status: StatusCode, text: T) -> ResponseFuture {
-	Box::pin(ok(just_response(status, text)))
+pub fn response(status: StatusCode, text: impl Into<Bytes>) -> ResponseFuture {
+	Box::pin(futures::future::ok(just_response(status, text)))
 }
 
 pub struct QueryParams {
@@ -127,8 +141,8 @@ impl From<Option<&str>> for QueryParams {
 	}
 }
 
-impl From<Request<Body>> for QueryParams {
-	fn from(req: Request<Body>) -> Self {
+impl From<Request<Incoming>> for QueryParams {
+	fn from(req: Request<Incoming>) -> Self {
 		Self::from(req.uri().query())
 	}
 }

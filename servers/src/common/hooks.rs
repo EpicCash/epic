@@ -26,17 +26,20 @@ use crate::core::core::hash::Hashed;
 use crate::p2p::types::PeerAddr;
 use epic_p2p::PeerInfo;
 
-use futures::TryFutureExt;
-use hyper::client::HttpConnector;
-use hyper::header::HeaderValue;
-use hyper::Client;
-use hyper::{Body, Method, Request};
+use bytes::Bytes;
+use http_body_util::Full;
+use hyper::{Method, Request};
 use hyper_rustls::HttpsConnector;
-use rustls::{OwnedTrustAnchor, RootCertStore};
-use serde::Serialize;
-use serde_json::{json, to_string};
+use hyper_util::client::legacy::Client;
+use hyper_util::rt::TokioExecutor;
+
+use hyper_util::client::legacy::connect::HttpConnector;
+use rustls::RootCertStore;
 use std::time::Duration;
 use tokio::runtime::{Builder, Runtime};
+
+use serde::Serialize;
+use serde_json::json;
 
 /// Returns the list of event hooks that will be initialized for network events
 pub fn init_net_hooks(config: &ServerConfig) -> Vec<Box<dyn NetEvents + Send + Sync>> {
@@ -179,7 +182,8 @@ struct WebHook {
 	/// url to POST block data when a new block is accepted by our node (might be a reorg or a fork)
 	block_accepted_url: Option<hyper::Uri>,
 	/// The hyper client to be used for all requests
-	client: Client<HttpsConnector<HttpConnector>>,
+	client: Client<HttpsConnector<HttpConnector>, Full<Bytes>>,
+
 	/// The tokio event loop
 	runtime: Runtime,
 }
@@ -201,18 +205,10 @@ impl WebHook {
 			nthreads, timeout
 		);
 
-		//nthreads as usize
 		let mut root_store = RootCertStore::empty();
-		root_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-			OwnedTrustAnchor::from_subject_spki_name_constraints(
-				ta.subject.to_vec(),
-				ta.subject_public_key_info.to_vec(),
-				ta.name_constraints.clone().map(|v| v.to_vec()),
-			)
-		}));
+		root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
 		let tls = rustls::ClientConfig::builder()
-			.with_safe_defaults()
 			.with_root_certificates(root_store)
 			.with_no_client_auth();
 
@@ -222,9 +218,9 @@ impl WebHook {
 			.enable_http1()
 			.build();
 
-		let client = Client::builder()
+		let client = Client::builder(TokioExecutor::new())
 			.pool_idle_timeout(keep_alive)
-			.build::<_, hyper::Body>(https);
+			.build(https);
 
 		WebHook {
 			tx_received_url,
@@ -253,27 +249,33 @@ impl WebHook {
 	}
 
 	fn post(&self, url: hyper::Uri, data: String) {
-		let mut req = Request::new(Body::from(data));
-		*req.method_mut() = Method::POST;
-		*req.uri_mut() = url.clone();
-		req.headers_mut().insert(
-			hyper::header::CONTENT_TYPE,
-			HeaderValue::from_static("application/json"),
-		);
+		let req = Request::builder()
+			.method(Method::POST)
+			.uri(url.clone())
+			.header(hyper::header::CONTENT_TYPE, "application/json")
+			.body(Full::<Bytes>::from(data))
+			.expect("Failed to build request");
 
-		let future = self.client.request(req).map_err(move |_res| {
-			warn!("Error sending POST request to {}", url);
-		});
+		// Clone only the client for the async task to avoid capturing &self
+		let client = self.client.clone();
 
-		self.runtime.spawn(future);
+		let future = async move {
+			let resp = client.request(req).await;
+			if let Err(_e) = resp {
+				warn!("Error sending POST request to {}", url);
+			}
+		};
+
+		self.runtime.handle().spawn(future);
 	}
 
 	fn make_request<T: Serialize>(&self, payload: &T, uri: &Option<hyper::Uri>) -> bool {
 		if let Some(url) = uri {
-			let payload = match to_string(payload) {
+			let payload = match serde_json::to_string(payload) {
 				Ok(serialized) => serialized,
-				Err(_) => {
-					return false; // print error message
+				Err(e) => {
+					error!("Failed to serialize payload: {}", e);
+					return false;
 				}
 			};
 			self.post(url.clone(), payload);

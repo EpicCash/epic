@@ -17,8 +17,12 @@ use crate::web::response;
 
 use futures::future::ok;
 use hyper::header::{HeaderValue, AUTHORIZATION, WWW_AUTHENTICATE};
-use hyper::{Body, Request, Response, StatusCode};
+use hyper::{Request, Response, StatusCode};
 use subtle::ConstantTimeEq;
+
+use crate::web::boxed_body;
+use bytes::Bytes;
+use http_body_util::Full;
 
 lazy_static! {
 	pub static ref EPIC_BASIC_REALM: HeaderValue =
@@ -48,10 +52,10 @@ impl BasicAuthMiddleware {
 	}
 }
 
-impl Handler for BasicAuthMiddleware {
+impl Handler<Full<Bytes>> for BasicAuthMiddleware {
 	fn call(
 		&self,
-		req: Request<Body>,
+		req: Request<hyper::body::Incoming>,
 		mut handlers: Box<dyn Iterator<Item = HandlerObj>>,
 	) -> ResponseFuture {
 		let next_handler = match handlers.next() {
@@ -101,10 +105,10 @@ impl BasicAuthURIMiddleware {
 	}
 }
 
-impl Handler for BasicAuthURIMiddleware {
+impl Handler<Full<Bytes>> for BasicAuthURIMiddleware {
 	fn call(
 		&self,
-		req: Request<Body>,
+		req: Request<hyper::body::Incoming>,
 		mut handlers: Box<dyn Iterator<Item = HandlerObj>>,
 	) -> ResponseFuture {
 		let next_handler = match handlers.next() {
@@ -133,10 +137,11 @@ impl Handler for BasicAuthURIMiddleware {
 }
 
 fn unauthorized_response(basic_realm: &HeaderValue) -> ResponseFuture {
+	let body = boxed_body("".to_string());
 	let response = Response::builder()
 		.status(StatusCode::UNAUTHORIZED)
 		.header(WWW_AUTHENTICATE, basic_realm)
-		.body(Body::empty())
+		.body(body)
 		.unwrap();
 	Box::pin(ok(response))
 }

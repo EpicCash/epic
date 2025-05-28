@@ -25,8 +25,11 @@ use crate::util;
 use crate::util::RwLock;
 use crate::web::*;
 
-use hyper::{Body, Request, StatusCode};
+use hyper::{Request, StatusCode};
 use std::sync::Weak;
+
+use bytes::Bytes;
+use http_body_util::Full;
 
 /// Get basic information about the transaction pool.
 /// GET /v1/pool
@@ -38,12 +41,12 @@ where
 	pub tx_pool: Weak<RwLock<pool::TransactionPool<B, P>>>,
 }
 
-impl<B, P> Handler for PoolInfoHandler<B, P>
+impl<B, P> Handler<Full<Bytes>> for PoolInfoHandler<B, P>
 where
 	B: BlockChain,
 	P: PoolAdapter,
 {
-	fn get(&self, _req: Request<Body>) -> ResponseFuture {
+	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		let pool_arc = w_fut!(&self.tx_pool);
 		let pool = pool_arc.read();
 
@@ -123,7 +126,7 @@ where
 
 async fn update_pool<B, P>(
 	pool: Weak<RwLock<pool::TransactionPool<B, P>>>,
-	req: Request<Body>,
+	req: Request<hyper::body::Incoming>,
 ) -> Result<(), Error>
 where
 	B: BlockChain,
@@ -163,12 +166,12 @@ where
 	Ok(())
 }
 
-impl<B, P> Handler for PoolPushHandler<B, P>
+impl<B, P> Handler<Full<Bytes>> for PoolPushHandler<B, P>
 where
 	B: BlockChain + 'static,
 	P: PoolAdapter + 'static,
 {
-	fn post(&self, req: Request<Body>) -> ResponseFuture {
+	fn post(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		let pool = self.tx_pool.clone();
 		Box::pin(async move {
 			let res = match update_pool(pool, req).await {

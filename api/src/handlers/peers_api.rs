@@ -19,16 +19,19 @@ use crate::rest::*;
 use crate::router::{Handler, ResponseFuture};
 use crate::web::*;
 
-use hyper::{Body, Request, StatusCode};
+use hyper::{Request, StatusCode};
 use std::net::SocketAddr;
 use std::sync::Weak;
+
+use bytes::Bytes;
+use http_body_util::Full;
 
 pub struct PeersAllHandler {
 	pub peers: Weak<p2p::Peers>,
 }
 
-impl Handler for PeersAllHandler {
-	fn get(&self, _req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for PeersAllHandler {
+	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		let peers = &w_fut!(&self.peers).all_peers();
 		json_response_pretty(&peers)
 	}
@@ -49,8 +52,8 @@ impl PeersConnectedHandler {
 	}
 }
 
-impl Handler for PeersConnectedHandler {
-	fn get(&self, _req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for PeersConnectedHandler {
+	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		let peers: Vec<PeerInfoDisplay> = w_fut!(&self.peers)
 			.connected_peers()
 			.iter()
@@ -97,8 +100,8 @@ impl PeerHandler {
 	}
 }
 
-impl Handler for PeerHandler {
-	fn get(&self, req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for PeerHandler {
+	fn get(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		let command = right_path_element!(req);
 
 		// We support both "ip" and "ip:port" here for peer_addr.
@@ -122,7 +125,7 @@ impl Handler for PeerHandler {
 		}
 	}
 
-	fn post(&self, req: Request<Body>) -> ResponseFuture {
+	fn post(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		let mut path_elems = req.uri().path().trim_end_matches('/').rsplit('/');
 		let command = match path_elems.next() {
 			None => return response(StatusCode::BAD_REQUEST, "invalid url"),

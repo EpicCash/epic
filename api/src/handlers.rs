@@ -59,11 +59,15 @@ use crate::util::StopState;
 use crate::web::*;
 use easy_jsonrpc_mw::{Handler, MaybeReply};
 
-use hyper::{Body, Request, Response, StatusCode};
+use bytes::Bytes;
+use hyper::{Request, Response, StatusCode};
 
+use http_body_util::Full;
 use std::net::SocketAddr;
 use std::sync::{Arc, Weak};
 
+use crate::web::boxed_body;
+use crate::web::BoxBodyType;
 use std::thread;
 
 /// Listener version, providing same API but listening for requests on a
@@ -183,8 +187,8 @@ impl OwnerAPIHandlerV2 {
 	}
 }
 
-impl crate::router::Handler for OwnerAPIHandlerV2 {
-	fn post(&self, req: Request<Body>) -> ResponseFuture {
+impl crate::router::Handler<Full<Bytes>> for OwnerAPIHandlerV2 {
+	fn post(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		let api = Owner::new(
 			self.chain.clone(),
 			self.peers.clone(),
@@ -213,7 +217,7 @@ impl crate::router::Handler for OwnerAPIHandlerV2 {
 		})
 	}
 
-	fn options(&self, _req: Request<Body>) -> ResponseFuture {
+	fn options(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		Box::pin(async { Ok(create_ok_response("{}")) })
 	}
 }
@@ -248,12 +252,12 @@ where
 	}
 }
 
-impl<B, P> crate::router::Handler for ForeignAPIHandlerV2<B, P>
+impl<B, P> crate::router::Handler<Full<Bytes>> for ForeignAPIHandlerV2<B, P>
 where
 	B: BlockChain + 'static,
 	P: PoolAdapter + 'static,
 {
-	fn post(&self, req: Request<Body>) -> ResponseFuture {
+	fn post(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		let api = Foreign::new(
 			self.chain.clone(),
 			self.tx_pool.clone(),
@@ -282,21 +286,23 @@ where
 		})
 	}
 
-	fn options(&self, _req: Request<Body>) -> ResponseFuture {
+	fn options(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		Box::pin(async { Ok(create_ok_response("{}")) })
 	}
 }
 
 // pretty-printed version of above
-fn json_response_pretty(to_string: &serde_json::Value) -> Response<Body> {
+fn json_response_pretty(to_string: &serde_json::Value) -> Response<BoxBodyType> {
 	let json = serde_json::to_string_pretty(to_string);
 	match json {
 		Ok(value) => response(StatusCode::OK, value),
-		Err(_) => response(StatusCode::INTERNAL_SERVER_ERROR, ""),
+		Err(_) => response(StatusCode::INTERNAL_SERVER_ERROR, "".to_owned()),
 	}
 }
 
-fn create_error_response(e: Error) -> Response<Body> {
+fn create_error_response(e: Error) -> Response<BoxBodyType> {
+	let body = boxed_body(e.to_string());
+
 	hyper::Response::builder()
 		.status(StatusCode::INTERNAL_SERVER_ERROR)
 		.header("access-control-allow-origin", "*")
@@ -304,11 +310,14 @@ fn create_error_response(e: Error) -> Response<Body> {
 			"access-control-allow-headers",
 			"Content-Type, Authorization",
 		)
-		.body(format!("{}", e).into())
+		.body(body)
 		.unwrap()
+	//no handler found
 }
 
-fn create_ok_response(json: &str) -> Response<Body> {
+fn create_ok_response(json: &str) -> Response<BoxBodyType> {
+	let body = boxed_body(json.to_owned());
+
 	hyper::Response::builder()
 		.status(StatusCode::OK)
 		.header("access-control-allow-origin", "*")
@@ -317,7 +326,7 @@ fn create_ok_response(json: &str) -> Response<Body> {
 			"Content-Type, Authorization",
 		)
 		.header(hyper::header::CONTENT_TYPE, "application/json")
-		.body(json.to_string().into())
+		.body(body)
 		.unwrap()
 }
 
@@ -325,7 +334,7 @@ fn create_ok_response(json: &str) -> Response<Body> {
 ///
 /// Whenever the status code is `StatusCode::OK` the text parameter should be
 /// valid JSON as the content type header will be set to `application/json'
-fn response<T: Into<Body>>(status: StatusCode, text: T) -> Response<Body> {
+fn response(status: StatusCode, text: impl Into<Bytes>) -> Response<BoxBodyType> {
 	let mut res = hyper::Response::builder()
 		.status(status)
 		.header("access-control-allow-origin", "*")
@@ -338,7 +347,9 @@ fn response<T: Into<Body>>(status: StatusCode, text: T) -> Response<Body> {
 		res = res.header(hyper::header::CONTENT_TYPE, "application/json");
 	}
 
-	res.body(text.into()).unwrap()
+	let body = boxed_body(text);
+
+	res.body(body).unwrap()
 }
 
 // Legacy V1 router

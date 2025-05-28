@@ -20,9 +20,12 @@ use crate::router::{Handler, ResponseFuture};
 use crate::types::*;
 use crate::web::*;
 
-use hyper::{Body, Request, StatusCode};
+use hyper::{Request, StatusCode};
 use serde_json::json;
 use std::sync::Weak;
+
+use bytes::Bytes;
+use http_body_util::Full;
 
 // RESTful index of available api endpoints
 // GET /v1/
@@ -32,8 +35,8 @@ pub struct IndexHandler {
 
 impl IndexHandler {}
 
-impl Handler for IndexHandler {
-	fn get(&self, _req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for IndexHandler {
+	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		json_response_pretty(&self.list)
 	}
 }
@@ -42,8 +45,8 @@ pub struct KernelDownloadHandler {
 	pub peers: Weak<p2p::Peers>,
 }
 
-impl Handler for KernelDownloadHandler {
-	fn post(&self, _req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for KernelDownloadHandler {
+	fn post(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		if let Some(peer) = w_fut!(&self.peers).most_work_peer() {
 			match peer.send_kernel_data_request() {
 				Ok(_) => response(StatusCode::OK, "{}"),
@@ -85,8 +88,8 @@ impl StatusHandler {
 	}
 }
 
-impl Handler for StatusHandler {
-	fn get(&self, _req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for StatusHandler {
+	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		result_to_response(self.get_status())
 	}
 }
