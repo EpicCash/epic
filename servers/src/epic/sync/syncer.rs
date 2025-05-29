@@ -97,7 +97,7 @@ impl SyncRunner {
 				let current_outbound_peers = self.peers.connected_peers().len();
 				warn!(
 					"Waiting for the minimum number of preferred outbound peers. required/current: {:?}/{:?} - see epic config: peer_min_preferred_outbound_count",
-					peers_config.peer_min_preferred_outbound_count.unwrap_or(0),
+					peers_config.peer_min_preferred_outbound_count(),
 					current_outbound_peers
 				);
 			}
@@ -539,8 +539,17 @@ impl SyncRunner {
 							txhashset_sync = true;
 						}
 					} else {
-						// Header-Synchronisierung läuft noch
-						download_headers = true;
+						// Only start a new header download if the queue is empty and no header syncs are running
+						let queue_empty = fastsync_header_queue
+							.try_lock()
+							.map(|q| q.is_empty())
+							.unwrap_or(false);
+						if queue_empty && header_syncs.is_empty() {
+							download_headers = true;
+						} else {
+							download_headers = false;
+						}
+
 						continue;
 					}
 				}
