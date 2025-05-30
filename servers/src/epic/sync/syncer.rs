@@ -85,20 +85,18 @@ impl SyncRunner {
 				break;
 			}
 
-			// Überprüfe, ob genügend ausgehende Peers vorhanden sind
+			// Check if there are enough outbound peers
 			if self.peers.enough_outbound_peers() {
 				info!("Sufficient outbound peers connected, proceeding with sync.");
 				break;
 			}
 
-			// Wenn nicht genügend Peers vorhanden sind, warte und gib eine Info aus
 			if n > wait_secs {
 				n = 0;
-				let current_outbound_peers = self.peers.connected_peers().len();
 				warn!(
 					"Waiting for the minimum number of preferred outbound peers. required/current: {:?}/{:?} - see epic config: peer_min_preferred_outbound_count",
 					peers_config.peer_min_preferred_outbound_count(),
-					current_outbound_peers
+					self.peers.peer_outbound_count()
 				);
 			}
 

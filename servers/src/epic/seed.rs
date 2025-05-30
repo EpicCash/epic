@@ -108,14 +108,6 @@ pub fn connect_and_monitor(
 				{
 					info!("Trying to reconnect to seed and preferred peers");
 
-					// Reset all defunct peers to "Healthy"
-					for peer in peers.all_peers() {
-						if peer.flags == p2p::State::Defunct {
-							debug!("Resetting defunct peer {} to healthy", peer.addr);
-							let _ = peers.update_state(peer.addr, p2p::State::Healthy);
-						}
-					}
-
 					connect_to_seeds_and_preferred_peers(
 						peers.clone(),
 						tx.clone(),
