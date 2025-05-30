@@ -17,14 +17,16 @@
 //! configurable with either no peers, a user-defined list or a preset
 //! list of DNS records (the default).
 
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::net::ToSocketAddrs;
+use std::sync::{mpsc, Arc};
+use std::{cmp, str, thread, time};
+
 use chrono::prelude::{DateTime, Utc};
 use chrono::{Duration, NaiveDate};
 use rand::rng;
 use rand::seq::SliceRandom;
-use std::collections::HashMap;
-use std::net::ToSocketAddrs;
-use std::sync::{mpsc, Arc};
-use std::{cmp, str, thread, time};
 
 use crate::core::global;
 use crate::p2p;
@@ -62,9 +64,11 @@ pub fn connect_and_monitor(
 			let mut start_attempt = 0;
 			let mut connecting_history: HashMap<PeerAddr, DateTime<Utc>> = HashMap::new();
 
-			// Reset all Defunct peers to Healthy on startup
+			// Reset all Defunct peers we connected to (if capabilities not empty) Healthy on startup
 			for peer in peers.all_peers() {
-				if peer.flags == p2p::State::Defunct {
+				if peer.flags == p2p::State::Defunct
+					&& peer.capabilities != p2p::Capabilities::UNKNOWN
+				{
 					debug!("Resetting defunct peer {} to healthy on startup", peer.addr);
 					let _ = peers.update_state(peer.addr, p2p::State::Healthy);
 				}
@@ -326,16 +330,17 @@ fn listen_for_addrs(
 	rx: &mpsc::Receiver<PeerAddr>,
 	connecting_history: &mut HashMap<PeerAddr, DateTime<Utc>>,
 ) {
-	// Pull everything currently on the queue off the queue.
-	// Does not block so addrs may be empty.
-	// We will take(max_peers) from this later but we want to drain the rx queue
-	// here to prevent it backing up.
-	let addrs: Vec<PeerAddr> = rx.try_iter().collect();
-
 	// If we have a healthy number of outbound peers then we are done here.
 	if peers.enough_outbound_peers() {
 		return;
 	}
+
+	// Pull everything currently on the queue off the queue.
+	// Does not block so addrs may be empty.
+	// We will take(max_peers) from this later but we want to drain the rx queue
+	// here to prevent it backing up.
+	let mut seen = HashSet::new();
+	let addrs: Vec<PeerAddr> = rx.try_iter().filter(|addr| seen.insert(*addr)).collect();
 
 	// Note: We drained the rx queue earlier to keep it under control.
 	// Even if there are many addresses to try we will only try a bounded number of them for safety.

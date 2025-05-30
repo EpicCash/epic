@@ -812,7 +812,7 @@ impl NetAdapter for Peers {
 				addr: pa,
 				capabilities: Capabilities::UNKNOWN,
 				user_agent: "".to_string(),
-				flags: State::Healthy,
+				flags: State::Defunct,
 				last_banned: 0,
 				ban_reason: ReasonForBan::None,
 				last_connected: Utc::now().timestamp(),
