@@ -398,6 +398,8 @@ impl Peers {
 					}
 				};
 				p.stop();
+				// Save peer state as Defunct when ping fails
+				let _ = self.update_state(p.info.addr, State::Defunct);
 				peers.remove(&p.info.addr);
 			}
 		}
