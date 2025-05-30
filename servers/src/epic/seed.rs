@@ -287,7 +287,13 @@ fn connect_to_seeds_and_preferred_peers(
 ) {
 	// check if we have some peers in db
 	// look for peers that are able to give us other peers (via PEER_LIST capability)
-	let peers = peers.find_peers(p2p::State::Healthy, p2p::Capabilities::PEER_LIST, 100);
+	let healthy_peers = peers.find_peers(p2p::State::Healthy, p2p::Capabilities::PEER_LIST, 100);
+
+	let other_peers = peers.find_peers(p2p::State::Defunct, p2p::Capabilities::UNKNOWN, 20);
+
+	let mut peers = healthy_peers;
+
+	peers.extend(other_peers);
 
 	// if so, get their addresses, otherwise use our seeds
 	let mut peer_addrs = if peers.len() > 3 {
