@@ -68,6 +68,11 @@ impl Peers {
 		let mut ban_reason = ReasonForBan::None;
 
 		if let Ok(existing) = self.get_peer(peer.info.addr) {
+			warn!(
+				"add_connected: Addr {}. Capabilities: {:?}, User Agent: {}, Flags: {:?}",
+				existing.addr, existing.capabilities, existing.user_agent, existing.flags
+			);
+
 			if existing.flags == State::Banned {
 				flags = State::Banned;
 				last_banned = existing.last_banned;
