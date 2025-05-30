@@ -62,17 +62,34 @@ impl Peers {
 			debug!("add_connected: failed to get peers lock");
 			Error::Timeout
 		})?;
+
+		let mut flags = State::Healthy;
+		let mut last_banned = 0;
+		let mut ban_reason = ReasonForBan::None;
+
+		if let Ok(existing) = self.get_peer(peer.info.addr) {
+			if existing.flags == State::Banned {
+				flags = State::Banned;
+				last_banned = existing.last_banned;
+				ban_reason = existing.ban_reason;
+			}
+		}
+
 		let peer_data = PeerData {
 			addr: peer.info.addr,
 			capabilities: peer.info.capabilities,
 			user_agent: peer.info.user_agent.clone(),
-			flags: State::Healthy,
-			last_banned: 0,
-			ban_reason: ReasonForBan::None,
+			flags,
+			last_banned,
+			ban_reason,
 			last_connected: Utc::now().timestamp(),
 			local_timestamp: Utc::now().timestamp(),
 		};
-		info!("Saving newly connected peer {}.", peer_data.addr);
+
+		info!(
+			"Saving newly connected peer {}. Capabilities: {:?}, Last Connected: {}, Flags: {:?}",
+			peer_data.addr, peer_data.capabilities, peer_data.last_connected, peer_data.flags
+		);
 		self.save_peer(&peer_data)?;
 		peers.insert(peer_data.addr, peer.clone());
 
