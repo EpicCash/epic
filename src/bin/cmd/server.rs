@@ -103,7 +103,7 @@ fn start_server_tui(
 /// arguments to build a proper configuration and runs EPIC with that
 /// configuration.
 pub fn server_command(
-	server_args: Option<&ArgMatches<'_>>,
+	server_args: Option<&ArgMatches>,
 	mut global_config: GlobalConfig,
 	logs_rx: Option<mpsc::Receiver<LogEntry>>,
 	api_chan: &'static mut (
@@ -125,16 +125,16 @@ pub fn server_command(
 	let mut server_config = global_config.members.as_ref().unwrap().server.clone();
 
 	if let Some(a) = server_args {
-		if let Some(port) = a.value_of("port") {
+		if let Some(port) = a.get_one::<String>("port") {
 			server_config.p2p_config.port = port.parse().unwrap();
 		}
 
-		if let Some(api_port) = a.value_of("api_port") {
+		if let Some(api_port) = a.get_one::<String>("api_port") {
 			let default_ip = "0.0.0.0";
 			server_config.api_http_addr = format!("{}:{}", default_ip, api_port);
 		}
 
-		if let Some(wallet_url) = a.value_of("wallet_url") {
+		if let Some(wallet_url) = a.get_one::<String>("wallet_url") {
 			server_config
 				.stratum_mining_config
 				.as_mut()
@@ -142,7 +142,7 @@ pub fn server_command(
 				.wallet_listener_url = wallet_url.to_string();
 		}
 
-		if let Some(seeds) = a.values_of("seed") {
+		if let Some(seeds) = a.get_many::<String>("seed") {
 			let seed_addrs = seeds
 				.filter_map(|x| x.parse().ok())
 				.map(|x| PeerAddr(x))
@@ -154,18 +154,21 @@ pub fn server_command(
 
 	if let Some(a) = server_args {
 		match a.subcommand() {
-			("run", _) => {
+			Some(("run", _)) => {
 				start_server(server_config, logs_rx, api_chan);
 			}
-			("", _) => {
-				println!("Subcommand required, use 'EPIC help server' for details");
+			Some(("", _)) => {
+				println!("Subcommand required, use 'epic server --help' for details");
 			}
-			(cmd, _) => {
+			Some((cmd, _)) => {
 				println!(":: {:?}", server_args);
 				panic!(
-					"Unknown server command '{}', use 'EPIC help server' for details",
+					"Unknown server command '{}', use 'epic server --help' for details",
 					cmd
 				);
+			}
+			None => {
+				println!("Subcommand required, use 'epic server --help' for details");
 			}
 		}
 	} else {

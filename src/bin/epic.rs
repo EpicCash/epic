@@ -15,15 +15,13 @@
 //! Main for building the binary of a Epic peer-to-peer node.
 
 #[macro_use]
-extern crate clap;
-
-#[macro_use]
 extern crate log;
+use crate::cmd::built_info;
+use crate::cmd::epic_args;
 use crate::config::config::SERVER_CONFIG_FILE_NAME;
 use crate::core::core::foundation;
 use crate::core::{consensus, global};
 use crate::util::init_logger;
-use clap::App;
 use epic_api as api;
 use epic_chain as chain;
 use epic_config as config;
@@ -32,19 +30,12 @@ use epic_p2p as p2p;
 use epic_servers as servers;
 use epic_util as util;
 use epic_util::logger::LogEntry;
-//use futures::channel::oneshot;
 use servers::foundation::create_foundation;
 use std::env;
 use std::path::Path;
 use std::sync::mpsc;
-
 mod cmd;
 pub mod tui;
-
-// include build information
-pub mod built_info {
-	include!(concat!(env!("OUT_DIR"), "/built.rs"));
-}
 
 pub fn info_strings() -> (String, String) {
 	(
@@ -77,31 +68,28 @@ fn main() {
 }
 
 fn real_main() -> i32 {
-	let yml = load_yaml!("epic.yml");
-	let args = App::from_yaml(yml)
-		.version(built_info::PKG_VERSION)
-		.get_matches();
+	let args = epic_args::build_cli().get_matches();
 	let node_config;
 
-	let chain_type = if args.is_present("floonet") {
+	let chain_type = if args.contains_id("floonet") {
 		global::ChainTypes::Floonet
-	} else if args.is_present("usernet") {
+	} else if args.contains_id("usernet") {
 		global::ChainTypes::UserTesting
 	} else {
 		global::ChainTypes::Mainnet
 	};
 
-	if let ("taxes", Some(taxes_args)) = args.subcommand() {
+	if let Some(("taxes", taxes_args)) = args.subcommand() {
 		global::set_mining_mode(chain_type.clone());
 		let generate: u64 = taxes_args
-			.value_of("generate")
+			.get_one::<String>("generate")
 			.unwrap()
 			.parse()
 			.unwrap_or_else(|e| {
 				panic!("The generate value must be a positive integer: {}", e);
 			});
 
-		let url = taxes_args.value_of("from_wallet").unwrap();
+		let url = taxes_args.get_one::<String>("from_wallet").unwrap();
 		let mut wallet_url = String::new();
 		if !url.contains("http") {
 			wallet_url.push_str("http://");
@@ -109,7 +97,7 @@ fn real_main() -> i32 {
 		wallet_url.push_str(url);
 
 		let path_str = taxes_args
-			.value_of("path")
+			.get_one::<String>("path")
 			.map(|p| Some(p.to_owned()))
 			.unwrap_or_else(|| {
 				let p = env::current_dir().ok()?;
@@ -124,7 +112,7 @@ fn real_main() -> i32 {
 			"The path: {} does not exist!",
 			path.display()
 		);
-		let height: u64 = if let Some(h) = taxes_args.value_of("height") {
+		let height: u64 = if let Some(h) = taxes_args.get_one::<String>("height") {
 			h.parse().unwrap_or_else(|e| {
 				panic!("The height value must be a positive integer: {}", e);
 			})
@@ -143,7 +131,7 @@ fn real_main() -> i32 {
 
 	// Temporary wallet warning message
 	match args.subcommand() {
-		("wallet", _) => {
+		Some(("wallet", _)) => {
 			println!();
 			println!("As of v1.1.0, the wallet has been split into a separate executable.");
 			println!("Please visit https://epic.tech/downloads/ to download");
@@ -155,9 +143,9 @@ fn real_main() -> i32 {
 
 	// Deal with configuration file creation
 	match args.subcommand() {
-		("server", Some(server_args)) => {
+		Some(("server", server_args)) => {
 			// If it's just a server config command, do it and exit
-			if let ("config", Some(_)) = server_args.subcommand() {
+			if let Some(("config", _)) = server_args.subcommand() {
 				cmd::config_command_server(&chain_type, SERVER_CONFIG_FILE_NAME);
 				return 0;
 			}
@@ -167,9 +155,9 @@ fn real_main() -> i32 {
 
 	// Load relevant config
 	match args.subcommand() {
-		// When the subscommand is 'server' take into account the 'config_file' flag
-		("server", Some(server_args)) => {
-			if let Some(_path) = server_args.value_of("config_file") {
+		// When the subcommand is 'server' take into account the 'config_file' flag
+		Some(("server", server_args)) => {
+			if let Some(_path) = server_args.get_one::<String>("config_file") {
 				node_config = Some(config::GlobalConfig::new(_path).unwrap_or_else(|e| {
 					panic!("Error loading server configuration: {}", e);
 				}));
@@ -224,15 +212,15 @@ fn real_main() -> i32 {
 	// Execute subcommand
 	match args.subcommand() {
 		// server commands and options
-		("server", Some(server_args)) => {
+		Some(("server", server_args)) => {
 			cmd::server_command(Some(server_args), node_config.unwrap(), logs_rx, api_chan)
 		}
 
 		// client commands and options
-		("client", Some(client_args)) => cmd::client_command(client_args, node_config.unwrap()),
+		Some(("client", client_args)) => cmd::client_command(client_args, node_config.unwrap()),
 
 		// clean command
-		("clean", _) => {
+		Some(("clean", _)) => {
 			let db_root_path = node_config.unwrap().members.unwrap().server.db_root;
 			println!("Cleaning chain data directory: {}", db_root_path);
 			match std::fs::remove_dir_all(db_root_path) {

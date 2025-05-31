@@ -24,20 +24,22 @@ use crate::servers::ServerConfig;
 use crate::util::file::get_first_line;
 use term;
 
-pub fn client_command(client_args: &ArgMatches<'_>, global_config: GlobalConfig) -> i32 {
+pub fn client_command(client_args: &ArgMatches, global_config: GlobalConfig) -> i32 {
 	// just get defaults from the global config
 	let server_config = global_config.members.unwrap().server;
 	let api_secret = get_first_line(server_config.api_secret_path.clone());
 
 	match client_args.subcommand() {
-		("status", Some(_)) => {
+		Some(("status", _)) => {
 			show_status(&server_config, api_secret);
 		}
-		("listconnectedpeers", Some(_)) => {
+		Some(("listconnectedpeers", _)) => {
 			list_connected_peers(&server_config, api_secret);
 		}
-		("ban", Some(peer_args)) => {
-			let peer = peer_args.value_of("peer").unwrap();
+		Some(("ban", peer_args)) => {
+			let peer = peer_args
+				.get_one::<String>("peer")
+				.expect("peer argument missing");
 
 			if let Ok(addr) = peer.parse() {
 				ban_peer(&server_config, &addr, api_secret);
@@ -45,8 +47,10 @@ pub fn client_command(client_args: &ArgMatches<'_>, global_config: GlobalConfig)
 				panic!("Invalid peer address format");
 			}
 		}
-		("unban", Some(peer_args)) => {
-			let peer = peer_args.value_of("peer").unwrap();
+		Some(("unban", peer_args)) => {
+			let peer = peer_args
+				.get_one::<String>("peer")
+				.expect("peer argument missing");
 
 			if let Ok(addr) = peer.parse() {
 				unban_peer(&server_config, &addr, api_secret);
@@ -54,7 +58,7 @@ pub fn client_command(client_args: &ArgMatches<'_>, global_config: GlobalConfig)
 				panic!("Invalid peer address format");
 			}
 		}
-		_ => panic!("Unknown client command, use 'epic help client' for details"),
+		_ => panic!("No client command provided, use 'epic client --help' for details"),
 	}
 	0
 }
