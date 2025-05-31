@@ -163,9 +163,10 @@ impl SyncRunner {
 		// Highest height seen on the network, generally useful for a fast test on
 		// whether some sync is needed
 		let mut highest_network_height = 0;
-
+		let mut first_sync_loop = true;
 		// Main syncing loop
 		loop {
+			// Check if the node is stopped
 			if self.stop_state.is_stopped() {
 				// Close running header sync threads
 				for header_sync in header_syncs {
@@ -178,16 +179,26 @@ impl SyncRunner {
 			if !self.peers.enough_outbound_peers() {
 				warn!("Not enough outbound peers available. Waiting for more peers to connect...");
 				self.sync_state.update(SyncStatus::AwaitingPeers(false));
-
-				thread::sleep(time::Duration::from_secs(5)); // Wait before checking again
-
+				thread::sleep(time::Duration::from_secs(5));
 				continue; // Skip the current iteration of the loop
 			}
 
 			let currently_syncing = self.sync_state.is_syncing();
 
 			// Check whether syncing is generally needed by comparing our state with others
-			let (needs_syncing, most_work_height) = unwrap_or_restart_loop!(self.needs_syncing());
+			let (mut needs_syncing, mut most_work_height) =
+				unwrap_or_restart_loop!(self.needs_syncing());
+
+			// On the very first sync loop after startup, force syncing to ensure we check for new data
+			// even if our local state appears up-to-date. This guarantees the node always attempts
+			// to synchronize with the network at startup.
+			if first_sync_loop {
+				needs_syncing = true;
+				if let Some(peer) = self.peers.most_work_peer() {
+					most_work_height = peer.info.height();
+				}
+				first_sync_loop = false;
+			}
 
 			if most_work_height > 0 {
 				// Occasionally, we can get a most work height of 0 if read locks fail
