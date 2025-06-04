@@ -155,10 +155,7 @@ impl OutputHandler {
 				) {
 					Ok(output) => outputs.push(output),
 					// do not crash here simply do not retrieve this output
-					Err(e) => error!(
-						"Failure to get output for commitment {} with error {}",
-						commit, e
-					),
+					Err(e) => warn!("Output for commitment {}, Message: {}", commit, e),
 				};
 			}
 		}
@@ -225,10 +222,7 @@ impl OutputHandler {
 		for x in commitments {
 			match self.get_output(&x) {
 				Ok(output) => outputs.push(output),
-				Err(e) => error!(
-					"Failure to get output for commitment {} with error {}",
-					x, e
-				),
+				Err(e) => warn!("Output for commitment {}, Message: {}", x, e),
 			};
 		}
 		Ok(outputs)

@@ -106,8 +106,6 @@ pub fn connect_and_monitor(
 				if !peers.enough_outbound_peers()
 					&& Utc::now().naive_utc() - prev_seed_check > Duration::seconds(10)
 				{
-					info!("Trying to reconnect to seed and preferred peers");
-
 					connect_to_seeds_and_preferred_peers(
 						peers.clone(),
 						tx.clone(),
@@ -270,7 +268,6 @@ fn monitor_peers(
 	// The call to is_known() may fail due to contention on the peers map.
 	// Do not attempt any connection where is_known() fails for any reason.
 	for p in new_peers {
-		warn!("try connect new peer {}", p.addr);
 		if let Ok(false) = peers.is_known(p.addr) {
 			tx.send(p.addr).unwrap();
 		}

@@ -87,7 +87,6 @@ impl SyncRunner {
 
 			// Check if there are enough outbound peers
 			if self.peers.enough_outbound_peers() {
-				info!("Sufficient outbound peers connected, proceeding with sync.");
 				break;
 			}
 
@@ -178,7 +177,7 @@ impl SyncRunner {
 			// Check if there are enough outbound peers
 			if !self.peers.enough_outbound_peers() {
 				warn!("Not enough outbound peers available. Waiting for more peers to connect...");
-				self.sync_state.update(SyncStatus::AwaitingPeers(false));
+				self.sync_state.update(SyncStatus::AwaitingPeers(true));
 				thread::sleep(time::Duration::from_secs(5));
 				continue; // Skip the current iteration of the loop
 			}
@@ -501,23 +500,22 @@ impl SyncRunner {
 				}
 
 				SyncStatus::AwaitingPeers(_) => {
-					// Apply only on startup
-					if !download_headers {
+					// Only start header download if enough outbound peers are available
+
+					if self.peers.enough_outbound_peers() && !download_headers {
 						let sync_head = self.chain.get_sync_head().unwrap();
 						info!(
-								"Initial transition to HeaderSync. Head {} at {}, resetting to: {} at {}",
-								sync_head.hash(),
-								sync_head.height,
-								header_head.hash(),
-								header_head.height,
-							);
-
+							"Initial transition to HeaderSync. Head {} at {}, resetting to: {} at {}",
+							sync_head.hash(),
+							sync_head.height,
+							header_head.hash(),
+							header_head.height,
+						);
 						let _ = self.chain.reset_sync_head();
-						// Rebuild the sync MMR to match our updated sync_head.
 						let _ = self.chain.rebuild_sync_mmr(&header_head);
-						// Asking peers for headers and start header sync tasks
 						download_headers = true;
-						//continue;
+					} else {
+						download_headers = false;
 					}
 				}
 
