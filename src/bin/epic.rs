@@ -71,9 +71,9 @@ fn real_main() -> i32 {
 	let args = epic_args::build_cli().get_matches();
 	let node_config;
 
-	let chain_type = if args.contains_id("floonet") {
+	let chain_type = if args.get_flag("floonet") {
 		global::ChainTypes::Floonet
-	} else if args.contains_id("usernet") {
+	} else if args.get_flag("usernet") {
 		global::ChainTypes::UserTesting
 	} else {
 		global::ChainTypes::Mainnet
@@ -112,7 +112,7 @@ fn real_main() -> i32 {
 			"The path: {} does not exist!",
 			path.display()
 		);
-		let height: u64 = if let Some(h) = taxes_args.get_one::<String>("height") {
+		let height: u64 = if let Some(h) = taxes_args.get_one::<String>("start_height") {
 			h.parse().unwrap_or_else(|e| {
 				panic!("The height value must be a positive integer: {}", e);
 			})

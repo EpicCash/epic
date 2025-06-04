@@ -71,9 +71,9 @@ pub fn build_cli() -> Command {
                         .value_name("PATH"),
                 )
                 .arg(
-                    Arg::new("height")
-                        .short('h')
-                        .long("height")
+                    Arg::new("start_height")
+                        .short('s')
+                        .long("start_height")
                         .help("The height to start the generation of foundation coinbases. If no height is given, the FOUNDATION_HEIGHT is used.")
                         .value_name("HEIGHT"),
                 ),
