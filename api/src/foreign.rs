@@ -17,8 +17,12 @@
 use crate::chain::{Chain, SyncState};
 use crate::core::core::hash::Hash;
 use crate::core::core::transaction::Transaction;
+use crate::core::core::Block;
 use crate::handlers::blocks_api::{BlockHandler, HeaderHandler};
 use crate::handlers::chain_api::{ChainHandler, KernelHandler, OutputHandler};
+use crate::handlers::mining_api::{
+	BlockTemplate, CoinbaseData, FinalizedBlockTemplate, MiningHandler,
+};
 use crate::handlers::pool_api::PoolHandler;
 use crate::handlers::transactions_api::TxHashSetHandler;
 use crate::handlers::version_api::VersionHandler;
@@ -131,6 +135,54 @@ where
 		};
 		let hash = block_handler.parse_inputs(height, hash, commit)?;
 		block_handler.get_block(&hash, true, true)
+	}
+
+	/// Returns a block template for mining (header, txs, difficulty, etc.)
+	///
+	/// # Returns
+	/// * Result Containing:
+	/// * A [`BlockTemplate`](struct.BlockTemplate.html)
+	/// * or [`Error`](struct.Error.html) if an error is encountered.
+	///
+	pub fn get_block_template(&self) -> Result<BlockTemplate, Error> {
+		let mining_handler = MiningHandler {
+			chain: self.chain.clone(),
+			tx_pool: self.tx_pool.clone(),
+		};
+		mining_handler.get_block_template()
+	}
+
+	/// Returns a finalized block template for mining (header, txs, difficulty, etc.)
+	/// This includes the coinbase output and kernel.
+	/// /// # Returns
+	/// * Result Containing:
+	/// * A [`BlockTemplate`](struct.BlockTemplate.html)
+	/// * or [`Error`](struct.Error.html) if an error is encountered.
+	pub fn finalize_block_template(
+		&self,
+		coinbase: CoinbaseData,
+	) -> Result<FinalizedBlockTemplate, Error> {
+		let mining_handler = MiningHandler {
+			chain: self.chain.clone(),
+			tx_pool: self.tx_pool.clone(),
+		};
+		// Pass the required argument, e.g., None if the argument is Option<T>
+		mining_handler.finalize_block_template(coinbase)
+	}
+
+	/// Submits a block to the node for processing.
+	///
+	/// #Returns
+	/// * Result Containing:
+	/// * `Ok(())` if the block was submitted successfully
+	/// * or [`Error`](struct.Error.html) if an error is encountered.
+	///
+	pub fn submit_block(&self, block: Block) -> Result<(), Error> {
+		let mining_handler = MiningHandler {
+			chain: self.chain.clone(),
+			tx_pool: self.tx_pool.clone(),
+		};
+		mining_handler.submit_block(block)
 	}
 
 	/// Returns the node version and block header version (used by epic-wallet).

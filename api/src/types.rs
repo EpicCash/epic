@@ -15,9 +15,10 @@
 use std::sync::Arc;
 
 use crate::chain;
+use crate::core::consensus::HeaderInfo;
 use crate::core::core::hash::Hashed;
 use crate::core::core::merkle_proof::MerkleProof;
-use crate::core::core::{KernelFeatures, TxKernel};
+use crate::core::core::{BlockHeader, KernelFeatures, Transaction, TxKernel};
 use crate::core::pow::PoWType;
 use crate::core::{core, ser};
 use crate::p2p;
@@ -738,6 +739,34 @@ impl CompactBlockPrintable {
 			kern_full,
 			kern_ids: cb.kern_ids().iter().map(|x| x.to_hex()).collect(),
 		})
+	}
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct BlockTemplatePrintable {
+	/// The block header (printable)
+	pub header: BlockHeader,
+	/// Transactions included in the template (as hex or printable, here as hex)
+	pub transactions: Vec<Transaction>,
+	/// Height of the block
+	pub height: u64,
+	/// Numeric difficulty
+	pub difficulty: HeaderInfo,
+}
+
+impl BlockTemplatePrintable {
+	pub fn from_template(
+		header: BlockHeader,
+		txs: Vec<Transaction>,
+		height: u64,
+		difficulty: HeaderInfo,
+	) -> BlockTemplatePrintable {
+		BlockTemplatePrintable {
+			header,
+			transactions: txs,
+			height,
+			difficulty: difficulty,
+		}
 	}
 }
 

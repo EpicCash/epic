@@ -16,8 +16,10 @@
 
 use crate::core::core::hash::Hash;
 use crate::core::core::transaction::Transaction;
+use crate::core::core::Block;
 use crate::foreign::Foreign;
 
+use crate::handlers::mining_api::{BlockTemplate, CoinbaseData, FinalizedBlockTemplate};
 use crate::pool::{BlockChain, PoolAdapter, PoolEntry};
 use crate::rest::Error;
 use crate::types::{
@@ -795,6 +797,13 @@ pub trait ForeignRpc: Sync + Send {
 	```
 	 */
 	fn push_transaction(&self, tx: Transaction, fluff: Option<bool>) -> Result<(), Error>;
+
+	fn get_block_template(&self) -> Result<BlockTemplate, Error>;
+	fn submit_block(&self, block: Block) -> Result<(), Error>;
+	fn finalize_block_template(
+		&self,
+		coinbase: CoinbaseData,
+	) -> Result<FinalizedBlockTemplate, Error>;
 }
 
 impl<B, P> ForeignRpc for Foreign<B, P>
@@ -867,6 +876,21 @@ where
 		return Err(Error::Argument(
 			"Start_height or end_height is not valid".to_string(),
 		));
+	}
+
+	fn get_block_template(&self) -> Result<BlockTemplate, Error> {
+		Foreign::get_block_template(self)
+	}
+
+	fn finalize_block_template(
+		&self,
+		coinbase: CoinbaseData,
+	) -> Result<FinalizedBlockTemplate, Error> {
+		Foreign::finalize_block_template(self, coinbase)
+	}
+
+	fn submit_block(&self, block: Block) -> Result<(), Error> {
+		Foreign::submit_block(self, block)
 	}
 
 	fn get_last_n_kernels(&self, distance: u64) -> Result<Vec<TxKernel>, Error> {

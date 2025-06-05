@@ -395,7 +395,7 @@ impl<'de> de::Visitor<'de> for DifficultyMap {
 }
 
 /// Block header information pertaining to the proof of work
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProofOfWork {
 	/// Total accumulated difficulty since genesis block
 	pub total_difficulty: Difficulty,
@@ -536,7 +536,7 @@ impl ProofOfWork {
 }
 
 /// A proof of work
-#[derive(Clone, PartialOrd, PartialEq, Serialize)]
+#[derive(Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub enum Proof {
 	/// A Cuck(at)oo Cycle proof of work, consisting of the edge_bits to get the graph
 	/// size (i.e. the 2-log of the number of edges) and the nonces

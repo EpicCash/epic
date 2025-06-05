@@ -471,7 +471,7 @@ pub const INITIAL_DIFFICULTY: u64 = 1_000_000 * UNIT_DIFFICULTY;
 
 /// Minimal header information required for the Difficulty calculation to
 /// take place
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Deserialize, Serialize, Debug, Eq, PartialEq)]
 pub struct HeaderInfo {
 	/// Block hash, ZERO_HASH when this is a sythetic entry.
 	pub block_hash: Hash,

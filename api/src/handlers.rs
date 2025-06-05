@@ -21,6 +21,7 @@ pub mod transactions_api;
 pub mod utils;
 pub mod version_api;
 
+pub mod mining_api;
 use self::blocks_api::BlockHandler;
 use self::blocks_api::HeaderHandler;
 use self::chain_api::ChainCompactHandler;
@@ -28,6 +29,7 @@ use self::chain_api::ChainHandler;
 use self::chain_api::ChainValidationHandler;
 use self::chain_api::KernelHandler;
 use self::chain_api::OutputHandler;
+use self::mining_api::MiningHandler;
 use self::peers_api::PeerHandler;
 use self::peers_api::PeersAllHandler;
 use self::peers_api::PeersConnectedHandler;
@@ -387,6 +389,7 @@ where
 		"get peers/connected".to_string(),
 		"get peers/a.b.c.d".to_string(),
 		"get version".to_string(),
+		"get mining/block_template".to_string(),
 	];
 	let index_handler = IndexHandler { list: route_list };
 
@@ -440,6 +443,10 @@ where
 	let version_handler = VersionHandler {
 		chain: Arc::downgrade(&chain),
 	};
+	let mining_handler = MiningHandler {
+		chain: Arc::downgrade(&chain),
+		tx_pool: Arc::downgrade(&tx_pool),
+	};
 
 	let mut router = Router::new();
 
@@ -460,5 +467,7 @@ where
 	router.add_route("/v1/peers/connected", Arc::new(peers_connected_handler))?;
 	router.add_route("/v1/peers/**", Arc::new(peer_handler))?;
 	router.add_route("/v1/version", Arc::new(version_handler))?;
+	router.add_route("/v1/mining/block_template", Arc::new(mining_handler))?;
+
 	Ok(router)
 }

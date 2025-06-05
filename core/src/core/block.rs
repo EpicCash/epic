@@ -157,7 +157,7 @@ impl Hashed for HeaderEntry {
 }
 
 /// Some type safety around header versioning.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct HeaderVersion(pub u16);
 
 impl Default for HeaderVersion {
@@ -193,7 +193,7 @@ impl Readable for HeaderVersion {
 }
 
 /// Block header, fairly standard compared to other blockchains.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BlockHeader {
 	/// Version of the block
 	pub version: HeaderVersion,
@@ -496,7 +496,7 @@ impl Readable for UntrustedBlockHeader {
 /// non-explicit, assumed to be deducible from block height (similar to
 /// bitcoin's schedule) and expressed as a global transaction fee (added v.H),
 /// additive to the total of fees ever collected.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
 	/// The header with metadata and commitments to the rest of the data
 	pub header: BlockHeader,

@@ -162,10 +162,10 @@ impl SyncRunner {
 		// Highest height seen on the network, generally useful for a fast test on
 		// whether some sync is needed
 		let mut highest_network_height = 0;
-		let mut first_sync_loop = true;
+
 		// Main syncing loop
 		loop {
-			// Check if the node is stopped
+			// Check if the node is shutting down then exit the loop
 			if self.stop_state.is_stopped() {
 				// Close running header sync threads
 				for header_sync in header_syncs {
@@ -174,7 +174,7 @@ impl SyncRunner {
 				break;
 			}
 
-			// Check if there are enough outbound peers
+			// Check if there are enough outbound peers, else restart loop from here
 			if !self.peers.enough_outbound_peers() {
 				warn!("Not enough outbound peers available. Waiting for more peers to connect...");
 				self.sync_state.update(SyncStatus::AwaitingPeers(true));
@@ -182,27 +182,16 @@ impl SyncRunner {
 				continue; // Skip the current iteration of the loop
 			}
 
-			let currently_syncing = self.sync_state.is_syncing();
+			let has_synstatus = self.sync_state.is_syncing();
 
 			// Check whether syncing is generally needed by comparing our state with others
-			let (mut needs_syncing, mut most_work_height) =
-				unwrap_or_restart_loop!(self.needs_syncing());
-
-			// On the very first sync loop after startup, force syncing to ensure we check for new data
-			// even if our local state appears up-to-date. This guarantees the node always attempts
-			// to synchronize with the network at startup.
-			if first_sync_loop {
-				needs_syncing = true;
-				if let Some(peer) = self.peers.most_work_peer() {
-					most_work_height = peer.info.height();
-				}
-				first_sync_loop = false;
-			}
+			let (needs_syncing, most_work_height) = unwrap_or_restart_loop!(self.needs_syncing());
 
 			if most_work_height > 0 {
 				// Occasionally, we can get a most work height of 0 if read locks fail
 				highest_network_height = most_work_height;
 			}
+
 			let sleep_duration = match self.sync_state.status() {
 				SyncStatus::HeaderSync { .. } | SyncStatus::Initial => {
 					time::Duration::from_millis(100)
@@ -214,7 +203,7 @@ impl SyncRunner {
 			// Quick short-circuit (and a decent sleep) if no syncing is needed
 			let mut needs_headersync = false;
 			if !needs_syncing {
-				if currently_syncing {
+				if has_synstatus {
 					// Transition out of a "syncing" state and into NoSync
 					self.sync_state.update(SyncStatus::Compacting);
 					// Initial transition out of a "syncing" state and into NoSync.
@@ -594,6 +583,9 @@ impl SyncRunner {
 					"Node synchronized at {} @ {} [{}]",
 					local_diff, ch.height, ch.last_block_h
 				);
+				//set SyncStatus to no sync
+				self.sync_state.update(SyncStatus::NoSync);
+
 				is_syncing = false;
 			}
 		} else {

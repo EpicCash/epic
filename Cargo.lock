@@ -1078,11 +1078,14 @@ name = "epic_api"
 version = "3.6.0"
 dependencies = [
  "bytes",
+ "chrono",
  "easy-jsonrpc-mw",
  "epic_chain",
  "epic_core",
+ "epic_keychain",
  "epic_p2p",
  "epic_pool",
+ "epic_servers",
  "epic_store",
  "epic_util",
  "futures 0.3.31",
@@ -1095,6 +1098,7 @@ dependencies = [
  "lazy_static",
  "log",
  "num-bigint",
+ "rand 0.9.1",
  "regex",
  "ring",
  "rustls",
