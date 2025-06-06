@@ -164,8 +164,6 @@ fn monitor_peers(
 	tx: mpsc::Sender<PeerAddr>,
 	preferred_peers_list: Option<Vec<PeerAddr>>,
 ) {
-	// regularly check if we need to acquire more peers  and if so, gets
-	// them from db
 	let total_count = peers.all_peers().len();
 	let mut healthy_count = 0;
 	let mut banned_count = 0;
@@ -208,18 +206,28 @@ fn monitor_peers(
 		defuncts.len(),                // Anzahl der defekten Peers
 	);
 
-	// maintenance step first, clean up p2p server peers
+	// Clean up peers as before
 	peers.clean_peers(
 		config.peer_max_inbound_count() as usize,
 		config.peer_max_outbound_count() as usize,
 	);
 
-	if peers.enough_outbound_peers() {
-		return;
+	let max_outbound = config.peer_max_outbound_count() as usize;
+	let outbound_count = peers.peer_outbound_count() as usize;
+
+	// --- NEW: Periodically drop and replace an outbound peer if at max ---
+	if outbound_count >= max_outbound {
+		// Drop the oldest or a random outbound peer (except protected ones)
+		if let Some(peer_to_drop) = peers.random_outbound_peer() {
+			debug!(
+				"Dropping outbound peer {} to allow rotation",
+				peer_to_drop.info.addr
+			);
+			let _ = peers.disconnect_peer(peer_to_drop.info.addr);
+		}
 	}
 
-	// loop over connected peers
-	// ask them for their list of peers
+	// --- CONTINUE: Peer discovery and requesting peer lists, even if enough outbound peers ---
 	let mut connected_peers: Vec<PeerAddr> = vec![];
 	for p in peers.connected_peers() {
 		trace!(
@@ -235,27 +243,20 @@ fn monitor_peers(
 	// Attempt to connect to preferred peers if there is some
 	if let Some(preferred_peers) = preferred_peers_list {
 		for p in preferred_peers {
-			if !connected_peers.is_empty() {
-				if !connected_peers.contains(&p) {
-					tx.send(p).unwrap();
-				}
-			} else {
-				tx.send(p).unwrap();
+			if !connected_peers.contains(&p) {
+				let _ = tx.send(p);
 			}
 		}
 	}
 
-	// take a random defunct peer and mark it healthy: over a long period any
-	// peer will see another as defunct eventually, gives us a chance to retry
-	if defuncts.len() > 0 {
+	// Retry defunct peers occasionally
+	if !defuncts.is_empty() {
 		defuncts.shuffle(&mut rng());
 		let _ = peers.update_state(defuncts[0].addr, p2p::State::Healthy);
+		let _ = peers.update_capabilities(defuncts[0].addr, p2p::Capabilities::UNKNOWN);
 	}
 
-	// find some peers from our db
-	// and queue them up for a connection attempt
-	// intentionally make too many attempts (2x) as some (most?) will fail
-	// as many nodes in our db are not publicly accessible
+	// Find new healthy peers from db and queue them up for connection attempts
 	let max_peer_attempts = 128;
 	let new_peers = peers.find_peers(
 		p2p::State::Healthy,
@@ -263,13 +264,9 @@ fn monitor_peers(
 		max_peer_attempts as usize,
 	);
 
-	// Only queue up connection attempts for candidate peers where we
-	// are confident we do not yet know about this peer.
-	// The call to is_known() may fail due to contention on the peers map.
-	// Do not attempt any connection where is_known() fails for any reason.
 	for p in new_peers {
 		if let Ok(false) = peers.is_known(p.addr) {
-			tx.send(p.addr).unwrap();
+			let _ = tx.send(p.addr);
 		}
 	}
 }
@@ -326,7 +323,11 @@ fn listen_for_addrs(
 	connecting_history: &mut HashMap<PeerAddr, DateTime<Utc>>,
 ) {
 	// If we have a healthy number of outbound peers then we are done here.
-	if peers.enough_outbound_peers() {
+	let max_inbound = p2p.config.peer_max_inbound_count() as usize;
+	let max_outbound = p2p.config.peer_max_outbound_count() as usize;
+	if peers.peer_inbound_count() as usize >= max_inbound
+		|| peers.peer_outbound_count() as usize >= max_outbound
+	{
 		return;
 	}
 

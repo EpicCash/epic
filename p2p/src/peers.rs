@@ -324,6 +324,13 @@ impl Peers {
 		}
 	}
 
+	/// Returns a random outbound-connected peer, or None if there are none.
+	pub fn random_outbound_peer(&self) -> Option<Arc<Peer>> {
+		let mut outbound_peers = self.outgoing_connected_peers();
+		outbound_peers.shuffle(&mut rng());
+		outbound_peers.pop()
+	}
+
 	/// Unban a peer, checks if it exists and banned then unban
 	pub fn unban_peer(&self, peer_addr: PeerAddr) -> Result<(), Error> {
 		info!("Unban peer {}", peer_addr);
@@ -470,6 +477,18 @@ impl Peers {
 			.update_state(peer_addr, new_state)
 			.map_err(From::from)
 	}
+
+	///Update caobilities of a peer in store
+	pub fn update_capabilities(
+		&self,
+		peer_addr: PeerAddr,
+		capabilities: Capabilities,
+	) -> Result<(), Error> {
+		self.store
+			.update_capabilities(peer_addr, capabilities)
+			.map_err(From::from)
+	}
+
 	/// Updates the ban reason of a peer in store    
 	pub fn update_ban_reason(
 		&self,

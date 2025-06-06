@@ -201,6 +201,24 @@ impl PeerStore {
 		batch.commit()
 	}
 
+	///Updates peer capabilities
+	pub fn update_capabilities(
+		&self,
+		peer_addr: PeerAddr,
+		capabilities: Capabilities,
+	) -> Result<(), Error> {
+		let batch = self.db.batch()?;
+
+		let mut peer =
+			option_to_not_found(batch.get_ser::<PeerData>(&peer_key(peer_addr)[..]), || {
+				format!("Peer at address: {}", peer_addr)
+			})?;
+		peer.capabilities = capabilities;
+
+		batch.put_ser(&peer_key(peer_addr)[..], &peer)?;
+		batch.commit()
+	}
+
 	/// Convenience method to load a peer data, update its ban reason and save it
 	/// back. If the peer is banned, its last banned time will also be updated.
 	pub fn update_ban_reason(
