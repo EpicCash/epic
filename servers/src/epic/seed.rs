@@ -53,6 +53,9 @@ pub fn connect_and_monitor(
 			let peers = p2p_server.peers.clone();
 			let sl = seed_list();
 
+			// Remove all localhost peers (127.0.0.*) before starting peer management
+			peers.remove_localhost_peers();
+
 			// open a channel with a listener that connects every peer address sent below
 			// max peer count
 			let (tx, rx) = mpsc::channel();

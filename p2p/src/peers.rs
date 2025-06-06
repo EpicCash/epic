@@ -609,6 +609,13 @@ impl Peers {
 		&self.config
 	}
 
+	// In your Peers implementation
+	pub fn remove_localhost_peers(&self) {
+		let _ = self
+			.store
+			.delete_peers(|peer| peer.addr.to_string().starts_with("127.0.0."));
+	}
+
 	/// Removes those peers that seem to have expired
 	pub fn remove_expired(&self) {
 		let now = Utc::now();
@@ -838,8 +845,11 @@ impl NetAdapter for Peers {
 	/// addresses.
 	fn find_peer_addrs(&self, capab: Capabilities) -> Vec<PeerAddr> {
 		let peers = self.find_peers(State::Healthy, capab, MAX_PEER_ADDRS as usize);
-		trace!("find_peer_addrs: {} healthy peers picked", peers.len());
-		map_vec!(peers, |p| p.addr)
+		peers
+			.into_iter()
+			.filter(|p| !p.addr.to_string().starts_with("127.0.0."))
+			.map(|p| p.addr)
+			.collect()
 	}
 
 	/// A list of peers has been received from one of our peers.
