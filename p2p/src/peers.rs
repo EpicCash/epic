@@ -856,6 +856,24 @@ impl NetAdapter for Peers {
 	fn peer_addrs_received(&self, peer_addrs: Vec<PeerAddr>) {
 		trace!("Received {} peer addrs, saving.", peer_addrs.len());
 		for pa in peer_addrs {
+			let ip = pa.0.ip();
+			// dont add loopback or unspecified addresses
+			// also don't add private or unique local addresses
+			if ip.is_loopback()
+				|| ip.is_unspecified()
+				|| match ip {
+					std::net::IpAddr::V4(ipv4) => {
+						let octets = ipv4.octets();
+						octets[0] == 10
+							|| (octets[0] == 172 && (octets[1] >= 16 && octets[1] <= 31))
+							|| (octets[0] == 192 && octets[1] == 168)
+					}
+					std::net::IpAddr::V6(ipv6) => ipv6.is_unique_local(),
+				} {
+				trace!("Ignoring non-routable peer address: {}", pa);
+				continue;
+			}
+
 			if let Ok(e) = self.exists_peer(pa) {
 				if e {
 					continue;
