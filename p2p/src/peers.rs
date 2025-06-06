@@ -92,8 +92,12 @@ impl Peers {
 		};
 
 		info!(
-			"Saving newly connected peer {}. Capabilities: {:?}, Last Connected: {}, Flags: {:?}",
-			peer_data.addr, peer_data.capabilities, peer_data.last_connected, peer_data.flags
+			"Saving newly connected peer {}. Last Connected: {}",
+			peer_data.addr,
+			Utc.timestamp_opt(peer_data.last_connected, 0)
+				.single()
+				.map(|dt| dt.to_rfc3339())
+				.unwrap_or_else(|| peer_data.last_connected.to_string()),
 		);
 		self.save_peer(&peer_data)?;
 		peers.insert(peer_data.addr, peer.clone());
@@ -843,11 +847,25 @@ impl ChainAdapter for Peers {
 impl NetAdapter for Peers {
 	/// Find good peers we know with the provided capability and return their
 	/// addresses.
+	/// exceptions are made for loopback, unspecified, private and unique local addresses.
 	fn find_peer_addrs(&self, capab: Capabilities) -> Vec<PeerAddr> {
 		let peers = self.find_peers(State::Healthy, capab, MAX_PEER_ADDRS as usize);
 		peers
 			.into_iter()
-			.filter(|p| !p.addr.to_string().starts_with("127.0.0."))
+			.filter(|p| {
+				let ip = p.addr.0.ip();
+				!ip.is_loopback()
+					&& !ip.is_unspecified()
+					&& match ip {
+						std::net::IpAddr::V4(ipv4) => {
+							let octets = ipv4.octets();
+							octets[0] != 10
+								&& !(octets[0] == 172 && (octets[1] >= 16 && octets[1] <= 31))
+								&& !(octets[0] == 192 && octets[1] == 168)
+						}
+						std::net::IpAddr::V6(ipv6) => !ipv6.is_unique_local(),
+					}
+			})
 			.map(|p| p.addr)
 			.collect()
 	}
@@ -857,21 +875,24 @@ impl NetAdapter for Peers {
 		trace!("Received {} peer addrs, saving.", peer_addrs.len());
 		for pa in peer_addrs {
 			let ip = pa.0.ip();
-			// dont add loopback or unspecified addresses
-			// also don't add private or unique local addresses
-			if ip.is_loopback()
-				|| ip.is_unspecified()
-				|| match ip {
-					std::net::IpAddr::V4(ipv4) => {
-						let octets = ipv4.octets();
-						octets[0] == 10
-							|| (octets[0] == 172 && (octets[1] >= 16 && octets[1] <= 31))
-							|| (octets[0] == 192 && octets[1] == 168)
-					}
-					std::net::IpAddr::V6(ipv6) => ipv6.is_unique_local(),
-				} {
-				trace!("Ignoring non-routable peer address: {}", pa);
-				continue;
+			if global::is_mainnet() {
+				// Strict filtering on mainnet
+				// Ignore loopback, unspecified, private and unique local addresses
+				// We do not want to connect to these addresses
+				if ip.is_loopback()
+					|| ip.is_unspecified()
+					|| match ip {
+						std::net::IpAddr::V4(ipv4) => {
+							let octets = ipv4.octets();
+							octets[0] == 10
+								|| (octets[0] == 172 && (octets[1] >= 16 && octets[1] <= 31))
+								|| (octets[0] == 192 && octets[1] == 168)
+						}
+						std::net::IpAddr::V6(ipv6) => ipv6.is_unique_local(),
+					} {
+					trace!("Ignoring non-routable peer address: {}", pa);
+					continue;
+				}
 			}
 
 			if let Ok(e) = self.exists_peer(pa) {

@@ -412,11 +412,23 @@ impl SyncRunner {
 										err
 									})
 									.unwrap();
+								fastsync_headers.clear();
+								drop(fastsync_headers);
+								continue;
 							}
 							fastsync_headers.remove(&lowest_height);
 						}
 						Err(err) => {
-							error!("Chainsync {:?}", err);
+							error!(
+								"Chainsync: failed to process received headers from peer {} at height {}: {:?}.",
+								peer_info.addr,
+								headers.first().map(|h| h.height).unwrap_or(0),
+								err
+							);
+							let _ = chainsync.disconnect_peer(peer_info.addr);
+							fastsync_headers.clear();
+							drop(fastsync_headers);
+							continue;
 						}
 					}
 				} else {
