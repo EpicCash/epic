@@ -34,7 +34,10 @@ enum_from_primitive! {
 	pub enum State {
 		Healthy = 0,
 		Banned = 1,
+		/// Peer is no longer reachable, but we don't know why.
 		Defunct = 2,
+		/// Peer is not reachable after second attemp to connect
+		Unknown = 3,
 	}
 }
 

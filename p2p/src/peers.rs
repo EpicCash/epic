@@ -270,12 +270,37 @@ impl Peers {
 		self.most_work_peers().pop()
 	}
 
+	/// Check if we are connected to a peer with the provided address.
+	pub fn is_connected(&self, addr: PeerAddr) -> bool {
+		let peers = self.peers.read();
+		peers.get(&addr).map_or(false, |p| p.is_connected())
+	}
+
+	/// Check if a peer is banned
 	pub fn is_banned(&self, peer_addr: PeerAddr) -> bool {
 		if let Ok(peer) = self.store.get_peer(peer_addr) {
 			return peer.flags == State::Banned;
 		}
 		false
 	}
+
+	/// Delete all peers with the given state from the peer store and in-memory map.
+	pub fn delete_peers(&self, state: State) -> Result<(), Error> {
+		let peers_to_delete: Vec<PeerAddr> = self
+			.store
+			.all_peers()?
+			.into_iter()
+			.filter(|peer| peer.flags == state)
+			.map(|peer| peer.addr)
+			.collect();
+
+		for addr in peers_to_delete {
+			self.store.delete_peer(addr)?;
+			self.peers.write().remove(&addr);
+		}
+		Ok(())
+	}
+
 	/// Ban a peer, disconnecting it if we're currently connected
 	pub fn ban_peer(&self, peer_addr: PeerAddr, ban_reason: ReasonForBan) -> Result<(), Error> {
 		if ban_reason == ReasonForBan::None {
@@ -320,6 +345,7 @@ impl Peers {
 					debug!("disconnect_peer: failed to get peers lock");
 					Error::PeerException
 				})?;
+
 				peers.remove(&peer.info.addr);
 
 				Ok(())
@@ -613,13 +639,6 @@ impl Peers {
 		&self.config
 	}
 
-	// In your Peers implementation
-	pub fn remove_localhost_peers(&self) {
-		let _ = self
-			.store
-			.delete_peers(|peer| peer.addr.to_string().starts_with("127.0.0."));
-	}
-
 	/// Removes those peers that seem to have expired
 	pub fn remove_expired(&self) {
 		let now = Utc::now();
@@ -632,15 +651,8 @@ impl Peers {
 				&& diff > Duration::seconds(global::PEER_EXPIRATION_REMOVE_TIME);
 
 			if should_remove {
-				info!(
-					"Removing peer {:?}: last connected {} days {} hours {} minutes ago.",
-					peer.addr,
-					diff.num_days(),
-					diff.num_hours(),
-					diff.num_minutes()
-				);
+				info!("Removing expired peer {:?}", peer.addr);
 			}
-
 			should_remove
 		});
 	}
@@ -907,8 +919,8 @@ impl NetAdapter for Peers {
 				flags: State::Defunct,
 				last_banned: 0,
 				ban_reason: ReasonForBan::None,
-				last_connected: Utc::now().timestamp(),
-				local_timestamp: Utc::now().timestamp(),
+				last_connected: 0,
+				local_timestamp: 0,
 			};
 			if let Err(e) = self.save_peer(&peer) {
 				error!("Could not save received peer address: {:?}", e);
