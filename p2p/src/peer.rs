@@ -403,8 +403,8 @@ impl Peer {
 		self.send(&h, msg::Type::GetCompactBlock)
 	}
 
-	pub fn send_peer_request(&self, capab: Capabilities) -> Result<(), Error> {
-		trace!("Asking {} for more peers {:?}", self.info.addr, capab);
+	pub fn send_peerlist_request(&self, capab: Capabilities) -> Result<(), Error> {
+		info!("Asking {} for more peers {:?}", self.info.addr, capab);
 		self.send(
 			&GetPeerAddrs {
 				capabilities: capab,

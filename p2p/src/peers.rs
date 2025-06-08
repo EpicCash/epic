@@ -640,7 +640,7 @@ impl Peers {
 	}
 
 	/// Removes those peers that seem to have expired
-	pub fn remove_expired(&self) {
+	pub fn remove_expired_defunc_peers(&self) {
 		let now = Utc::now();
 
 		// Delete defunct peers from storage

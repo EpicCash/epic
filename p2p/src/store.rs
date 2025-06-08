@@ -28,16 +28,14 @@ const STORE_SUBPATH: &'static str = "peers";
 
 const PEER_PREFIX: u8 = 'P' as u8;
 
-// Types of messages
+//State of peer
 enum_from_primitive! {
 	#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 	pub enum State {
-		Healthy = 0,
-		Banned = 1,
-		/// Peer is no longer reachable, but we don't know why.
-		Defunct = 2,
-		/// Peer is not reachable after second attemp to connect
-		Unknown = 3,
+		Healthy = 0,// broadcast
+		Banned = 1,// send very bad things
+		Defunct = 2,// connecting failed
+		Unknown = 3,//default state
 	}
 }
 

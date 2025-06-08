@@ -61,7 +61,7 @@ pub fn connect_and_monitor(
 			let mut prev_ping = Utc::now().naive_utc();
 			let mut start_attempt = 0;
 			let mut connecting_history: HashMap<PeerAddr, DateTime<Utc>> = HashMap::new();
-
+			let mut prev_peer_request = Utc::now().naive_utc();
 			//prepare all peers
 			for mut peer in peers.all_peers() {
 				// Unban peer if it was banned with no reason
@@ -92,9 +92,21 @@ pub fn connect_and_monitor(
 					continue;
 				}
 
+				// ask for new peer list from connected peers
+				if Utc::now().naive_utc() - prev_peer_request > Duration::minutes(5) {
+					for peer in peers.all_peers() {
+						if peer.flags == p2p::State::Healthy && peers.is_connected(peer.addr) {
+							if let Some(conn) = peers.get_connected_peer(peer.addr) {
+								let _ = conn.send_peerlist_request(capabilities);
+							}
+						}
+					}
+					prev_peer_request = Utc::now().naive_utc();
+				}
+
 				// Check for and remove expired peers from the storage
 				if Utc::now().naive_utc() - prev_expire_check > Duration::hours(1) {
-					peers.remove_expired();
+					peers.remove_expired_defunc_peers();
 
 					prev_expire_check = Utc::now().naive_utc();
 				}
@@ -230,13 +242,14 @@ fn monitor_peers(peers: Arc<p2p::Peers>, config: p2p::P2PConfig, tx: mpsc::Sende
 	// Send all combined peers to the connection queue
 	for p in new_peers {
 		if let Ok(false) = peers.is_known(p.addr) {
-			info!("try sending peer addr to connection queue: {}", p.addr);
+			trace!("try sending peer addr to connection queue: {}", p.addr);
 			let _ = tx.send(p.addr);
 		}
 	}
 }
 
-/// Set 10 random peers with state Defunct to Unknown.
+/// Set 10 random peers with state Defunct to Unknown,
+/// to discover them again later.
 fn promote_defunct_to_unknown(peers: &Arc<p2p::Peers>) {
 	let mut defunct_peers: Vec<_> = peers
 		.all_peers()
@@ -342,7 +355,7 @@ fn listen_for_addrs(
 	let startup_mode = connecting_history.is_empty();
 	for addr in addrs.into_iter().take(max_peers_to_connect) {
 		if peers.is_connected(addr) {
-			info!("peer_connect: already connected to {}", addr);
+			debug!("peer_connect: already connected to {}", addr);
 			continue;
 		}
 
@@ -352,7 +365,7 @@ fn listen_for_addrs(
 		if !startup_mode {
 			if let Some(last_connect_time) = connecting_history.get(&addr) {
 				if *last_connect_time + Duration::seconds(connect_min_interval) > now {
-					info!(
+					debug!(
 						"peer_connect: ignore a duplicate request to {}. previous connecting time: {}",
 						addr,
 						last_connect_time.format("%H:%M:%S%.3f").to_string(),
@@ -370,8 +383,7 @@ fn listen_for_addrs(
 			.name("peer_connect".to_string())
 			.spawn(move || match p2p_c.connect(addr) {
 				Ok(p) => {
-					if p.send_peer_request(capab).is_ok() {
-						info!("peer_connect: connected to {} and sent peer request", addr);
+					if p.send_peerlist_request(capab).is_ok() {
 						let _ = peers_c.update_state(addr, p2p::State::Healthy);
 					}
 
