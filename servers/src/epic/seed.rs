@@ -244,7 +244,7 @@ fn promote_defunct_to_unknown(peers: &Arc<p2p::Peers>) {
 		.filter(|peer| peer.flags == p2p::State::Defunct)
 		.collect();
 
-	defunct_peers.shuffle(&mut rand::thread_rng());
+	defunct_peers.shuffle(&mut rng());
 
 	for mut peer in defunct_peers.into_iter().take(10) {
 		peer.flags = p2p::State::Unknown;
