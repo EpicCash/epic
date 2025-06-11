@@ -86,20 +86,25 @@ fn tx_double_ser_deser() {
 }
 
 #[test]
-#[should_panic(expected = "Keychain Error")]
 fn test_zero_commit_fails() {
 	let keychain = ExtKeychain::from_random_seed(false).unwrap();
 	let builder = ProofBuilder::new(&keychain);
 	let key_id1 = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
 
-	// blinding should fail as signing with a zero r*G shouldn't work
-	build::transaction(
+	let result = build::transaction(
 		KernelFeatures::Plain { fee: 0 },
 		vec![input(10, key_id1.clone()), output(10, key_id1.clone())],
 		&keychain,
 		&builder,
-	)
-	.unwrap();
+	);
+
+	let err = result.expect_err("Should fail with zero blinding factor");
+	let err_str = format!("{:?}", err);
+	assert!(
+		err_str.contains("InvalidSecretKey"),
+		"Expected error to contain 'InvalidSecretKey', got: {}",
+		err_str
+	);
 }
 
 #[test]
