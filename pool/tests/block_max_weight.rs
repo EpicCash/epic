@@ -36,11 +36,11 @@ fn test_block_building_max_weight() {
 
 	let keychain: ExtKeychain = Keychain::from_random_seed(false).unwrap();
 
-	let db_root = ".epic_block_building_max_weight".to_string();
-	clean_output_dir(db_root.clone());
+	let db_root = ".epic_block_building_max_weight";
+	clean_output_dir(db_root);
 
 	{
-		let mut chain = ChainAdapter::init(db_root.clone()).unwrap();
+		let mut chain = ChainAdapter::init(db_root.to_string()).unwrap();
 
 		// Convenient was to add a new block to the chain.
 		let add_block =
@@ -156,5 +156,5 @@ fn test_block_building_max_weight() {
 		}
 	}
 	// Cleanup db directory
-	clean_output_dir(db_root.clone());
+	clean_output_dir(db_root);
 }

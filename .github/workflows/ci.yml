@@ -48,7 +48,7 @@ jobs:
 
       # Build the project
       - name: Build
-        run: cargo build --workspace --all-targets
+        run: cargo test --workspace -- --nocapture --test-threads=1
 
       # Run tests
       - name: Run tests
@@ -92,4 +92,4 @@ jobs:
 
       # Run cucumber tests
       - name: Run cucumber tests
-        run: cargo test --test cucumber_manual -- --nocapture
+        run: cargo test --test cucumber --features cucumber-tests -- --nocapture

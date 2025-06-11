@@ -31,12 +31,11 @@ fn test_transaction_pool_block_building() {
 	util::init_test_logger();
 	let keychain: ExtKeychain = Keychain::from_random_seed(false).unwrap();
 
-	let db_root = ".epic_block_building".to_string();
-	clean_output_dir(db_root.clone());
+	let db_root = ".epic_block_building";
+	clean_output_dir(db_root);
 
 	{
-		let mut chain = ChainAdapter::init(db_root.clone()).unwrap();
-
+		let mut chain = ChainAdapter::init(db_root.to_string()).unwrap();
 
 		// Initialize the chain/txhashset with an initial block
 		// so we have a non-empty UTXO set.
@@ -135,5 +134,5 @@ fn test_transaction_pool_block_building() {
 		}
 	}
 	// Cleanup db directory
-	clean_output_dir(db_root.clone());
+	clean_output_dir(db_root);
 }

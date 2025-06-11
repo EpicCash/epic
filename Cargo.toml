@@ -65,17 +65,21 @@ cursive = { version = "0.21.1", default-features = false, features = [
 version = "0.16.1"
 features = ["win32"]
 
+
+[features]
+cucumber-tests = []
+
 [[test]]
 name = "cucumber"
 harness = false
+required-features = ["cucumber-tests"]
 
 [build-dependencies]
-built = { version = "0.7.1", features = ["git2", "cargo-lock"] }
+built = { version = "0.8", features = ["git2", "cargo-lock"] }
 
 [dev-dependencies]
 epic_store = { path = "./store", version = "3.6.0" }
 cucumber_rust = { version = "^0.5.1", default-features = false }
 
-[profile.test]
-panic = "abort"
+
 

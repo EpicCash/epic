@@ -1892,7 +1892,7 @@ fn setup() {
 	util::init_test_logger();
 }
 
-// To run cucumber test: cargo test --package epic --test cucumber
+// To run cucumber test: cargo test --test cucumber --features cucumber-tests -- --nocapture
 cucumber! {
 	features: "./features", // Path to our feature files
 	world: crate::EdnaWorld, // The world needs to be the same for steps and the main cucumber call
@@ -1906,4 +1906,5 @@ cucumber! {
 	after: &[
 		an_after_fn // Optional; called after each scenario
 	]
+
 }
