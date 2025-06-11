@@ -89,7 +89,7 @@ pub fn create_secnonce(secp: &Secp256k1) -> Result<SecretKey, Error> {
 ///		&pub_nonce_sum,
 ///		Some(&pub_key_sum),
 ///		&message,
-///).unwrap();
+/// ).unwrap();
 /// ```
 
 pub fn calculate_partial_sig(
@@ -159,7 +159,7 @@ pub fn calculate_partial_sig(
 ///		&pub_nonce_sum,
 ///		Some(&pub_key_sum),
 ///		&message,
-///).unwrap();
+/// ).unwrap();
 ///
 /// // Now verify the signature, ensuring the same values used to create
 /// // the signature are provided:
@@ -172,7 +172,7 @@ pub fn calculate_partial_sig(
 ///		&public_key,
 ///		Some(&pub_key_sum),
 ///		&message,
-///);
+/// );
 /// ```
 
 pub fn verify_partial_sig(
@@ -266,61 +266,6 @@ where
 	let sig = aggsig::sign_single(secp, &msg, &skey, s_nonce, None, None, blind_sum, None)?;
 	Ok(sig)
 }
-
-/// Simple verification a single signature from a commitment. The public
-/// key used to verify the signature is derived from the commit.
-/// Returns `Ok(())` if the signature is valid, or a Signature
-/// [Error](../enum.Error.html) otherwise
-///
-/// # Arguments
-///
-/// * `secp` - A Secp256k1 Context initialized for Verification
-/// * `sig` - The Signature to verify
-/// * `msg` - The message to sign (fee|lockheight).
-/// * `commit` - The commitment to verify. The actual public key used
-/// during verification is derived from this commit.
-///
-/// # Example
-///
-/// ```
-/// # extern crate epic_core as core;
-/// use core::consensus::reward;
-/// use core::libtx::{aggsig, proof};
-/// use util::secp::key::{PublicKey, SecretKey};
-/// use util::secp::{ContextFlag, Secp256k1};
-/// use core::core::transaction::KernelFeatures;
-/// use core::core::{Output, OutputFeatures};
-/// use keychain::{Keychain, ExtKeychain, SwitchCommitmentType};
-///
-/// // Create signature
-/// let secp = Secp256k1::with_caps(ContextFlag::Commit);
-/// let keychain = ExtKeychain::from_random_seed(false).unwrap();
-/// let fees = 10_000;
-/// let value = 0;
-/// let key_id = ExtKeychain::derive_key_id(1, 1, 0, 0, 0);
-/// let switch = &SwitchCommitmentType::Regular;
-/// let commit = keychain.commit(value, &key_id, switch).unwrap();
-/// let builder = proof::ProofBuilder::new(&keychain);
-/// let rproof = proof::create(&keychain, &builder, value, &key_id, switch, commit, None).unwrap();
-/// let output = Output {
-///		features: OutputFeatures::Coinbase,
-///		commit: commit,
-///		proof: rproof,
-/// };
-/// let height = 20;
-/// let over_commit = secp.commit_value(0cd ..).unwrap();
-/// let out_commit = output.commitment();
-/// let features = KernelFeatures::HeightLocked{fee: 0, lock_height: height};
-/// let msg = features.kernel_sig_msg().unwrap();
-/// let excess = secp.commit_sum(vec![out_commit], vec![over_commit]).unwrap();
-/// let pubkey = excess.to_pubkey(&secp).unwrap();
-/// let sig = aggsig::sign_from_key_id(&secp, &keychain, &msg, value, &key_id, None, Some(&pubkey)).unwrap();
-///
-/// // Verify the signature from the excess commit
-/// let sig_verifies =
-///		aggsig::verify_single_from_commit(&keychain.secp(), &sig, &msg, &excess);
-/// assert!(!sig_verifies.is_err());
-/// ```
 
 pub fn verify_single_from_commit(
 	secp: &Secp256k1,

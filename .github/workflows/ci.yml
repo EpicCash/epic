@@ -52,7 +52,7 @@ jobs:
 
       # Run tests
       - name: Run tests
-        run: cargo test --workspace -- --nocapture
+        run: cargo test --workspace -- --nocapture --test-threads=1
 
   cucumber-tests:
     if: github.ref == 'refs/heads/main' || github.event_name == 'schedule'
@@ -92,4 +92,4 @@ jobs:
 
       # Run cucumber tests
       - name: Run cucumber tests
-        run: cargo test --test cucumber -- --nocapture
+        run: cargo test --test cucumber_manual -- --nocapture
