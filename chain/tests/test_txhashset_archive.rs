@@ -13,15 +13,37 @@
 // limitations under the License.
 
 mod chain_test_helper;
+use epic_core as core;
 
-use self::chain_test_helper::{clean_output_dir, mine_chain};
+use crate::chain_test_helper::{clean_output_dir, init_chain, prepare_block, process_block};
+use epic_keychain as keychain;
 
+use self::core::global::ChainTypes;
+use self::core::{global, pow};
+use self::keychain::{ExtKeychain, Keychain};
 #[test]
-fn test() {
+fn test_txhashset_archive_header() {
 	let chain_dir = ".txhashset_archive_test";
 	clean_output_dir(chain_dir);
-	let chain = mine_chain(chain_dir, 35);
+
+	global::set_mining_mode(ChainTypes::AutomatedTesting);
+	global::set_foundation_path("../debian/floonet_foundation.json".to_string());
+
+	let genesis = pow::mine_genesis_block().unwrap();
+	let chain = init_chain(chain_dir, genesis);
+
+	let kc = ExtKeychain::from_random_seed(false).unwrap();
+	let mut prev = chain.head_header().unwrap();
+
+	// Mine 35 blocks after genesis
+	for n in 1..=35 {
+		let b = prepare_block(&kc, &prev, &chain, n + 1, vec![], 1);
+		prev = b.header.clone();
+		process_block(&chain, &b);
+	}
+
 	let header = chain.txhashset_archive_header().unwrap();
-	assert_eq!(10, header.height);
+	assert_eq!(header.height, 10);
+
 	clean_output_dir(chain_dir);
 }

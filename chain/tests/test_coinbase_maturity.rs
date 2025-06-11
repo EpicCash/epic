@@ -12,279 +12,84 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use self::chain::types::NoopAdapter;
-use self::chain::Error;
-use self::core::core::KernelFeatures;
-use self::core::global::{self, ChainTypes};
-use self::core::libtx::{self, build, ProofBuilder};
-use self::core::pow::{Difficulty, PoWType};
-use self::core::{consensus, pow};
-use self::keychain::{ExtKeychain, ExtKeychainPath, Keychain};
-
-use chrono::Duration;
-use env_logger;
+mod chain_test_helper;
 use epic_chain as chain;
 use epic_core as core;
 use epic_keychain as keychain;
+use epic_util as util;
 
-use std::fs;
-use std::sync::Arc;
-
-fn clean_output_dir(dir_name: &str) {
-	let _ = fs::remove_dir_all(dir_name);
-}
+use self::core::consensus;
+use self::core::core::KernelFeatures;
+use self::core::global::ChainTypes;
+use self::core::libtx::{build, ProofBuilder};
+use self::core::{global, pow};
+use self::keychain::{ExtKeychain, ExtKeychainPath, Keychain};
+use crate::chain_test_helper::{clean_output_dir, init_chain, prepare_block, process_block};
 
 #[test]
 fn test_coinbase_maturity() {
-	let _ = env_logger::init();
+	util::init_test_logger();
+
 	let chain_dir = ".epic_coinbase";
 	clean_output_dir(chain_dir);
+
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
+	global::set_foundation_path("../debian/floonet_foundation.json".to_string());
 
-	let genesis_block = pow::mine_genesis_block().unwrap();
+	let genesis = pow::mine_genesis_block().unwrap();
 
-	{
-		let chain = chain::Chain::init(
-			chain_dir.to_string(),
-			Arc::new(NoopAdapter {}),
-			genesis_block,
-			pow::verify_size,
-			false,
-		)
-		.unwrap();
+	let chain = init_chain(chain_dir, genesis.clone());
+	let keychain = ExtKeychain::from_random_seed(false).unwrap();
+	let builder = ProofBuilder::new(&keychain);
 
-		let prev = chain.head_header().unwrap();
+	// Mine the first block with coinbase
+	let prev = chain.head_header().unwrap();
+	let key_id1 = ExtKeychainPath::new(1, 1, 0, 0, 0).to_identifier();
+	let key_id2 = ExtKeychainPath::new(1, 2, 0, 0, 0).to_identifier();
+	let _key_id3 = ExtKeychainPath::new(1, 3, 0, 0, 0).to_identifier();
+	let _key_id4 = ExtKeychainPath::new(1, 4, 0, 0, 0).to_identifier();
 
-		let keychain = ExtKeychain::from_random_seed(false).unwrap();
-		let builder = ProofBuilder::new(&keychain);
-		let key_id1 = ExtKeychainPath::new(1, 1, 0, 0, 0).to_identifier();
-		let key_id2 = ExtKeychainPath::new(1, 2, 0, 0, 0).to_identifier();
-		let key_id3 = ExtKeychainPath::new(1, 3, 0, 0, 0).to_identifier();
-		let key_id4 = ExtKeychainPath::new(1, 4, 0, 0, 0).to_identifier();
+	let block = prepare_block(&keychain, &prev, &chain, 1, vec![], 1);
+	process_block(&chain, &block);
 
-		let next_header_info =
-			consensus::next_difficulty(1, PoWType::Cuckatoo, chain.difficulty_iter().unwrap());
-		let reward = libtx::reward::output(&keychain, &builder, &key_id1, 0, false, 1).unwrap();
-		let mut block = core::core::Block::new(&prev, vec![], Difficulty::min(), reward).unwrap();
-		block.header.timestamp = prev.timestamp + Duration::seconds(60);
-		block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
+	let amount = consensus::reward_at_height(1);
+	let lock_height = 1 + global::coinbase_maturity();
+	assert_eq!(lock_height, 4);
 
-		chain.set_txhashset_roots(&mut block).unwrap();
+	// Try to spend the coinbase before maturity
+	let coinbase_txn = build::transaction(
+		KernelFeatures::Plain { fee: 2 },
+		vec![
+			build::coinbase_input(amount, key_id1.clone()),
+			build::output(amount - 2, key_id2.clone()),
+		],
+		&keychain,
+		&builder,
+	)
+	.unwrap();
 
-		pow::pow_size(
-			&mut block.header,
-			next_header_info.difficulty,
-			global::proofsize(),
-			global::min_edge_bits(),
-		)
-		.unwrap();
-
-		assert_eq!(block.outputs().len(), 1);
-		let coinbase_output = block.outputs()[0];
-		assert!(coinbase_output.is_coinbase());
-
-		chain
-			.process_block(block.clone(), chain::Options::MINE)
-			.unwrap();
-
-		let prev = chain.head_header().unwrap();
-
-		let amount = consensus::reward_at_height(1);
-
-		let lock_height = 1 + global::coinbase_maturity();
-		assert_eq!(lock_height, 4);
-
-		// here we build a tx that attempts to spend the earlier coinbase output
-		// this is not a valid tx as the coinbase output cannot be spent yet
-		let coinbase_txn = build::transaction(
-			KernelFeatures::Plain { fee: 2 },
-			vec![
-				build::coinbase_input(amount, key_id1.clone()),
-				build::output(amount - 2, key_id2.clone()),
-			],
-			&keychain,
-			&builder,
-		)
-		.unwrap();
-
-		let txs = vec![coinbase_txn.clone()];
-		let fees = txs.iter().map(|tx| tx.fee()).sum();
-		let reward = libtx::reward::output(&keychain, &builder, &key_id3, fees, false, 1).unwrap();
-		let mut block = core::core::Block::new(&prev, txs, Difficulty::min(), reward).unwrap();
-		let next_header_info =
-			consensus::next_difficulty(1, PoWType::Cuckatoo, chain.difficulty_iter().unwrap());
-		block.header.timestamp = prev.timestamp + Duration::seconds(60);
-		block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-
-		chain.set_txhashset_roots(&mut block).unwrap();
-
-		// Confirm the tx attempting to spend the coinbase output
-		// is not valid at the current block height given the current chain state.
-		match chain.verify_coinbase_maturity(&coinbase_txn) {
-			Ok(_) => {}
-			Err(Error::ImmatureCoinbase) => {}
-			Err(_) => panic!("Expected transaction error with immature coinbase."),
-		}
-
-		pow::pow_size(
-			&mut block.header,
-			next_header_info.difficulty,
-			global::proofsize(),
-			global::min_edge_bits(),
-		)
-		.unwrap();
-
-		// mine enough blocks to increase the height sufficiently for
-		// coinbase to reach maturity and be spendable in the next block
-		for _ in 0..3 {
-			let prev = chain.head_header().unwrap();
-
-			let keychain = ExtKeychain::from_random_seed(false).unwrap();
-			let builder = ProofBuilder::new(&keychain);
-			let key_id1 = ExtKeychainPath::new(1, 1, 0, 0, 0).to_identifier();
-
-			let next_header_info =
-				consensus::next_difficulty(1, PoWType::Cuckatoo, chain.difficulty_iter().unwrap());
-			let reward = libtx::reward::output(&keychain, &builder, &key_id1, 0, false, 1).unwrap();
-			let mut block =
-				core::core::Block::new(&prev, vec![], Difficulty::min(), reward).unwrap();
-
-			block.header.timestamp = prev.timestamp + Duration::seconds(60);
-			block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-
-			chain.set_txhashset_roots(&mut block).unwrap();
-
-			pow::pow_size(
-				&mut block.header,
-				next_header_info.difficulty,
-				global::proofsize(),
-				global::min_edge_bits(),
-			)
-			.unwrap();
-
-			assert_eq!(block.outputs().len(), 1);
-			let coinbase_output = block.outputs()[0];
-			assert!(coinbase_output.is_coinbase());
-
-			chain
-				.process_block(block.clone(), chain::Options::MINE)
-				.unwrap();
-
-			let prev = chain.head_header().unwrap();
-
-			let amount = consensus::reward_at_height(1);
-
-			let lock_height = 1 + global::coinbase_maturity();
-			assert_eq!(lock_height, 4);
-
-			// here we build a tx that attempts to spend the earlier coinbase output
-			// this is not a valid tx as the coinbase output cannot be spent yet
-			let coinbase_txn = build::transaction(
-				KernelFeatures::Plain { fee: 2 },
-				vec![
-					build::coinbase_input(amount, key_id1.clone()),
-					build::output(amount - 2, key_id2.clone()),
-				],
-				&keychain,
-				&builder,
-			)
-			.unwrap();
-
-			let txs = vec![coinbase_txn.clone()];
-			let fees = txs.iter().map(|tx| tx.fee()).sum();
-			let reward =
-				libtx::reward::output(&keychain, &builder, &key_id3, fees, false, 1).unwrap();
-			let mut block = core::core::Block::new(&prev, txs, Difficulty::min(), reward).unwrap();
-			let next_header_info =
-				consensus::next_difficulty(1, PoWType::Cuckatoo, chain.difficulty_iter().unwrap());
-			block.header.timestamp = prev.timestamp + Duration::seconds(60);
-			block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-
-			chain.set_txhashset_roots(&mut block).unwrap();
-
-			// Confirm the tx attempting to spend the coinbase output
-			// is not valid at the current block height given the current chain state.
-			match chain.verify_coinbase_maturity(&coinbase_txn) {
-				Ok(_) => {}
-				Err(Error::ImmatureCoinbase) => {}
-				Err(_) => panic!("Expected transaction error with immature coinbase."),
-			}
-
-			pow::pow_size(
-				&mut block.header,
-				next_header_info.difficulty,
-				global::proofsize(),
-				global::min_edge_bits(),
-			)
-			.unwrap();
-
-			// mine enough blocks to increase the height sufficiently for
-			// coinbase to reach maturity and be spendable in the next block
-			for i in 0..3 {
-				let prev = chain.head_header().unwrap();
-
-				let keychain = ExtKeychain::from_random_seed(false).unwrap();
-				let builder = ProofBuilder::new(&keychain);
-				let pk = ExtKeychainPath::new(1, 1, 0, 0, 0).to_identifier();
-
-				let reward = libtx::reward::output(&keychain, &builder, &pk, 0, false, i).unwrap();
-				let mut block =
-					core::core::Block::new(&prev, vec![], Difficulty::min(), reward).unwrap();
-				let next_header_info = consensus::next_difficulty(
-					1,
-					PoWType::Cuckatoo,
-					chain.difficulty_iter().unwrap(),
-				);
-				block.header.timestamp = prev.timestamp + Duration::seconds(60);
-				block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-
-				chain.set_txhashset_roots(&mut block).unwrap();
-
-				pow::pow_size(
-					&mut block.header,
-					next_header_info.difficulty,
-					global::proofsize(),
-					global::min_edge_bits(),
-				)
-				.unwrap();
-
-				chain.process_block(block, chain::Options::MINE).unwrap();
-			}
-
-			let prev = chain.head_header().unwrap();
-
-			// Confirm the tx spending the coinbase output is now valid.
-			// The coinbase output has matured sufficiently based on current chain state.
-			chain.verify_coinbase_maturity(&coinbase_txn).unwrap();
-
-			let txs = vec![coinbase_txn];
-			let fees = txs.iter().map(|tx| tx.fee()).sum();
-			let next_header_info =
-				consensus::next_difficulty(1, PoWType::Cuckatoo, chain.difficulty_iter().unwrap());
-			let reward =
-				libtx::reward::output(&keychain, &builder, &key_id4, fees, false, 1).unwrap();
-			let mut block = core::core::Block::new(&prev, txs, Difficulty::min(), reward).unwrap();
-
-			block.header.timestamp = prev.timestamp + Duration::seconds(60);
-			block.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-
-			chain.set_txhashset_roots(&mut block).unwrap();
-
-			pow::pow_size(
-				&mut block.header,
-				next_header_info.difficulty,
-				global::proofsize(),
-				global::min_edge_bits(),
-			)
-			.unwrap();
-
-			let result = chain.process_block(block, chain::Options::MINE);
-			match result {
-				Ok(_) => (),
-				Err(_) => panic!("we did not expect an error here"),
-			};
-		}
+	match chain.verify_coinbase_maturity(&coinbase_txn) {
+		Ok(_) => {}
+		Err(chain::Error::ImmatureCoinbase) => {}
+		Err(_) => panic!("Expected transaction error with immature coinbase."),
 	}
-	// Cleanup chain directory
+
+	// Mine enough blocks for coinbase to mature
+	for n in 2..=lock_height {
+		let prev = chain.head_header().unwrap();
+		let block = prepare_block(&keychain, &prev, &chain, n as u64, vec![], 1);
+		process_block(&chain, &block);
+	}
+
+	// Now the coinbase should be mature and spendable
+	chain.verify_coinbase_maturity(&coinbase_txn).unwrap();
+
+	// Spend the coinbase in a block
+	let prev = chain.head_header().unwrap();
+	let txs = vec![coinbase_txn];
+	let tx_refs: Vec<&core::core::Transaction> = txs.iter().collect();
+	let block = prepare_block(&keychain, &prev, &chain, prev.height + 1, tx_refs, 3);
+	process_block(&chain, &block);
+
 	clean_output_dir(chain_dir);
 }
