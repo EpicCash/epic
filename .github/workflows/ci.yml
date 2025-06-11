@@ -48,7 +48,7 @@ jobs:
 
       # Build the project
       - name: Build
-        run: cargo test --workspace -- --nocapture --test-threads=1
+        run: cargo build --workspace --all-targets
 
       # Run tests
       - name: Run tests

@@ -17,10 +17,11 @@ use epic_core as core;
 use epic_keychain as keychain;
 use epic_util as util;
 
-use self::core::global::ChainTypes;
-use self::core::{global, pow};
+use self::core::pow;
 use self::keychain::{ExtKeychain, Keychain};
-use crate::chain_test_helper::{clean_output_dir, init_chain, prepare_block, process_block};
+use crate::chain_test_helper::{
+	clean_output_dir, init_chain, prepare_block, process_block, set_foundation_path_for_test,
+};
 
 #[test]
 fn data_files() {
@@ -30,11 +31,7 @@ fn data_files() {
 	clean_output_dir(chain_dir);
 
 	// Set up chain in AutomatedTesting mode
-	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-	let foundation_path = format!("{}/../debian/foundation_floonet.json", project_dir);
-	global::set_foundation_path(foundation_path);
-
+	set_foundation_path_for_test("foundation_floonet.json");
 	let genesis = pow::mine_genesis_block().unwrap();
 
 	// Mine a few blocks on a new chain.

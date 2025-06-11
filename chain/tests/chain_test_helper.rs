@@ -11,6 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+use std::fs;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use self::chain::types::NoopAdapter;
 use self::core::core::{Block, BlockHeader, Output, OutputFeatures, Transaction};
@@ -24,8 +27,6 @@ use epic_core::core::hash::Hash;
 use epic_core::libtx::build::Append;
 use epic_keychain as keychain;
 use epic_util as util;
-use std::fs;
-use std::sync::Arc;
 
 use self::chain::Chain;
 use self::core::libtx::proof::{self, ProofBuild};
@@ -57,6 +58,40 @@ impl ChainAdapter for StatusAdapter {
 	fn block_accepted(&self, _b: &Block, status: BlockStatus, _opts: Options) {
 		*self.last_status.write() = Some(status);
 	}
+}
+
+/// Sets the foundation path for tests, cross-platform and robust for CI.
+#[allow(dead_code)]
+pub fn set_foundation_path_for_test(filename: &str) {
+	global::set_mining_mode(global::ChainTypes::AutomatedTesting);
+	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+	let target_dir = PathBuf::from(&project_dir).join("target");
+
+	// Try the most likely locations, in order:
+	let candidates = [
+		PathBuf::from(&project_dir).join("debian").join(filename),
+		PathBuf::from(&project_dir).join("../debian").join(filename),
+		PathBuf::from(&project_dir)
+			.join("../../debian")
+			.join(filename),
+		PathBuf::from(&project_dir).join(filename),
+		target_dir.join("debian").join(filename),
+		target_dir.join("../debian").join(filename),
+		target_dir.join("../../debian").join(filename),
+	];
+
+	let foundation_path = candidates
+		.iter()
+		.find(|p| p.exists())
+		.cloned()
+		.unwrap_or_else(|| {
+			panic!(
+				"Foundation file '{}' not found in any of: {:?}",
+				filename, candidates
+			)
+		});
+
+	epic_core::global::set_foundation_path(foundation_path.to_string_lossy().to_string());
 }
 
 pub fn init_chain(dir_name: &str, genesis: Block) -> Chain {

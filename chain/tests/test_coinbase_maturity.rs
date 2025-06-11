@@ -20,11 +20,12 @@ use epic_util as util;
 
 use self::core::consensus;
 use self::core::core::KernelFeatures;
-use self::core::global::ChainTypes;
 use self::core::libtx::{build, ProofBuilder};
 use self::core::{global, pow};
 use self::keychain::{ExtKeychain, ExtKeychainPath, Keychain};
-use crate::chain_test_helper::{clean_output_dir, init_chain, prepare_block, process_block};
+use crate::chain_test_helper::{
+	clean_output_dir, init_chain, prepare_block, process_block, set_foundation_path_for_test,
+};
 
 #[test]
 fn test_coinbase_maturity() {
@@ -33,10 +34,7 @@ fn test_coinbase_maturity() {
 	let chain_dir = ".epic_coinbase";
 	clean_output_dir(chain_dir);
 
-	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-	let foundation_path = format!("{}/../debian/foundation_floonet.json", project_dir);
-	global::set_foundation_path(foundation_path);
+	set_foundation_path_for_test("foundation_floonet.json");
 
 	let genesis = pow::mine_genesis_block().unwrap();
 	let chain = init_chain(chain_dir, genesis.clone());
