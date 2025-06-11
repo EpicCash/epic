@@ -40,7 +40,9 @@ fn mine_empty_chain() {
 
 	// Set up chain in AutomatedTesting mode
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	global::set_foundation_path("../debian/floonet_foundation.json".to_string());
+	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+	let foundation_path = format!("{}/../debian/foundation_floonet.json", project_dir);
+	global::set_foundation_path(foundation_path);
 
 	let genesis = pow::mine_genesis_block().unwrap();
 	let chain = init_chain(chain_dir, genesis);
@@ -59,7 +61,9 @@ fn mine_short_chain() {
 
 	// Set up chain in AutomatedTesting mode
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	global::set_foundation_path("../debian/floonet_foundation.json".to_string());
+	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+	let foundation_path = format!("{}/../debian/foundation_floonet.json", project_dir);
+	global::set_foundation_path(foundation_path);
 
 	let genesis = pow::mine_genesis_block().unwrap();
 	let chain = init_chain(chain_dir, genesis);
@@ -99,7 +103,9 @@ fn test_block_a_block_b_block_b_fork_header_c_fork_block_c() {
 	let chain_dir = ".epic.block_a_block_b_block_b_fork_header_c_fork_block_c";
 	clean_output_dir(chain_dir);
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	global::set_foundation_path("../debian/floonet_foundation.json".to_string());
+	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+	let foundation_path = format!("{}/../debian/foundation_floonet.json", project_dir);
+	global::set_foundation_path(foundation_path);
 
 	let kc = ExtKeychain::from_random_seed(false).unwrap();
 	let genesis = pow::mine_genesis_block().unwrap();
@@ -163,7 +169,10 @@ fn test_block_a_block_b_block_b_fork_header_c_fork_block_c_fork() {
 	let chain_dir = ".epic.block_a_block_b_block_b_fork_header_c_fork_block_c_fork";
 	clean_output_dir(chain_dir);
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	global::set_foundation_path("../debian/floonet_foundation.json".to_string());
+	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+	let foundation_path = format!("{}/../debian/foundation_floonet.json", project_dir);
+	global::set_foundation_path(foundation_path);
+
 	let kc = ExtKeychain::from_random_seed(false).unwrap();
 	let genesis = pow::mine_genesis_block().unwrap();
 	let last_status = RwLock::new(None);
@@ -220,7 +229,10 @@ fn test_block_a_header_b_header_b_fork_block_b_fork_block_b_block_c() {
 	let chain_dir = ".epic.test_block_a_header_b_header_b_fork_block_b_fork_block_b_block_c";
 	clean_output_dir(chain_dir);
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	global::set_foundation_path("../debian/floonet_foundation.json".to_string());
+	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+	let foundation_path = format!("{}/../debian/foundation_floonet.json", project_dir);
+	global::set_foundation_path(foundation_path);
+
 	let kc = ExtKeychain::from_random_seed(false).unwrap();
 	let genesis = pow::mine_genesis_block().unwrap();
 	let last_status = RwLock::new(None);
@@ -277,7 +289,10 @@ fn test_block_a_header_b_header_b_fork_block_b_fork_block_b_block_c_fork() {
 	let chain_dir = ".epic.test_block_a_header_b_header_b_fork_block_b_fork_block_b_block_c_fork";
 	clean_output_dir(chain_dir);
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	global::set_foundation_path("../debian/floonet_foundation.json".to_string());
+	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+	let foundation_path = format!("{}/../debian/foundation_floonet.json", project_dir);
+	global::set_foundation_path(foundation_path);
+
 	let kc = ExtKeychain::from_random_seed(false).unwrap();
 	let genesis = pow::mine_genesis_block().unwrap();
 	let last_status = RwLock::new(None);
@@ -343,7 +358,10 @@ fn mine_reorg() {
 	clean_output_dir(DIR_NAME);
 
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	global::set_foundation_path("../debian/floonet_foundation.json".to_string());
+	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+	let foundation_path = format!("{}/../debian/foundation_floonet.json", project_dir);
+	global::set_foundation_path(foundation_path);
+
 	let kc = ExtKeychain::from_random_seed(false).unwrap();
 
 	let genesis = pow::mine_genesis_block().unwrap();
@@ -395,7 +413,9 @@ fn mine_reorg() {
 #[test]
 fn mine_forks() {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	global::set_foundation_path("../debian/floonet_foundation.json".to_string());
+	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+	let foundation_path = format!("{}/../debian/foundation_floonet.json", project_dir);
+	global::set_foundation_path(foundation_path);
 	{
 		let chain = init_chain(".epic2", pow::mine_genesis_block().unwrap());
 		let kc = ExtKeychain::from_random_seed(false).unwrap();
@@ -443,7 +463,10 @@ fn mine_forks() {
 #[test]
 fn mine_losing_fork() {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	global::set_foundation_path("../debian/floonet_foundation.json".to_string());
+	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+	let foundation_path = format!("{}/debian/floonet_foundation.json", project_dir);
+	global::set_foundation_path(foundation_path);
+	clean_output_dir(".epic3");
 	let kc = ExtKeychain::from_random_seed(false).unwrap();
 	{
 		let chain = init_chain(".epic3", pow::mine_genesis_block().unwrap());
@@ -480,7 +503,10 @@ fn mine_losing_fork() {
 #[test]
 fn longer_fork() {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	global::set_foundation_path("../debian/floonet_foundation.json".to_string());
+	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+	let foundation_path = format!("{}/../debian/foundation_floonet.json", project_dir);
+	global::set_foundation_path(foundation_path);
+
 	clean_output_dir(".epic4");
 	let kc = ExtKeychain::from_random_seed(false).unwrap();
 	// to make it easier to compute the txhashset roots in the test, we
@@ -526,7 +552,9 @@ fn longer_fork() {
 #[test]
 fn spend_in_fork_and_compact() {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	global::set_foundation_path("../debian/floonet_foundation.json".to_string());
+	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+	let foundation_path = format!("{}/../debian/foundation_floonet.json", project_dir);
+	global::set_foundation_path(foundation_path);
 	util::init_test_logger();
 	// Cleanup chain directory
 	clean_output_dir(".epic6");
@@ -666,7 +694,11 @@ fn spend_in_fork_and_compact() {
 #[test]
 fn output_header_mappings() {
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	global::set_foundation_path("../debian/floonet_foundation.json".to_string());
+
+	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+	let foundation_path = format!("{}/../debian/foundation_floonet.json", project_dir);
+	global::set_foundation_path(foundation_path);
+
 	{
 		let chain = init_chain(
 			".epic_header_for_output",
@@ -708,7 +740,9 @@ fn output_header_mappings() {
 fn test_overflow_cached_rangeproof() {
 	clean_output_dir(".epic_overflow");
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	global::set_foundation_path("../debian/floonet_foundation.json".to_string());
+	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+	let foundation_path = format!("{}/../debian/foundation_floonet.json", project_dir);
+	global::set_foundation_path(foundation_path);
 
 	util::init_test_logger();
 	{

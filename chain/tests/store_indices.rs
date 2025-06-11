@@ -31,7 +31,9 @@ fn test_store_indices() {
 	clean_output_dir(chain_dir);
 
 	global::set_mining_mode(ChainTypes::AutomatedTesting);
-	global::set_foundation_path("../debian/floonet_foundation.json".to_string());
+	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+	let foundation_path = format!("{}/../debian/foundation_floonet.json", project_dir);
+	global::set_foundation_path(foundation_path);
 
 	let genesis = pow::mine_genesis_block().unwrap();
 	let chain = init_chain(chain_dir, genesis);
