@@ -64,34 +64,23 @@ impl ChainAdapter for StatusAdapter {
 #[allow(dead_code)]
 pub fn set_foundation_path_for_test(filename: &str) {
 	global::set_mining_mode(global::ChainTypes::AutomatedTesting);
-	let project_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-	let target_dir = PathBuf::from(&project_dir).join("target");
+	let mut dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
 
-	// Try the most likely locations, in order:
-	let candidates = [
-		PathBuf::from(&project_dir).join("debian").join(filename),
-		PathBuf::from(&project_dir).join("../debian").join(filename),
-		PathBuf::from(&project_dir)
-			.join("../../debian")
-			.join(filename),
-		PathBuf::from(&project_dir).join(filename),
-		target_dir.join("debian").join(filename),
-		target_dir.join("../debian").join(filename),
-		target_dir.join("../../debian").join(filename),
-	];
+	loop {
+		let candidate = dir.join("debian").join(filename);
+		if candidate.exists() {
+			epic_core::global::set_foundation_path(candidate.to_string_lossy().to_string());
+			return;
+		}
+		if !dir.pop() {
+			break;
+		}
+	}
 
-	let foundation_path = candidates
-		.iter()
-		.find(|p| p.exists())
-		.cloned()
-		.unwrap_or_else(|| {
-			panic!(
-				"Foundation file '{}' not found in any of: {:?}",
-				filename, candidates
-			)
-		});
-
-	epic_core::global::set_foundation_path(foundation_path.to_string_lossy().to_string());
+	panic!(
+		"Foundation file '{}' not found in any parent directory's debian/ folder.",
+		filename
+	);
 }
 
 pub fn init_chain(dir_name: &str, genesis: Block) -> Chain {
