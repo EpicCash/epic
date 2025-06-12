@@ -327,7 +327,9 @@ impl Peers {
 		}
 	}
 
-	/// Ban a peer, disconnecting it if we're currently connected
+	/// Disconnect a peer, removing it from the current in-memory set of connected peers.
+	/// If the peer was in a Healthy state, its status is updated to Defunct in the persistent store.
+	/// The peer is not removed from the persistent store.
 	pub fn disconnect_peer(&self, peer_addr: PeerAddr) -> Result<(), Error> {
 		match self.get_connected_peer(peer_addr) {
 			Some(peer) => {
@@ -345,7 +347,11 @@ impl Peers {
 					debug!("disconnect_peer: failed to get peers lock");
 					Error::PeerException
 				})?;
-
+				if let Ok(peer_data) = self.get_peer(peer_addr) {
+					if peer_data.flags == State::Healthy {
+						let _ = self.update_state(peer_addr, State::Defunct);
+					}
+				}
 				peers.remove(&peer.info.addr);
 
 				Ok(())
@@ -551,6 +557,7 @@ impl Peers {
 					rm.push(peer.info.addr.clone());
 				} else if !peer.is_connected() {
 					debug!("clean_peers {:?}, not connected", peer.info.addr);
+					let _ = self.update_state(peer.info.addr, State::Defunct);
 					rm.push(peer.info.addr.clone());
 				} else if peer.is_abusive() {
 					if let Some(counts) = peer.last_min_message_counts() {

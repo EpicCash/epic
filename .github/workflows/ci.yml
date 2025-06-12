@@ -55,9 +55,10 @@ jobs:
       # Prepare foundation file for Windows tests
       - name: Copy foundation_floonet.json to target/debian (Windows only)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          mkdir target\debian
-          copy debian\foundation_floonet.json target\debian\foundation_floonet.json
+          New-Item -ItemType Directory -Path target\debian -Force
+          Copy-Item debian\foundation_floonet.json target\debian\foundation_floonet.json -Force
 
       # Run tests
       - name: Run tests
