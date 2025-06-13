@@ -35,6 +35,7 @@ use crate::types::{
 };
 use crate::util::StopState;
 use chrono::prelude::{DateTime, Utc};
+use epic_chain::types::SyncStatus;
 
 /// P2P server implementation, handling bootstrapping to find and connect to
 /// peers, receiving connections from other peers and keep track of all of them.
@@ -301,6 +302,10 @@ impl ChainAdapter for DummyAdapter {
 	}
 	fn get_transaction(&self, _h: Hash) -> Option<core::Transaction> {
 		None
+	}
+
+	fn sync_status(&self) -> SyncStatus {
+		chain::SyncStatus::NoSync
 	}
 
 	fn tx_kernel_received(&self, _h: Hash, _peer_info: &PeerInfo) -> Result<bool, chain::Error> {

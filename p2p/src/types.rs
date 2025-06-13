@@ -29,9 +29,9 @@ use crate::core::core::hash::Hash;
 use crate::core::global;
 use crate::core::pow::Difficulty;
 use crate::core::ser::{self, ProtocolVersion, Readable, Reader, Writeable, Writer};
-use epic_store;
-
 use bitflags::bitflags;
+use epic_chain::types::SyncStatus;
+use epic_store;
 use serde::{Deserialize, Serialize};
 
 /// Maximum number of block headers a peer should ever send
@@ -540,6 +540,9 @@ pub trait ChainAdapter: Sync + Send {
 
 	/// Current total header height
 	fn total_header_height(&self) -> Result<u64, chain::Error>;
+
+	// In p2p::ChainAdapter trait (probably in p2p/src/types.rs or similar)
+	fn sync_status(&self) -> SyncStatus;
 
 	/// A valid transaction has been received from one of our peers
 	fn transaction_received(

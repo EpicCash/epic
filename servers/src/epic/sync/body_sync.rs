@@ -85,7 +85,7 @@ impl BodySync {
 	}
 
 	fn body_sync(&mut self) -> Result<bool, chain::Error> {
-		let peers = self.peers.more_work_peers()?;
+		let peers = self.peers.outgoing_connected_peers();
 		if peers.is_empty() {
 			debug!("body_sync: no peers, nothing to do");
 			thread::sleep(time::Duration::from_secs(10));
@@ -160,7 +160,7 @@ impl BodySync {
 		}
 
 		// Check if a peer is available to send new requests
-		if self.peers.more_work_peers()?.iter().any(|peer| {
+		if self.peers.outgoing_connected_peers().iter().any(|peer| {
 			self.requested_peers
 				.iter()
 				.all(|(addr, _)| addr != &peer.info.addr)
@@ -173,19 +173,26 @@ impl BodySync {
 
 	// Total numbers received on this chain, including the head and orphans
 	fn blocks_received(&mut self) -> Result<u64, chain::Error> {
-		// Only one block is requested at a time, so we directly check the first entry
-		if let Some((peer_addr, hash)) = self.requested_peers.iter().next().cloned() {
-			if let Ok(header) = self.chain.get_block_header(&hash) {
+		let mut received = 0;
+		let mut to_remove = vec![];
+
+		for (peer_addr, hash) in self.requested_peers.iter() {
+			if let Ok(header) = self.chain.get_block_header(hash) {
 				// Check if the parent block exists
 				if self.chain.get_block(&header.prev_hash).is_ok() {
-					self.requested_peers.remove(&(peer_addr, hash)); // Remove the entry
-					self.hash_request_timestamps.remove(&hash); // Remove the timestamp
-					return Ok(1); // One block was successfully received
+					to_remove.push((peer_addr.clone(), *hash));
 				}
 			}
 		}
 
-		Ok(0) // No block was successfully received
+		for (peer_addr, hash) in to_remove {
+			self.requested_peers.remove(&(peer_addr, hash));
+			self.hash_request_timestamps.remove(&hash);
+			self.receive_timeout = Utc::now() + Duration::seconds(120);
+			received += 1;
+		}
+
+		Ok(received)
 	}
 
 	fn update_blocks_received(&mut self) -> Result<(), chain::Error> {
@@ -239,7 +246,7 @@ impl BodySync {
 	}
 
 	fn request_blocks_from_peers(&mut self) -> Result<(), chain::Error> {
-		let peers = self.peers.more_work_peers()?;
+		let peers = self.peers.outgoing_connected_peers();
 		let mut peers_iter = peers.iter();
 		if let Some(hash) = self.hashes_to_get.first().cloned() {
 			let should_request = match self.hash_request_timestamps.get(&hash) {
@@ -301,7 +308,7 @@ impl BodySync {
 
 	fn wait_for_blocks(&mut self) -> Result<(), chain::Error> {
 		let start_time = Utc::now();
-		while Utc::now() < start_time + Duration::seconds(5) {
+		while Utc::now() < start_time + Duration::seconds(15) {
 			let blocks_received = self.blocks_received()?;
 			if blocks_received > 0 {
 				debug!("Block received, proceeding to the next block.");

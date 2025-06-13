@@ -39,6 +39,7 @@ use crate::types::{
 	TxHashSetRead,
 };
 use chrono::prelude::{DateTime, Utc};
+use epic_chain::types::SyncStatus;
 
 const MAX_TRACK_SIZE: usize = 30 * 10;
 const MAX_PEER_MSG_PER_MIN: u64 = 500 * 10;
@@ -404,7 +405,7 @@ impl Peer {
 	}
 
 	pub fn send_peerlist_request(&self, capab: Capabilities) -> Result<(), Error> {
-		info!("Asking {} for more peers {:?}", self.info.addr, capab);
+		info!("Asking {} for more peers.", self.info.addr);
 		self.send(
 			&GetPeerAddrs {
 				capabilities: capab,
@@ -502,6 +503,10 @@ impl ChainAdapter for TrackingAdapter {
 
 	fn get_transaction(&self, kernel_hash: Hash) -> Option<core::Transaction> {
 		self.adapter.get_transaction(kernel_hash)
+	}
+
+	fn sync_status(&self) -> SyncStatus {
+		self.adapter.sync_status()
 	}
 
 	fn tx_kernel_received(

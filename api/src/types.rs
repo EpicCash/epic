@@ -87,6 +87,13 @@ pub struct Status {
 	// Additional sync information
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub sync_info: Option<serde_json::Value>,
+
+	// Theoretical current supply (in atomic units)
+	pub supply: u64,
+	// Maximum supply (in atomic units)
+	pub max_supply: u64,
+	// Number of blocks to the next halving
+	pub blocks_to_next_halving: u64,
 }
 
 impl Status {
@@ -95,6 +102,9 @@ impl Status {
 		connections: u32,
 		sync_status: String,
 		sync_info: Option<serde_json::Value>,
+		supply: u64,
+		max_supply: u64,
+		blocks_to_next_halving: u64,
 	) -> Status {
 		Status {
 			protocol_version: ser::ProtocolVersion::local().into(),
@@ -103,6 +113,9 @@ impl Status {
 			tip: Tip::from_tip(current_tip),
 			sync_status,
 			sync_info,
+			supply,
+			max_supply,
+			blocks_to_next_halving,
 		}
 	}
 }
@@ -803,6 +816,8 @@ pub struct LocatedTxKernel {
 pub struct PoolInfo {
 	/// Size of the pool
 	pub pool_size: usize,
+	/// Transactions currently in the pool (as hex)
+	pub txs: Vec<Transaction>,
 }
 
 #[cfg(test)]

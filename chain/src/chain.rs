@@ -1291,14 +1291,18 @@ impl Chain {
 		max_count: u64,
 		max_pmmr_index: Option<u64>,
 	) -> Result<(u64, u64, Vec<Output>), Error> {
-		let txhashset = self.txhashset.read();
-		let last_index = match max_pmmr_index {
-			Some(i) => i,
-			None => txhashset.highest_output_insertion_index(),
-		};
-		let outputs = txhashset.outputs_by_pmmr_index(start_index, max_count, max_pmmr_index);
-		let rangeproofs =
-			txhashset.rangeproofs_by_pmmr_index(start_index, max_count, max_pmmr_index);
+		let (outputs, rangeproofs, last_index);
+		{
+			let txhashset = self.txhashset.read();
+			last_index = match max_pmmr_index {
+				Some(i) => i,
+				None => txhashset.highest_output_insertion_index(),
+			};
+			let outs = txhashset.outputs_by_pmmr_index(start_index, max_count, max_pmmr_index);
+			let rps = txhashset.rangeproofs_by_pmmr_index(start_index, max_count, max_pmmr_index);
+			outputs = outs;
+			rangeproofs = rps;
+		} // lock is dropped here
 		if outputs.0 != rangeproofs.0 || outputs.1.len() != rangeproofs.1.len() {
 			return Err(Error::TxHashSetErr(String::from(
 				"Output and rangeproof sets don't match",

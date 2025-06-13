@@ -57,7 +57,7 @@ where
 {
 	match serde_json::to_string(s) {
 		Ok(json) => response(StatusCode::OK, json),
-		Err(_) => response(StatusCode::INTERNAL_SERVER_ERROR, ""),
+		Err(_) => response(StatusCode::INTERNAL_SERVER_ERROR, "".to_owned()),
 	}
 }
 

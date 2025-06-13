@@ -49,9 +49,11 @@ where
 	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		let pool_arc = w_fut!(&self.tx_pool);
 		let pool = pool_arc.read();
+		let txs: Vec<Transaction> = pool.txpool.entries.iter().map(|e| e.tx.clone()).collect();
 
 		json_response(&PoolInfo {
 			pool_size: pool.total_size(),
+			txs,
 		})
 	}
 }

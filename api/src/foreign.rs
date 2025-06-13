@@ -154,7 +154,7 @@ where
 
 	/// Returns a finalized block template for mining (header, txs, difficulty, etc.)
 	/// This includes the coinbase output and kernel.
-	/// /// # Returns
+	/// # Returns
 	/// * Result Containing:
 	/// * A [`BlockTemplate`](struct.BlockTemplate.html)
 	/// * or [`Error`](struct.Error.html) if an error is encountered.

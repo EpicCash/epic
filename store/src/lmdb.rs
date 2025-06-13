@@ -154,21 +154,18 @@ impl Store {
 		let stat = self.env.stat()?;
 
 		let size_used = stat.psize as usize * env_info.last_pgno;
+		let percent_used = size_used as f64 / env_info.mapsize as f64;
 		trace!("DB map size: {}", env_info.mapsize);
 		trace!("Space used: {}", size_used);
 		trace!("Space remaining: {}", env_info.mapsize - size_used);
-		let resize_percent = RESIZE_PERCENT;
+		let resize_percent = RESIZE_PERCENT as f64;
 		trace!(
-			"Percent used: {:.*}  Percent threshold: {:.*}",
-			4,
-			size_used as f64 / env_info.mapsize as f64,
-			4,
+			"Percent used: {:.4}  Percent threshold: {:.4}",
+			percent_used,
 			resize_percent
 		);
 
-		if size_used as f32 / env_info.mapsize as f32 > resize_percent
-			|| env_info.mapsize < ALLOC_CHUNK_SIZE
-		{
+		if percent_used > resize_percent || env_info.mapsize < ALLOC_CHUNK_SIZE {
 			trace!("Resize threshold met (percent-based)");
 			Ok(true)
 		} else {
@@ -194,19 +191,21 @@ impl Store {
 			tot
 		};
 
-		// close
-		let mut w = self.db.write();
-		*w = None;
+		// Only lock for the minimal time needed
+		{
+			let mut w = self.db.write();
+			*w = None;
 
-		unsafe {
-			self.env.set_mapsize(new_mapsize)?;
+			unsafe {
+				self.env.set_mapsize(new_mapsize)?;
+			}
+
+			*w = Some(Arc::new(lmdb::Database::open(
+				self.env.clone(),
+				Some(&self.name),
+				&lmdb::DatabaseOptions::new(lmdb::db::CREATE),
+			)?));
 		}
-
-		*w = Some(Arc::new(lmdb::Database::open(
-			self.env.clone(),
-			Some(&self.name),
-			&lmdb::DatabaseOptions::new(lmdb::db::CREATE),
-		)?));
 
 		info!(
 			"Resized database from {} to {}",

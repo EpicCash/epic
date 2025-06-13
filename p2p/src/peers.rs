@@ -35,6 +35,7 @@ use crate::types::{
 };
 use chrono::prelude::*;
 use chrono::Duration;
+use epic_chain::types::SyncStatus;
 
 const LOCK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
 
@@ -682,6 +683,10 @@ impl ChainAdapter for Peers {
 		self.adapter.get_transaction(kernel_hash)
 	}
 
+	fn sync_status(&self) -> SyncStatus {
+		self.adapter.sync_status()
+	}
+
 	fn tx_kernel_received(
 		&self,
 		kernel_hash: Hash,
@@ -755,7 +760,7 @@ impl ChainAdapter for Peers {
 		bh: core::BlockHeader,
 		peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
-		if !self.adapter.header_received(bh, peer_info)? {
+		if !self.adapter.header_received(bh.clone(), peer_info)? {
 			// if the peer sent us a block header that's intrinsically bad
 			// they are either mistaken or malevolent, both of which require a ban
 			self.ban_peer(peer_info.addr, ReasonForBan::BadBlockHeader)
@@ -766,6 +771,19 @@ impl ChainAdapter for Peers {
 				})?;
 			Ok(false)
 		} else {
+			// At the top of fn header_received in Peers:
+			if !matches!(self.adapter.sync_status(), SyncStatus::NoSync) {
+				return Ok(true);
+			}
+
+			// move from NetAdapter header_received here
+			// After we have received a block header in "header first" propagation
+			// we need to go request the block (compact representation) from the
+			// same peer that gave us the header (unless we have already accepted the block)
+			if let Some(peer) = self.get_connected_peer(peer_info.addr) {
+				let _ = peer.send_compact_block_request(bh.hash().clone());
+			}
+
 			Ok(true)
 		}
 	}

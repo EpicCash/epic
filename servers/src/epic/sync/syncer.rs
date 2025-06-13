@@ -107,6 +107,7 @@ impl SyncRunner {
 	}
 
 	/// Starts the syncing loop, just spawns two threads that loop forever
+	#[allow(unused_assignments)]
 	fn sync_loop(&self) {
 		macro_rules! unwrap_or_restart_loop(
     	  ($obj: expr) =>(
@@ -237,6 +238,7 @@ impl SyncRunner {
 			let mut txhashset_sync = false;
 			// Run each sync stage, each of them deciding whether they're needed
 			// except for state sync that only runs if body sync returns true (meaning txhashset is needed)
+
 			if needs_headersync {
 				self.sync_state.update(SyncStatus::HeaderSync {
 					current_height: head.height,
@@ -250,7 +252,7 @@ impl SyncRunner {
 			}
 
 			if download_headers {
-				for peer in self.peers.clone().most_work_peers() {
+				for peer in self.peers.clone().outgoing_connected_peers() {
 					let peer_addr = peer.info.addr.to_string();
 					if (peer
 						.info

@@ -38,6 +38,8 @@ use crate::util::OneTime;
 use chrono::prelude::*;
 use chrono::Duration;
 use rand::prelude::*;
+use std::collections::HashMap;
+use std::sync::Mutex;
 
 /// Force full pow verification this many blocks from chaintip
 pub const POW_VERIFICATION_THRESHOLD: u64 = 1000;
@@ -45,6 +47,10 @@ pub const POW_VERIFICATION_THRESHOLD: u64 = 1000;
 /// Ignore block broadcasts from chaintip, until we are less than
 /// this many blocks from chaintip, while syncing
 pub const BLOCK_BROADCAST_IGNORE_THRESHOLD: u64 = 200;
+
+/// Ignore block broadcasts from chaintip, until we are less than
+/// this many blocks from chaintip, while syncing
+pub const HEADER_BROADCAST_IGNORE_THRESHOLD: u64 = 200;
 
 /// Implementation of the NetAdapter for the . Gets notified when new
 /// blocks and transactions are received and forwards to the chain and pool
@@ -60,6 +66,7 @@ where
 	peers: OneTime<Weak<p2p::Peers>>,
 	config: ServerConfig,
 	hooks: Vec<Box<dyn NetEvents + Send + Sync>>,
+	recently_seen_headers: Arc<Mutex<HashMap<Hash, (p2p::PeerAddr, Instant)>>>,
 }
 
 impl<B, P> p2p::ChainAdapter for NetToChainAdapter<B, P>
@@ -67,6 +74,10 @@ where
 	B: BlockChain,
 	P: PoolAdapter,
 {
+	fn sync_status(&self) -> SyncStatus {
+		self.sync_state.status()
+	}
+
 	fn total_difficulty(&self) -> Result<Difficulty, chain::Error> {
 		Ok(self.chain().head()?.total_difficulty)
 	}
@@ -185,14 +196,28 @@ where
 				return Ok(true);
 			}
 		}
+
+		let cb_hash = cb.hash();
+
 		// No need to process this compact block if we have previously accepted the _full block_.
-		if self.chain().block_exists(cb.hash())? {
+		if self.chain().block_exists(cb_hash)? {
 			return Ok(true);
 		}
-		let bhash = cb.hash();
+
+		//strict "header first" propagation
+		let header_peer_addr_opt = {
+			let seen = self.recently_seen_headers.lock().unwrap();
+			seen.get(&cb_hash).copied()
+		};
+		let header_peer_addr = header_peer_addr_opt.map(|(addr, _)| addr);
+		if Some(peer_info.addr) != header_peer_addr {
+			// Only accept the compact block from the peer that sent the header
+			return Ok(true);
+		}
+
 		debug!(
 			"Received compact_block {} at {} from {} [out/kern/kern_ids: {}/{}/{}] going to process.",
-			bhash,
+			cb_hash.clone(),
 			cb.header.height,
 			peer_info.addr,
 			cb.out_full().len(),
@@ -200,7 +225,6 @@ where
 			cb.kern_ids().len(),
 		);
 
-		let cb_hash = cb.hash();
 		if cb.kern_ids().is_empty() {
 			// push the freshly hydrated block through the chain pipeline
 			match core::Block::hydrate_from(cb, vec![]) {
@@ -286,15 +310,29 @@ where
 		bh: core::BlockHeader,
 		peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
+		//keep new headers synced exept when in HeaderSync mode
+		if matches!(self.sync_state.status(), SyncStatus::HeaderSync { .. }) {
+			return Ok(true);
+		}
+
 		// No need to process this header if we have previously accepted the _full block_.
 		if self.chain().block_exists(bh.hash())? {
 			return Ok(true);
 		}
+		// Clean up old header entries
+		self.cleanup_recently_seen_headers(std::time::Duration::from_secs(120));
 
-		// Also no need to process if we are syncing headers, we receive a new peer header broadcast
-		if matches!(self.sync_state.status(), SyncStatus::HeaderSync { .. }) {
-			//warn!("Ignoring broadcasted header for block: hash({}) height({})", bh.hash(), bh.height);
-			return Ok(true);
+		let hash = bh.hash();
+		{
+			let mut seen = self.recently_seen_headers.lock().unwrap();
+			if seen.contains_key(&hash) {
+				// Already seen from some peer, drop early
+				return Ok(true);
+			}
+			if seen.len() > 10000 {
+				seen.clear();
+			}
+			seen.insert(hash, (peer_info.addr, Instant::now()));
 		}
 
 		if !self.sync_state.is_syncing() {
@@ -305,10 +343,15 @@ where
 
 		// pushing the new block header through the header chain pipeline
 		// we will go ask for the block if this is a new header
-
 		let res = self.chain().process_block_header(&bh, chain::Options::NONE);
 
 		if let Err(e) = res {
+			// if we got a bad data error, we can remove the header from the recently seen headers
+			{
+				let mut seen = self.recently_seen_headers.lock().unwrap();
+				seen.remove(&hash);
+			}
+
 			debug!("Block header {} refused by chain: {:?}", bh.hash(), e);
 			if e.is_bad_data() {
 				return Ok(false);
@@ -321,9 +364,9 @@ where
 
 		// we have successfully processed a block header
 		// so we can go request the block itself
-		self.request_compact_block(&bh, peer_info);
+		// moved request for compact block to peers::header_received
+		//self.request_compact_block(&bh, peer_info);
 
-		// done receiving the header
 		Ok(true)
 	}
 
@@ -583,6 +626,9 @@ where
 			peers: OneTime::new(),
 			config,
 			hooks,
+			recently_seen_headers: Arc::new(Mutex::new(
+				HashMap::<Hash, (p2p::PeerAddr, Instant)>::with_capacity(10_000),
+			)),
 		}
 	}
 
@@ -790,11 +836,12 @@ where
 	// After we have received a block header in "header first" propagation
 	// we need to go request the block (compact representation) from the
 	// same peer that gave us the header (unless we have already accepted the block)
-	fn request_compact_block(&self, bh: &BlockHeader, peer_info: &PeerInfo) {
+	// moved to peers::header_received
+	/*fn request_compact_block(&self, bh: &BlockHeader, peer_info: &PeerInfo) {
 		self.send_block_request_to_peer(bh.hash(), peer_info, |peer, h| {
 			peer.send_compact_block_request(h)
 		})
-	}
+	}*/
 
 	fn send_tx_request_to_peer<F>(&self, h: Hash, peer_info: &PeerInfo, f: F)
 	where
@@ -835,6 +882,12 @@ where
 				e
 			),
 		}
+	}
+
+	fn cleanup_recently_seen_headers(&self, timeout: std::time::Duration) {
+		let mut seen = self.recently_seen_headers.lock().unwrap();
+		let now = Instant::now();
+		seen.retain(|_, &mut (_, timestamp)| now.duration_since(timestamp) < timeout);
 	}
 }
 

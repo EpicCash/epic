@@ -14,6 +14,7 @@
 
 use super::utils::w;
 use crate::chain::{Chain, SyncState, SyncStatus};
+use crate::core::consensus::{blocks_to_next_halving, fast_total_supply, EPIC_BASE};
 use crate::p2p;
 use crate::rest::*;
 use crate::router::{Handler, ResponseFuture};
@@ -79,11 +80,19 @@ impl StatusHandler {
 			.map_err(|e| Error::Internal(format!("can't get head: {}", e)))?;
 		let sync_status = w(&self.sync_state)?.status();
 		let (api_sync_status, api_sync_info) = sync_status_to_api(sync_status);
+
+		let next_halving = blocks_to_next_halving(head.height);
+		let supply = fast_total_supply(head.height); // <-- Use the optimized function
+		let max_supply = 21_000_000; // or whatever your max is
+
 		Ok(Status::from_tip_and_peers(
 			head,
 			w(&self.peers)?.peer_count(),
 			api_sync_status,
 			api_sync_info,
+			supply / EPIC_BASE,
+			max_supply,
+			next_halving,
 		))
 	}
 }
