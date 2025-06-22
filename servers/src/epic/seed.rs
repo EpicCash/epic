@@ -120,6 +120,7 @@ pub fn connect_and_monitor(
 						preferred_peers.clone(),
 					);
 					start_attempt = 0; // reset start attempt after connecting to seeds
+					thread::sleep(time::Duration::from_secs(10));
 				}
 
 				// set 10 random peers that have state defunc to unknown
