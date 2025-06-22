@@ -89,9 +89,9 @@ impl Default for LoggingConfig {
 	fn default() -> LoggingConfig {
 		LoggingConfig {
 			log_to_stdout: true,
-			stdout_log_level: Level::Warn,
-			log_to_file: true,
-			file_log_level: Level::Info,
+			stdout_log_level: Level::Info,
+			log_to_file: false,
+			file_log_level: Level::Debug,
 			log_file_path: String::from("epic.log"),
 			log_file_append: true,
 			log_max_size: Some(1024 * 1024 * 16), // 16 megabytes default

@@ -172,7 +172,7 @@ impl GlobalConfig {
 
 		match *chain_type {
 			global::ChainTypes::Mainnet => {
-				defaults.p2p_config.seeding_type = p2p::Seeding::List;
+				defaults.p2p_config.seeding_type = p2p::Seeding::DNSSeed;
 			}
 			global::ChainTypes::Floonet => {
 				defaults.api_http_addr = "127.0.0.1:13413".to_owned();

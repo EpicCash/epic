@@ -62,6 +62,8 @@ impl BodySync {
 		head: &chain::Tip,
 		highest_height: u64,
 	) -> Result<bool, chain::Error> {
+		self.cleanup_disconnected_peers();
+
 		match self.sync_state.status() {
 			SyncStatus::TxHashsetSetup
 			| SyncStatus::TxHashsetKernelsValidation { .. }
@@ -85,6 +87,7 @@ impl BodySync {
 	}
 
 	fn body_sync(&mut self) -> Result<bool, chain::Error> {
+		self.cleanup_stale_block_requests();
 		let peers = self.peers.outgoing_connected_peers();
 		if peers.is_empty() {
 			debug!("body_sync: no peers, nothing to do");
@@ -204,6 +207,46 @@ impl BodySync {
 			self.prev_blocks_received = blocks_received;
 		}
 		Ok(())
+	}
+
+	fn cleanup_stale_block_requests(&mut self) {
+		let now = Utc::now();
+		let timeout = Duration::seconds(20);
+		let mut to_remove = vec![];
+		for (peer_addr, hash) in self.requested_peers.iter() {
+			if let Some(ts) = self.hash_request_timestamps.get(hash) {
+				if now.signed_duration_since(*ts) > timeout {
+					to_remove.push((peer_addr.clone(), *hash));
+				}
+			}
+		}
+		for (peer_addr, hash) in to_remove {
+			self.requested_peers.remove(&(peer_addr, hash));
+			self.hash_request_timestamps.remove(&hash);
+			warn!(
+				"Block request for {:?} from peer {} timed out, will retry with another peer.",
+				hash, peer_addr
+			);
+		}
+	}
+
+	fn cleanup_disconnected_peers(&mut self) {
+		let connected: std::collections::HashSet<_> = self
+			.peers
+			.outgoing_connected_peers()
+			.iter()
+			.map(|p| p.info.addr)
+			.collect();
+		let to_remove: Vec<_> = self
+			.requested_peers
+			.iter()
+			.filter(|(addr, _)| !connected.contains(addr))
+			.cloned()
+			.collect();
+		for (addr, hash) in to_remove {
+			self.requested_peers.remove(&(addr, hash));
+			self.hash_request_timestamps.remove(&hash);
+		}
 	}
 
 	fn fetch_new_hashes(&mut self) -> Result<bool, chain::Error> {

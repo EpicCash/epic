@@ -35,10 +35,7 @@ use crate::p2p::ChainAdapter;
 use crate::util::StopState;
 
 // DNS Seeds with contact email associated
-const MAINNET_DNS_SEEDS: &'static [&'static str] = &[
-	"ec2-54-233-177-64.sa-east-1.compute.amazonaws.com",
-	"ec2-3-218-126-145.compute-1.amazonaws.com",
-];
+const MAINNET_DNS_SEEDS: &'static [&'static str] = &["node.epiccash.com"];
 const FLOONET_DNS_SEEDS: &'static [&'static str] = &["95.217.197.180"];
 pub fn connect_and_monitor(
 	p2p_server: Arc<p2p::Server>,
@@ -430,20 +427,19 @@ pub fn dns_seeds() -> Box<dyn Fn() -> Vec<PeerAddr> + Send> {
 		for dns_seed in net_seeds {
 			let temp_addresses = addresses.clone();
 			debug!("Retrieving seed nodes from dns {}", dns_seed);
-			match (dns_seed.to_owned(), 0).to_socket_addrs() {
+			let port = if global::is_floonet() { 13414 } else { 3414 };
+			let addr_str = format!("{}:{}", dns_seed, port);
+			match addr_str.to_socket_addrs() {
 				Ok(addrs) => addresses.append(
 					&mut (addrs
-						.map(|mut addr| {
-							addr.set_port(if global::is_floonet() { 13414 } else { 3414 });
-							PeerAddr(addr)
-						})
+						.map(|addr| PeerAddr(addr))
 						.filter(|addr| !temp_addresses.contains(addr))
 						.collect()),
 				),
-				Err(e) => debug!("Failed to resolve seed {:?} got error {:?}", dns_seed, e),
+				Err(e) => warn!("Failed to resolve seed {:?} got error {:?}", dns_seed, e),
 			}
+			info!("Retrieved seed addresses: {}", addr_str);
 		}
-		debug!("Retrieved seed addresses: {:?}", addresses);
 		addresses
 	})
 }

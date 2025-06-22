@@ -57,7 +57,7 @@ const PEER_MAX_INBOUND_COUNT: u32 = 128;
 const PEER_MAX_OUTBOUND_COUNT: u32 = 128;
 
 /// The min preferred outbound peer count
-const PEER_MIN_PREFERRED_OUTBOUND_COUNT: u32 = 8;
+const PEER_MIN_PREFERRED_OUTBOUND_COUNT: u32 = 4;
 
 /// The peer listener buffer count. Allows temporarily accepting more connections
 /// than allowed by PEER_MAX_INBOUND_COUNT to encourage network bootstrapping.
