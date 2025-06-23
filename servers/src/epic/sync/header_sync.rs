@@ -22,7 +22,8 @@ use crate::common::types::Error;
 use crate::core::core::hash::{Hash, Hashed};
 use crate::p2p::{self, types::ReasonForBan, Peer, Peers};
 
-use crate::util::network::{is_network_stable, is_system_in_standby};
+//experimental get netowrk stability and standby mode
+//use crate::util::network::{is_network_stable, is_system_in_standby};
 
 pub struct HeaderSync {
 	sync_state: Arc<SyncState>,
@@ -105,7 +106,8 @@ impl HeaderSync {
 		let now = Utc::now().timestamp();
 
 		// Check if the network connection is unstable
-		if is_system_in_standby(self.start_time) || !is_network_stable() {
+		// this is only experimental
+		/*if is_system_in_standby(self.start_time) || !is_network_stable() {
 			warn!(
 				"System was in standby mode or network is unstable, skipping fraud check for peer {}",
 				self.peer.info.addr
@@ -113,7 +115,7 @@ impl HeaderSync {
 
 			self.start_time = now; // Reset start time
 			return true;
-		}
+		}*/
 
 		if (now - self.start_time) > 180 {
 			let _ = self

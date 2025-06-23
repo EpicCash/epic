@@ -36,7 +36,7 @@ use crate::util::StopState;
 
 // DNS Seeds with contact email associated
 const MAINNET_DNS_SEEDS: &'static [&'static str] = &["node.epiccash.com"];
-const FLOONET_DNS_SEEDS: &'static [&'static str] = &["95.217.197.180"];
+const FLOONET_DNS_SEEDS: &'static [&'static str] = &["floonet.epiccash.com"]; //does not exist yet
 pub fn connect_and_monitor(
 	p2p_server: Arc<p2p::Server>,
 	capabilities: p2p::Capabilities,

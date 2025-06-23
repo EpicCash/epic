@@ -59,8 +59,8 @@ impl BodySync {
 	/// Return true if txhashset download is needed (when requested block is under the horizon).
 	pub fn check_run(
 		&mut self,
-		head: &chain::Tip,
-		highest_height: u64,
+		_head: &chain::Tip,
+		_highest_height: u64,
 	) -> Result<bool, chain::Error> {
 		self.cleanup_disconnected_peers();
 
@@ -77,11 +77,6 @@ impl BodySync {
 			if self.body_sync()? {
 				return Ok(true);
 			}
-
-			self.sync_state.update(SyncStatus::BodySync {
-				current_height: head.height,
-				highest_height,
-			});
 		}
 		Ok(false)
 	}
@@ -150,7 +145,7 @@ impl BodySync {
 				self.receive_timeout = Utc::now(); // Reset timeout
 
 				// Restart synchronization
-				return Ok(true);
+				return Ok(false);
 			}
 		}
 
@@ -191,7 +186,7 @@ impl BodySync {
 		for (peer_addr, hash) in to_remove {
 			self.requested_peers.remove(&(peer_addr, hash));
 			self.hash_request_timestamps.remove(&hash);
-			self.receive_timeout = Utc::now() + Duration::seconds(120);
+			self.receive_timeout = Utc::now() + Duration::seconds(20);
 			received += 1;
 		}
 
@@ -290,32 +285,38 @@ impl BodySync {
 
 	fn request_blocks_from_peers(&mut self) -> Result<(), chain::Error> {
 		let peers = self.peers.outgoing_connected_peers();
-		let mut peers_iter = peers.iter();
-		if let Some(hash) = self.hashes_to_get.first().cloned() {
-			let should_request = match self.hash_request_timestamps.get(&hash) {
+
+		// Number of blocks to request in parallel
+		// only 1 works best, maybe if peers do not block
+		// when they receive a header we can higher this value
+		let max_parallel = 1;
+
+		for hash in self.hashes_to_get.iter().take(max_parallel) {
+			let should_request = match self.hash_request_timestamps.get(hash) {
 				Some(timestamp) => Utc::now() > *timestamp + Duration::seconds(5),
 				None => true,
 			};
 
 			if !should_request {
-				debug!("Hash {:?} is already requested recently, skipping.", hash);
-			} else if let Some(peer) = peers_iter.find(|peer| {
+				continue;
+			}
+
+			// Find a peer that hasn't been asked for this hash
+			if let Some(peer) = peers.iter().find(|peer| {
 				!self
 					.requested_peers
 					.iter()
-					.any(|(addr, _)| addr == &peer.info.addr)
+					.any(|(addr, h)| addr == &peer.info.addr && h == hash)
 			}) {
-				if let Err(e) = peer.send_block_request(hash, chain::Options::SYNC) {
+				if let Err(e) = peer.send_block_request(*hash, chain::Options::SYNC) {
 					debug!("Skipped request to {}: {:?}", peer.info.addr, e);
 					peer.stop();
 				} else {
 					debug!("Requested block {:?} from peer {:?}", hash, peer.info.addr);
 					self.blocks_requested += 1;
-					self.requested_peers.insert((peer.info.addr.clone(), hash));
-					self.hash_request_timestamps.insert(hash, Utc::now());
+					self.requested_peers.insert((peer.info.addr.clone(), *hash));
+					self.hash_request_timestamps.insert(*hash, Utc::now());
 				}
-			} else {
-				debug!("No available peers to request hash {:?}", hash);
 			}
 		}
 		Ok(())
@@ -337,7 +338,6 @@ impl BodySync {
 				.len()
 				.max(self.hashes_to_get.len().to_string().len());
 
-			self.receive_timeout = Utc::now() + Duration::seconds(120);
 			info!(
 				"Block Sync: Requested {:>width$} more block(s), {:>width$} block(s) remaining, {:>6.2}% completed",
 				self.blocks_requested,
@@ -351,7 +351,7 @@ impl BodySync {
 
 	fn wait_for_blocks(&mut self) -> Result<(), chain::Error> {
 		let start_time = Utc::now();
-		while Utc::now() < start_time + Duration::seconds(15) {
+		while Utc::now() < start_time + Duration::seconds(60) {
 			let blocks_received = self.blocks_received()?;
 			if blocks_received > 0 {
 				debug!("Block received, proceeding to the next block.");

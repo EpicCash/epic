@@ -251,7 +251,8 @@ impl SyncRunner {
 				download_headers = true;
 			}
 
-			if download_headers {
+			if download_headers && matches!(self.sync_state.status(), SyncStatus::HeaderSync { .. })
+			{
 				for peer in self.peers.clone().outgoing_connected_peers() {
 					let peer_addr = peer.info.addr.to_string();
 					if (peer
@@ -498,7 +499,7 @@ impl SyncRunner {
 						current_height: head.height,
 						highest_height: highest_network_height,
 					});
-
+					download_headers = false;
 					continue;
 				}
 
@@ -514,9 +515,30 @@ impl SyncRunner {
 							header_head.hash(),
 							header_head.height,
 						);
+
+						// If already at the same head, skip header sync and go to body sync
+						if highest_network_height > 0
+							&& header_head.height >= highest_network_height
+							&& sync_head.hash() == header_head.hash()
+							&& sync_head.height == header_head.height
+						{
+							info!("Header sync head unchanged, proceeding directly to BodySync.");
+							self.sync_state.update(SyncStatus::BodySync {
+								current_height: sync_head.height,
+								highest_height: highest_network_height,
+							});
+							download_headers = false;
+							continue;
+						}
+
 						let _ = self.chain.reset_sync_head();
 						let _ = self.chain.rebuild_sync_mmr(&header_head);
 						download_headers = true;
+						//set to HEaderSync
+						self.sync_state.update(SyncStatus::HeaderSync {
+							current_height: head.height,
+							highest_height: highest_network_height,
+						});
 					} else {
 						download_headers = false;
 					}
