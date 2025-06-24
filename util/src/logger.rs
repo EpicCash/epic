@@ -476,7 +476,7 @@ mod logging_config {
 					variant: $stdout_log_level_name,
 				},
 				Token::Str("log_to_file"),
-				Token::Bool(true),
+				Token::Bool(false),
 				Token::Str("file_log_level"),
 				Token::UnitVariant {
 					name: "Level",
