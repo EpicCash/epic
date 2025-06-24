@@ -37,17 +37,14 @@ ENV LANG=en_US.UTF-8
 
 COPY --from=builder /usr/src/epic/target/release/epic /usr/local/bin/epic
 COPY debian/foundation.json /usr/share/epic/foundation.json
-WORKDIR /root/.epic
 
-RUN epic server config && \
-    sed -i -e 's/seeding_type = "DNSSeed"/seeding_type = "List"/' epic-server.toml && \
-    sed -i '/seeding_type = "List"/a seeds = ["95.217.197.180:3414"]' epic-server.toml && \
-    sed -i -e 's/run_tui = true/run_tui = false/' epic-server.toml && \
-    sed -i -e 's/stdout_log_level = .*/stdout_log_level = "INFO"/' epic-server.toml
+WORKDIR /root/.epic/main/
+# create a epic-server.toml file with default values
+RUN epic server config 
 
-VOLUME ["/root/.epic"]
 
 EXPOSE 3413 3414 3415 3416
 
-ENTRYPOINT ["epic"]
-CMD ["server", "run"]
+
+CMD ["epic", "server", "-c", "/root/.epic/main/epic-server.toml", "run"]
+
