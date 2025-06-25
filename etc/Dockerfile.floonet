@@ -1,4 +1,4 @@
-# Multistage Docker build for Epic Floonet (latest Rust & Linux)
+# Multistage Docker build for Epic floonet (latest Rust & Linux)
 
 # ---- Builder Stage ----
 FROM rust:latest AS builder
@@ -37,14 +37,8 @@ ENV LANG=en_US.UTF-8
 
 COPY --from=builder /usr/src/epic/target/release/epic /usr/local/bin/epic
 COPY debian/foundation_floonet.json /usr/share/epic/foundation_floonet.json
-WORKDIR /root/.epic
 
-RUN epic --floonet server config && \
-    sed -i -e 's/run_tui = true/run_tui = false/' epic-server.toml
-
-VOLUME ["/root/.epic"]
 
 EXPOSE 13413 13414 13415 13416
 
-ENTRYPOINT ["epic", "--floonet"]
-CMD ["server", "run"]
+CMD ["epic", "--floonet", "server", "run"]

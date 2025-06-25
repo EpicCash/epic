@@ -9,6 +9,6 @@ services:
       - "3414:3414"
       - "3415:3415"
       - "3416:3416"
-    #volumes:
-    #  - ./epic/target/epic_docker:/root/.epic/main
+    volumes:
+      - ./target/epic_docker/:/root/.epic/main/
     #command: ["/bin/bash"]
