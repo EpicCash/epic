@@ -106,17 +106,9 @@ pub const TXHASHSET_ARCHIVE_INTERVAL: u64 = 12 * 60;
 
 pub const CURRENT_HEADER_VERSION: u16 = 6;
 
-#[cfg(target_family = "unix")]
 pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
 	"5a3a7584127dd31fba18eaeff1c551bfaa74b4e50e537a1e1904fe6730b17f5c";
-#[cfg(target_family = "windows")]
-pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
-	"8ef0a84b35ec04576e583b7ed2f8a0d1becf4ee6ce67f9f3608deff8ad2ad103";
 
-#[cfg(target_family = "unix")]
-pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
-	"503a4d5ccf214df86722d14cc93c1779c54e5b827773c8a2f65888a06f2efbad";
-#[cfg(target_family = "windows")]
 pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
 	"503a4d5ccf214df86722d14cc93c1779c54e5b827773c8a2f65888a06f2efbad";
 
@@ -657,14 +649,20 @@ pub fn get_file_sha256(path: &str) -> String {
 		)
 		.as_str(),
 	);
-	let mut sha256 = Sha256::new();
-	std::io::copy(&mut file, &mut sha256).expect(
+	let mut contents = Vec::new();
+	std::io::copy(&mut file, &mut contents).expect(
 		format!(
 			"Error trying to read the foundation.json. Couldn't find/open the file {}!",
 			path
 		)
 		.as_str(),
 	);
+
+	let s = String::from_utf8_lossy(&contents).replace("\r\n", "\n");
+	let normalized = s.into_bytes();
+
+	let mut sha256 = Sha256::new();
+	sha256.update(&normalized);
 	let hash = sha256.finalize();
 	format!("{:x}", hash)
 }
