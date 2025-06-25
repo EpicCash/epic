@@ -137,10 +137,21 @@ impl Handler<Full<Bytes>> for BasicAuthURIMiddleware {
 }
 
 fn unauthorized_response(basic_realm: &HeaderValue) -> ResponseFuture {
-	let body = boxed_body("".to_string());
+	let body = boxed_body(
+		r#"{
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32600,
+                "message": "Unauthorized"
+            },
+            "id": null
+        }"#
+		.to_string(),
+	);
 	let response = Response::builder()
 		.status(StatusCode::UNAUTHORIZED)
 		.header(WWW_AUTHENTICATE, basic_realm)
+		.header("content-type", "application/json")
 		.body(body)
 		.unwrap();
 	Box::pin(ok(response))
