@@ -63,6 +63,29 @@ impl Handler<Full<Bytes>> for PeersConnectedHandler {
 	}
 }
 
+#[derive(Serialize)]
+pub struct OnionAddrList {
+	pub onion_addresses: Vec<String>,
+}
+
+pub struct PeersOnionAddressesHandler {
+	pub peers: std::sync::Weak<crate::p2p::Peers>,
+}
+
+impl PeersOnionAddressesHandler {
+	pub fn get_onion_addresses(&self) -> Result<Vec<String>, Error> {
+		let onion_addresses = w(&self.peers)?.all_peer_onion_addresses();
+		Ok(onion_addresses)
+	}
+}
+
+impl Handler<Full<Bytes>> for PeersOnionAddressesHandler {
+	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
+		let onion_addresses = w_fut!(&self.peers).all_peer_onion_addresses();
+		json_response(&OnionAddrList { onion_addresses })
+	}
+}
+
 /// Peer operations
 /// GET /v1/peers/10.12.12.13
 /// POST /v1/peers/10.12.12.13/ban

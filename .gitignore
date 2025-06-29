@@ -27,3 +27,5 @@ release/
 .vscode/
 .vscode/*
 *.code-workspace
+etc/*.tar.gz
+etc/*.tar.gz.asc

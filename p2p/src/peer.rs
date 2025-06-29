@@ -30,8 +30,8 @@ use crate::core::ser::Writeable;
 use crate::core::{core, global};
 use crate::handshake::Handshake;
 use crate::msg::{
-	self, BanReason, GetPeerAddrs, KernelDataRequest, Locator, LocatorFastSync, Msg, Ping,
-	TxHashSetRequest, Type,
+	self, BanReason, GetPeerAddrs, KernelDataRequest, Locator, LocatorFastSync, Msg,
+	OnionAddressRequest, Ping, TxHashSetRequest, Type,
 };
 use crate::protocol::Protocol;
 use crate::types::{
@@ -111,7 +111,18 @@ impl Peer {
 		debug!("accept: handshaking from {:?}", conn.peer_addr());
 		let info = hs.accept(capab, total_difficulty, &mut conn);
 		match info {
-			Ok(info) => Ok(Peer::new(info, conn, adapter)?),
+			Ok(info) => {
+				let peer = Peer::new(info, conn, adapter)?;
+				// If the peer supports ONIONSTEM, request its onion address
+				if peer.info.capabilities.contains(Capabilities::ONIONSTEM) {
+					warn!(
+						"accept: requesting onion address from peer {:?}",
+						peer.info.addr
+					);
+					let _ = peer.send(&OnionAddressRequest {}, msg::Type::OnionAddressRequest);
+				}
+				Ok(peer)
+			}
 			Err(e) => {
 				debug!(
 					"accept: handshaking from {:?} failed with error: {:?}",
@@ -137,7 +148,18 @@ impl Peer {
 		debug!("connect: handshaking with {:?}", conn.peer_addr());
 		let info = hs.initiate(capab, total_difficulty, self_addr, &mut conn);
 		match info {
-			Ok(info) => Ok(Peer::new(info, conn, adapter)?),
+			Ok(info) => {
+				let peer = Peer::new(info, conn, adapter)?;
+				// Wenn der Peer ONIONSTEM unterstützt und wir eine Onion-Adresse haben, sende sie
+				if peer.info.capabilities.contains(Capabilities::ONIONSTEM) {
+					debug!(
+						"connect: sending onion address request to peer {:?}",
+						peer.info.addr
+					);
+					let _ = peer.send(&OnionAddressRequest {}, msg::Type::OnionAddressRequest);
+				}
+				Ok(peer)
+			}
 			Err(e) => {
 				debug!(
 					"connect: handshaking with {:?} failed with error: {:?}",
@@ -225,9 +247,9 @@ impl Peer {
 	}
 
 	pub fn last_min_message_counts(&self) -> Option<(u64, u64)> {
-		let received_bytes = self.tracker.received_bytes.read();
+		let rb = self.tracker.received_bytes.read();
 		let sent_bytes = self.tracker.sent_bytes.read();
-		Some((sent_bytes.count_per_min(), received_bytes.count_per_min()))
+		Some((sent_bytes.count_per_min(), rb.count_per_min()))
 	}
 
 	/// Set this peer status to banned
@@ -653,5 +675,11 @@ impl NetAdapter for TrackingAdapter {
 
 	fn is_banned(&self, addr: PeerAddr) -> bool {
 		self.adapter.is_banned(addr)
+	}
+	fn update_onion_addr(&self, addr: PeerAddr, onion_addr: String) {
+		self.adapter.update_onion_addr(addr, onion_addr);
+	}
+	fn my_onion_addr(&self) -> Option<String> {
+		self.adapter.my_onion_addr()
 	}
 }

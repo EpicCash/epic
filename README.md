@@ -96,3 +96,8 @@ J.K. Rowling for making it despite extraordinary adversity.
 # License
 
 Apache License v2.0.
+
+## Third-party Software
+
+This project bundles the [Tor expert bundle](https://www.torproject.org/), which is licensed under the 3-clause BSD license.  
+See [LICENSE.tor](./LICENSE.tor) for details.

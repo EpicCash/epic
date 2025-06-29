@@ -8,7 +8,7 @@ repository = "https://github.com/EpicCash/epic"
 keywords = ["crypto", "epic", "mimblewimble"]
 readme = "README.md"
 exclude = ["**/*.epic", "**/*.epic2"]
-build = "src/build/build.rs"
+build = "build.rs"
 edition = "2021"
 
 [workspace]
@@ -67,6 +67,8 @@ features = ["win32"]
 
 
 [features]
+default = []
+with-tor = []
 cucumber-tests = []
 
 [[test]]
@@ -76,6 +78,8 @@ required-features = ["cucumber-tests"]
 
 [build-dependencies]
 built = { version = "0.8", features = ["git2", "cargo-lock"] }
+sha2 = "0.10"
+
 
 [dev-dependencies]
 epic_store = { path = "./store", version = "3.6.0" }

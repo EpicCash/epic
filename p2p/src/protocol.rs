@@ -19,7 +19,7 @@ use crate::util::format::human_readable_size;
 
 use crate::msg::{
 	BanReason, FastHeaders, GetPeerAddrs, Headers, KernelDataResponse, Locator, LocatorFastSync,
-	Msg, PeerAddrs, Ping, Pong, TxHashSetArchive, TxHashSetRequest, Type,
+	Msg, OnionAddressResponse, PeerAddrs, Ping, Pong, TxHashSetArchive, TxHashSetRequest, Type,
 };
 use crate::types::{Error, NetAdapter, PeerInfo};
 use chrono::prelude::Utc;
@@ -510,6 +510,32 @@ impl MessageHandler for Protocol {
 			}
 			Type::Error | Type::Hand | Type::Shake => {
 				debug!("Received an unexpected msg: {:?}", msg.header.msg_type);
+				Ok(None)
+			}
+			Type::OnionAddressRequest => {
+				if let Some(my_onion_addr) = &self.adapter.my_onion_addr() {
+					let response = OnionAddressResponse {
+						onion_addr: my_onion_addr.clone(),
+					};
+					Ok(Some(Msg::new(
+						Type::OnionAddressResponse,
+						response,
+						self.peer_info.version,
+					)?))
+				} else {
+					warn!("No onion address set for this node, cannot respond to onion address request.");
+					Ok(None)
+				}
+			}
+			Type::OnionAddressResponse => {
+				let onion_msg: OnionAddressResponse = msg.body()?;
+				if onion_msg.onion_addr.is_empty() {
+					warn!("Received empty onion address in response from peer.");
+				} else {
+					info!("Received onion address from peer: {}", onion_msg.onion_addr);
+					let mut live_info = self.peer_info.live_info.write();
+					live_info.onion_addr = Some(onion_msg.onion_addr.clone());
+				}
 				Ok(None)
 			}
 		}

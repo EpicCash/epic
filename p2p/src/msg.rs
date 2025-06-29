@@ -69,6 +69,8 @@ enum_from_primitive! {
 		KernelDataResponse = 22,
 		GetHeadersFastSync = 23,
 		FastHeaders = 24,
+		OnionAddressRequest = 25,
+		OnionAddressResponse = 26,
 
 	}
 }
@@ -111,6 +113,8 @@ fn max_msg_size(msg_type: Type) -> u64 {
 		Type::TransactionKernel => 32,
 		Type::KernelDataRequest => 0,
 		Type::KernelDataResponse => 8,
+		Type::OnionAddressRequest => 0,
+		Type::OnionAddressResponse => 256,
 	}
 }
 
@@ -832,6 +836,33 @@ impl Readable for KernelDataResponse {
 	fn read(reader: &mut dyn Reader) -> Result<KernelDataResponse, ser::Error> {
 		let bytes = reader.read_u64()?;
 		Ok(KernelDataResponse { bytes })
+	}
+}
+
+pub struct OnionAddressRequest {}
+
+impl Writeable for OnionAddressRequest {
+	fn write<W: Writer>(&self, _writer: &mut W) -> Result<(), ser::Error> {
+		Ok(())
+	}
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnionAddressResponse {
+	pub onion_addr: String,
+}
+
+impl Writeable for OnionAddressResponse {
+	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
+		writer.write_bytes(&self.onion_addr)
+	}
+}
+
+impl Readable for OnionAddressResponse {
+	fn read(reader: &mut dyn Reader) -> Result<OnionAddressResponse, ser::Error> {
+		let bytes = reader.read_bytes_len_prefix()?;
+		let onion_addr = String::from_utf8(bytes).map_err(|_| ser::Error::CorruptedData)?;
+		Ok(OnionAddressResponse { onion_addr })
 	}
 }
 
