@@ -145,11 +145,11 @@ where
 	
 	// no auth to tor API handler
 	// we implement a watcher
-	/*let tor_push_handler = TorAPIHandler::new(
+	let tor_push_handler = TorAPIHandler::new(
 		Arc::downgrade(&tx_pool),
 	);
 	router.add_route("/v2/tor", Arc::new(tor_push_handler))?;
-*/
+
 	let mut apis = ApiServer::new();
 
 	let socket_addr: SocketAddr = addr.parse().expect("unable to parse socket address");
