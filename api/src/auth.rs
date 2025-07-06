@@ -31,58 +31,7 @@ lazy_static! {
 		HeaderValue::from_str("Basic realm=EpicForeignAPI").unwrap();
 }
 
-// Basic Authentication Middleware
-pub struct BasicAuthMiddleware {
-	api_basic_auth: String,
-	basic_realm: &'static HeaderValue,
-	ignore_uri: Option<String>,
-}
 
-impl BasicAuthMiddleware {
-	pub fn new(
-		api_basic_auth: String,
-		basic_realm: &'static HeaderValue,
-		ignore_uri: Option<String>,
-	) -> BasicAuthMiddleware {
-		BasicAuthMiddleware {
-			api_basic_auth,
-			basic_realm,
-			ignore_uri,
-		}
-	}
-}
-
-impl Handler<Full<Bytes>> for BasicAuthMiddleware {
-	fn call(
-		&self,
-		req: Request<hyper::body::Incoming>,
-		mut handlers: Box<dyn Iterator<Item = HandlerObj>>,
-	) -> ResponseFuture {
-		let next_handler = match handlers.next() {
-			Some(h) => h,
-			None => return response(StatusCode::INTERNAL_SERVER_ERROR, "no handler found"),
-		};
-		if req.method().as_str() == "OPTIONS" {
-			return next_handler.call(req, handlers);
-		}
-		if let Some(u) = self.ignore_uri.as_ref() {
-			if req.uri().path() == u {
-				return next_handler.call(req, handlers);
-			}
-		}
-		if req.headers().contains_key(AUTHORIZATION)
-			&& req.headers()[AUTHORIZATION]
-				.as_bytes()
-				.ct_eq(&self.api_basic_auth.as_bytes())
-				.unwrap_u8() == 1
-		{
-			next_handler.call(req, handlers)
-		} else {
-			// Unauthorized 401
-			unauthorized_response(&self.basic_realm)
-		}
-	}
-}
 
 // Basic Authentication Middleware
 pub struct BasicAuthURIMiddleware {
@@ -118,7 +67,9 @@ impl Handler<Full<Bytes>> for BasicAuthURIMiddleware {
 		if req.method().as_str() == "OPTIONS" {
 			return next_handler.call(req, handlers);
 		}
-		if req.uri().path() == self.target_uri {
+		let path = req.uri().path();
+		// Protect the target_uri and all its subpaths
+		if path == self.target_uri || path.starts_with(&(self.target_uri.clone() + "/")) {
 			if req.headers().contains_key(AUTHORIZATION)
 				&& req.headers()[AUTHORIZATION]
 					.as_bytes()

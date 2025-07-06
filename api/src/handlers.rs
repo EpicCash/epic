@@ -42,7 +42,7 @@ use self::server_api::StatusHandler;
 use self::transactions_api::TxHashSetHandler;
 use self::version_api::VersionHandler;
 use crate::auth::{
-	BasicAuthMiddleware, BasicAuthURIMiddleware, EPIC_BASIC_REALM, EPIC_FOREIGN_BASIC_REALM,
+	BasicAuthURIMiddleware, EPIC_BASIC_REALM, EPIC_FOREIGN_BASIC_REALM,
 };
 use crate::chain;
 use crate::chain::{Chain, SyncState};
@@ -104,14 +104,25 @@ where
 	)
 	.expect("unable to build API router");
 
+
+
 	// Add basic auth to v2 owner API
 	if let Some(api_secret) = api_secret {
 		let api_basic_auth =
 			"Basic ".to_string() + &to_base64(&("epic:".to_string() + &api_secret));
-		let basic_auth_middleware = Arc::new(BasicAuthMiddleware::new(
+		
+		// Protect all v1 endpoints
+		let v1_auth = Arc::new(BasicAuthURIMiddleware::new(
+			api_basic_auth.clone(),
+			&EPIC_BASIC_REALM,
+			"/v1".into(),
+		));
+		router.add_middleware(v1_auth);
+		
+		let basic_auth_middleware = Arc::new(BasicAuthURIMiddleware::new(
 			api_basic_auth,
 			&EPIC_BASIC_REALM,
-			Some("/v2/foreign".into()),
+			"/v2/owner".into(),
 		));
 		router.add_middleware(basic_auth_middleware);
 	}
@@ -125,6 +136,7 @@ where
 
 
 	// Add basic auth to v2 foreign API
+	error!("Foreign API secret: {:?}", foreign_api_secret);
 	if let Some(api_secret) = foreign_api_secret {
 		let api_basic_auth =
 			"Basic ".to_string() + &to_base64(&("epic:".to_string() + &api_secret));
