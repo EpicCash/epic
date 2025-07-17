@@ -36,6 +36,7 @@ use crate::common::hooks::{init_chain_hooks, init_net_hooks};
 use crate::common::stats::{
 	ChainStats, DiffBlock, DiffStats, PeerStats, ServerStateInfo, ServerStats, TxStats,
 };
+use crate::p2p::Capabilities;
 use crate::common::types::{Error, ServerConfig, StratumServerConfig};
 use crate::core::core::feijoada::PolicyConfig;
 use crate::core::core::hash::Hashed;
@@ -302,7 +303,8 @@ impl Server {
 		let mut onion_api_addr = None;
 		
 
-		if config.tor.socks_proxy_addr != "" {
+		if config.tor.socks_proxy_addr != ""
+		&& config.p2p_config.capabilities.contains(Capabilities::ONIONSTEM) {
 			let tor_dir = config.tor.send_config_dir.clone();
 			warn!(
 				"Starting TOR Process for send at {:?}",
