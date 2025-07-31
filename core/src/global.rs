@@ -262,10 +262,9 @@ pub fn use_alternative_path(path_str: String) -> String {
 			check_path.display()
 		);
 	} else {
-		warn!("The file `{}` was not found!", check_path.display());
+		warn!("No valid foundation file found on disk. Will use embedded foundation data.");
 	}
-	warn!("Will try to use the alternative file `{}`!", p.display());
-
+	// Do not log the alternative file path, as we now use embedded content
 	return p.to_str().expect("Failed to get the executable's directory and no path to the foundation.json was provided!").to_owned();
 }
 
