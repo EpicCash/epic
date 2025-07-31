@@ -152,21 +152,22 @@ impl Server {
 			}
 		}
 
-		info!(
-			"The foundation.json is being read from {:?}",
-			global::get_foundation_path().unwrap()
-		);
-
-		let hash_to_compare = global::foundation_json_sha256();
-		let hash = global::get_file_sha256(global::get_foundation_path().unwrap().as_str());
-		if hash.as_str() != hash_to_compare {
-			error!("Invalid {} file!\nThe sha256 of this file should be: {} - {}\nCheck if the file was not changed!", global::get_foundation_path().unwrap(), hash_to_compare, hash.as_str());
-			error!("Closing the application!");
-			println!(
-				"\nInvalid foundation file!\nCheck if the file \"{}\" was not changed!",
-				global::get_foundation_path().unwrap()
-			);
-			std::process::exit(1);
+		let foundation_path = global::get_foundation_path().unwrap();
+		let foundation_file = std::path::Path::new(&foundation_path);
+		
+		if foundation_file.exists() {
+			info!("The foundation file is being read from {:?}", foundation_path);
+			let hash_to_compare = global::foundation_json_sha256();
+			let hash = global::get_file_sha256(&foundation_path);
+			if hash.as_str() != hash_to_compare {
+				error!("Invalid {} file!\nThe sha256 of this file should be: {} - {}\nCheck if the file was not changed!", foundation_path, hash_to_compare, hash.as_str());
+				error!("Closing the application!");
+				println!(
+					"\nInvalid foundation file!\nCheck if the file \"{}\" was not changed!",
+					foundation_path
+				);
+				std::process::exit(1);
+			}
 		}
 
 		let mining_config = config.stratum_mining_config.clone();

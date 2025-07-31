@@ -21,6 +21,7 @@ use crate::keychain::Identifier;
 use crate::serde::{Deserialize, Serialize};
 use serde_json;
 use std::fs::{create_dir, File};
+// use std::path::Path; // Already imported elsewhere or not needed
 use std::io::{prelude::*, BufRead, BufReader};
 use std::path::Path;
 
@@ -69,25 +70,51 @@ pub fn save_in_disk(serialization: String, path: &Path) {
 }
 
 /// Load the foundation coinbase relative to the height of the chain
+/// Loads the foundation output for the given height.
+/// If the foundation.json file exists, loads from file. Otherwise, uses the embedded mainnet content.
+use crate::global::{ChainTypes, CHAIN_TYPE};
+
+/// Load the foundation coinbase relative to the height of the chain
+/// Loads the foundation output for the given height.
+/// If the foundation.json file exists, loads from file. Otherwise, uses the embedded content for the current chain type.
 pub fn load_foundation_output(height: u64) -> CbData {
 	let index_foundation = foundation_index(height);
 
 	let path_str = get_foundation_path()
 		.unwrap_or_else(|| panic!("No path to the foundation.json was provided!"));
 
-	let file = File::open(&path_str).unwrap_or_else(|why| {
-		panic!(
-			"Error trying to read the foundation coinbase. Couldn't open the file {}: {}",
-			path_str, why
-		)
-	});
+	let path = Path::new(&path_str);
+	let lines: Vec<String> = if path.exists() {
+		// Load from file
+		let file = File::open(&path_str).unwrap_or_else(|why| {
+			panic!(
+				"Error trying to read the foundation coinbase. Couldn't open the file {}: {}",
+				path_str, why
+			)
+		});
+		let reader = BufReader::new(file);
+		reader.lines().map(|l| l.unwrap()).collect()
+	} else {
+		// Use embedded content based on chain type
+		let chain_type = CHAIN_TYPE.read().clone();
+		match chain_type {
+			ChainTypes::Mainnet => {
+				static EMBEDDED_FOUNDATION_JSON: &str = include_str!("../../../debian/foundation.json");
+				EMBEDDED_FOUNDATION_JSON.lines().map(|l| l.to_string()).collect()
+			},
+			ChainTypes::AutomatedTesting |
+			ChainTypes::UserTesting |
+			ChainTypes::Floonet => {
+				static EMBEDDED_FOUNDATION_FLOONET_JSON: &str = include_str!("../../../debian/foundation_floonet.json");
+				EMBEDDED_FOUNDATION_FLOONET_JSON.lines().map(|l| l.to_string()).collect()
+			}
+			
+		}
+	};
 
-	let reader = BufReader::new(file);
-	let line = reader
-		.lines()
-		.nth(index_foundation as usize)
-		.unwrap()
-		.unwrap();
+	let line = lines
+		.get(index_foundation as usize)
+		.unwrap_or_else(|| panic!("Index {} out of bounds in foundation.json!", index_foundation));
 
-	serde_json::from_str(&line).unwrap()
+	serde_json::from_str(line).unwrap()
 }
