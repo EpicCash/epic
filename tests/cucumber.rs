@@ -777,7 +777,7 @@ mod mine_chain {
 				let epic_base_f = 100_000_000.0;
 				assert_eq!(epic_base_f as u64, consensus::EPIC_BASE);
 				// iterating 130 years of blocks
-	for height in 1../* 1440* */365*130{
+				for height in 1../* 1440* */365*130{
 					let (total_block_reward, foundation_levy, mining_reward) = match height {
 						1..=120 => {
 							(16.0, (16.0 * 0.0888), (16.0 - (16.0 * 0.0888)) )
@@ -813,6 +813,47 @@ mod mine_chain {
 					assert_eq!(consensus::block_total_reward_at_height(height*1440), mining_reward+foundation_levy, "Incorrect values at the height {:?}" , height);
 				}
 
+			};
+
+			given "All rewards match the whitepaper" |_world, _step|{
+				let epic_base_f = 100_000_000.0;
+				assert_eq!(epic_base_f as u64, consensus::EPIC_BASE);
+				// iterating 130 years of blocks
+				for height in 1../* 1440* */365*130{
+					let (total_block_reward, foundation_levy, mining_reward) = match height {
+						1..=120 => {
+							(16.0, (16.0 * 0.0888), (16.0 - (16.0 * 0.0888)) )
+						},
+						121..=334 => {
+							(16.0, (16.0 * 0.0777), (16.0 - (16.0 * 0.0777)))
+						},
+						335..=485 => {
+							(8.0, (8.0 * 0.0777), (8.0 - (8.0 * 0.0777)))
+						},
+						486..=804=> {
+							(8.0, (8.0 * 0.0666), (8.0 - (8.0 * 0.0666)))
+						},
+						805..=850 => {
+							(4.0, (4.0 * 0.0666), (4.0 - (4.0 * 0.0666)))
+						},
+						851..=1215 => {
+							(4.0, (4.0 * 0.0555), (4.0 - (4.0 * 0.0555)))
+						},
+						1216..=1405 => {
+							(4.0, (4.0 * 0.0444), (4.0 - (4.0 * 0.0444)))
+						},
+						_ => break,
+
+					};
+					let foundation_levy = (epic_base_f * foundation_levy) as u64;
+					let mining_reward = (epic_base_f * mining_reward) as u64;
+					let total_block_reward = (epic_base_f * total_block_reward) as u64;
+
+					assert_eq!(consensus::block_total_reward_at_height(height*1440), total_block_reward, "Block total: Incorrect values at the height {:?}" , height);
+					assert_eq!(consensus::reward_foundation_at_height(height*1440), foundation_levy, "Foundation reward: Incorrect values at the height {:?}" , height);
+					assert_eq!(consensus::reward_at_height(height*1440), mining_reward, "Mining reward: Incorrect values at the height {:?}" , height);
+					assert_eq!(consensus::block_total_reward_at_height(height*1440), mining_reward+foundation_levy, "Incorrect values at the height {:?}" , height);
+				}
 			};
 
 			then "I test if the cumulative foundation levy is being computed correctly" |_world, _step|{
