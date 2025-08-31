@@ -647,7 +647,12 @@ impl TransactionBody {
 	}
 
 	fn overage(&self) -> i64 {
-		self.fee() as i64
+		let fee = self.fee();
+		if fee > i64::MAX as u64 {
+			i64::MAX
+		} else {
+			fee as i64
+		}
 	}
 
 	/// Calculate transaction weight
@@ -992,9 +997,10 @@ impl Transaction {
 		self.body.fee()
 	}
 
-	/// Total overage across all kernels.
+	/// Total overage across all kernels, safely clamped to i64 range.
 	pub fn overage(&self) -> i64 {
-		self.body.overage()
+		let fee = self.body.overage();
+		fee.clamp(i64::MIN, i64::MAX)
 	}
 
 	/// Lock height of a transaction is the max lock height of the kernels.
