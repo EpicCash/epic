@@ -34,19 +34,19 @@ path = "src/bin/epic.rs"
 [dependencies]
 time = "0.3"
 blake2-rfc = "0.2"
-chrono = "0.4"
+chrono = "0.4.41"
 clap = { version = "4.5" }
 ctrlc = { version = "3.1", features = ["termination"] }
 cursive_table_view = "0.15"
-serde = "1"
-futures = "0.3"
-serde_json = "1"
+serde = "1.0"
+futures = "0.3.31"
+serde_json = "1.0"
 log = "0.4"
 term = "1.0"
 thiserror = "2.0"
 reqwest = "0.12"
 num-bigint = "0.4"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.47.1", features = ["full"] }
 
 epic_api = { path = "./api", version = "3.6.0" }
 epic_config = { path = "./config", version = "3.6.0" }
