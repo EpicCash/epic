@@ -31,6 +31,7 @@ impl EdgeType for u32 {}
 impl EdgeType for u64 {}
 
 /// An edge in the Cuckoo graph, simply references two u64 nodes.
+#[allow(dead_code)]
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct Edge<T>
 where
