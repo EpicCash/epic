@@ -352,6 +352,39 @@ pub trait OwnerRpc: Sync + Send {
 	```
 	 */
 	fn unban_peer(&self, peer_addr: SocketAddr) -> Result<(), Error>;
+
+	/// Returns all known onion addresses of connected peers, excluding our own.
+	///
+	/// # Json rpc example
+	///
+	/// ```
+	/// # epic_api::doctest_helper_json_rpc_owner_assert_response!(
+	/// # r#"
+	/// {
+	///     "jsonrpc": "2.0",
+	///     "method": "get_onion_addresses",
+	///     "params": [],
+	///     "id": 1
+	/// }
+	/// # "#
+	/// # ,
+	/// # r#"
+	/// {
+	///     "id": 1,
+	///     "jsonrpc": "2.0",
+	///     "result": {
+	///         "Ok": {
+	///             "onion_addresses": [
+	///                 "abc123.onion",
+	///                 "xyz456.onion"
+	///             ]
+	///         }
+	///     }
+	/// }
+	/// # "#
+	/// # );
+	/// ```
+	fn get_onion_addresses(&self) -> Result<Vec<String>, Error>;
 }
 
 impl OwnerRpc for Owner {
@@ -381,6 +414,10 @@ impl OwnerRpc for Owner {
 
 	fn unban_peer(&self, addr: SocketAddr) -> Result<(), Error> {
 		Owner::unban_peer(self, addr)
+	}
+
+	fn get_onion_addresses(&self) -> Result<Vec<String>, Error> {
+		Owner::get_onion_addresses(self)
 	}
 }
 

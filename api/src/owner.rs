@@ -16,7 +16,7 @@
 
 use crate::chain::{Chain, SyncState};
 use crate::handlers::chain_api::{ChainCompactHandler, ChainValidationHandler};
-use crate::handlers::peers_api::{PeerHandler, PeersConnectedHandler};
+use crate::handlers::peers_api::{PeerHandler, PeersConnectedHandler, PeersOnionAddressesHandler};
 use crate::handlers::server_api::StatusHandler;
 use crate::p2p::types::PeerInfoDisplay;
 use crate::p2p::{self, PeerData};
@@ -175,5 +175,13 @@ impl Owner {
 			peers: self.peers.clone(),
 		};
 		peer_handler.unban_peer(addr)
+	}
+
+	/// Retrieves a list of all onion addresses from connected peers.
+	pub fn get_onion_addresses(&self) -> Result<Vec<String>, Error> {
+		let peers_onion_addresses_handler = PeersOnionAddressesHandler {
+			peers: self.peers.clone(),
+		};
+		peers_onion_addresses_handler.get_onion_addresses()
 	}
 }

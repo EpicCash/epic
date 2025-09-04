@@ -57,12 +57,18 @@ impl Server {
 		adapter: Arc<dyn ChainAdapter>,
 		genesis: Hash,
 		stop_state: Arc<StopState>,
+		onion_addr: Option<String>,
 	) -> Result<Server, Error> {
 		Ok(Server {
 			config: config.clone(),
 			capabilities: capab,
 			handshake: Arc::new(Handshake::new(genesis, config.clone())),
-			peers: Arc::new(Peers::new(PeerStore::new(db_root)?, adapter, config)),
+			peers: Arc::new(Peers::new(
+				PeerStore::new(db_root)?,
+				adapter,
+				config,
+				onion_addr,
+			)),
 			stop_state,
 		})
 	}
@@ -410,5 +416,9 @@ impl NetAdapter for DummyAdapter {
 	fn peer_difficulty(&self, _: PeerAddr, _: Difficulty, _: u64, _: i64) {}
 	fn is_banned(&self, _: PeerAddr) -> bool {
 		false
+	}
+	fn update_onion_addr(&self, _addr: PeerAddr, _onion_addr: String) {}
+	fn my_onion_addr(&self) -> Option<String> {
+		None
 	}
 }

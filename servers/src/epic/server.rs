@@ -36,6 +36,7 @@ use crate::common::hooks::{init_chain_hooks, init_net_hooks};
 use crate::common::stats::{
 	ChainStats, DiffBlock, DiffStats, PeerStats, ServerStateInfo, ServerStats, TxStats,
 };
+use crate::p2p::Capabilities;
 use crate::common::types::{Error, ServerConfig, StratumServerConfig};
 use crate::core::core::feijoada::PolicyConfig;
 use crate::core::core::hash::Hashed;
@@ -47,6 +48,7 @@ use crate::epic::{dandelion_monitor, seed, sync, version};
 use crate::mining::stratumserver;
 use crate::mining::test_miner::Miner;
 use crate::p2p;
+use crate::p2p::tor::process::TorProcess;
 use crate::p2p::types::PeerAddr;
 use crate::pool;
 use crate::util::file::get_first_line;
@@ -87,6 +89,7 @@ pub struct Server {
 	connect_thread: Option<JoinHandle<()>>,
 	sync_thread: JoinHandle<()>,
 	dandelion_thread: JoinHandle<()>,
+	tor_process: Option<TorProcess>,
 }
 
 impl Server {
@@ -295,6 +298,65 @@ impl Server {
 			init_net_hooks(&config),
 		));
 
+		// set up tor send process if needed
+
+		let mut tor = TorProcess::new();
+		let mut onion_api_addr = None;
+		
+
+		if config.tor.socks_proxy_addr != ""
+		&& config.p2p_config.capabilities.contains(Capabilities::ONIONSTEM) {
+			let tor_dir = config.tor.send_config_dir.clone();
+			warn!(
+				"Starting TOR Process for send at {:?}",
+				config.tor.socks_proxy_addr
+			);
+			// Schreibe die torrc-Konfiguration für den Hidden Service
+			let torrc_path = format!("{}/torrc", tor_dir);
+
+			// Erzeuge Hidden Service für den Node (Port 3414)
+			match crate::p2p::tor::config::output_tor_listener_config_auto(
+				&tor_dir,
+				&config.api_http_addr, // Use node address from config
+				&config.tor.socks_proxy_addr,
+			) {
+				Ok(_) => info!("torrc with HiddenService created successfully"),
+				Err(e) => error!("Failed to create torrc with HiddenService: {:?}", e),
+			}
+			debug!("torrc_path: {}, dir: {}", torrc_path, tor_dir);
+			// Starte den Tor-Prozess
+			tor.torrc_path(&torrc_path)
+				.working_dir(&tor_dir)
+				.timeout(20)
+				.completion_percent(100)
+				.launch()
+				.map_err(|e| Error::TorProcess(format!("{:?}", e).into()))?;
+			
+			
+			// Lese die Onion-Adresse aus
+			let onion_base = format!("{}/onion_service_addresses", tor_dir);
+			let api_port = config.api_http_addr
+			.split(':')
+			.last()
+			.unwrap_or("3413"); 
+			let onion_addr = std::fs::read_dir(&onion_base)
+				.ok()
+				.and_then(|mut entries| {
+					entries.next().and_then(|entry| {
+						let hostname_path = entry.ok()?.path().join("hostname");
+						std::fs::read_to_string(hostname_path).ok()
+					})
+				})
+				.map(|s| s.trim().to_string());
+			
+			onion_api_addr = onion_addr
+			.as_ref()
+			.map(|addr| format!("http://{}:{}", addr, api_port));
+		
+		}
+		if let Some(ref addr) = onion_api_addr {
+			info!("This peer's onion addr: {}", addr);
+		} 
 		let p2p_server = Arc::new(p2p::Server::new(
 			&config.db_root,
 			config.p2p_config.capabilities,
@@ -302,6 +364,7 @@ impl Server {
 			net_adapter.clone(),
 			genesis.hash(),
 			stop_state.clone(),
+			onion_api_addr.clone(),
 		)?);
 
 		// Initialize various adapters with our dynamic set of connected peers.
@@ -439,6 +502,7 @@ impl Server {
 			connect_thread,
 			sync_thread,
 			dandelion_thread,
+			tor_process: Some(tor),
 		})
 	}
 
@@ -717,6 +781,8 @@ impl Server {
 				Err(e) => error!("failed to join to dandelion_monitor thread: {:?}", e),
 				Ok(_) => info!("Dandelion monitor thread stopped"),
 			}
+
+			drop(self.tor_process); // Explicitly drop TorProcess to kill Tor
 		}
 		self.p2p.stop();
 

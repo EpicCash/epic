@@ -194,7 +194,10 @@ fn real_main() -> i32 {
 	} else {
 		(None, None)
 	};
+
+
 	init_logger(Some(logging_config), logs_tx);
+
 
 	global::set_mining_mode(config.members.unwrap().server.clone().chain_type);
 
@@ -207,7 +210,11 @@ fn real_main() -> i32 {
 		info!("Node configuration file not found, using default");
 	};
 
+	
 	log_build_info();
+	// Short pause to ensure logger is fully initialized
+	std::thread::sleep(std::time::Duration::from_millis(1000));
+
 
 	// Execute subcommand
 	match args.subcommand() {

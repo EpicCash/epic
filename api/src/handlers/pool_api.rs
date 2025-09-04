@@ -15,13 +15,11 @@
 use super::utils::w;
 use crate::core::core::hash::Hashed;
 use crate::core::core::Transaction;
-use crate::core::ser::{self, ProtocolVersion};
 
 use crate::pool::{self, BlockChain, PoolAdapter, PoolEntry};
 use crate::rest::*;
 use crate::router::{Handler, ResponseFuture};
 use crate::types::*;
-use crate::util;
 use crate::util::RwLock;
 use crate::web::*;
 
@@ -30,6 +28,7 @@ use std::sync::Weak;
 
 use bytes::Bytes;
 use http_body_util::Full;
+use serde_json::Value;
 
 /// Get basic information about the transaction pool.
 /// GET /v1/pool
@@ -116,6 +115,7 @@ struct TxWrapper {
 	tx_hex: String,
 }
 
+
 /// Push new transaction to our local transaction pool.
 /// POST /v1/pool/push_tx
 pub struct PoolPushHandler<B, P>
@@ -126,48 +126,6 @@ where
 	pub tx_pool: Weak<RwLock<pool::TransactionPool<B, P>>>,
 }
 
-async fn update_pool<B, P>(
-	pool: Weak<RwLock<pool::TransactionPool<B, P>>>,
-	req: Request<hyper::body::Incoming>,
-) -> Result<(), Error>
-where
-	B: BlockChain,
-	P: PoolAdapter,
-{
-	let pool = w(&pool)?;
-	let params = QueryParams::from(req.uri().query());
-	let fluff = params.get("fluff").is_some();
-
-	let wrapper: TxWrapper = parse_body(req).await?;
-	let tx_bin = util::from_hex(wrapper.tx_hex)
-		.map_err(|e| Error::RequestError(format!("Bad request: {}", e)))?;
-
-	// All wallet api interaction explicitly uses protocol version 1 for now.
-	let version = ProtocolVersion(1);
-	let tx: Transaction = ser::deserialize(&mut &tx_bin[..], version)
-		.map_err(|e| Error::RequestError(format!("Bad request: {}", e)))?;
-
-	let source = pool::TxSource::PushApi;
-	info!(
-		"Pushing transaction {} to pool (inputs: {}, outputs: {}, kernels: {})",
-		tx.hash(),
-		tx.inputs().len(),
-		tx.outputs().len(),
-		tx.kernels().len(),
-	);
-
-	//  Push to tx pool.
-	let mut tx_pool = pool.write();
-	let header = tx_pool
-		.blockchain
-		.chain_head()
-		.map_err(|e| Error::Internal(format!("Failed to get chain head: {}", e)))?;
-	tx_pool
-		.add_to_pool(source, tx, !fluff, &header)
-		.map_err(|e| Error::Internal(format!("Failed to update pool: {}", e)))?;
-	Ok(())
-}
-
 impl<B, P> Handler<Full<Bytes>> for PoolPushHandler<B, P>
 where
 	B: BlockChain + 'static,
@@ -176,13 +134,58 @@ where
 	fn post(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		let pool = self.tx_pool.clone();
 		Box::pin(async move {
-			let res = match update_pool(pool, req).await {
-				Ok(_) => just_response(StatusCode::OK, ""),
+			 error!("Received push_tx request: {:?}", req.uri());
+
+			let res = match update_pool_jsonrpc(pool, req).await {
+				Ok(_) => {
+					info!("Transaction successfully pushed to pool.");
+					just_response(StatusCode::OK, "")
+				}
 				Err(e) => {
+					error!("Failed to push transaction to pool: {}", e);
 					just_response(StatusCode::INTERNAL_SERVER_ERROR, format!("failed: {}", e))
 				}
 			};
 			Ok(res)
 		})
 	}
+}
+
+async fn update_pool_jsonrpc<B, P>(
+    pool: Weak<RwLock<pool::TransactionPool<B, P>>>,
+    req: Request<hyper::body::Incoming>,
+) -> Result<(), Error>
+where
+    B: BlockChain,
+    P: PoolAdapter,
+{
+    let pool = w(&pool)?;
+    let v: Value = parse_body(req).await?;
+    let method = v.get("method").and_then(|m| m.as_str()).unwrap_or("");
+    if method != "push_transaction" {
+        return Err(Error::RequestError("Invalid method".to_string()));
+    }
+    let params = v.get("params").and_then(|p| p.as_array()).ok_or_else(|| Error::RequestError("Missing params".to_string()))?;
+    let tx_obj = &params[0]["body"];
+    let tx: Transaction = serde_json::from_value(tx_obj.clone())
+        .map_err(|e| Error::RequestError(format!("Bad tx object: {}", e)))?;
+
+    let source = pool::TxSource::PushApi;
+    info!(
+        "Pushing transaction {} to pool (inputs: {}, outputs: {}, kernels: {})",
+        tx.hash(),
+        tx.inputs().len(),
+        tx.outputs().len(),
+        tx.kernels().len(),
+    );
+
+    let mut tx_pool = pool.write();
+    let header = tx_pool
+        .blockchain
+        .chain_head()
+        .map_err(|e| Error::Internal(format!("Failed to get chain head: {}", e)))?;
+    tx_pool
+        .add_to_pool(source, tx, true, &header)
+        .map_err(|e| Error::Internal(format!("Failed to update pool: {}", e)))?;
+    Ok(())
 }

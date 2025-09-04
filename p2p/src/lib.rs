@@ -43,13 +43,14 @@ mod peers;
 mod protocol;
 mod serv;
 mod store;
+pub mod tor;
 pub mod types;
-
 pub use crate::conn::SEND_CHANNEL_CAP;
 pub use crate::peer::Peer;
 pub use crate::peers::Peers;
 pub use crate::serv::{DummyAdapter, Server};
 pub use crate::store::{PeerData, State};
+pub use crate::tor::process;
 pub use crate::types::{
 	Capabilities, ChainAdapter, Direction, Error, P2PConfig, PeerAddr, PeerInfo, ReasonForBan,
 	Seeding, TxHashSetRead, MAX_BLOCK_HEADERS, MAX_LOCATORS, MAX_PEER_ADDRS,

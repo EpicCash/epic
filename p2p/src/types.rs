@@ -88,6 +88,9 @@ pub enum Error {
 	Internal,
 	InvalidBanReason,
 	IO(io::Error), // Fehler vom Typ io::Error
+	NotOnion(String),
+
+	AddressDecoding(String),
 }
 
 impl From<ser::Error> for Error {
@@ -246,6 +249,8 @@ pub struct P2PConfig {
 	pub peer_listener_buffer_count: Option<u32>,
 
 	pub dandelion_peer: Option<PeerAddr>,
+
+	pub my_onion_addr: Option<String>,
 }
 
 /// Default address for peer-to-peer connections.
@@ -267,6 +272,7 @@ impl Default for P2PConfig {
 			peer_min_preferred_outbound_count: None,
 			peer_listener_buffer_count: None,
 			dandelion_peer: None,
+			my_onion_addr: None,
 		}
 	}
 }
@@ -354,7 +360,8 @@ bitflags! {
 		const TX_KERNEL_HASH = 0b00001000; // 15
 		/// Does support fastsync where requested headers can be returned by an offset value.
 		const HEADER_FASTSYNC = 0b00010000; // 31
-
+		/// Does support stem transactions via tor onion routing.
+		const ONIONSTEM = 0b00100000;
 		/// All nodes right now are "full nodes".
 		/// Some nodes internally may maintain longer block histories (archival_mode)
 		/// but we do not advertise this to other nodes.
@@ -364,6 +371,7 @@ bitflags! {
 			| Capabilities::PEER_LIST.bits()
 			| Capabilities::TX_KERNEL_HASH.bits()
 			| Capabilities::HEADER_FASTSYNC.bits()
+			| Capabilities::ONIONSTEM.bits()
 			;
 	}
 }
@@ -401,6 +409,7 @@ pub struct PeerLiveInfo {
 	pub first_seen: DateTime<Utc>,
 	pub local_timestamp: i64,
 	pub synced_headers: Vec<BlockHeader>,
+	pub onion_addr: Option<String>,
 }
 
 /// General information about a connected peer that's useful to other modules.
@@ -424,6 +433,7 @@ impl PeerLiveInfo {
 			local_timestamp: 0,
 			stuck_detector: Utc::now(),
 			synced_headers: vec![],
+			onion_addr: None,
 		}
 	}
 }
@@ -501,6 +511,7 @@ pub struct PeerInfoDisplay {
 	pub direction: Direction,
 	pub total_difficulty: Difficulty,
 	pub height: u64,
+	pub onion_addr: Option<String>,
 }
 
 impl From<PeerInfo> for PeerInfoDisplay {
@@ -513,6 +524,7 @@ impl From<PeerInfo> for PeerInfoDisplay {
 			direction: info.direction.clone(),
 			total_difficulty: info.total_difficulty(),
 			height: info.height(),
+			onion_addr: info.live_info.read().onion_addr.clone(),
 		}
 	}
 }
@@ -664,4 +676,7 @@ pub trait NetAdapter: ChainAdapter {
 
 	/// Is this peer currently banned?
 	fn is_banned(&self, addr: PeerAddr) -> bool;
+
+	fn update_onion_addr(&self, addr: PeerAddr, onion_addr: String);
+	fn my_onion_addr(&self) -> Option<String>;
 }

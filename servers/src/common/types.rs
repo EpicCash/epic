@@ -62,6 +62,8 @@ pub enum Error {
 	Configuration(String),
 	/// General error
 	General(String),
+	TorConfig(String),
+	TorProcess(String),
 }
 
 impl From<core::block::Error> for Error {
@@ -227,6 +229,9 @@ pub struct ServerConfig {
 	//#[serde(default)]
 	// Configuration for the proportions policy on EPIC
 	//pub policy_config: PolicyConfig,
+	/// Tor configuration for this node
+	#[serde(default)]
+	pub tor: TorConfig,
 }
 
 impl Default for ServerConfig {
@@ -256,6 +261,7 @@ impl Default for ServerConfig {
 			run_test_miner: Some(false),
 			test_miner_wallet_url: None,
 			webhook_config: WebHooksConfig::default(),
+			tor: TorConfig::default(),
 			//policy_config: PolicyConfig::default(),
 		}
 	}
@@ -450,5 +456,23 @@ impl DandelionEpoch {
 		}
 
 		self.relay_peer.clone()
+	}
+}
+
+/// Tor configuration
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TorConfig {
+	/// Just the address of the socks proxy for now
+	pub socks_proxy_addr: String,
+	/// Send configuration directory
+	pub send_config_dir: String,
+}
+
+impl Default for TorConfig {
+	fn default() -> TorConfig {
+		TorConfig {
+			socks_proxy_addr: "127.0.0.1:9050".to_owned(),
+			send_config_dir: ".".into(),
+		}
 	}
 }

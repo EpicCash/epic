@@ -44,15 +44,22 @@ pub struct Peers {
 	store: PeerStore,
 	peers: RwLock<HashMap<PeerAddr, Arc<Peer>>>,
 	config: P2PConfig,
+	my_onion_addr: Arc<RwLock<Option<String>>>,
 }
 
 impl Peers {
-	pub fn new(store: PeerStore, adapter: Arc<dyn ChainAdapter>, config: P2PConfig) -> Peers {
+	pub fn new(
+		store: PeerStore,
+		adapter: Arc<dyn ChainAdapter>,
+		config: P2PConfig,
+		my_onion_addr: Option<String>,
+	) -> Peers {
 		Peers {
 			adapter,
 			store,
 			config,
 			peers: RwLock::new(HashMap::new()),
+			my_onion_addr: Arc::new(RwLock::new(my_onion_addr)),
 		}
 	}
 
@@ -664,6 +671,27 @@ impl Peers {
 			should_remove
 		});
 	}
+
+	/// Returns all known onion addresses of connected peers, excluding our own.
+	pub fn all_peer_onion_addresses(&self) -> Vec<String> {
+		let my_addr = self.my_onion_addr();
+		match self.peers.try_read_for(LOCK_TIMEOUT) {
+			Some(peers) => peers
+				.values()
+				.filter_map(|peer| {
+					let addr = peer.info.live_info.read().onion_addr.clone();
+					match addr {
+						Some(ref onion) if Some(onion) != my_addr.as_ref() => Some(onion.clone()),
+						_ => None,
+					}
+				})
+				.collect(),
+			None => {
+				debug!("all_peer_onion_addresses: failed to get peers lock");
+				vec![]
+			}
+		}
+	}
 }
 
 impl ChainAdapter for Peers {
@@ -965,5 +993,25 @@ impl NetAdapter for Peers {
 		} else {
 			false
 		}
+	}
+
+	fn update_onion_addr(&self, addr: PeerAddr, onion_addr: String) {
+		if let Some(peer) = self.get_connected_peer(addr) {
+			let mut live_info = peer.info.live_info.write();
+			live_info.onion_addr = Some(onion_addr.clone());
+			info!(
+				"Updated onion_addr for connected peer {}: {}",
+				addr, onion_addr
+			);
+		} else {
+			warn!(
+				"Tried to update onion_addr for unknown connected peer: {}",
+				addr
+			);
+		}
+	}
+
+	fn my_onion_addr(&self) -> Option<String> {
+		self.my_onion_addr.read().clone()
 	}
 }

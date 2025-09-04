@@ -33,6 +33,7 @@ use self::mining_api::MiningHandler;
 use self::peers_api::PeerHandler;
 use self::peers_api::PeersAllHandler;
 use self::peers_api::PeersConnectedHandler;
+use self::peers_api::PeersOnionAddressesHandler;
 use self::pool_api::PoolInfoHandler;
 use self::pool_api::PoolPushHandler;
 use self::server_api::IndexHandler;
@@ -40,7 +41,9 @@ use self::server_api::KernelDownloadHandler;
 use self::server_api::StatusHandler;
 use self::transactions_api::TxHashSetHandler;
 use self::version_api::VersionHandler;
-use crate::auth::{BasicAuthURIMiddleware, EPIC_BASIC_REALM, EPIC_FOREIGN_BASIC_REALM};
+use crate::auth::{
+	BasicAuthURIMiddleware, EPIC_BASIC_REALM, EPIC_FOREIGN_BASIC_REALM,
+};
 use crate::chain;
 use crate::chain::{Chain, SyncState};
 use crate::foreign::Foreign;
@@ -51,6 +54,8 @@ use crate::p2p;
 use crate::pool;
 use crate::pool::{BlockChain, PoolAdapter};
 use crate::rest::{ApiServer, Error, TLSConfig};
+use crate::tor::Tor;
+use crate::tor_rpc::TorRpc;
 
 use crate::router::{ResponseFuture, Router};
 use crate::util::to_base64;
@@ -91,68 +96,77 @@ where
     B: BlockChain + 'static,
     P: PoolAdapter + 'static,
 {
-    let mut router = build_router(
-        chain.clone(),
-        tx_pool.clone(),
-        peers.clone(),
-        sync_state.clone(),
-    )
-    .expect("unable to build API router");
+	let mut router = build_router(
+		chain.clone(),
+		tx_pool.clone(),
+		peers.clone(),
+		sync_state.clone(),
+	)
+	.expect("unable to build API router");
 
-    // Add basic auth to v2 owner API
-    if let Some(api_secret) = api_secret {
-        let api_basic_auth =
-            "Basic ".to_string() + &to_base64(&("epic:".to_string() + &api_secret));
 
-        // Protect all v1 endpoints
-        let v1_auth = Arc::new(BasicAuthURIMiddleware::new(
-            api_basic_auth.clone(),
-            &EPIC_BASIC_REALM,
-            "/v1".into(),
-        ));
-        router.add_middleware(v1_auth);
 
-        let basic_auth_middleware = Arc::new(BasicAuthURIMiddleware::new(
-            api_basic_auth,
-            &EPIC_BASIC_REALM,
-            "/v2/owner".into(),
-        ));
-        router.add_middleware(basic_auth_middleware);
-    }
+	// Add basic auth to v2 owner API
+	if let Some(api_secret) = api_secret {
+		let api_basic_auth =
+			"Basic ".to_string() + &to_base64(&("epic:".to_string() + &api_secret));
+		
+		// Protect all v1 endpoints
+		let v1_auth = Arc::new(BasicAuthURIMiddleware::new(
+			api_basic_auth.clone(),
+			&EPIC_BASIC_REALM,
+			"/v1".into(),
+		));
+		router.add_middleware(v1_auth);
+		
+		let basic_auth_middleware = Arc::new(BasicAuthURIMiddleware::new(
+			api_basic_auth,
+			&EPIC_BASIC_REALM,
+			"/v2/owner".into(),
+		));
+		router.add_middleware(basic_auth_middleware);
+	}
 
-    let api_handler = OwnerAPIHandlerV2::new(
-        Arc::downgrade(&chain),
-        Arc::downgrade(&peers),
-        Arc::downgrade(&sync_state),
-    );
-    router.add_route("/v2/owner", Arc::new(api_handler))?;
+	let owner_api_handler = OwnerAPIHandlerV2::new(
+		Arc::downgrade(&chain),
+		Arc::downgrade(&peers),
+		Arc::downgrade(&sync_state),
+	);
+	router.add_route("/v2/owner", Arc::new(owner_api_handler))?;
 
-    // Add basic auth to v2 foreign API
-    error!("Foreign API secret: {:?}", foreign_api_secret);
-    if let Some(api_secret) = foreign_api_secret {
-        let api_basic_auth =
-            "Basic ".to_string() + &to_base64(&("epic:".to_string() + &api_secret));
-        let basic_auth_middleware = Arc::new(BasicAuthURIMiddleware::new(
-            api_basic_auth,
-            &EPIC_FOREIGN_BASIC_REALM,
-            "/v2/foreign".into(),
-        ));
-        router.add_middleware(basic_auth_middleware);
-    }
 
-    let api_handler = ForeignAPIHandlerV2::new(
-        Arc::downgrade(&chain),
-        Arc::downgrade(&tx_pool),
-        Arc::downgrade(&sync_state),
-    );
-    router.add_route("/v2/foreign", Arc::new(api_handler))?;
+	// Add basic auth to v2 foreign API
+	error!("Foreign API secret: {:?}", foreign_api_secret);
+	if let Some(api_secret) = foreign_api_secret {
+		let api_basic_auth =
+			"Basic ".to_string() + &to_base64(&("epic:".to_string() + &api_secret));
+		let basic_auth_middleware = Arc::new(BasicAuthURIMiddleware::new(
+			api_basic_auth,
+			&EPIC_FOREIGN_BASIC_REALM,
+			"/v2/foreign".into(),		
+		));
+		router.add_middleware(basic_auth_middleware);
+	}
+
+	let foreign_api_handler = ForeignAPIHandlerV2::new(
+		Arc::downgrade(&chain),
+		Arc::downgrade(&tx_pool),
+		Arc::downgrade(&sync_state),
+	);
+	router.add_route("/v2/foreign", Arc::new(foreign_api_handler))?;
+	
+	// no auth to tor API handler
+	// we implement a watcher
+	let tor_push_handler = TorAPIHandler::new(
+		Arc::downgrade(&tx_pool),
+	);
+	router.add_route("/v2/tor", Arc::new(tor_push_handler))?;
 
     let mut apis = ApiServer::new();
 
-    let socket_addr: SocketAddr = addr.parse().expect("unable to parse socket address");
-    let api_thread = apis.start(socket_addr, router, tls_config, api_chan);
-    info!("Starting HTTP Node APIs server at {}.", addr);
-    //warn!("HTTP Node listener started.");
+	let socket_addr: SocketAddr = addr.parse().expect("unable to parse socket address");
+	let api_thread = apis.start(socket_addr, router, tls_config, api_chan);
+	info!("Starting HTTP Node APIs server at {}.", addr);
 
     thread::Builder::new()
         .name("api_monitor".to_string())
@@ -203,31 +217,91 @@ impl crate::router::Handler<Full<Bytes>> for OwnerAPIHandlerV2 {
             self.sync_state.clone(),
         );
 
-        Box::pin(async move {
-            match parse_body(req).await {
-                Ok(val) => {
-                    let owner_api = &api as &dyn OwnerRpc;
-                    let res = match owner_api.handle_request(val) {
-                        MaybeReply::Reply(r) => r,
-                        MaybeReply::DontReply => {
-                            // Since it's http, we need to return something. We return [] because jsonrpc
-                            // clients will parse it as an empty batch response.
-                            serde_json::json!([])
-                        }
-                    };
-                    Ok(json_response_pretty(&res))
-                }
-                Err(e) => {
-                    error!("Request Error: {:?}", e);
-                    Ok(create_error_response(e))
-                }
-            }
-        })
-    }
+		Box::pin(async move {
+			match parse_body(req).await {
+				Ok(val) => {
+					let owner_api = &api as &dyn OwnerRpc;
+					let res = match owner_api.handle_request(val) {
+						MaybeReply::Reply(r) => r,
+						MaybeReply::DontReply => {
+							// Since it's http, we need to return something. We return [] because jsonrpc
+							// clients will parse it as an empty batch response.
+							serde_json::json!([])
+						}
+					};
+					Ok(json_response_pretty(&res))
+				}
+				Err(e) => {
+					error!("Request Error: {:?}", e);
+					Ok(create_error_response(e))
+				}
+			}
+		})
+	}
 
-    fn options(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
-        Box::pin(async { Ok(create_ok_response("{}")) })
-    }
+	fn options(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
+		Box::pin(async { Ok(create_ok_response("{}")) })
+	}
+}
+
+/// API Handler/Wrapper for tor functions
+pub struct TorAPIHandler<B, P>
+where
+	B: BlockChain,
+	P: PoolAdapter,
+{
+	pub tx_pool: Weak<RwLock<pool::TransactionPool<B, P>>>,
+}
+
+impl<B, P> TorAPIHandler<B, P>
+where
+	B: BlockChain,
+	P: PoolAdapter,
+{
+	/// Create a new foreign API handler for GET methods
+	pub fn new(
+		tx_pool: Weak<RwLock<pool::TransactionPool<B, P>>>,
+	) -> Self {
+		TorAPIHandler {
+			tx_pool,
+		}
+	}
+}
+impl<B, P> crate::router::Handler<Full<Bytes>> for TorAPIHandler<B, P>
+where
+	B: BlockChain + 'static,
+	P: PoolAdapter + 'static,
+{
+	fn post(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
+		let api = Tor::new(
+			self.tx_pool.clone(),
+		);
+
+		Box::pin(async move {
+			match parse_body(req).await {
+				Ok(val) => {
+					let tor_api = &api as &dyn TorRpc;
+					let res = match tor_api.handle_request(val) {
+						MaybeReply::Reply(r) => r,
+						MaybeReply::DontReply => {
+							// Since it's http, we need to return something. We return [] because jsonrpc
+							// clients will parse it as an empty batch response.
+							serde_json::json!([])
+						}
+					};
+					Ok(json_response_pretty(&res))
+				}
+				Err(e) => {
+					error!("Request Error: {:?}", e);
+					Ok(create_error_response(e))
+				}
+			}
+		})
+	}
+
+	fn options(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
+		Box::pin(async { Ok(create_ok_response("{}")) })
+	}
 }
 
 /// V2 API Handler/Wrapper for foreign functions
@@ -371,109 +445,117 @@ where
     B: BlockChain + 'static,
     P: PoolAdapter + 'static,
 {
-    let route_list = vec![
-        "get blocks".to_string(),
-        "get headers".to_string(),
-        "get chain".to_string(),
-        "post chain/compact".to_string(),
-        "get chain/validate".to_string(),
-        "get chain/kernels/xxx?min_height=yyy&max_height=zzz".to_string(),
-        "get chain/outputs/byids?id=xxx,yyy,zzz".to_string(),
-        "get chain/outputs/byheight?start_height=101&end_height=200".to_string(),
-        "get status".to_string(),
-        "get txhashset/roots".to_string(),
-        "get txhashset/lastoutputs?n=10".to_string(),
-        "get txhashset/lastrangeproofs".to_string(),
-        "get txhashset/lastkernels".to_string(),
-        "get txhashset/outputs?start_index=1&max=100".to_string(),
-        "get txhashset/merkleproof?n=1".to_string(),
-        "get pool".to_string(),
-        "post pool/push_tx".to_string(),
-        "post peers/a.b.c.d:p/ban".to_string(),
-        "post peers/a.b.c.d:p/unban".to_string(),
-        "get peers/all".to_string(),
-        "get peers/connected".to_string(),
-        "get peers/a.b.c.d".to_string(),
-        "get version".to_string(),
-        "get mining/block_template".to_string(),
-    ];
-    let index_handler = IndexHandler { list: route_list };
+	let route_list = vec![
+		"get:  /v1/blocks".to_string(),
+		"get:  /v1/headers".to_string(),
+		"get:  /v1/chain".to_string(),
+		"post: /v1/chain/compact".to_string(),
+		"get:  /v1/chain/validate".to_string(),
+		"get:  /v1/chain/kernels/xxx?min_height=yyy&max_height=zzz".to_string(),
+		"get:  /v1/chain/outputs/byids?id=xxx,yyy,zzz".to_string(),
+		"get:  /v1/chain/outputs/byheight?start_height=101&end_height=200".to_string(),
+		"get:  /v1/status".to_string(),
+		"get:  /v1/txhashset/roots".to_string(),
+		"get:  /v1/txhashset/lastoutputs?n=10".to_string(),
+		"get:  /v1/txhashset/lastrangeproofs".to_string(),
+		"get:  /v1/txhashset/lastkernels".to_string(),
+		"get:  /v1/txhashset/outputs?start_index=1&max=100".to_string(),
+		"get:  /v1/txhashset/merkleproof?n=1".to_string(),
+		"get:  /v1/pool".to_string(),
+		"post: /v1/pool/push_tx".to_string(),
+		"post: /v1/peers/a.b.c.d:p/ban".to_string(),
+		"post: /v1/peers/a.b.c.d:p/unban".to_string(),
+		"get:  /v1/peers/all".to_string(),
+		"get:  /v1/peers/connected".to_string(),
+		"get:  /v1/peers/a.b.c.d".to_string(),
+		"get:  /v1/peers/onion_addresses".to_string(),
+		"get:  /v1/version".to_string(),
+		"get:  /v1/mining/block_template".to_string(),
+	];
+	let index_handler = IndexHandler { list: route_list };
 
-    let output_handler = OutputHandler {
-        chain: Arc::downgrade(&chain),
-    };
-    let kernel_handler = KernelHandler {
-        chain: Arc::downgrade(&chain),
-    };
-    let block_handler = BlockHandler {
-        chain: Arc::downgrade(&chain),
-    };
-    let header_handler = HeaderHandler {
-        chain: Arc::downgrade(&chain),
-    };
-    let chain_tip_handler = ChainHandler {
-        chain: Arc::downgrade(&chain),
-    };
-    let chain_compact_handler = ChainCompactHandler {
-        chain: Arc::downgrade(&chain),
-    };
-    let chain_validation_handler = ChainValidationHandler {
-        chain: Arc::downgrade(&chain),
-    };
-    let status_handler = StatusHandler {
-        chain: Arc::downgrade(&chain),
-        peers: Arc::downgrade(&peers),
-        sync_state: Arc::downgrade(&sync_state),
-    };
-    let kernel_download_handler = KernelDownloadHandler {
-        peers: Arc::downgrade(&peers),
-    };
-    let txhashset_handler = TxHashSetHandler {
-        chain: Arc::downgrade(&chain),
-    };
-    let pool_info_handler = PoolInfoHandler {
-        tx_pool: Arc::downgrade(&tx_pool),
-    };
-    let pool_push_handler = PoolPushHandler {
-        tx_pool: Arc::downgrade(&tx_pool),
-    };
-    let peers_all_handler = PeersAllHandler {
-        peers: Arc::downgrade(&peers),
-    };
-    let peers_connected_handler = PeersConnectedHandler {
-        peers: Arc::downgrade(&peers),
-    };
-    let peer_handler = PeerHandler {
-        peers: Arc::downgrade(&peers),
-    };
-    let version_handler = VersionHandler {
-        chain: Arc::downgrade(&chain),
-    };
-    let mining_handler = MiningHandler {
-        chain: Arc::downgrade(&chain),
-        tx_pool: Arc::downgrade(&tx_pool),
-    };
+	let output_handler = OutputHandler {
+		chain: Arc::downgrade(&chain),
+	};
+	let kernel_handler = KernelHandler {
+		chain: Arc::downgrade(&chain),
+	};
+	let block_handler = BlockHandler {
+		chain: Arc::downgrade(&chain),
+	};
+	let header_handler = HeaderHandler {
+		chain: Arc::downgrade(&chain),
+	};
+	let chain_tip_handler = ChainHandler {
+		chain: Arc::downgrade(&chain),
+	};
+	let chain_compact_handler = ChainCompactHandler {
+		chain: Arc::downgrade(&chain),
+	};
+	let chain_validation_handler = ChainValidationHandler {
+		chain: Arc::downgrade(&chain),
+	};
+	let status_handler = StatusHandler {
+		chain: Arc::downgrade(&chain),
+		peers: Arc::downgrade(&peers),
+		sync_state: Arc::downgrade(&sync_state),
+	};
+	let kernel_download_handler = KernelDownloadHandler {
+		peers: Arc::downgrade(&peers),
+	};
+	let txhashset_handler = TxHashSetHandler {
+		chain: Arc::downgrade(&chain),
+	};
+	let pool_info_handler = PoolInfoHandler {
+		tx_pool: Arc::downgrade(&tx_pool),
+	};
+	let pool_push_handler = PoolPushHandler {
+		tx_pool: Arc::downgrade(&tx_pool),
+	};
+	let peers_all_handler = PeersAllHandler {
+		peers: Arc::downgrade(&peers),
+	};
+	let peers_connected_handler = PeersConnectedHandler {
+		peers: Arc::downgrade(&peers),
+	};
+	let peers_onion_addresses_handler = PeersOnionAddressesHandler {
+		peers: Arc::downgrade(&peers),
+	};
+	let peer_handler = PeerHandler {
+		peers: Arc::downgrade(&peers),
+	};
+	let version_handler = VersionHandler {
+		chain: Arc::downgrade(&chain),
+	};
+	let mining_handler = MiningHandler {
+		chain: Arc::downgrade(&chain),
+		tx_pool: Arc::downgrade(&tx_pool),
+	};
 
     let mut router = Router::new();
 
-    router.add_route("/v1/", Arc::new(index_handler))?;
-    router.add_route("/v1/blocks/*", Arc::new(block_handler))?;
-    router.add_route("/v1/headers/*", Arc::new(header_handler))?;
-    router.add_route("/v1/chain", Arc::new(chain_tip_handler))?;
-    router.add_route("/v1/chain/outputs/*", Arc::new(output_handler))?;
-    router.add_route("/v1/chain/kernels/*", Arc::new(kernel_handler))?;
-    router.add_route("/v1/chain/compact", Arc::new(chain_compact_handler))?;
-    router.add_route("/v1/chain/validate", Arc::new(chain_validation_handler))?;
-    router.add_route("/v1/txhashset/*", Arc::new(txhashset_handler))?;
-    router.add_route("/v1/status", Arc::new(status_handler))?;
-    router.add_route("/v1/kerneldownload", Arc::new(kernel_download_handler))?;
-    router.add_route("/v1/pool", Arc::new(pool_info_handler))?;
-    router.add_route("/v1/pool/push_tx", Arc::new(pool_push_handler))?;
-    router.add_route("/v1/peers/all", Arc::new(peers_all_handler))?;
-    router.add_route("/v1/peers/connected", Arc::new(peers_connected_handler))?;
-    router.add_route("/v1/peers/**", Arc::new(peer_handler))?;
-    router.add_route("/v1/version", Arc::new(version_handler))?;
-    router.add_route("/v1/mining/block_template", Arc::new(mining_handler))?;
+	router.add_route("/v1/", Arc::new(index_handler))?;
+	router.add_route("/v1/blocks/*", Arc::new(block_handler))?;
+	router.add_route("/v1/headers/*", Arc::new(header_handler))?;
+	router.add_route("/v1/chain", Arc::new(chain_tip_handler))?;
+	router.add_route("/v1/chain/outputs/*", Arc::new(output_handler))?;
+	router.add_route("/v1/chain/kernels/*", Arc::new(kernel_handler))?;
+	router.add_route("/v1/chain/compact", Arc::new(chain_compact_handler))?;
+	router.add_route("/v1/chain/validate", Arc::new(chain_validation_handler))?;
+	router.add_route("/v1/txhashset/*", Arc::new(txhashset_handler))?;
+	router.add_route("/v1/status", Arc::new(status_handler))?;
+	router.add_route("/v1/kerneldownload", Arc::new(kernel_download_handler))?;
+	router.add_route("/v1/pool", Arc::new(pool_info_handler))?;
+	router.add_route("/v1/pool/push_tx", Arc::new(pool_push_handler))?;
+	router.add_route("/v1/peers/all", Arc::new(peers_all_handler))?;
+	router.add_route("/v1/peers/connected", Arc::new(peers_connected_handler))?;
+	router.add_route(
+		"/v1/peers/onion_addresses",
+		Arc::new(peers_onion_addresses_handler),
+	)?;
+	router.add_route("/v1/peers/**", Arc::new(peer_handler))?;
+	router.add_route("/v1/version", Arc::new(version_handler))?;
+	router.add_route("/v1/mining/block_template", Arc::new(mining_handler))?;
 
     Ok(router)
 }
