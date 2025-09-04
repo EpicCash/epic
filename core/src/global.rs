@@ -278,13 +278,6 @@ pub fn get_foundation_path() -> Option<String> {
 pub fn check_foundation(path_str: String) -> bool {
 	let hash_to_compare = foundation_json_sha256();
 	let hash = get_file_sha256(&path_str);
-
-	println!(
-		"################ foundation sha: {:?},{:?}",
-		path_str, hash_to_compare
-	);
-	println!("################ file sha: {:?}", hash);
-
 	if hash.as_str() != hash_to_compare {
 		false
 	} else {

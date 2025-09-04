@@ -136,7 +136,6 @@ where
 
 
 	// Add basic auth to v2 foreign API
-	error!("Foreign API secret: {:?}", foreign_api_secret);
 	if let Some(api_secret) = foreign_api_secret {
 		let api_basic_auth =
 			"Basic ".to_string() + &to_base64(&("epic:".to_string() + &api_secret));

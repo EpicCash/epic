@@ -156,7 +156,7 @@ impl Server {
 		let foundation_file = std::path::Path::new(&foundation_path);
 		
 		if foundation_file.exists() {
-			info!("The foundation file is being read from {:?}", foundation_path);
+			
 			let hash_to_compare = global::foundation_json_sha256();
 			let hash = global::get_file_sha256(&foundation_path);
 			if hash.as_str() != hash_to_compare {
