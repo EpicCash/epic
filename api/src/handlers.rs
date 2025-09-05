@@ -21,6 +21,7 @@ pub mod transactions_api;
 pub mod utils;
 pub mod version_api;
 
+pub mod mining_api;
 use self::blocks_api::BlockHandler;
 use self::blocks_api::HeaderHandler;
 use self::chain_api::ChainCompactHandler;
@@ -28,9 +29,11 @@ use self::chain_api::ChainHandler;
 use self::chain_api::ChainValidationHandler;
 use self::chain_api::KernelHandler;
 use self::chain_api::OutputHandler;
+use self::mining_api::MiningHandler;
 use self::peers_api::PeerHandler;
 use self::peers_api::PeersAllHandler;
 use self::peers_api::PeersConnectedHandler;
+use self::peers_api::PeersOnionAddressesHandler;
 use self::pool_api::PoolInfoHandler;
 use self::pool_api::PoolPushHandler;
 use self::server_api::IndexHandler;
@@ -39,7 +42,7 @@ use self::server_api::StatusHandler;
 use self::transactions_api::TxHashSetHandler;
 use self::version_api::VersionHandler;
 use crate::auth::{
-	BasicAuthMiddleware, BasicAuthURIMiddleware, EPIC_BASIC_REALM, EPIC_FOREIGN_BASIC_REALM,
+	BasicAuthURIMiddleware, EPIC_BASIC_REALM, EPIC_FOREIGN_BASIC_REALM,
 };
 use crate::chain;
 use crate::chain::{Chain, SyncState};
@@ -51,6 +54,8 @@ use crate::p2p;
 use crate::pool;
 use crate::pool::{BlockChain, PoolAdapter};
 use crate::rest::{ApiServer, Error, TLSConfig};
+use crate::tor::Tor;
+use crate::tor_rpc::TorRpc;
 
 use crate::router::{ResponseFuture, Router};
 use crate::util::to_base64;
@@ -59,33 +64,37 @@ use crate::util::StopState;
 use crate::web::*;
 use easy_jsonrpc_mw::{Handler, MaybeReply};
 
-use hyper::{Body, Request, Response, StatusCode};
+use bytes::Bytes;
+use hyper::{Request, Response, StatusCode};
 
+use http_body_util::Full;
 use std::net::SocketAddr;
 use std::sync::{Arc, Weak};
 
+use crate::web::boxed_body;
+use crate::web::BoxBodyType;
 use std::thread;
 
 /// Listener version, providing same API but listening for requests on a
 /// port and wrapping the calls
 pub fn node_apis<B, P>(
-	addr: &str,
-	chain: Arc<chain::Chain>,
-	tx_pool: Arc<RwLock<pool::TransactionPool<B, P>>>,
-	peers: Arc<p2p::Peers>,
-	sync_state: Arc<chain::SyncState>,
-	api_secret: Option<String>,
-	foreign_api_secret: Option<String>,
-	tls_config: Option<TLSConfig>,
-	api_chan: &'static mut (
-		tokio::sync::oneshot::Sender<()>,
-		tokio::sync::oneshot::Receiver<()>,
-	),
-	stop_state: Arc<StopState>,
+    addr: &str,
+    chain: Arc<chain::Chain>,
+    tx_pool: Arc<RwLock<pool::TransactionPool<B, P>>>,
+    peers: Arc<p2p::Peers>,
+    sync_state: Arc<chain::SyncState>,
+    api_secret: Option<String>,
+    foreign_api_secret: Option<String>,
+    tls_config: Option<TLSConfig>,
+    api_chan: &'static mut (
+        tokio::sync::oneshot::Sender<()>,
+        tokio::sync::oneshot::Receiver<()>,
+    ),
+    stop_state: Arc<StopState>,
 ) -> Result<(), Error>
 where
-	B: BlockChain + 'static,
-	P: PoolAdapter + 'static,
+    B: BlockChain + 'static,
+    P: PoolAdapter + 'static,
 {
 	let mut router = build_router(
 		chain.clone(),
@@ -95,26 +104,36 @@ where
 	)
 	.expect("unable to build API router");
 
-	//let mut router = Router::new();
+
 
 	// Add basic auth to v2 owner API
 	if let Some(api_secret) = api_secret {
 		let api_basic_auth =
 			"Basic ".to_string() + &to_base64(&("epic:".to_string() + &api_secret));
-		let basic_auth_middleware = Arc::new(BasicAuthMiddleware::new(
+		
+		// Protect all v1 endpoints
+		let v1_auth = Arc::new(BasicAuthURIMiddleware::new(
+			api_basic_auth.clone(),
+			&EPIC_BASIC_REALM,
+			"/v1".into(),
+		));
+		router.add_middleware(v1_auth);
+		
+		let basic_auth_middleware = Arc::new(BasicAuthURIMiddleware::new(
 			api_basic_auth,
 			&EPIC_BASIC_REALM,
-			Some("/v2/foreign".into()),
+			"/v2/owner".into(),
 		));
 		router.add_middleware(basic_auth_middleware);
 	}
 
-	let api_handler = OwnerAPIHandlerV2::new(
+	let owner_api_handler = OwnerAPIHandlerV2::new(
 		Arc::downgrade(&chain),
 		Arc::downgrade(&peers),
 		Arc::downgrade(&sync_state),
 	);
-	router.add_route("/v2/owner", Arc::new(api_handler))?;
+	router.add_route("/v2/owner", Arc::new(owner_api_handler))?;
+
 
 	// Add basic auth to v2 foreign API
 	if let Some(api_secret) = foreign_api_secret {
@@ -123,74 +142,79 @@ where
 		let basic_auth_middleware = Arc::new(BasicAuthURIMiddleware::new(
 			api_basic_auth,
 			&EPIC_FOREIGN_BASIC_REALM,
-			"/v2/foreign".into(),
+			"/v2/foreign".into(),		
 		));
 		router.add_middleware(basic_auth_middleware);
 	}
 
-	let api_handler = ForeignAPIHandlerV2::new(
+	let foreign_api_handler = ForeignAPIHandlerV2::new(
 		Arc::downgrade(&chain),
 		Arc::downgrade(&tx_pool),
 		Arc::downgrade(&sync_state),
 	);
-	router.add_route("/v2/foreign", Arc::new(api_handler))?;
+	router.add_route("/v2/foreign", Arc::new(foreign_api_handler))?;
+	
+	// no auth to tor API handler
+	// we implement a watcher
+	let tor_push_handler = TorAPIHandler::new(
+		Arc::downgrade(&tx_pool),
+	);
+	router.add_route("/v2/tor", Arc::new(tor_push_handler))?;
 
-	warn!("Starting HTTP Node APIs server at {}.", addr);
-	let mut apis = ApiServer::new();
+    let mut apis = ApiServer::new();
 
 	let socket_addr: SocketAddr = addr.parse().expect("unable to parse socket address");
 	let api_thread = apis.start(socket_addr, router, tls_config, api_chan);
+	info!("Starting HTTP Node APIs server at {}.", addr);
 
-	warn!("HTTP Node listener started.");
+    thread::Builder::new()
+        .name("api_monitor".to_string())
+        .spawn(move || {
+            // monitor for stop state is_stopped
+            loop {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                if stop_state.is_stopped() {
+                    apis.stop();
+                    break;
+                }
+            }
+        })
+        .ok();
 
-	thread::Builder::new()
-		.name("api_monitor".to_string())
-		.spawn(move || {
-			// monitor for stop state is_stopped
-			loop {
-				std::thread::sleep(std::time::Duration::from_millis(100));
-				if stop_state.is_stopped() {
-					apis.stop();
-					break;
-				}
-			}
-		})
-		.ok();
-
-	match api_thread {
-		Ok(_) => Ok(()),
-		Err(e) => {
-			error!("HTTP API server failed to start. Err: {}", e);
-			Err(e)
-		}
-	}
+    match api_thread {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            error!("HTTP API server failed to start. Err: {}", e);
+            Err(e)
+        }
+    }
 }
 
 /// V2 API Handler/Wrapper for owner functions
 pub struct OwnerAPIHandlerV2 {
-	pub chain: Weak<Chain>,
-	pub peers: Weak<p2p::Peers>,
-	pub sync_state: Weak<SyncState>,
+    pub chain: Weak<Chain>,
+    pub peers: Weak<p2p::Peers>,
+    pub sync_state: Weak<SyncState>,
 }
 
 impl OwnerAPIHandlerV2 {
-	/// Create a new owner API handler for GET methods
-	pub fn new(chain: Weak<Chain>, peers: Weak<p2p::Peers>, sync_state: Weak<SyncState>) -> Self {
-		OwnerAPIHandlerV2 {
-			chain,
-			peers,
-			sync_state,
-		}
-	}
+    /// Create a new owner API handler for GET methods
+    pub fn new(chain: Weak<Chain>, peers: Weak<p2p::Peers>, sync_state: Weak<SyncState>) -> Self {
+        OwnerAPIHandlerV2 {
+            chain,
+            peers,
+            sync_state,
+        }
+    }
 }
 
-impl crate::router::Handler for OwnerAPIHandlerV2 {
-	fn post(&self, req: Request<Body>) -> ResponseFuture {
-		let api = Owner::new(
-			self.chain.clone(),
-			self.peers.clone(),
-			self.sync_state.clone(),
-		);
+impl crate::router::Handler<Full<Bytes>> for OwnerAPIHandlerV2 {
+    fn post(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
+        let api = Owner::new(
+            self.chain.clone(),
+            self.peers.clone(),
+            self.sync_state.clone(),
+        );
 
 		Box::pin(async move {
 			match parse_body(req).await {
@@ -214,58 +238,49 @@ impl crate::router::Handler for OwnerAPIHandlerV2 {
 		})
 	}
 
-	fn options(&self, _req: Request<Body>) -> ResponseFuture {
+	fn options(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		Box::pin(async { Ok(create_ok_response("{}")) })
 	}
 }
 
-/// V2 API Handler/Wrapper for foreign functions
-pub struct ForeignAPIHandlerV2<B, P>
+/// API Handler/Wrapper for tor functions
+pub struct TorAPIHandler<B, P>
 where
 	B: BlockChain,
 	P: PoolAdapter,
 {
-	pub chain: Weak<Chain>,
 	pub tx_pool: Weak<RwLock<pool::TransactionPool<B, P>>>,
-	pub sync_state: Weak<SyncState>,
 }
 
-impl<B, P> ForeignAPIHandlerV2<B, P>
+impl<B, P> TorAPIHandler<B, P>
 where
 	B: BlockChain,
 	P: PoolAdapter,
 {
 	/// Create a new foreign API handler for GET methods
 	pub fn new(
-		chain: Weak<Chain>,
 		tx_pool: Weak<RwLock<pool::TransactionPool<B, P>>>,
-		sync_state: Weak<SyncState>,
 	) -> Self {
-		ForeignAPIHandlerV2 {
-			chain,
+		TorAPIHandler {
 			tx_pool,
-			sync_state,
 		}
 	}
 }
-
-impl<B, P> crate::router::Handler for ForeignAPIHandlerV2<B, P>
+impl<B, P> crate::router::Handler<Full<Bytes>> for TorAPIHandler<B, P>
 where
 	B: BlockChain + 'static,
 	P: PoolAdapter + 'static,
 {
-	fn post(&self, req: Request<Body>) -> ResponseFuture {
-		let api = Foreign::new(
-			self.chain.clone(),
+	fn post(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
+		let api = Tor::new(
 			self.tx_pool.clone(),
-			self.sync_state.clone(),
 		);
 
 		Box::pin(async move {
 			match parse_body(req).await {
 				Ok(val) => {
-					let foreign_api = &api as &dyn ForeignRpc;
-					let res = match foreign_api.handle_request(val) {
+					let tor_api = &api as &dyn TorRpc;
+					let res = match tor_api.handle_request(val) {
 						MaybeReply::Reply(r) => r,
 						MaybeReply::DontReply => {
 							// Since it's http, we need to return something. We return [] because jsonrpc
@@ -283,100 +298,178 @@ where
 		})
 	}
 
-	fn options(&self, _req: Request<Body>) -> ResponseFuture {
+	fn options(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		Box::pin(async { Ok(create_ok_response("{}")) })
 	}
 }
 
+/// V2 API Handler/Wrapper for foreign functions
+pub struct ForeignAPIHandlerV2<B, P>
+where
+    B: BlockChain,
+    P: PoolAdapter,
+{
+    pub chain: Weak<Chain>,
+    pub tx_pool: Weak<RwLock<pool::TransactionPool<B, P>>>,
+    pub sync_state: Weak<SyncState>,
+}
+
+impl<B, P> ForeignAPIHandlerV2<B, P>
+where
+    B: BlockChain,
+    P: PoolAdapter,
+{
+    /// Create a new foreign API handler for GET methods
+    pub fn new(
+        chain: Weak<Chain>,
+        tx_pool: Weak<RwLock<pool::TransactionPool<B, P>>>,
+        sync_state: Weak<SyncState>,
+    ) -> Self {
+        ForeignAPIHandlerV2 {
+            chain,
+            tx_pool,
+            sync_state,
+        }
+    }
+}
+
+impl<B, P> crate::router::Handler<Full<Bytes>> for ForeignAPIHandlerV2<B, P>
+where
+    B: BlockChain + 'static,
+    P: PoolAdapter + 'static,
+{
+    fn post(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
+        let api = Foreign::new(
+            self.chain.clone(),
+            self.tx_pool.clone(),
+            self.sync_state.clone(),
+        );
+
+        Box::pin(async move {
+            match parse_body(req).await {
+                Ok(val) => {
+                    let foreign_api = &api as &dyn ForeignRpc;
+                    let res = match foreign_api.handle_request(val) {
+                        MaybeReply::Reply(r) => r,
+                        MaybeReply::DontReply => {
+                            // Since it's http, we need to return something. We return [] because jsonrpc
+                            // clients will parse it as an empty batch response.
+                            serde_json::json!([])
+                        }
+                    };
+                    Ok(json_response_pretty(&res))
+                }
+                Err(e) => {
+                    error!("Request Error: {:?}", e);
+                    Ok(create_error_response(e))
+                }
+            }
+        })
+    }
+
+    fn options(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
+        Box::pin(async { Ok(create_ok_response("{}")) })
+    }
+}
+
 // pretty-printed version of above
-fn json_response_pretty(to_string: &serde_json::Value) -> Response<Body> {
-	let json = serde_json::to_string_pretty(to_string);
-	match json {
-		Ok(value) => response(StatusCode::OK, value),
-		Err(_) => response(StatusCode::INTERNAL_SERVER_ERROR, ""),
-	}
+fn json_response_pretty(to_string: &serde_json::Value) -> Response<BoxBodyType> {
+    let json = serde_json::to_string_pretty(to_string);
+    match json {
+        Ok(value) => response(StatusCode::OK, value),
+        Err(_) => response(StatusCode::INTERNAL_SERVER_ERROR, "".to_owned()),
+    }
 }
 
-fn create_error_response(e: Error) -> Response<Body> {
-	hyper::Response::builder()
-		.status(StatusCode::INTERNAL_SERVER_ERROR)
-		.header("access-control-allow-origin", "*")
-		.header(
-			"access-control-allow-headers",
-			"Content-Type, Authorization",
-		)
-		.body(format!("{}", e).into())
-		.unwrap()
+fn create_error_response(e: Error) -> Response<BoxBodyType> {
+    let body = boxed_body(e.to_string());
+
+    hyper::Response::builder()
+        .status(StatusCode::INTERNAL_SERVER_ERROR)
+        .header("access-control-allow-origin", "*")
+        .header(
+            "access-control-allow-headers",
+            "Content-Type, Authorization",
+        )
+        .body(body)
+        .unwrap()
+    //no handler found
 }
 
-fn create_ok_response(json: &str) -> Response<Body> {
-	hyper::Response::builder()
-		.status(StatusCode::OK)
-		.header("access-control-allow-origin", "*")
-		.header(
-			"access-control-allow-headers",
-			"Content-Type, Authorization",
-		)
-		.header(hyper::header::CONTENT_TYPE, "application/json")
-		.body(json.to_string().into())
-		.unwrap()
+fn create_ok_response(json: &str) -> Response<BoxBodyType> {
+    let body = boxed_body(json.to_owned());
+
+    hyper::Response::builder()
+        .status(StatusCode::OK)
+        .header("access-control-allow-origin", "*")
+        .header(
+            "access-control-allow-headers",
+            "Content-Type, Authorization",
+        )
+        .header(hyper::header::CONTENT_TYPE, "application/json")
+        .body(body)
+        .unwrap()
 }
 
 /// Build a new hyper Response with the status code and body provided.
 ///
 /// Whenever the status code is `StatusCode::OK` the text parameter should be
 /// valid JSON as the content type header will be set to `application/json'
-fn response<T: Into<Body>>(status: StatusCode, text: T) -> Response<Body> {
-	let mut res = hyper::Response::builder()
-		.status(status)
-		.header("access-control-allow-origin", "*")
-		.header(
-			"access-control-allow-headers",
-			"Content-Type, Authorization",
-		);
+fn response(status: StatusCode, text: impl Into<Bytes>) -> Response<BoxBodyType> {
+    let mut res = hyper::Response::builder()
+        .status(status)
+        .header("access-control-allow-origin", "*")
+        .header(
+            "access-control-allow-headers",
+            "Content-Type, Authorization",
+        );
 
-	if status == StatusCode::OK {
-		res = res.header(hyper::header::CONTENT_TYPE, "application/json");
-	}
+    if status == StatusCode::OK {
+        res = res.header(hyper::header::CONTENT_TYPE, "application/json");
+    }
 
-	res.body(text.into()).unwrap()
+    let body = boxed_body(text);
+
+    res.body(body).unwrap()
 }
 
 // Legacy V1 router
 pub fn build_router<B, P>(
-	chain: Arc<chain::Chain>,
-	tx_pool: Arc<RwLock<pool::TransactionPool<B, P>>>,
-	peers: Arc<p2p::Peers>,
-	sync_state: Arc<chain::SyncState>,
+    chain: Arc<chain::Chain>,
+    tx_pool: Arc<RwLock<pool::TransactionPool<B, P>>>,
+    peers: Arc<p2p::Peers>,
+    sync_state: Arc<chain::SyncState>,
 ) -> Result<Router, Error>
 where
-	B: BlockChain + 'static,
-	P: PoolAdapter + 'static,
+    B: BlockChain + 'static,
+    P: PoolAdapter + 'static,
 {
 	let route_list = vec![
-		"get blocks".to_string(),
-		"get headers".to_string(),
-		"get chain".to_string(),
-		"post chain/compact".to_string(),
-		"get chain/validate".to_string(),
-		"get chain/kernels/xxx?min_height=yyy&max_height=zzz".to_string(),
-		"get chain/outputs/byids?id=xxx,yyy,zzz".to_string(),
-		"get chain/outputs/byheight?start_height=101&end_height=200".to_string(),
-		"get status".to_string(),
-		"get txhashset/roots".to_string(),
-		"get txhashset/lastoutputs?n=10".to_string(),
-		"get txhashset/lastrangeproofs".to_string(),
-		"get txhashset/lastkernels".to_string(),
-		"get txhashset/outputs?start_index=1&max=100".to_string(),
-		"get txhashset/merkleproof?n=1".to_string(),
-		"get pool".to_string(),
-		"post pool/push_tx".to_string(),
-		"post peers/a.b.c.d:p/ban".to_string(),
-		"post peers/a.b.c.d:p/unban".to_string(),
-		"get peers/all".to_string(),
-		"get peers/connected".to_string(),
-		"get peers/a.b.c.d".to_string(),
-		"get version".to_string(),
+		"get:  /v1/blocks".to_string(),
+		"get:  /v1/headers".to_string(),
+		"get:  /v1/chain".to_string(),
+		"post: /v1/chain/compact".to_string(),
+		"get:  /v1/chain/validate".to_string(),
+		"get:  /v1/chain/kernels/xxx?min_height=yyy&max_height=zzz".to_string(),
+		"get:  /v1/chain/outputs/byids?id=xxx,yyy,zzz".to_string(),
+		"get:  /v1/chain/outputs/byheight?start_height=101&end_height=200".to_string(),
+		"get:  /v1/status".to_string(),
+		"get:  /v1/txhashset/roots".to_string(),
+		"get:  /v1/txhashset/lastoutputs?n=10".to_string(),
+		"get:  /v1/txhashset/lastrangeproofs".to_string(),
+		"get:  /v1/txhashset/lastkernels".to_string(),
+		"get:  /v1/txhashset/outputs?start_index=1&max=100".to_string(),
+		"get:  /v1/txhashset/merkleproof?n=1".to_string(),
+		"get:  /v1/pool".to_string(),
+		"post: /v1/pool/push_tx".to_string(),
+		"post: /v1/peers/a.b.c.d:p/ban".to_string(),
+		"post: /v1/peers/a.b.c.d:p/unban".to_string(),
+		"get:  /v1/peers/all".to_string(),
+		"get:  /v1/peers/connected".to_string(),
+		"get:  /v1/peers/a.b.c.d".to_string(),
+		"get:  /v1/peers/onion_addresses".to_string(),
+		"get:  /v1/version".to_string(),
+		"get:  /v1/mining/block_template".to_string(),
 	];
 	let index_handler = IndexHandler { list: route_list };
 
@@ -424,14 +517,21 @@ where
 	let peers_connected_handler = PeersConnectedHandler {
 		peers: Arc::downgrade(&peers),
 	};
+	let peers_onion_addresses_handler = PeersOnionAddressesHandler {
+		peers: Arc::downgrade(&peers),
+	};
 	let peer_handler = PeerHandler {
 		peers: Arc::downgrade(&peers),
 	};
 	let version_handler = VersionHandler {
 		chain: Arc::downgrade(&chain),
 	};
+	let mining_handler = MiningHandler {
+		chain: Arc::downgrade(&chain),
+		tx_pool: Arc::downgrade(&tx_pool),
+	};
 
-	let mut router = Router::new();
+    let mut router = Router::new();
 
 	router.add_route("/v1/", Arc::new(index_handler))?;
 	router.add_route("/v1/blocks/*", Arc::new(block_handler))?;
@@ -448,7 +548,13 @@ where
 	router.add_route("/v1/pool/push_tx", Arc::new(pool_push_handler))?;
 	router.add_route("/v1/peers/all", Arc::new(peers_all_handler))?;
 	router.add_route("/v1/peers/connected", Arc::new(peers_connected_handler))?;
+	router.add_route(
+		"/v1/peers/onion_addresses",
+		Arc::new(peers_onion_addresses_handler),
+	)?;
 	router.add_route("/v1/peers/**", Arc::new(peer_handler))?;
 	router.add_route("/v1/version", Arc::new(version_handler))?;
-	Ok(router)
+	router.add_route("/v1/mining/block_template", Arc::new(mining_handler))?;
+
+    Ok(router)
 }

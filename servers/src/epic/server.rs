@@ -36,6 +36,7 @@ use crate::common::hooks::{init_chain_hooks, init_net_hooks};
 use crate::common::stats::{
 	ChainStats, DiffBlock, DiffStats, PeerStats, ServerStateInfo, ServerStats, TxStats,
 };
+use crate::p2p::Capabilities;
 use crate::common::types::{Error, ServerConfig, StratumServerConfig};
 use crate::core::core::feijoada::PolicyConfig;
 use crate::core::core::hash::Hashed;
@@ -47,6 +48,7 @@ use crate::epic::{dandelion_monitor, seed, sync, version};
 use crate::mining::stratumserver;
 use crate::mining::test_miner::Miner;
 use crate::p2p;
+use crate::p2p::tor::process::TorProcess;
 use crate::p2p::types::PeerAddr;
 use crate::pool;
 use crate::util::file::get_first_line;
@@ -87,6 +89,7 @@ pub struct Server {
 	connect_thread: Option<JoinHandle<()>>,
 	sync_thread: JoinHandle<()>,
 	dandelion_thread: JoinHandle<()>,
+	tor_process: Option<TorProcess>,
 }
 
 impl Server {
@@ -140,26 +143,31 @@ impl Server {
 		}
 
 		global::set_foundation_path(config.foundation_path.clone().to_owned());
+		let policy_config = global::get_policy_config();
 
-		info!(
-			"The policy configuration is: {:?}",
-			global::get_policy_config()
-		);
-		info!(
-			"The foundation.json is being read from {:?}",
-			global::get_foundation_path().unwrap()
-		);
+		info!("Block policy:");
+		if let Some((_i, policy)) = policy_config.policies.iter().enumerate().last() {
+			for (key, value) in policy {
+				info!("\t{:>3}% {:?} blocks", value, key);
+			}
+		}
 
-		let hash_to_compare = global::foundation_json_sha256();
-		let hash = global::get_file_sha256(global::get_foundation_path().unwrap().as_str());
-		if hash.as_str() != hash_to_compare {
-			error!("Invalid {} file!\nThe sha256 of this file should be: {} - {}\nCheck if the file was not changed!", global::get_foundation_path().unwrap(), hash_to_compare, hash.as_str());
-			error!("Closing the application!");
-			println!(
-				"\nInvalid foundation file!\nCheck if the file \"{}\" was not changed!",
-				global::get_foundation_path().unwrap()
-			);
-			std::process::exit(1);
+		let foundation_path = global::get_foundation_path().unwrap();
+		let foundation_file = std::path::Path::new(&foundation_path);
+		
+		if foundation_file.exists() {
+			
+			let hash_to_compare = global::foundation_json_sha256();
+			let hash = global::get_file_sha256(&foundation_path);
+			if hash.as_str() != hash_to_compare {
+				error!("Invalid {} file!\nThe sha256 of this file should be: {} - {}\nCheck if the file was not changed!", foundation_path, hash_to_compare, hash.as_str());
+				error!("Closing the application!");
+				println!(
+					"\nInvalid foundation file!\nCheck if the file \"{}\" was not changed!",
+					foundation_path
+				);
+				std::process::exit(1);
+			}
 		}
 
 		let mining_config = config.stratum_mining_config.clone();
@@ -267,7 +275,10 @@ impl Server {
 			global::ChainTypes::Mainnet => genesis::genesis_main(),
 		};
 
-		info!("Starting server, genesis block: {}", genesis.hash());
+		info!(
+			"Warm up Epic node server from genesis({}), ...",
+			genesis.hash()
+		);
 
 		let shared_chain = Arc::new(chain::Chain::init(
 			config.db_root.clone(),
@@ -287,6 +298,65 @@ impl Server {
 			init_net_hooks(&config),
 		));
 
+		// set up tor send process if needed
+
+		let mut tor = TorProcess::new();
+		let mut onion_api_addr = None;
+		
+
+		if config.tor.socks_proxy_addr != ""
+		&& config.p2p_config.capabilities.contains(Capabilities::ONIONSTEM) {
+			let tor_dir = config.tor.send_config_dir.clone();
+			warn!(
+				"Starting TOR Process for send at {:?}",
+				config.tor.socks_proxy_addr
+			);
+			// Schreibe die torrc-Konfiguration für den Hidden Service
+			let torrc_path = format!("{}/torrc", tor_dir);
+
+			// Erzeuge Hidden Service für den Node (Port 3414)
+			match crate::p2p::tor::config::output_tor_listener_config_auto(
+				&tor_dir,
+				&config.api_http_addr, // Use node address from config
+				&config.tor.socks_proxy_addr,
+			) {
+				Ok(_) => info!("torrc with HiddenService created successfully"),
+				Err(e) => error!("Failed to create torrc with HiddenService: {:?}", e),
+			}
+			debug!("torrc_path: {}, dir: {}", torrc_path, tor_dir);
+			// Starte den Tor-Prozess
+			tor.torrc_path(&torrc_path)
+				.working_dir(&tor_dir)
+				.timeout(20)
+				.completion_percent(100)
+				.launch()
+				.map_err(|e| Error::TorProcess(format!("{:?}", e).into()))?;
+			
+			
+			// Lese die Onion-Adresse aus
+			let onion_base = format!("{}/onion_service_addresses", tor_dir);
+			let api_port = config.api_http_addr
+			.split(':')
+			.last()
+			.unwrap_or("3413"); 
+			let onion_addr = std::fs::read_dir(&onion_base)
+				.ok()
+				.and_then(|mut entries| {
+					entries.next().and_then(|entry| {
+						let hostname_path = entry.ok()?.path().join("hostname");
+						std::fs::read_to_string(hostname_path).ok()
+					})
+				})
+				.map(|s| s.trim().to_string());
+			
+			onion_api_addr = onion_addr
+			.as_ref()
+			.map(|addr| format!("http://{}:{}", addr, api_port));
+		
+		}
+		if let Some(ref addr) = onion_api_addr {
+			info!("This peer's onion addr: {}", addr);
+		} 
 		let p2p_server = Arc::new(p2p::Server::new(
 			&config.db_root,
 			config.p2p_config.capabilities,
@@ -294,6 +364,7 @@ impl Server {
 			net_adapter.clone(),
 			genesis.hash(),
 			stop_state.clone(),
+			onion_api_addr.clone(),
 		)?);
 
 		// Initialize various adapters with our dynamic set of connected peers.
@@ -351,7 +422,7 @@ impl Server {
 				}
 			})?;
 
-		info!("Starting rest apis at: {}", &config.api_http_addr);
+		//info!("Starting rest apis at: {}", &config.api_http_addr);
 		let api_secret = get_first_line(config.api_secret_path.clone());
 		let foreign_api_secret = get_first_line(config.foreign_api_secret_path.clone());
 		let tls_conf = match config.tls_certificate_file.clone() {
@@ -415,7 +486,7 @@ impl Server {
 		});
 		let _version_checker_thread = scheduler.watch_thread(Duration::from_millis(100));
 
-		warn!("Epic server started.");
+		info!("Epic node server started.");
 
 		Ok(Server {
 			config,
@@ -431,6 +502,7 @@ impl Server {
 			connect_thread,
 			sync_thread,
 			dandelion_thread,
+			tor_process: Some(tor),
 		})
 	}
 
@@ -694,25 +766,27 @@ impl Server {
 			if let Some(connect_thread) = self.connect_thread {
 				match connect_thread.join() {
 					Err(e) => error!("failed to join to connect_and_monitor thread: {:?}", e),
-					Ok(_) => info!("connect_and_monitor thread stopped"),
+					Ok(_) => info!("Connect and monitor thread stopped"),
 				}
 			} else {
-				info!("No active connect_and_monitor thread")
+				info!("No active connect and monitor thread")
 			}
 
 			match self.sync_thread.join() {
 				Err(e) => error!("failed to join to sync thread: {:?}", e),
-				Ok(_) => info!("sync thread stopped"),
+				Ok(_) => info!("Sync thread stopped"),
 			}
 
 			match self.dandelion_thread.join() {
 				Err(e) => error!("failed to join to dandelion_monitor thread: {:?}", e),
-				Ok(_) => info!("dandelion_monitor thread stopped"),
+				Ok(_) => info!("Dandelion monitor thread stopped"),
 			}
+
+			drop(self.tor_process); // Explicitly drop TorProcess to kill Tor
 		}
 		self.p2p.stop();
 
-		let _ = self.lock_file.unlock();
+		let _ = self.lock_file;
 	}
 
 	/// Pause the p2p server.

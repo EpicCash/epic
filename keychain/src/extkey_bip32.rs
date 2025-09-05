@@ -30,8 +30,6 @@
 //! Modified from above to integrate into epic and allow for different
 //! hashing algorithms if desired
 
-#[cfg(feature = "serde")]
-use serde;
 use std::default::Default;
 use std::io::Cursor;
 use std::str::FromStr;
@@ -44,8 +42,8 @@ use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
 
 use digest::generic_array::GenericArray;
 use digest::Digest;
-use hmac::{Hmac, Mac, NewMac};
-use ripemd160::Ripemd160;
+use hmac::{Hmac, Mac};
+use ripemd::Ripemd160;
 use sha2::{Sha256, Sha512};
 
 use crate::base58;
@@ -271,26 +269,6 @@ impl fmt::Display for ChildNumber {
 			ChildNumber::Hardened { index } => write!(f, "{}'", index),
 			ChildNumber::Normal { index } => write!(f, "{}", index),
 		}
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for ChildNumber {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: serde::Deserializer<'de>,
-	{
-		u32::deserialize(deserializer).map(ChildNumber::from)
-	}
-}
-
-#[cfg(feature = "serde")]
-impl serde::Serialize for ChildNumber {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: serde::Serializer,
-	{
-		u32::from(*self).serialize(serializer)
 	}
 }
 
@@ -676,7 +654,7 @@ mod tests {
 	use digest::generic_array::GenericArray;
 	use digest::Digest;
 	use hmac::{Hmac, Mac};
-	use ripemd160::Ripemd160;
+	use ripemd::Ripemd160;
 	use sha2::{Sha256, Sha512};
 
 	/// Implementation of the above that uses the standard BIP32 Hash algorithms
@@ -882,13 +860,21 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(all(feature = "serde", feature = "strason"))]
 	pub fn encode_decode_childnumber() {
-		serde_round_trip!(ChildNumber::from_normal_idx(0));
-		serde_round_trip!(ChildNumber::from_normal_idx(1));
-		serde_round_trip!(ChildNumber::from_normal_idx((1 << 31) - 1));
-		serde_round_trip!(ChildNumber::from_hardened_idx(0));
-		serde_round_trip!(ChildNumber::from_hardened_idx(1));
-		serde_round_trip!(ChildNumber::from_hardened_idx((1 << 31) - 1));
+		fn serde_round_trip<T>(value: T)
+		where
+			T: serde::Serialize + serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
+		{
+			let serialized = serde_json::to_string(&value).unwrap();
+			let deserialized: T = serde_json::from_str(&serialized).unwrap();
+			assert_eq!(value, deserialized);
+		}
+
+		serde_round_trip(ChildNumber::from_normal_idx(0));
+		serde_round_trip(ChildNumber::from_normal_idx(1));
+		serde_round_trip(ChildNumber::from_normal_idx((1 << 31) - 1));
+		serde_round_trip(ChildNumber::from_hardened_idx(0));
+		serde_round_trip(ChildNumber::from_hardened_idx(1));
+		serde_round_trip(ChildNumber::from_hardened_idx((1 << 31) - 1));
 	}
 }

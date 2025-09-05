@@ -16,14 +16,16 @@
 use std::fs::{self, File};
 use std::{io, time};
 
-use crate::core::core::hash::{Hash, Hashed};
-use crate::core::core::pmmr::{self, family, Backend};
-use crate::core::core::BlockHeader;
-use crate::core::ser::{PMMRable, ProtocolVersion};
 use crate::leaf_set::LeafSet;
 use crate::prune_list::PruneList;
 use crate::types::{AppendOnlyFile, DataFile, SizeEntry, SizeInfo};
 use croaring::Bitmap;
+use epic_core::core::hash::{Hash, Hashed};
+use epic_core::core::pmmr::{self, family, Backend};
+use epic_core::core::BlockHeader;
+use epic_core::map_vec;
+use epic_core::ser::{PMMRable, ProtocolVersion};
+use log::debug;
 use std::convert::TryInto;
 use std::path::{Path, PathBuf};
 

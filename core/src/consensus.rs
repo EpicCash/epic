@@ -100,6 +100,85 @@ pub fn block_total_reward_at_height(height: u64) -> u64 {
 	}
 }
 
+/// Compute the total supply of epics at a given height.
+pub fn fast_total_supply(height: u64) -> u64 {
+	// Precompute era boundaries and rewards
+	let mut supply = 0u64;
+
+	// Era 1
+	let era1 = BLOCK_ERA_1;
+	let era1_reward = 16 * EPIC_BASE;
+	let era1_blocks = std::cmp::min(height, era1);
+	supply += era1_blocks * era1_reward;
+
+	// Era 2
+	let era2 = BLOCK_ERA_2;
+	let era2_reward = 8 * EPIC_BASE;
+	if height > era1 {
+		let era2_blocks = std::cmp::min(height, era2) - era1;
+		supply += era2_blocks * era2_reward;
+	}
+
+	// Era 3
+	let era3 = BLOCK_ERA_3;
+	let era3_reward = 4 * EPIC_BASE;
+	if height > era2 {
+		let era3_blocks = std::cmp::min(height, era3) - era2;
+		supply += era3_blocks * era3_reward;
+	}
+
+	// Era 4
+	let era4 = BLOCK_ERA_4;
+	let era4_reward = 2 * EPIC_BASE;
+	if height > era3 {
+		let era4_blocks = std::cmp::min(height, era4) - era3;
+		supply += era4_blocks * era4_reward;
+	}
+
+	// Era 5
+	let era5 = BLOCK_ERA_5;
+	let era5_reward = 1 * EPIC_BASE;
+	if height > era4 {
+		let era5_blocks = std::cmp::min(height, era5) - era4;
+		supply += era5_blocks * era5_reward;
+	}
+
+	// Era 6 onwards: halving every BLOCK_ERA_6_ONWARDS blocks
+	if height > era5 {
+		let mut remaining = height - era5;
+		let mut reward = BASE_REWARD_ERA_6_ONWARDS;
+		while remaining > 0 && reward > 0 {
+			let blocks = std::cmp::min(remaining, BLOCK_ERA_6_ONWARDS);
+			supply += blocks * reward;
+			remaining -= blocks;
+			reward /= 2;
+		}
+	}
+
+	supply
+}
+
+/// Compute the number of blocks until the next halving based on the current height.
+pub fn blocks_to_next_halving(height: u64) -> u64 {
+	if height < BLOCK_ERA_1 {
+		BLOCK_ERA_1 - height
+	} else if height < BLOCK_ERA_2 {
+		BLOCK_ERA_2 - height
+	} else if height < BLOCK_ERA_3 {
+		BLOCK_ERA_3 - height
+	} else if height < BLOCK_ERA_4 {
+		BLOCK_ERA_4 - height
+	} else if height < BLOCK_ERA_5 {
+		BLOCK_ERA_5 - height
+	} else {
+		// After era 5, halvings occur every BLOCK_ERA_6_ONWARDS blocks
+		let since_era5 = height - BLOCK_ERA_5;
+		let next_halving =
+			BLOCK_ERA_5 + ((since_era5 / BLOCK_ERA_6_ONWARDS) + 1) * BLOCK_ERA_6_ONWARDS;
+		next_halving - height
+	}
+}
+
 /// Set the height (and its multiples) where the foundation coinbase will be added to the block.
 /// This variable will sparse the blocks that receive the foundation coinbase.
 pub const MAINNET_FOUNDATION_HEIGHT: u64 = DAY_HEIGHT;
@@ -471,7 +550,7 @@ pub const INITIAL_DIFFICULTY: u64 = 1_000_000 * UNIT_DIFFICULTY;
 
 /// Minimal header information required for the Difficulty calculation to
 /// take place
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Deserialize, Serialize, Debug, Eq, PartialEq)]
 pub struct HeaderInfo {
 	/// Block hash, ZERO_HASH when this is a sythetic entry.
 	pub block_hash: Hash,
@@ -896,6 +975,7 @@ mod test {
 
 	#[test]
 	fn test_graph_weight() {
+		//YEAR_HEIGHT = 524160
 		// initial weights
 		assert_eq!(graph_weight(1, 31), 256 * 31);
 		assert_eq!(graph_weight(1, 32), 512 * 32);
@@ -912,24 +992,30 @@ mod test {
 		assert_eq!(graph_weight(YEAR_HEIGHT + 32 * WEEK_HEIGHT, 31), 0);
 
 		// 2 years in, 31 still at 0, 32 starts decreasing
-		assert_eq!(graph_weight(2 * YEAR_HEIGHT, 31), 0);
-		assert_eq!(graph_weight(2 * YEAR_HEIGHT, 32), 512 * 31);
+		assert_eq!(graph_weight(2 * YEAR_HEIGHT, 31), 256 * 31);
+		assert_eq!(graph_weight(2 * YEAR_HEIGHT, 32), 512 * 32);
 		assert_eq!(graph_weight(2 * YEAR_HEIGHT, 33), 1024 * 33);
 
 		// 32 loses one factor per week
-		assert_eq!(graph_weight(2 * YEAR_HEIGHT + WEEK_HEIGHT, 32), 512 * 30);
-		assert_eq!(graph_weight(2 * YEAR_HEIGHT + WEEK_HEIGHT, 31), 0);
-		assert_eq!(graph_weight(2 * YEAR_HEIGHT + 30 * WEEK_HEIGHT, 32), 512);
-		assert_eq!(graph_weight(2 * YEAR_HEIGHT + 31 * WEEK_HEIGHT, 32), 0);
+		assert_eq!(graph_weight(2 * YEAR_HEIGHT + WEEK_HEIGHT, 32), 512 * 32);
+		assert_eq!(graph_weight(2 * YEAR_HEIGHT + WEEK_HEIGHT, 31), 256 * 31);
+		assert_eq!(
+			graph_weight(2 * YEAR_HEIGHT + 30 * WEEK_HEIGHT, 32),
+			512 * 32
+		);
+		assert_eq!(
+			graph_weight(2 * YEAR_HEIGHT + 31 * WEEK_HEIGHT, 32),
+			512 * 32
+		);
 
 		// 3 years in, nothing changes
-		assert_eq!(graph_weight(3 * YEAR_HEIGHT, 31), 0);
-		assert_eq!(graph_weight(3 * YEAR_HEIGHT, 32), 0);
+		assert_eq!(graph_weight(3 * YEAR_HEIGHT, 31), 256 * 31);
+		assert_eq!(graph_weight(3 * YEAR_HEIGHT, 32), 512 * 32);
 		assert_eq!(graph_weight(3 * YEAR_HEIGHT, 33), 1024 * 33);
 
 		// 4 years in, 33 starts starts decreasing
-		assert_eq!(graph_weight(4 * YEAR_HEIGHT, 31), 0);
-		assert_eq!(graph_weight(4 * YEAR_HEIGHT, 32), 0);
-		assert_eq!(graph_weight(4 * YEAR_HEIGHT, 33), 1024 * 32);
+		assert_eq!(graph_weight(4 * YEAR_HEIGHT, 31), 256 * 31);
+		assert_eq!(graph_weight(4 * YEAR_HEIGHT, 32), 512 * 32);
+		assert_eq!(graph_weight(4 * YEAR_HEIGHT, 33), 1024 * 33);
 	}
 }

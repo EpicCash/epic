@@ -40,9 +40,11 @@ mod owner_rpc;
 pub mod rest;
 mod router;
 mod types;
+mod tor;
+mod tor_rpc;
 
 pub use crate::auth::{
-	BasicAuthMiddleware, BasicAuthURIMiddleware, EPIC_BASIC_REALM, EPIC_FOREIGN_BASIC_REALM,
+	BasicAuthURIMiddleware, EPIC_BASIC_REALM, EPIC_FOREIGN_BASIC_REALM,
 };
 pub use crate::foreign::Foreign;
 pub use crate::foreign_rpc::ForeignRpc;

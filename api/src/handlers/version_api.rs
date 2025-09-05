@@ -18,8 +18,11 @@ use crate::rest::*;
 use crate::router::{Handler, ResponseFuture};
 use crate::types::Version;
 use crate::web::*;
-use hyper::{Body, Request};
+use hyper::Request;
 use std::sync::Weak;
+
+use bytes::Bytes;
+use http_body_util::Full;
 
 const CRATE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -42,8 +45,8 @@ impl VersionHandler {
 	}
 }
 
-impl Handler for VersionHandler {
-	fn get(&self, _req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for VersionHandler {
+	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		result_to_response(self.get_version())
 	}
 }

@@ -14,8 +14,8 @@
 
 /// Implementation of the Keychain trait based on an extended key derivation
 /// scheme.
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
+use rand::distr::Alphanumeric;
+use rand::{rng, Rng};
 
 use crate::blake2::blake2b::blake2b;
 
@@ -78,7 +78,11 @@ impl Keychain for ExtKeychain {
 
 	/// For testing - probably not a good idea to use outside of tests.
 	fn from_random_seed(is_floo: bool) -> Result<ExtKeychain, Error> {
-		let seed: String = thread_rng().sample_iter(&Alphanumeric).take(16).collect();
+		let seed: String = rng()
+			.sample_iter(&Alphanumeric)
+			.take(16)
+			.map(char::from)
+			.collect();
 		let seed = blake2b(32, &[], seed.as_bytes());
 		ExtKeychain::from_seed(seed.as_bytes(), is_floo)
 	}

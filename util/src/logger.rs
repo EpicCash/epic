@@ -33,7 +33,6 @@ use log4rs::encode::pattern::PatternEncoder;
 use log4rs::encode::writer::simple::SimpleWriter;
 use log4rs::encode::Encode;
 use log4rs::filter::{threshold::ThresholdFilter, Filter, Response};
-use std::error::Error;
 use std::sync::mpsc;
 use std::sync::mpsc::SyncSender;
 
@@ -90,9 +89,9 @@ impl Default for LoggingConfig {
 	fn default() -> LoggingConfig {
 		LoggingConfig {
 			log_to_stdout: true,
-			stdout_log_level: Level::Warn,
-			log_to_file: true,
-			file_log_level: Level::Info,
+			stdout_log_level: Level::Info,
+			log_to_file: false,
+			file_log_level: Level::Debug,
 			log_file_path: String::from("epic.log"),
 			log_file_append: true,
 			log_max_size: Some(1024 * 1024 * 16), // 16 megabytes default
@@ -227,7 +226,7 @@ struct ChannelAppender {
 }
 
 impl Append for ChannelAppender {
-	fn append(&self, record: &Record) -> Result<(), Box<dyn Error + Sync + Send>> {
+	fn append(&self, record: &Record) -> Result<(), anyhow::Error> {
 		let mut writer = SimpleWriter(Vec::new());
 		self.encoder.encode(&mut writer, record)?;
 
@@ -460,7 +459,7 @@ mod logging_config {
 	use super::{LoggingConfig, DEFAULT_ROTATE_LOG_FILES};
 
 	use log::Level;
-	use serde_test::{assert_de_tokens, assert_de_tokens_error, assert_tokens, Token};
+	use serde_test::{assert_de_tokens, Token};
 
 	macro_rules! config_tokens {
 		($stdout_log_level_name:expr, $file_log_level_name:expr) => {
@@ -477,7 +476,7 @@ mod logging_config {
 					variant: $stdout_log_level_name,
 				},
 				Token::Str("log_to_file"),
-				Token::Bool(true),
+				Token::Bool(false),
 				Token::Str("file_log_level"),
 				Token::UnitVariant {
 					name: "Level",
@@ -502,11 +501,11 @@ mod logging_config {
 
 	fn level_from_str(s: &str) -> Level {
 		match &s.to_ascii_lowercase()[..] {
-			"error" => (Level::Error),
-			"warn" | "warning" => (Level::Warn),
-			"info" => (Level::Info),
-			"debug" => (Level::Debug),
-			"trace" => (Level::Trace),
+			"error" => Level::Error,
+			"warn" | "warning" => Level::Warn,
+			"info" => Level::Info,
+			"debug" => Level::Debug,
+			"trace" => Level::Trace,
 			_ => panic!("Not known level from string {}", s),
 		}
 	}

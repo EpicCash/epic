@@ -2,21 +2,21 @@ use epic_api as api;
 use epic_util as util;
 
 use crate::api::*;
-use futures::channel::oneshot;
-use hyper::{Body, Request, StatusCode};
+use bytes::Bytes;
+use http_body_util::Full;
+use hyper::{Request, StatusCode};
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::{thread, time};
-
 struct IndexHandler {
 	list: Vec<String>,
 }
 
 impl IndexHandler {}
 
-impl Handler for IndexHandler {
-	fn get(&self, _req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for IndexHandler {
+	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		json_response_pretty(&self.list)
 	}
 }
@@ -37,10 +37,10 @@ impl CounterMiddleware {
 	}
 }
 
-impl Handler for CounterMiddleware {
+impl Handler<Full<Bytes>> for CounterMiddleware {
 	fn call(
 		&self,
-		req: Request<Body>,
+		req: Request<hyper::body::Incoming>,
 		mut handlers: Box<dyn Iterator<Item = HandlerObj>>,
 	) -> ResponseFuture {
 		self.counter.fetch_add(1, Ordering::SeqCst);

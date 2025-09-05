@@ -20,35 +20,23 @@ use crate::keychain::BlindingFactor;
 use crate::util::secp::key::SecretKey;
 use crate::util::secp::pedersen::Commitment;
 use crate::util::{secp, secp_static, static_secp_instance};
-use failure::Fail;
+use thiserror::Error;
 
 /// Errors from summing and verifying kernel excesses via committed trait.
-#[derive(Debug, Clone, PartialEq, Eq, Fail, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Error, Serialize, Deserialize)]
 pub enum Error {
 	/// Keychain related error.
-	#[fail(display = "Keychain error {}", _0)]
-	Keychain(keychain::Error),
+	#[error("Keychain error {0}")]
+	Keychain(#[from] keychain::Error),
 	/// Secp related error.
-	#[fail(display = "Secp error {}", _0)]
-	Secp(secp::Error),
+	#[error("Secp error {0}")]
+	Secp(#[from] secp::Error),
 	/// Kernel sums do not equal output sums.
-	#[fail(display = "Kernel sum mismatch")]
+	#[error("Kernel sum mismatch")]
 	KernelSumMismatch,
 	/// Committed overage (fee or reward) is invalid
-	#[fail(display = "Invalid value")]
+	#[error("Invalid value")]
 	InvalidValue,
-}
-
-impl From<secp::Error> for Error {
-	fn from(e: secp::Error) -> Error {
-		Error::Secp(e)
-	}
-}
-
-impl From<keychain::Error> for Error {
-	fn from(e: keychain::Error) -> Error {
-		Error::Keychain(e)
-	}
 }
 
 /// Implemented by types that hold inputs and outputs (and kernels)

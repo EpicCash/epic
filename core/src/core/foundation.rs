@@ -1,14 +1,28 @@
-use crate::consensus::{
-	/*first_fork_height, foundation_height,*/ foundation_index, header_version,
-};
-use crate::core::{HeaderVersion, Output, TxKernel};
+// Copyright 2018 The Epic Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Foundation coinbase serialization and loading utilities for Epic.
+
+use crate::consensus::foundation_index;
+use crate::core::{Output, TxKernel};
 use crate::global::get_foundation_path;
 use crate::keychain::Identifier;
 use crate::serde::{Deserialize, Serialize};
 use serde_json;
 use std::fs::{create_dir, File};
-use std::io::prelude::*;
-use std::io::SeekFrom;
+// use std::path::Path; // Already imported elsewhere or not needed
+use std::io::{prelude::*, BufRead, BufReader};
 use std::path::Path;
 
 /// Response to build a coinbase output.
@@ -55,54 +69,52 @@ pub fn save_in_disk(serialization: String, path: &Path) {
 		.expect("Couldn't save the serialization in the disk!")
 }
 
-fn get_foundation_tx_version_size(version: HeaderVersion) -> usize {
-	match version {
-		HeaderVersion(_) => FOUNDATION_COINBASE_SIZE_1,
-	}
-}
-
-fn get_foundation_tx_offset(index: u64, _version: HeaderVersion) -> u64 {
-	let size = index * (FOUNDATION_COINBASE_SIZE_1 as u64);
-
-	if cfg!(windows) {
-		size + index
-	} else {
-		size
-	}
-}
+/// Load the foundation coinbase relative to the height of the chain
+/// Loads the foundation output for the given height.
+/// If the foundation.json file exists, loads from file. Otherwise, uses the embedded mainnet content.
+use crate::global::{ChainTypes, CHAIN_TYPE};
 
 /// Load the foundation coinbase relative to the height of the chain
+/// Loads the foundation output for the given height.
+/// If the foundation.json file exists, loads from file. Otherwise, uses the embedded content for the current chain type.
 pub fn load_foundation_output(height: u64) -> CbData {
-	let height_version = header_version(height);
 	let index_foundation = foundation_index(height);
 
 	let path_str = get_foundation_path()
 		.unwrap_or_else(|| panic!("No path to the foundation.json was provided!"));
 
 	let path = Path::new(&path_str);
-	let mut file = match File::open(&path) {
-		Err(why) => panic!(
-			"Error trying to read the foundation coinbase. Couldn't open the file {}: {}",
-			path.display(),
-			why.to_string()
-		),
-		Ok(file) => file,
+	let lines: Vec<String> = if path.exists() {
+		// Load from file
+		let file = File::open(&path_str).unwrap_or_else(|why| {
+			panic!(
+				"Error trying to read the foundation coinbase. Couldn't open the file {}: {}",
+				path_str, why
+			)
+		});
+		let reader = BufReader::new(file);
+		reader.lines().map(|l| l.unwrap()).collect()
+	} else {
+		// Use embedded content based on chain type
+		let chain_type = CHAIN_TYPE.read().clone();
+		match chain_type {
+			ChainTypes::Mainnet => {
+				static EMBEDDED_FOUNDATION_JSON: &str = include_str!("../../../debian/foundation.json");
+				EMBEDDED_FOUNDATION_JSON.lines().map(|l| l.to_string()).collect()
+			},
+			ChainTypes::AutomatedTesting |
+			ChainTypes::UserTesting |
+			ChainTypes::Floonet => {
+				static EMBEDDED_FOUNDATION_FLOONET_JSON: &str = include_str!("../../../debian/foundation_floonet.json");
+				EMBEDDED_FOUNDATION_FLOONET_JSON.lines().map(|l| l.to_string()).collect()
+			}
+			
+		}
 	};
-	let file_len = file.metadata().unwrap().len();
 
-	// Checks if the file has its size multiple of 1 json
-	// Each json has to have a fixed size in bytes (FOUNDATION_COINBASE_SIZE) for the reading occurs successfully.
-	let offset = get_foundation_tx_offset(index_foundation, height_version);
+	let line = lines
+		.get(index_foundation as usize)
+		.unwrap_or_else(|| panic!("Index {} out of bounds in foundation.json!", index_foundation));
 
-	if offset >= file_len {
-		// TODO: What should we do when the foundations blocks ends ?
-		panic!("Not implemented yet!");
-	};
-
-	let mut buffer = vec![0 as u8; get_foundation_tx_version_size(height_version)];
-	file.seek(SeekFrom::Start(offset)).unwrap();
-	file.read_exact(&mut buffer).unwrap();
-	let buffer_str = String::from_utf8(buffer).unwrap();
-
-	serde_json::from_str(&buffer_str).unwrap()
+	serde_json::from_str(line).unwrap()
 }

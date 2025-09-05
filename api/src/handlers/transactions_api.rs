@@ -20,8 +20,11 @@ use crate::types::*;
 use crate::util;
 use crate::util::secp::pedersen::Commitment;
 use crate::web::*;
-use hyper::{Body, Request, StatusCode};
+use hyper::{Request, StatusCode};
 use std::sync::Weak;
+
+use bytes::Bytes;
+use http_body_util::Full;
 
 // Sum tree handler. Retrieve the roots:
 // GET /v1/txhashset/roots
@@ -138,8 +141,8 @@ impl TxHashSetHandler {
 	}
 }
 
-impl Handler for TxHashSetHandler {
-	fn get(&self, req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for TxHashSetHandler {
+	fn get(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		// TODO: probably need to set a reasonable max limit here
 		let params = QueryParams::from(req.uri().query());
 		let last_n = parse_param_no_err!(params, "n", 10);

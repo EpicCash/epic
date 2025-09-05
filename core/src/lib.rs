@@ -22,7 +22,7 @@
 //#![warn(missing_docs)]
 
 use blake2;
-extern crate bigint;
+
 extern crate keccak_hash;
 #[macro_use]
 extern crate enum_primitive;
@@ -35,9 +35,6 @@ extern crate serde_derive;
 use serde;
 #[macro_use]
 extern crate log;
-use failure;
-#[macro_use]
-extern crate failure_derive;
 #[macro_use]
 pub mod macros;
 

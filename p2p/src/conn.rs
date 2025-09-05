@@ -83,7 +83,7 @@ macro_rules! try_header {
 		match $conn.set_read_timeout(Some(HEADER_IO_TIMEOUT)) {
 			Ok(v) => v,
 			Err(e) => {
-				error!("try_header error: {:?}", e);
+				debug!("try_header error: {:?}", e);
 			}
 		}
 		try_break!($res)
@@ -299,13 +299,15 @@ where
 	let reader_thread = thread::Builder::new()
 		.name("peer_read".to_string())
 		.spawn(move || {
+			if let Err(e) = reader.set_read_timeout(Some(BODY_IO_TIMEOUT)) {
+				error!("Failed to set read timeout: {:?}", e);
+				return; // Beende den Thread sauber
+			}
+
 			loop {
 				// check the read end
 				match try_header!(read_header(&mut reader, version), &mut reader) {
 					Some(MsgHeaderWrapper::Known(header)) => {
-						reader
-							.set_read_timeout(Some(BODY_IO_TIMEOUT))
-							.expect("set timeout");
 						let msg = Message::from_header(header, &mut reader, version);
 
 						trace!(
@@ -358,20 +360,33 @@ where
 	let writer_thread = thread::Builder::new()
 		.name("peer_write".to_string())
 		.spawn(move || {
+			if let Err(e) = writer.set_write_timeout(Some(BODY_IO_TIMEOUT)) {
+				error!("Failed to set write timeout: {:?}", e);
+				return; // Beende den Thread sauber
+			}
+
 			let mut retry_send = Err(());
-			writer
-				.set_write_timeout(Some(BODY_IO_TIMEOUT))
-				.expect("set timeout");
+			let mut failcount = 0;
+
 			loop {
 				let maybe_data = retry_send.or_else(|_| send_rx.recv_timeout(CHANNEL_TIMEOUT));
 				retry_send = Err(());
 				if let Ok(data) = maybe_data {
+					failcount = 0;
 					let written =
 						try_break!(write_message(&mut writer, &data, writer_tracker.clone()));
 					if written.is_none() {
 						retry_send = Ok(data);
 					}
 				}
+
+				if failcount >= 100 {
+					error!("Too many failures, closing connection");
+					break;
+				}
+
+				failcount += 1;
+
 				// check the close channel
 				if stopped.load(Ordering::Relaxed) {
 					break;

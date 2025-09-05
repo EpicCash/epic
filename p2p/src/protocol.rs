@@ -15,14 +15,15 @@
 use crate::chain;
 use crate::conn::{Message, MessageHandler, Tracker};
 use crate::core::core::{self, hash::Hash, hash::Hashed, CompactBlock};
+use crate::util::format::human_readable_size;
 
 use crate::msg::{
 	BanReason, FastHeaders, GetPeerAddrs, Headers, KernelDataResponse, Locator, LocatorFastSync,
-	Msg, PeerAddrs, Ping, Pong, TxHashSetArchive, TxHashSetRequest, Type,
+	Msg, OnionAddressResponse, PeerAddrs, Ping, Pong, TxHashSetArchive, TxHashSetRequest, Type,
 };
 use crate::types::{Error, NetAdapter, PeerInfo};
 use chrono::prelude::Utc;
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use std::cmp;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufWriter, Seek, SeekFrom};
@@ -65,7 +66,7 @@ impl MessageHandler for Protocol {
 		// banned peers up correctly?
 		if adapter.is_banned(self.peer_info.addr) {
 			debug!(
-				"handler: consume: peer {:?} banned, received: {:?}, dropping.",
+				"Handler: consume: peer {:?} banned, received: {:?}, dropping.",
 				self.peer_info.addr, msg.header.msg_type,
 			);
 			return Ok(None);
@@ -105,26 +106,20 @@ impl MessageHandler for Protocol {
 
 			Type::BanReason => {
 				let ban_reason: BanReason = msg.body()?;
-				error!("handle_payload: BanReason {:?}", ban_reason);
+				error!("BanReason {:?}", ban_reason);
 				Ok(None)
 			}
 
 			Type::TransactionKernel => {
 				let h: Hash = msg.body()?;
-				debug!(
-					"handle_payload: received tx kernel: {}, msg_len: {}",
-					h, msg.header.msg_len
-				);
+				debug!("Received tx kernel: {}, msg_len: {}", h, msg.header.msg_len);
 				adapter.tx_kernel_received(h, &self.peer_info)?;
 				Ok(None)
 			}
 
 			Type::GetTransaction => {
 				let h: Hash = msg.body()?;
-				debug!(
-					"handle_payload: GetTransaction: {}, msg_len: {}",
-					h, msg.header.msg_len,
-				);
+				debug!("GetTransaction: {}, msg_len: {}", h, msg.header.msg_len,);
 				let tx = adapter.get_transaction(h);
 				if let Some(tx) = tx {
 					Ok(Some(Msg::new(
@@ -138,32 +133,22 @@ impl MessageHandler for Protocol {
 			}
 
 			Type::Transaction => {
-				debug!(
-					"handle_payload: received tx: msg_len: {}",
-					msg.header.msg_len
-				);
+				debug!("Received tx: msg_len: {}", msg.header.msg_len);
 				let tx: core::Transaction = msg.body()?;
-				adapter.transaction_received(tx, false)?;
+				adapter.transaction_received(tx, false, &self.peer_info)?;
 				Ok(None)
 			}
 
 			Type::StemTransaction => {
-				debug!(
-					"handle_payload: received stem tx: msg_len: {}",
-					msg.header.msg_len
-				);
+				debug!("Received stem tx: msg_len: {}", msg.header.msg_len);
 				let tx: core::Transaction = msg.body()?;
-				adapter.transaction_received(tx, true)?;
+				adapter.transaction_received(tx, true, &self.peer_info)?;
 				Ok(None)
 			}
 
 			Type::GetBlock => {
 				let h: Hash = msg.body()?;
-				trace!(
-					"handle_payload: GetBlock: {}, msg_len: {}",
-					h,
-					msg.header.msg_len,
-				);
+				trace!("GetBlock: {}, msg_len: {}", h, msg.header.msg_len,);
 
 				let bo = adapter.get_block(h);
 				if let Some(b) = bo {
@@ -173,10 +158,7 @@ impl MessageHandler for Protocol {
 			}
 
 			Type::Block => {
-				debug!(
-					"handle_payload: received block: msg_len: {}",
-					msg.header.msg_len
-				);
+				debug!("Received block: msg_len: {}", msg.header.msg_len);
 				let b: core::UntrustedBlock = msg.body()?;
 
 				// We default to NONE opts here as we do not know know yet why this block was
@@ -202,10 +184,7 @@ impl MessageHandler for Protocol {
 			}
 
 			Type::CompactBlock => {
-				debug!(
-					"handle_payload: received compact block: msg_len: {}",
-					msg.header.msg_len
-				);
+				debug!("Received compact block: msg_len: {}", msg.header.msg_len);
 				let b: core::UntrustedCompactBlock = msg.body()?;
 
 				adapter.compact_block_received(b.into(), &self.peer_info)?;
@@ -308,7 +287,6 @@ impl MessageHandler for Protocol {
 			}
 
 			Type::KernelDataRequest => {
-				debug!("handle_payload: kernel_data_request");
 				let kernel_data = self.adapter.kernel_data_read()?;
 				let bytes = kernel_data.metadata()?.len();
 				let kernel_data_response = KernelDataResponse { bytes };
@@ -323,10 +301,7 @@ impl MessageHandler for Protocol {
 
 			Type::KernelDataResponse => {
 				let response: KernelDataResponse = msg.body()?;
-				debug!(
-					"handle_payload: kernel_data_response: bytes: {}",
-					response.bytes
-				);
+				debug!("Kerneldata response bytes: {}", response.bytes);
 
 				let mut writer = BufWriter::new(tempfile()?);
 
@@ -349,7 +324,7 @@ impl MessageHandler for Protocol {
 				let mut file = writer.into_inner().map_err(|_| Error::Internal)?;
 
 				debug!(
-					"handle_payload: kernel_data_response: file size: {}",
+					"Kerneldata response file size: {}",
 					file.metadata().unwrap().len()
 				);
 
@@ -360,8 +335,8 @@ impl MessageHandler for Protocol {
 
 			Type::TxHashSetRequest => {
 				let sm_req: TxHashSetRequest = msg.body()?;
-				debug!(
-					"handle_payload: txhashset req for {} at {}",
+				info!(
+					"SetRequest Txhashset for {} at {}",
 					sm_req.hash, sm_req.height
 				);
 
@@ -369,6 +344,10 @@ impl MessageHandler for Protocol {
 				let txhashset_header_hash = txhashset_header.hash();
 				let txhashset = self.adapter.txhashset_read(txhashset_header_hash);
 
+				// Note: Investigate why the last rangeproof is empty (None, None) when importing txhashset data.
+				//Its always the last rangeproof that is empty.
+				// This is maybe a bug in the code that creates the txhashset archive below.
+				//# see commit 10debf500ad1a2ef87f9ded11a6b2fb2e49669d6
 				if let Some(txhashset) = txhashset {
 					let file_sz = txhashset.reader.metadata()?.len();
 					let mut resp = Msg::new(
@@ -386,72 +365,108 @@ impl MessageHandler for Protocol {
 					Ok(None)
 				}
 			}
-
+			//TODO: partial download (resume)
+			//prompt: Is it possible to resume a TxHashSet download, or is it impossible because it's a zip file?
 			Type::TxHashSetArchive => {
 				let sm_arch: TxHashSetArchive = msg.body()?;
-				debug!(
-					"handle_payload: txhashset archive for {} at {}. size={}",
-					sm_arch.hash, sm_arch.height, sm_arch.bytes,
-				);
+
 				if !self.adapter.txhashset_receive_ready() {
-					error!(
-						"handle_payload: txhashset archive received but SyncStatus not on TxHashsetDownload",
-					);
+					debug!("Txhashset archive received but SyncStatus not on TxHashsetDownload",);
 					return Err(Error::BadMessage);
 				}
 				if !self.state_sync_requested.load(Ordering::Relaxed) {
-					error!("handle_payload: txhashset archive received but from the wrong peer",);
+					debug!("Txhashset archive received but from the wrong peer",);
 					return Err(Error::BadMessage);
 				}
+
+				let size = human_readable_size(sm_arch.bytes);
+				info!(
+					"Looking for Txhashset archive  {} at {}. size={}",
+					sm_arch.hash, sm_arch.height, size,
+				);
+
 				// Update the sync state requested status
-				self.state_sync_requested.store(false, Ordering::Relaxed);
+				self.state_sync_requested.store(true, Ordering::Relaxed);
 
 				let download_start_time = Utc::now();
 				self.adapter
 					.txhashset_download_update(download_start_time, 0, sm_arch.bytes);
 
-				let nonce: u32 = thread_rng().gen_range(0, 1_000_000);
+				let nonce: u32 = rng().random_range(1..1_000_000);
 				let tmp = self.adapter.get_tmpfile_pathname(format!(
 					"txhashset-{}-{}.zip",
 					download_start_time.timestamp(),
 					nonce
 				));
-				let mut now = Instant::now();
+
 				let mut save_txhashset_to_file = |file| -> Result<(), Error> {
-					let mut tmp_zip =
-						BufWriter::new(OpenOptions::new().write(true).create_new(true).open(file)?);
+					let mut tmp_zip = BufWriter::with_capacity(
+						1_048_576, // 1 MB buffer
+						OpenOptions::new().write(true).create_new(true).open(file)?,
+					);
 					let total_size = sm_arch.bytes as usize;
+					let target_time = 600; // 10 minutes in seconds
+					let average_upload_speed = 1_398_101; // 1.4 MB/s in bytes
+
+					// Calculate optimal request_size
+					let mut request_size = cmp::min(1_048_576, total_size); // Start with 1 MB
+					if total_size > average_upload_speed * target_time {
+						request_size = cmp::min(512_000, total_size); // Adjust to 512 KB for slower connections
+					}
+
 					let mut downloaded_size: usize = 0;
-					let mut request_size = cmp::min(48_000, total_size);
+					let mut now = Instant::now();
+					let download_start_time = Instant::now();
+
 					while request_size > 0 {
 						let size = msg.copy_attachment(request_size, &mut tmp_zip)?;
 						downloaded_size += size;
-						request_size = cmp::min(48_000, total_size - downloaded_size);
-						self.adapter.txhashset_download_update(
-							download_start_time,
-							downloaded_size as u64,
-							total_size as u64,
-						);
-						if now.elapsed().as_secs() > 10 {
+						request_size = cmp::min(request_size, total_size - downloaded_size);
+
+						// Calculate elapsed time and download speed
+						let elapsed_time = download_start_time.elapsed().as_secs_f64();
+						let download_speed = downloaded_size as f64 / elapsed_time; // Bytes per second
+						let remaining_size = total_size - downloaded_size;
+						let remaining_time = if download_speed > 0.0 {
+							remaining_size as f64 / download_speed
+						} else {
+							0.0
+						};
+
+						// Update progress less frequently
+						if downloaded_size % 1_000_000 == 0 || now.elapsed().as_secs() > 10 {
+							self.adapter.txhashset_download_update(
+								Utc::now(), // Use the current UTC time instead
+								downloaded_size as u64,
+								total_size as u64,
+							);
 							now = Instant::now();
-							debug!(
-								"handle_payload: txhashset archive: {}/{}",
-								downloaded_size, total_size
+							info!(
+								"Downloading Txhashset archive: {}/{} from peer {}. Speed: {:.2} KB/s, Remaining time: {:.2} seconds",
+								downloaded_size,
+								total_size,
+								self.peer_info.addr,
+								download_speed / 1024.0, // Convert to KB/s
+								remaining_time
 							);
 						}
-						// Increase received bytes quietly (without affecting the counters).
-						// Otherwise we risk banning a peer as "abusive".
+
+						// Increase received bytes quietly
 						tracker.inc_quiet_received(size as u64);
 
-						// check the close channel
+						// Check the close channel
 						if stopped.load(Ordering::Relaxed) {
-							debug!("stopping txhashset download early");
+							debug!(
+								"Stopping txhashset download early from peer {}",
+								self.peer_info.addr
+							);
 							return Err(Error::ConnectionClose);
 						}
 					}
-					debug!(
-						"handle_payload: txhashset archive: {}/{} ... DONE",
-						downloaded_size, total_size
+
+					info!(
+						"Txhashset archive: {}/{} ... DOWNLOAD DONE from peer {}",
+						downloaded_size, total_size, self.peer_info.addr
 					);
 					tmp_zip
 						.into_inner()
@@ -462,15 +477,16 @@ impl MessageHandler for Protocol {
 
 				if let Err(e) = save_txhashset_to_file(tmp.clone()) {
 					error!(
-						"handle_payload: txhashset archive save to file fail. err={:?}",
-						e
+						"Txhashset archive save to file fail from peer {}. err={:?}",
+						self.peer_info.addr, e
 					);
 					return Err(e);
 				}
 
 				trace!(
-					"handle_payload: txhashset archive save to file {:?} success",
+					"Txhashset archive save to file {:?} success from peer {}",
 					tmp,
+					self.peer_info.addr
 				);
 
 				let tmp_zip = File::open(tmp.clone())?;
@@ -478,19 +494,48 @@ impl MessageHandler for Protocol {
 					.adapter
 					.txhashset_write(sm_arch.hash, tmp_zip, &self.peer_info)?;
 
-				debug!(
-					"handle_payload: txhashset archive for {} at {}, DONE. Data Ok: {}",
-					sm_arch.hash, sm_arch.height, !res
+				info!(
+					"Txhashset archive for {} at {}, DONE. Data Ok: {} from peer {}",
+					sm_arch.hash, sm_arch.height, !res, self.peer_info.addr
 				);
 
 				if let Err(e) = fs::remove_file(tmp.clone()) {
-					warn!("fail to remove tmp file: {:?}. err: {}", tmp, e);
+					warn!(
+						"Txhashset archive fail to remove tmp file: {:?}. err: {} from peer {}",
+						tmp, e, self.peer_info.addr
+					);
 				}
 
 				Ok(None)
 			}
 			Type::Error | Type::Hand | Type::Shake => {
 				debug!("Received an unexpected msg: {:?}", msg.header.msg_type);
+				Ok(None)
+			}
+			Type::OnionAddressRequest => {
+				if let Some(my_onion_addr) = &self.adapter.my_onion_addr() {
+					let response = OnionAddressResponse {
+						onion_addr: my_onion_addr.clone(),
+					};
+					Ok(Some(Msg::new(
+						Type::OnionAddressResponse,
+						response,
+						self.peer_info.version,
+					)?))
+				} else {
+					warn!("No onion address set for this node, cannot respond to onion address request.");
+					Ok(None)
+				}
+			}
+			Type::OnionAddressResponse => {
+				let onion_msg: OnionAddressResponse = msg.body()?;
+				if onion_msg.onion_addr.is_empty() {
+					warn!("Received empty onion address in response from peer.");
+				} else {
+					info!("Received onion address from peer: {}", onion_msg.onion_addr);
+					let mut live_info = self.peer_info.live_info.write();
+					live_info.onion_addr = Some(onion_msg.onion_addr.clone());
+				}
 				Ok(None)
 			}
 		}

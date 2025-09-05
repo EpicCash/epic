@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '**'
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches:
+      - '**'
+  schedule:
+    - cron: '0 2 * * *' # Every day at 2am UTC
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Set up Rust
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      # Cache Cargo dependencies
+      - name: Cache Cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache Cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-
+
+      # Build the project
+      - name: Build
+        run: cargo build --workspace --all-targets
+
+      # Prepare foundation file for Windows tests
+      - name: Copy foundation_floonet.json to target/debian (Windows only)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path target\debian -Force
+          Copy-Item debian\foundation_floonet.json target\debian\foundation_floonet.json -Force
+
+      # Run tests
+      - name: Run tests
+        run: cargo test --workspace -- --nocapture --test-threads=1
+      
+  release:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Build release binaries
+        run: cargo build --release --workspace
+
+      - name: Generate checksums
+        run: |
+          cd target/release
+          for f in *; do
+            if [ -x "$f" ] && [ ! -d "$f" ]; then
+              shasum -a 256 "$f" > "$f.sha256"
+            fi
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            target/release/*
+            !target/release/.*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  cucumber-tests:
+    if: github.ref == 'refs/heads/main' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Set up Rust
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      # Cache Cargo dependencies
+      - name: Cache Cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache Cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-
+
+      # Build the project
+      - name: Build
+        run: cargo build --workspace --all-targets
+
+      # Run cucumber tests
+      - name: Run cucumber tests
+        run: cargo test --test cucumber --features cucumber-tests -- --nocapture

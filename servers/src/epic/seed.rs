@@ -17,14 +17,16 @@
 //! configurable with either no peers, a user-defined list or a preset
 //! list of DNS records (the default).
 
-use chrono::prelude::{DateTime, Utc};
-use chrono::{Duration, NaiveDate};
-use rand::seq::SliceRandom;
-use rand::thread_rng;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::net::ToSocketAddrs;
 use std::sync::{mpsc, Arc};
 use std::{cmp, str, thread, time};
+
+use chrono::{DateTime, Utc};
+use chrono::{Duration, NaiveDate};
+use rand::rng;
+use rand::seq::SliceRandom;
 
 use crate::core::global;
 use crate::p2p;
@@ -33,11 +35,8 @@ use crate::p2p::ChainAdapter;
 use crate::util::StopState;
 
 // DNS Seeds with contact email associated
-const MAINNET_DNS_SEEDS: &'static [&'static str] = &[
-	"ec2-54-233-177-64.sa-east-1.compute.amazonaws.com",
-	"ec2-3-218-126-145.compute-1.amazonaws.com",
-];
-const FLOONET_DNS_SEEDS: &'static [&'static str] = &["95.217.197.180"];
+const MAINNET_DNS_SEEDS: &'static [&'static str] = &["node.epiccash.com"];
+const FLOONET_DNS_SEEDS: &'static [&'static str] = &["floonet.epiccash.com"]; //does not exist yet
 pub fn connect_and_monitor(
 	p2p_server: Arc<p2p::Server>,
 	capabilities: p2p::Capabilities,
@@ -52,15 +51,32 @@ pub fn connect_and_monitor(
 			let sl = seed_list();
 
 			// open a channel with a listener that connects every peer address sent below
-			// max peer count
 			let (tx, rx) = mpsc::channel();
 
 			let mut prev = NaiveDate::MIN.and_hms_opt(0, 0, 0).unwrap();
 			let mut prev_expire_check = NaiveDate::MIN.and_hms_opt(0, 0, 0).unwrap();
-			let mut prev_seed_check = NaiveDate::MIN.and_hms_opt(0, 0, 0).unwrap();
 			let mut prev_ping = Utc::now().naive_utc();
 			let mut start_attempt = 0;
 			let mut connecting_history: HashMap<PeerAddr, DateTime<Utc>> = HashMap::new();
+			let mut prev_peer_request = Utc::now().naive_utc();
+			//prepare all peers
+			for mut peer in peers.all_peers() {
+				// Unban peer if it was banned with no reason
+				// This is a workaround for the case when a peer is accidentally banned
+				if matches!(peer.ban_reason, p2p::ReasonForBan::None)
+					&& peer.flags == p2p::State::Banned
+				{
+					debug!("Unbanning peer {} with no ban reason", peer.addr);
+					let _ = peers.unban_peer(peer.addr);
+				}
+
+				// Ingore last connected time on startup!
+				peer.last_connected = 0;
+				let _ = peers.save_peer(&peer);
+			}
+
+			//try to immidiately connect to know healthy if we have some in store
+			connect_to_healthy_peers(tx.clone(), peers.clone());
 
 			loop {
 				if stop_state.is_stopped() {
@@ -73,27 +89,39 @@ pub fn connect_and_monitor(
 					continue;
 				}
 
+				// ask for new peer list from connected peers
+				if Utc::now().naive_utc() - prev_peer_request > Duration::minutes(5) {
+					for peer in peers.all_peers() {
+						if peer.flags == p2p::State::Healthy && peers.is_connected(peer.addr) {
+							if let Some(conn) = peers.get_connected_peer(peer.addr) {
+								let _ = conn.send_peerlist_request(capabilities);
+							}
+						}
+					}
+					prev_peer_request = Utc::now().naive_utc();
+				}
+
 				// Check for and remove expired peers from the storage
 				if Utc::now().naive_utc() - prev_expire_check > Duration::hours(1) {
-					peers.remove_expired();
+					peers.remove_expired_defunc_peers();
 
 					prev_expire_check = Utc::now().naive_utc();
 				}
 
-				// try to connect to the remote seeds
-				// it helps when the remote seeds server are down during the startup
-				if peers.connected_peers().len() < 1
-					&& Utc::now().naive_utc() - prev_seed_check > Duration::seconds(10)
-				{
-					debug!("Trying to reconnect to seed and preferred peers");
+				// Try to connect to the remote seeds
+				// This helps when the remote seed servers are down during startup
+				if peers.peer_count() == 0 {
 					connect_to_seeds_and_preferred_peers(
-						peers.clone(),
 						tx.clone(),
 						sl.clone(),
 						preferred_peers.clone(),
 					);
-					prev_seed_check = Utc::now().naive_utc();
+					start_attempt = 0; // reset start attempt after connecting to seeds
+					thread::sleep(time::Duration::from_secs(10));
 				}
+
+				// set 10 random peers that have state defunc to unknown
+				promote_defunct_to_unknown(&peers);
 
 				// make several attempts to get peers as quick as possible
 				// with exponential backoff
@@ -110,12 +138,7 @@ pub fn connect_and_monitor(
 					);
 
 					// monitor additional peers if we need to add more
-					monitor_peers(
-						peers.clone(),
-						p2p_server.config.clone(),
-						tx.clone(),
-						preferred_peers.clone(),
-					);
+					monitor_peers(peers.clone(), p2p_server.config.clone(), tx.clone());
 
 					prev = Utc::now().naive_utc();
 					start_attempt = cmp::min(6, start_attempt + 1);
@@ -138,18 +161,13 @@ pub fn connect_and_monitor(
 		})
 }
 
-fn monitor_peers(
-	peers: Arc<p2p::Peers>,
-	config: p2p::P2PConfig,
-	tx: mpsc::Sender<PeerAddr>,
-	preferred_peers_list: Option<Vec<PeerAddr>>,
-) {
-	// regularly check if we need to acquire more peers  and if so, gets
-	// them from db
+fn monitor_peers(peers: Arc<p2p::Peers>, config: p2p::P2PConfig, tx: mpsc::Sender<PeerAddr>) {
 	let total_count = peers.all_peers().len();
 	let mut healthy_count = 0;
 	let mut banned_count = 0;
 	let mut defuncts = vec![];
+	let mut unknown = vec![];
+	let mut healthy = vec![];
 
 	for x in peers.all_peers() {
 		match x.flags {
@@ -168,86 +186,103 @@ fn monitor_peers(
 					banned_count += 1;
 				}
 			}
-			p2p::State::Healthy => healthy_count += 1,
+			p2p::State::Healthy => {
+				healthy_count += 1;
+				healthy.push(x);
+			}
 			p2p::State::Defunct => defuncts.push(x),
+			p2p::State::Unknown => unknown.push(x),
 		}
 	}
 
 	info!(
-		"Monitor peers on {}:{}, {} connected ({} most_work). \
+		"Monitor peers on {}:{}, [inbound/outbound/all] {}/{}/{} connected ({} on tip). \
 		 all {} = {} healthy + {} banned + {} defunct",
 		config.host,
 		config.port,
-		peers.peer_count(),
-		peers.most_work_peers().len(),
-		total_count,
-		healthy_count,
-		banned_count,
-		defuncts.len(),
+		peers.peer_inbound_count(),    // Number of inbound connections
+		peers.peer_outbound_count(),   // Number of outbound connections
+		peers.peer_count(),            // Total number of connected peers
+		peers.most_work_peers().len(), // Number of peers with the highest work
+		total_count,                   // Total number of known peers
+		healthy_count,                 // Number of healthy peers
+		banned_count,                  // Number of banned peers
+		defuncts.len(),                // Number of defunct (connecting failed) peers
 	);
 
-	// maintenance step first, clean up p2p server peers
+	// Clean up peers as before
 	peers.clean_peers(
 		config.peer_max_inbound_count() as usize,
 		config.peer_max_outbound_count() as usize,
 	);
 
-	if peers.enough_outbound_peers() {
-		return;
-	}
+	let max_outbound = config.peer_max_outbound_count() as usize;
+	let outbound_count = peers.peer_outbound_count() as usize;
 
-	// loop over connected peers
-	// ask them for their list of peers
-	let mut connected_peers: Vec<PeerAddr> = vec![];
-	for p in peers.connected_peers() {
-		trace!(
-			"monitor_peers: {}:{} ask {} for more peers",
-			config.host,
-			config.port,
-			p.info.addr,
-		);
-		let _ = p.send_peer_request(p2p::Capabilities::PEER_LIST);
-		connected_peers.push(p.info.addr)
-	}
-
-	// Attempt to connect to preferred peers if there is some
-	if let Some(preferred_peers) = preferred_peers_list {
-		for p in preferred_peers {
-			if !connected_peers.is_empty() {
-				if !connected_peers.contains(&p) {
-					tx.send(p).unwrap();
-				}
-			} else {
-				tx.send(p).unwrap();
-			}
+	// --- NEW: Periodically drop and replace an outbound peer if at max ---
+	if outbound_count >= max_outbound {
+		// Drop the oldest or a random outbound peer (except protected ones)
+		if let Some(peer_to_drop) = peers.random_outbound_peer() {
+			debug!(
+				"Dropping outbound peer {} to allow rotation",
+				peer_to_drop.info.addr
+			);
+			let _ = peers.disconnect_peer(peer_to_drop.info.addr);
 		}
 	}
 
-	// take a random defunct peer and mark it healthy: over a long period any
-	// peer will see another as defunct eventually, gives us a chance to retry
-	if defuncts.len() > 0 {
-		defuncts.shuffle(&mut thread_rng());
-		let _ = peers.update_state(defuncts[0].addr, p2p::State::Healthy);
-	}
+	let new_peers_limit = 10;
+	let mut new_peers =
+		peers.find_peers(p2p::State::Unknown, p2p::Capabilities::UNKNOWN, usize::MAX);
+	new_peers.shuffle(&mut rng());
+	let new_peers: Vec<_> = new_peers.into_iter().take(new_peers_limit).collect();
 
-	// find some peers from our db
-	// and queue them up for a connection attempt
-	// intentionally make too many attempts (2x) as some (most?) will fail
-	// as many nodes in our db are not publicly accessible
-	let max_peer_attempts = 128;
-	let new_peers = peers.find_peers(
-		p2p::State::Healthy,
-		p2p::Capabilities::UNKNOWN,
-		max_peer_attempts as usize,
-	);
-
-	// Only queue up connection attempts for candidate peers where we
-	// are confident we do not yet know about this peer.
-	// The call to is_known() may fail due to contention on the peers map.
-	// Do not attempt any connection where is_known() fails for any reason.
+	// Send all combined peers to the connection queue
 	for p in new_peers {
 		if let Ok(false) = peers.is_known(p.addr) {
-			tx.send(p.addr).unwrap();
+			trace!("try sending peer addr to connection queue: {}", p.addr);
+			let _ = tx.send(p.addr);
+		}
+	}
+}
+
+/// Set 10 random peers with state Defunct to Unknown,
+/// to discover them again later.
+fn promote_defunct_to_unknown(peers: &Arc<p2p::Peers>) {
+	let mut defunct_peers: Vec<_> = peers
+		.all_peers()
+		.into_iter()
+		.filter(|peer| peer.flags == p2p::State::Defunct)
+		.collect();
+
+	defunct_peers.shuffle(&mut rng());
+
+	for mut peer in defunct_peers.into_iter().take(10) {
+		peer.flags = p2p::State::Unknown;
+		let _ = peers.save_peer(&peer);
+	}
+}
+
+/// Connect to all healthy peers from the peer store.
+fn connect_to_healthy_peers(tx: mpsc::Sender<PeerAddr>, peers: Arc<p2p::Peers>) {
+	let healthy_peers: Vec<PeerAddr> = peers
+		.all_peers()
+		.into_iter()
+		.filter(|peer| peer.flags == p2p::State::Healthy)
+		.map(|peer| peer.addr)
+		.collect();
+
+	if healthy_peers.is_empty() {
+		warn!("No healthy peers found in store.");
+	}
+
+	for addr in healthy_peers {
+		info!("Connecting to healthy peer address: {}", addr);
+		if let Err(e) = tx.send(addr) {
+			error!(
+				"Failed to send healthy peer addr {} to connection queue: {:?}",
+				addr, e
+			);
 		}
 	}
 }
@@ -255,35 +290,33 @@ fn monitor_peers(
 // Check if we have any pre-existing peer in db. If so, start with those,
 // otherwise use the seeds provided.
 fn connect_to_seeds_and_preferred_peers(
-	peers: Arc<p2p::Peers>,
 	tx: mpsc::Sender<PeerAddr>,
 	seed_list: Vec<PeerAddr>,
 	peers_preferred_list: Option<Vec<PeerAddr>>,
 ) {
-	// check if we have some peers in db
-	// look for peers that are able to give us other peers (via PEER_LIST capability)
-	let peers = peers.find_peers(p2p::State::Healthy, p2p::Capabilities::PEER_LIST, 100);
+	// Start with the seed list
+	let mut peer_addrs = seed_list;
 
-	// if so, get their addresses, otherwise use our seeds
-	let mut peer_addrs = if peers.len() > 3 {
-		peers.iter().map(|p| p.addr).collect::<Vec<_>>()
+	// If we have preferred peers, add them to the list
+	if let Some(mut preferred) = peers_preferred_list {
+		peer_addrs.append(&mut preferred);
 	} else {
-		seed_list
-	};
-
-	// If we have preferred peers add them to the connection
-	match peers_preferred_list {
-		Some(mut peers_preferred) => peer_addrs.append(&mut peers_preferred),
-		None => trace!("No preferred peers"),
-	};
-
-	if peer_addrs.len() == 0 {
-		warn!("No seeds were retrieved.");
+		trace!("No preferred peers");
 	}
 
-	// connect to this first set of addresses
+	if peer_addrs.is_empty() {
+		warn!("No seeds or preferred peers were provided.");
+	}
+
+	// Connect to each address in the combined list
 	for addr in peer_addrs {
-		tx.send(addr).unwrap();
+		info!("Connecting to seed and preferred peers address: {}", addr);
+		if let Err(e) = tx.send(addr) {
+			error!(
+				"Failed to send peer addr {} to connection queue: {:?}",
+				addr, e
+			);
+		}
 	}
 }
 
@@ -297,38 +330,49 @@ fn listen_for_addrs(
 	rx: &mpsc::Receiver<PeerAddr>,
 	connecting_history: &mut HashMap<PeerAddr, DateTime<Utc>>,
 ) {
+	// If we have a healthy number of outbound peers then we are done here.
+	let max_inbound = p2p.config.peer_max_inbound_count() as usize;
+	let max_outbound = p2p.config.peer_max_outbound_count() as usize;
+	if peers.peer_inbound_count() as usize >= max_inbound
+		|| peers.peer_outbound_count() as usize >= max_outbound
+	{
+		return;
+	}
+
 	// Pull everything currently on the queue off the queue.
 	// Does not block so addrs may be empty.
 	// We will take(max_peers) from this later but we want to drain the rx queue
 	// here to prevent it backing up.
-	let addrs: Vec<PeerAddr> = rx.try_iter().collect();
-
-	// If we have a healthy number of outbound peers then we are done here.
-	if peers.enough_outbound_peers() {
-		return;
-	}
+	let mut seen = HashSet::new();
+	let addrs: Vec<PeerAddr> = rx.try_iter().filter(|addr| seen.insert(*addr)).collect();
 
 	// Note: We drained the rx queue earlier to keep it under control.
 	// Even if there are many addresses to try we will only try a bounded number of them for safety.
 	let connect_min_interval = 30;
-	let max_outbound_attempts = 128;
-	for addr in addrs.into_iter().take(max_outbound_attempts) {
+	let max_peers_to_connect = 128;
+	let startup_mode = connecting_history.is_empty();
+	for addr in addrs.into_iter().take(max_peers_to_connect) {
+		if peers.is_connected(addr) {
+			debug!("peer_connect: already connected to {}", addr);
+			continue;
+		}
+
 		// ignore the duplicate connecting to same peer within 30 seconds
 		let now = Utc::now();
-		if let Some(last_connect_time) = connecting_history.get(&addr) {
-			if *last_connect_time + Duration::seconds(connect_min_interval) > now {
-				debug!(
-					"peer_connect: ignore a duplicate request to {}. previous connecting time: {}",
-					addr,
-					last_connect_time.format("%H:%M:%S%.3f").to_string(),
-				);
-				continue;
-			} else {
-				if let Some(history) = connecting_history.get_mut(&addr) {
-					*history = now;
+
+		if !startup_mode {
+			if let Some(last_connect_time) = connecting_history.get(&addr) {
+				if *last_connect_time + Duration::seconds(connect_min_interval) > now {
+					debug!(
+						"peer_connect: ignore a duplicate request to {}. previous connecting time: {}",
+						addr,
+						last_connect_time.format("%H:%M:%S%.3f").to_string(),
+					);
+					continue;
 				}
 			}
 		}
+
 		connecting_history.insert(addr, now);
 
 		let peers_c = peers.clone();
@@ -337,11 +381,20 @@ fn listen_for_addrs(
 			.name("peer_connect".to_string())
 			.spawn(move || match p2p_c.connect(addr) {
 				Ok(p) => {
-					if p.send_peer_request(capab).is_ok() {
+					if p.send_peerlist_request(capab).is_ok() {
 						let _ = peers_c.update_state(addr, p2p::State::Healthy);
+					}
+
+					if let Some(mut peer) = peers_c.get_peer(addr).ok() {
+						peer.last_connected = Utc::now().timestamp();
+						let _ = peers_c.save_peer(&peer);
 					}
 				}
 				Err(_) => {
+					if let Some(mut peer) = peers_c.get_peer(addr).ok() {
+						peer.last_connected = Utc::now().timestamp();
+						let _ = peers_c.save_peer(&peer);
+					}
 					let _ = peers_c.update_state(addr, p2p::State::Defunct);
 				}
 			})
@@ -374,20 +427,19 @@ pub fn dns_seeds() -> Box<dyn Fn() -> Vec<PeerAddr> + Send> {
 		for dns_seed in net_seeds {
 			let temp_addresses = addresses.clone();
 			debug!("Retrieving seed nodes from dns {}", dns_seed);
-			match (dns_seed.to_owned(), 0).to_socket_addrs() {
+			let port = if global::is_floonet() { 13414 } else { 3414 };
+			let addr_str = format!("{}:{}", dns_seed, port);
+			match addr_str.to_socket_addrs() {
 				Ok(addrs) => addresses.append(
 					&mut (addrs
-						.map(|mut addr| {
-							addr.set_port(if global::is_floonet() { 13414 } else { 3414 });
-							PeerAddr(addr)
-						})
+						.map(|addr| PeerAddr(addr))
 						.filter(|addr| !temp_addresses.contains(addr))
 						.collect()),
 				),
-				Err(e) => debug!("Failed to resolve seed {:?} got error {:?}", dns_seed, e),
+				Err(e) => warn!("Failed to resolve seed {:?} got error {:?}", dns_seed, e),
 			}
+			info!("Retrieved seed addresses: {}", addr_str);
 		}
-		debug!("Retrieved seed addresses: {:?}", addresses);
 		addresses
 	})
 }

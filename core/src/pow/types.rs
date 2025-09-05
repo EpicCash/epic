@@ -18,13 +18,15 @@ use std::cmp::Ordering;
 use std::cmp::{max, min};
 use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Sub};
-use std::{fmt, iter};
+use std::{fmt, iter, u64};
 
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use serde::ser::SerializeMap;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use bigint::uint::U256;
+use num_bigint::BigUint;
+use num_traits::One;
+use num_traits::ToPrimitive;
 
 use crate::consensus::{graph_weight, MIN_DIFFICULTY, SECOND_POW_EDGE_BITS};
 use crate::core::hash::{DefaultHashable, Hashed};
@@ -199,10 +201,11 @@ impl Difficulty {
 	}
 
 	fn from_proof_hash(hash: &[u8; 32]) -> Difficulty {
-		let d: U256 = hash.into();
-		let result: U256 = U256::max_value() / d;
+		let d = BigUint::from_bytes_be(hash);
+		let max = BigUint::from((BigUint::one() << 256) - BigUint::one());
+		let result = &max / &d;
 		Difficulty {
-			num: DifficultyNumber::number(result.low_u64()),
+			num: DifficultyNumber::number(result.to_u64().unwrap_or(u64::MAX)),
 		}
 	}
 
@@ -392,7 +395,7 @@ impl<'de> de::Visitor<'de> for DifficultyMap {
 }
 
 /// Block header information pertaining to the proof of work
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProofOfWork {
 	/// Total accumulated difficulty since genesis block
 	pub total_difficulty: Difficulty,
@@ -533,7 +536,7 @@ impl ProofOfWork {
 }
 
 /// A proof of work
-#[derive(Clone, PartialOrd, PartialEq, Serialize)]
+#[derive(Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub enum Proof {
 	/// A Cuck(at)oo Cycle proof of work, consisting of the edge_bits to get the graph
 	/// size (i.e. the 2-log of the number of edges) and the nonces
@@ -582,7 +585,8 @@ impl fmt::Debug for Proof {
 			}
 			Proof::MD5Proof { ref proof, .. } => write!(f, "MD5 ({})", proof),
 			Proof::RandomXProof { ref hash } => {
-				let hash: U256 = hash.into();
+				let hash = num_bigint::BigUint::from_bytes_be(hash);
+
 				write!(f, "RandomX ({})", hash)
 			}
 			Proof::ProgPowProof { ref mix } => write!(f, "Progpow: mix({:?})", mix),
@@ -616,10 +620,10 @@ impl Proof {
 	pub fn random(proof_size: usize) -> Proof {
 		let edge_bits = global::min_edge_bits();
 		let nonce_mask = (1 << edge_bits) - 1;
-		let mut rng = thread_rng();
+		let mut rng = rng();
 		// force the random num to be within edge_bits bits
 		let mut v: Vec<u64> = iter::repeat(())
-			.map(|()| (rng.gen::<u32>() & nonce_mask) as u64)
+			.map(|()| (rng.random::<u32>() & nonce_mask) as u64)
 			.take(proof_size)
 			.collect();
 		v.sort_unstable();

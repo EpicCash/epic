@@ -18,7 +18,7 @@ use std::fs::File;
 
 use crate::core::core::pmmr::RewindablePMMR;
 use crate::core::core::{BlockHeader, TxKernel};
-use crate::error::{Error, ErrorKind};
+use crate::error::Error;
 use epic_store::pmmr::PMMRBackend;
 //use crate::store::Batch;
 
@@ -43,7 +43,7 @@ impl<'a> RewindableKernelView<'a> {
 	pub fn rewind(&mut self, header: &BlockHeader) -> Result<(), Error> {
 		self.pmmr
 			.rewind(header.kernel_mmr_size)
-			.map_err(&ErrorKind::TxHashSetErr)?;
+			.map_err(&Error::TxHashSetErr)?;
 
 		// Update our header to reflect the one we rewound to.
 		self.header = header.clone();
@@ -57,9 +57,9 @@ impl<'a> RewindableKernelView<'a> {
 	/// fast sync where a reorg past the horizon could allow a whole rewrite of
 	/// the kernel set.
 	pub fn validate_root(&self) -> Result<(), Error> {
-		let root = self.pmmr.root().map_err(|_| ErrorKind::InvalidRoot)?;
+		let root = self.pmmr.root().map_err(|_| Error::InvalidRoot)?;
 		if root != self.header.kernel_root {
-			return Err(ErrorKind::InvalidTxHashSet(format!(
+			return Err(Error::InvalidTxHashSet(format!(
 				"Kernel root at {} does not match",
 				self.header.height
 			))
@@ -74,7 +74,7 @@ impl<'a> RewindableKernelView<'a> {
 			.pmmr
 			.backend()
 			.data_as_temp_file()
-			.map_err(|_| ErrorKind::FileReadErr("Data file woes".into()))?;
+			.map_err(|_| Error::FileReadErr("Data file woes".into()))?;
 		Ok(file)
 	}
 }

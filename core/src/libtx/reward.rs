@@ -17,13 +17,33 @@
 use crate::consensus::{cumulative_reward_foundation, header_version, reward};
 use crate::core::block::HeaderVersion;
 use crate::core::{KernelFeatures, Output, OutputFeatures, TxKernel};
-use crate::libtx::error::Error;
+
 use crate::libtx::{
 	aggsig,
 	proof::{self, LegacyProofBuilder, ProofBuild, ProofBuilder},
 };
 use keychain::{Identifier, Keychain, SwitchCommitmentType};
 use util::{secp, static_secp_instance};
+
+use crate::core::transaction;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum Error {
+	#[error("Secp Error {0}")]
+	Secp(#[from] secp::Error),
+	/// Keychain error
+	#[error("Keychain Error {0}")]
+	Keychain(#[from] keychain::Error),
+	#[error(transparent)]
+	LibTx(#[from] crate::libtx::error::Error),
+	#[error("Transaction Error {0}")]
+	Transaction(#[from] transaction::Error),
+	#[error("RangeProof error: {0}")]
+	RangeProof(String),
+	#[error("SwitchCommitment error")]
+	SwitchCommitment,
+}
 
 pub fn output_foundation<K, B>(
 	keychain: &K,

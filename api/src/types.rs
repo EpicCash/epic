@@ -15,15 +15,15 @@
 use std::sync::Arc;
 
 use crate::chain;
+use crate::core::consensus::HeaderInfo;
 use crate::core::core::hash::Hashed;
 use crate::core::core::merkle_proof::MerkleProof;
-use crate::core::core::{KernelFeatures, TxKernel};
+use crate::core::core::{BlockHeader, KernelFeatures, Transaction, TxKernel};
 use crate::core::pow::PoWType;
 use crate::core::{core, ser};
 use crate::p2p;
 use crate::util;
 use crate::util::secp::pedersen;
-use bigint::uint::U256;
 use epic_core::pow::Proof;
 use serde;
 use serde::de::MapAccess;
@@ -87,6 +87,13 @@ pub struct Status {
 	// Additional sync information
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub sync_info: Option<serde_json::Value>,
+
+	// Theoretical current supply (in atomic units)
+	pub supply: u64,
+	// Maximum supply (in atomic units)
+	pub max_supply: u64,
+	// Number of blocks to the next halving
+	pub blocks_to_next_halving: u64,
 }
 
 impl Status {
@@ -95,6 +102,9 @@ impl Status {
 		connections: u32,
 		sync_status: String,
 		sync_info: Option<serde_json::Value>,
+		supply: u64,
+		max_supply: u64,
+		blocks_to_next_halving: u64,
 	) -> Status {
 		Status {
 			protocol_version: ser::ProtocolVersion::local().into(),
@@ -103,6 +113,9 @@ impl Status {
 			tip: Tip::from_tip(current_tip),
 			sync_status,
 			sync_info,
+			supply,
+			max_supply,
+			blocks_to_next_halving,
 		}
 	}
 }
@@ -254,6 +267,17 @@ impl<'de> serde::de::Visitor<'de> for PrintableCommitmentVisitor {
 				util::from_hex(String::from(v)).map_err(serde::de::Error::custom)?,
 			),
 		})
+	}
+}
+
+/// Wrapper type for pedersen::Commitment to allow custom implementations.
+#[derive(Debug, Clone)]
+pub struct CommitmentWrapper(pub pedersen::Commitment);
+
+impl CommitmentWrapper {
+	/// Converts the commitment to a hexadecimal string representation.
+	pub fn to_hex(&self) -> String {
+		util::to_hex(self.0.as_ref().to_vec())
 	}
 }
 
@@ -464,7 +488,8 @@ impl<'de> serde::de::Deserialize<'de> for OutputPrintable {
 				}
 
 				if output_type.is_none()
-					|| commit.is_none() || spent.is_none()
+					|| commit.is_none()
+					|| spent.is_none()
 					|| proof_hash.is_none()
 					|| mmr_index.is_none()
 				{
@@ -624,7 +649,7 @@ impl BlockHeaderPrintable {
 				Proof::CuckooProof { ref nonces, .. } => Solution::Cuckoo(nonces.clone()),
 				Proof::MD5Proof { ref proof, .. } => Solution::MD5(proof.clone()),
 				Proof::RandomXProof { ref hash } => {
-					let h: U256 = hash.into();
+					let h = num_bigint::BigUint::from_bytes_be(hash);
 					Solution::RandomX(format!("{}", h))
 				}
 				Proof::ProgPowProof { ref mix } => Solution::ProgPow(mix.clone()),
@@ -730,6 +755,34 @@ impl CompactBlockPrintable {
 	}
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct BlockTemplatePrintable {
+	/// The block header (printable)
+	pub header: BlockHeader,
+	/// Transactions included in the template (as hex or printable, here as hex)
+	pub transactions: Vec<Transaction>,
+	/// Height of the block
+	pub height: u64,
+	/// Numeric difficulty
+	pub difficulty: HeaderInfo,
+}
+
+impl BlockTemplatePrintable {
+	pub fn from_template(
+		header: BlockHeader,
+		txs: Vec<Transaction>,
+		height: u64,
+		difficulty: HeaderInfo,
+	) -> BlockTemplatePrintable {
+		BlockTemplatePrintable {
+			header,
+			transactions: txs,
+			height,
+			difficulty: difficulty,
+		}
+	}
+}
+
 // For wallet reconstruction, include the header info along with the
 // transactions in the block
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -763,6 +816,8 @@ pub struct LocatedTxKernel {
 pub struct PoolInfo {
 	/// Size of the pool
 	pub pool_size: usize,
+	/// Transactions currently in the pool (as hex)
+	pub txs: Vec<Transaction>,
 }
 
 #[cfg(test)]

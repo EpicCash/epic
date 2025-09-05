@@ -20,7 +20,7 @@ use crate::util::StopState;
 
 use crate::ServerTxPool;
 use chrono::prelude::Utc;
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -151,7 +151,7 @@ fn process_expired_entries(
 	// Take a write lock on the txpool for the duration of this processing.
 	let mut tx_pool = tx_pool.write();
 
-	let embargo_secs = dandelion_config.embargo_secs + thread_rng().gen_range(0, 31);
+	let embargo_secs = dandelion_config.embargo_secs + rng().random_range(0..31);
 	let expired_entries = select_txs_cutoff(&tx_pool.stempool, embargo_secs);
 
 	if expired_entries.is_empty() {

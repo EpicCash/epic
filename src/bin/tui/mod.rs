@@ -14,7 +14,6 @@
 
 //! Epic TUI
 use chrono;
-use humansize;
 //
 mod constants;
 mod logs;

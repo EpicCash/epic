@@ -20,7 +20,7 @@ use crate::msg::{read_message, write_message, Hand, Msg, Shake, Type, USER_AGENT
 use crate::peer::Peer;
 use crate::types::{Capabilities, Direction, Error, P2PConfig, PeerAddr, PeerInfo, PeerLiveInfo};
 use crate::util::RwLock;
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use std::collections::VecDeque;
 use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
@@ -212,7 +212,7 @@ impl Handshake {
 
 	/// Generate a new random nonce and store it in our ring buffer
 	fn next_nonce(&self) -> u64 {
-		let nonce = thread_rng().gen();
+		let nonce = rng().random();
 
 		let mut nonces = self.nonces.write();
 		nonces.push_back(nonce);

@@ -20,15 +20,6 @@
 #![deny(unused_mut)]
 #![warn(missing_docs)]
 
-#[macro_use]
-extern crate log;
-use failure;
-#[macro_use]
-extern crate failure_derive;
-#[macro_use]
-extern crate epic_core as core;
-extern crate epic_util as util;
-
 //use epic_core as core;
 
 pub mod leaf_set;

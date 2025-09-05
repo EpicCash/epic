@@ -19,16 +19,19 @@ use crate::rest::*;
 use crate::router::{Handler, ResponseFuture};
 use crate::web::*;
 
-use hyper::{Body, Request, StatusCode};
+use hyper::{Request, StatusCode};
 use std::net::SocketAddr;
 use std::sync::Weak;
+
+use bytes::Bytes;
+use http_body_util::Full;
 
 pub struct PeersAllHandler {
 	pub peers: Weak<p2p::Peers>,
 }
 
-impl Handler for PeersAllHandler {
-	fn get(&self, _req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for PeersAllHandler {
+	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		let peers = &w_fut!(&self.peers).all_peers();
 		json_response_pretty(&peers)
 	}
@@ -49,14 +52,37 @@ impl PeersConnectedHandler {
 	}
 }
 
-impl Handler for PeersConnectedHandler {
-	fn get(&self, _req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for PeersConnectedHandler {
+	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		let peers: Vec<PeerInfoDisplay> = w_fut!(&self.peers)
 			.connected_peers()
 			.iter()
 			.map(|p| p.info.clone().into())
 			.collect();
 		json_response(&peers)
+	}
+}
+
+#[derive(Serialize)]
+pub struct OnionAddrList {
+	pub onion_addresses: Vec<String>,
+}
+
+pub struct PeersOnionAddressesHandler {
+	pub peers: std::sync::Weak<crate::p2p::Peers>,
+}
+
+impl PeersOnionAddressesHandler {
+	pub fn get_onion_addresses(&self) -> Result<Vec<String>, Error> {
+		let onion_addresses = w(&self.peers)?.all_peer_onion_addresses();
+		Ok(onion_addresses)
+	}
+}
+
+impl Handler<Full<Bytes>> for PeersOnionAddressesHandler {
+	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
+		let onion_addresses = w_fut!(&self.peers).all_peer_onion_addresses();
+		json_response(&OnionAddrList { onion_addresses })
 	}
 }
 
@@ -97,8 +123,8 @@ impl PeerHandler {
 	}
 }
 
-impl Handler for PeerHandler {
-	fn get(&self, req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for PeerHandler {
+	fn get(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		let command = right_path_element!(req);
 
 		// We support both "ip" and "ip:port" here for peer_addr.
@@ -122,7 +148,7 @@ impl Handler for PeerHandler {
 		}
 	}
 
-	fn post(&self, req: Request<Body>) -> ResponseFuture {
+	fn post(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		let mut path_elems = req.uri().path().trim_end_matches('/').rsplit('/');
 		let command = match path_elems.next() {
 			None => return response(StatusCode::BAD_REQUEST, "invalid url"),

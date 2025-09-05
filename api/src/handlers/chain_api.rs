@@ -23,8 +23,11 @@ use crate::util::secp::pedersen::Commitment;
 use crate::web::*;
 use epic_core::core::TxKernel;
 
-use hyper::{Body, Request, StatusCode};
+use hyper::{Request, StatusCode};
 use std::sync::Weak;
+
+use bytes::Bytes;
+use http_body_util::Full;
 
 /// Chain handler. Get the head details.
 /// GET /v1/chain
@@ -41,8 +44,8 @@ impl ChainHandler {
 	}
 }
 
-impl Handler for ChainHandler {
-	fn get(&self, _req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for ChainHandler {
+	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		result_to_response(self.get_tip())
 	}
 }
@@ -61,8 +64,8 @@ impl ChainValidationHandler {
 	}
 }
 
-impl Handler for ChainValidationHandler {
-	fn get(&self, _req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for ChainValidationHandler {
+	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		match w_fut!(&self.chain).validate(true) {
 			Ok(_) => response(StatusCode::OK, "{}"),
 			Err(e) => response(
@@ -88,8 +91,8 @@ impl ChainCompactHandler {
 	}
 }
 
-impl Handler for ChainCompactHandler {
-	fn post(&self, _req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for ChainCompactHandler {
+	fn post(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		match w_fut!(&self.chain).compact() {
 			Ok(_) => response(StatusCode::OK, "{}"),
 			Err(e) => response(
@@ -152,10 +155,7 @@ impl OutputHandler {
 				) {
 					Ok(output) => outputs.push(output),
 					// do not crash here simply do not retrieve this output
-					Err(e) => error!(
-						"Failure to get output for commitment {} with error {}",
-						commit, e
-					),
+					Err(e) => warn!("Output for commitment {}, Message: {}", commit, e),
 				};
 			}
 		}
@@ -211,7 +211,7 @@ impl OutputHandler {
 		Ok(out)
 	}
 
-	fn outputs_by_ids(&self, req: &Request<Body>) -> Result<Vec<Output>, Error> {
+	fn outputs_by_ids(&self, req: &Request<hyper::body::Incoming>) -> Result<Vec<Output>, Error> {
 		let mut commitments: Vec<String> = vec![];
 
 		let query = must_get_query!(req);
@@ -222,10 +222,7 @@ impl OutputHandler {
 		for x in commitments {
 			match self.get_output(&x) {
 				Ok(output) => outputs.push(output),
-				Err(e) => error!(
-					"Failure to get output for commitment {} with error {}",
-					x, e
-				),
+				Err(e) => warn!("Output for commitment {}, Message: {}", x, e),
 			};
 		}
 		Ok(outputs)
@@ -306,7 +303,10 @@ impl OutputHandler {
 	}
 
 	// returns outputs for a specified range of blocks
-	fn outputs_block_batch(&self, req: &Request<Body>) -> Result<Vec<BlockOutputs>, Error> {
+	fn outputs_block_batch(
+		&self,
+		req: &Request<hyper::body::Incoming>,
+	) -> Result<Vec<BlockOutputs>, Error> {
 		let mut commitments: Vec<Commitment> = vec![];
 
 		let query = must_get_query!(req);
@@ -370,8 +370,8 @@ impl OutputHandler {
 	}
 }
 
-impl Handler for OutputHandler {
-	fn get(&self, req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for OutputHandler {
+	fn get(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		match right_path_element!(req) {
 			"byids" => result_to_response(self.outputs_by_ids(&req)),
 			"byheight" => result_to_response(self.outputs_block_batch(&req)),
@@ -388,7 +388,10 @@ pub struct KernelHandler {
 }
 
 impl KernelHandler {
-	fn get_kernel(&self, req: Request<Body>) -> Result<Option<LocatedTxKernel>, Error> {
+	fn get_kernel(
+		&self,
+		req: Request<hyper::body::Incoming>,
+	) -> Result<Option<LocatedTxKernel>, Error> {
 		let excess = req
 			.uri()
 			.path()
@@ -479,8 +482,8 @@ impl KernelHandler {
 	}
 }
 
-impl Handler for KernelHandler {
-	fn get(&self, req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for KernelHandler {
+	fn get(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		result_to_response(self.get_kernel(req))
 	}
 }

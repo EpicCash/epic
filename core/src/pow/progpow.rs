@@ -1,10 +1,8 @@
-extern crate randomx;
-
 use std::marker::PhantomData;
 
 //use crate::core::block::BlockHeader;
 use crate::pow::common::EdgeType;
-use crate::pow::error::{Error, ErrorKind};
+use crate::pow::error::Error;
 use crate::pow::{PoWContext, Proof};
 use crate::util::RwLock;
 
@@ -12,8 +10,6 @@ use keccak_hash::keccak_256;
 
 use progpow::hardware::cpu::PpCPU;
 use progpow::types::PpCompute;
-
-//use bigint::uint::U256;
 
 lazy_static! {
 	pub static ref PP_CPU: RwLock<PpCPU> = RwLock::new(PpCPU::new());
@@ -112,6 +108,6 @@ where
 			}
 		}
 
-		Err(ErrorKind::Verification("Hash progpow invalid!".to_string()))?
+		Err(Error::Verification("Hash progpow invalid!".to_string()))?
 	}
 }

@@ -69,6 +69,8 @@ enum_from_primitive! {
 		KernelDataResponse = 22,
 		GetHeadersFastSync = 23,
 		FastHeaders = 24,
+		OnionAddressRequest = 25,
+		OnionAddressResponse = 26,
 
 	}
 }
@@ -111,6 +113,8 @@ fn max_msg_size(msg_type: Type) -> u64 {
 		Type::TransactionKernel => 32,
 		Type::KernelDataRequest => 0,
 		Type::KernelDataResponse => 8,
+		Type::OnionAddressRequest => 0,
+		Type::OnionAddressResponse => 256,
 	}
 }
 
@@ -832,5 +836,84 @@ impl Readable for KernelDataResponse {
 	fn read(reader: &mut dyn Reader) -> Result<KernelDataResponse, ser::Error> {
 		let bytes = reader.read_u64()?;
 		Ok(KernelDataResponse { bytes })
+	}
+}
+
+pub struct OnionAddressRequest {}
+
+impl Writeable for OnionAddressRequest {
+	fn write<W: Writer>(&self, _writer: &mut W) -> Result<(), ser::Error> {
+		Ok(())
+	}
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnionAddressResponse {
+	pub onion_addr: String,
+}
+
+impl Writeable for OnionAddressResponse {
+	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
+		writer.write_bytes(&self.onion_addr)
+	}
+}
+
+impl Readable for OnionAddressResponse {
+	fn read(reader: &mut dyn Reader) -> Result<OnionAddressResponse, ser::Error> {
+		let bytes = reader.read_bytes_len_prefix()?;
+		let onion_addr = String::from_utf8(bytes).map_err(|_| ser::Error::CorruptedData)?;
+		Ok(OnionAddressResponse { onion_addr })
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::core::ser::{Readable, Writeable};
+
+	#[test]
+	fn test_ban_reason_serialization() {
+		// Test für alle Varianten von ReasonForBan
+		let reasons = vec![
+			ReasonForBan::None,
+			ReasonForBan::BadBlock,
+			ReasonForBan::BadCompactBlock,
+			ReasonForBan::BadBlockHeader,
+			ReasonForBan::BadTxHashSet,
+			ReasonForBan::ManualBan,
+			ReasonForBan::FraudHeight,
+			ReasonForBan::BadHandshake,
+		];
+
+		for reason in reasons {
+			let ban_reason = BanReason { ban_reason: reason };
+
+			// Serialisierung
+			let mut writer = Vec::new();
+			let mut bin_writer = ser::BinWriter::new(&mut writer, ProtocolVersion::local());
+			ban_reason.write(&mut bin_writer).unwrap();
+
+			// Deserialisierung
+			let mut reader = &writer[..];
+			let mut bin_reader = ser::BinReader::new(&mut reader, ProtocolVersion::local());
+			let deserialized_ban_reason = BanReason::read(&mut bin_reader).unwrap();
+
+			// Überprüfen, ob der ursprüngliche und der deserialisierte Wert übereinstimmen
+			assert_eq!(ban_reason.ban_reason, deserialized_ban_reason.ban_reason);
+		}
+	}
+
+	#[test]
+	fn test_invalid_ban_reason_deserialization() {
+		// Test für ungültige Werte
+		let invalid_bytes = vec![255, 0, 0, 0]; // Ein Wert, der keiner gültigen ReasonForBan-Variante entspricht
+		let mut reader = &invalid_bytes[..];
+
+		let mut bin_reader = ser::BinReader::new(&mut reader, ProtocolVersion::local());
+		let result = BanReason::read(&mut bin_reader);
+		assert!(
+			result.is_err(),
+			"Deserialization of invalid BanReason should fail"
+		);
 	}
 }

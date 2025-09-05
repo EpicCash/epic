@@ -2,11 +2,15 @@ Source: epic
 Section: utils
 Priority: optional
 Maintainer: Epic Team <info@epiccash.com>
-Build-Depends: build-essential, debhelper, cmake, libclang-dev, libncurses5-dev, clang, libncursesw5-dev, cargo, rustc
-Standards-Version: 4.0.0
+Build-Depends: build-essential, debhelper-compat (= 13), cmake, clang, libclang-dev, libncurses5-dev, libncursesw5-dev, cargo, rustc
+Standards-Version: 4.6.2
 Homepage: https://epiccash.com
+Vcs-Git: https://github.com/EpicCash/epic.git
+Vcs-Browser: https://github.com/EpicCash/epic
 
 Package: epic
 Architecture: amd64
-Depends: libncurses5, libncursesw5
-Description: Epic server
+Depends: libncurses5, libncursesw5, openssl
+Description: Epic server node for the Epic Cash cryptocurrency
+ Epic is a simple, private, and scalable cryptocurrency implementation based on the MimbleWimble chain format.
+ This package provides the main server node binary.

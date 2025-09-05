@@ -24,7 +24,10 @@ use crate::web::*;
 use regex::Regex;
 use std::sync::Weak;
 
-use hyper::{Body, Request, StatusCode};
+use hyper::{Request, StatusCode};
+
+use bytes::Bytes;
+use http_body_util::Full;
 
 pub struct HeaderHandler {
 	pub chain: Weak<chain::Chain>,
@@ -99,8 +102,8 @@ impl HeaderHandler {
 	}
 }
 
-impl Handler for HeaderHandler {
-	fn get(&self, req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for HeaderHandler {
+	fn get(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		let el = right_path_element!(req);
 		let header = self.get_header(el.to_string());
 		result_to_response(header)
@@ -194,8 +197,8 @@ fn check_block_param(input: &String) -> Result<(), Error> {
 	Ok(())
 }
 
-impl Handler for BlockHandler {
-	fn get(&self, req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for BlockHandler {
+	fn get(&self, req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		let el = right_path_element!(req);
 		let h = match self.parse_input(el.to_string()) {
 			Err(e) => {

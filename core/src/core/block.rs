@@ -18,11 +18,10 @@ pub mod feijoada;
 
 use chrono;
 use chrono::Duration;
-use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, TimeZone, Utc};
 use keccak_hash::keccak_256;
 use std::collections::HashSet;
 use std::convert::TryInto;
-use std::fmt;
 use std::iter::FromIterator;
 
 use crate::consensus::{
@@ -44,78 +43,61 @@ use crate::ser::{self, PMMRable, Readable, Reader, Writeable, Writer};
 use crate::util::{secp, static_secp_instance};
 
 use crate::core::foundation::load_foundation_output;
+use thiserror::Error; // <-- Add this
 
 /// Errors thrown by Block validation
-#[derive(Debug, Clone, Eq, PartialEq, Fail)]
+#[derive(Debug, Clone, Eq, PartialEq, Error)]
 pub enum Error {
 	/// The sum of output minus input commitments does not
 	/// match the sum of kernel commitments
+	#[error("Kernel sum mismatch")]
 	KernelSumMismatch,
 	/// The total kernel sum on the block header is wrong
+	#[error("Invalid total kernel sum")]
 	InvalidTotalKernelSum,
 	/// Same as above but for the coinbase part of a block, including reward
+	#[error("Coinbase sum mismatch")]
 	CoinbaseSumMismatch,
+
+	#[error("Invalid foundation output")]
 	InvalidFoundationOutput,
+
 	/// Restrict block total weight.
+	#[error("Block is too heavy")]
 	TooHeavy,
 	/// Block weight (based on inputs|outputs|kernels) exceeded.
+	#[error("Block weight exceeded")]
 	WeightExceeded,
 	/// Kernel not valid due to lock_height exceeding block header height
+	#[error("Kernel lock height exceeded {0}")]
 	KernelLockHeight(u64),
+
 	/// Underlying tx related error
-	Transaction(transaction::Error),
+	#[error("Transaction Error {0}")]
+	Transaction(#[from] transaction::Error),
 	/// Underlying Secp256k1 error (signature validation or invalid public key
 	/// typically)
-	Secp(secp::Error),
+	#[error("Secp error {0}")]
+	Secp(#[from] secp::Error),
 	/// Underlying keychain related error
-	Keychain(keychain::Error),
+	#[error("Keychain Error {0}")]
+	Keychain(#[from] keychain::Error),
 	/// Underlying Merkle proof error
+	#[error("Merkle proof error")]
 	MerkleProof,
 	/// Error when verifying kernel sums via committed trait.
-	Committed(committed::Error),
+	#[error("Committed Trait: Error summing and verifying kernel sums {0}")]
+	Committed(#[from] committed::Error),
 	/// Validation error relating to cut-through.
 	/// Specifically the tx is spending its own output, which is not valid.
+	#[error("Cut-through validation error")]
 	CutThrough,
 	/// Underlying serialization error.
-	Serialization(ser::Error),
+	#[error("Serialization Error {0}")]
+	Serialization(#[from] ser::Error),
 	/// Other unspecified error condition
+	#[error("Other Error")]
 	Other(String),
-}
-
-impl From<committed::Error> for Error {
-	fn from(e: committed::Error) -> Error {
-		Error::Committed(e)
-	}
-}
-
-impl From<transaction::Error> for Error {
-	fn from(e: transaction::Error) -> Error {
-		Error::Transaction(e)
-	}
-}
-
-impl From<ser::Error> for Error {
-	fn from(e: ser::Error) -> Error {
-		Error::Serialization(e)
-	}
-}
-
-impl From<secp::Error> for Error {
-	fn from(e: secp::Error) -> Error {
-		Error::Secp(e)
-	}
-}
-
-impl From<keychain::Error> for Error {
-	fn from(e: keychain::Error) -> Error {
-		Error::Keychain(e)
-	}
-}
-
-impl fmt::Display for Error {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "Block Error (display needs implementation")
-	}
 }
 
 /// Header entry for storing in the header MMR.
@@ -175,7 +157,7 @@ impl Hashed for HeaderEntry {
 }
 
 /// Some type safety around header versioning.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct HeaderVersion(pub u16);
 
 impl Default for HeaderVersion {
@@ -211,7 +193,7 @@ impl Readable for HeaderVersion {
 }
 
 /// Block header, fairly standard compared to other blockchains.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BlockHeader {
 	/// Version of the block
 	pub version: HeaderVersion,
@@ -251,10 +233,7 @@ impl Default for BlockHeader {
 		BlockHeader {
 			version: HeaderVersion::default(),
 			height: 0,
-			timestamp: TimeZone::from_utc_datetime(
-				&Utc,
-				&NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
-			),
+			timestamp: Utc.timestamp_opt(0, 0).single().expect("Invalid timestamp"),
 			prev_hash: ZERO_HASH,
 			prev_root: ZERO_HASH,
 			output_root: ZERO_HASH,
@@ -320,13 +299,15 @@ fn read_block_header(reader: &mut dyn Reader) -> Result<BlockHeader, ser::Error>
 
 	if timestamp
 		> chrono::NaiveDate::MAX
-			.and_hms_opt(0, 0, 0)
+			.and_hms_opt(23, 59, 59)
 			.unwrap()
+			.and_utc()
 			.timestamp()
 		|| timestamp
 			< chrono::NaiveDate::MIN
 				.and_hms_opt(0, 0, 0)
 				.unwrap()
+				.and_utc()
 				.timestamp()
 	{
 		return Err(ser::Error::CorruptedData);
@@ -343,10 +324,10 @@ fn read_block_header(reader: &mut dyn Reader) -> Result<BlockHeader, ser::Error>
 	Ok(BlockHeader {
 		version,
 		height,
-		timestamp: TimeZone::from_utc_datetime(
-			&Utc,
-			&NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap(),
-		),
+		timestamp: Utc
+			.timestamp_opt(timestamp, 0)
+			.single()
+			.expect("Invalid timestamp"),
 		prev_hash,
 		prev_root,
 		output_root,
@@ -515,7 +496,7 @@ impl Readable for UntrustedBlockHeader {
 /// non-explicit, assumed to be deducible from block height (similar to
 /// bitcoin's schedule) and expressed as a global transaction fee (added v.H),
 /// additive to the total of fees ever collected.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
 	/// The header with metadata and commitments to the rest of the data
 	pub header: BlockHeader,
@@ -684,8 +665,10 @@ impl Block {
 		let version = consensus::header_version(height);
 
 		let now = Utc::now().timestamp();
-		let timestamp =
-			TimeZone::from_utc_datetime(&Utc, &NaiveDateTime::from_timestamp_opt(now, 0).unwrap());
+		let timestamp = Utc
+			.timestamp_opt(now, 0)
+			.single()
+			.expect("Invalid timestamp");
 
 		// Now build the block with all the above information.
 		// Note: We have not validated the block here.
@@ -734,8 +717,10 @@ impl Block {
 
 		let height = prev.height + 1;
 		let now = Utc::now().timestamp();
-		let timestamp =
-			TimeZone::from_utc_datetime(&Utc, &NaiveDateTime::from_timestamp_opt(now, 0).unwrap());
+		let timestamp = Utc
+			.timestamp_opt(now, 0)
+			.single()
+			.expect("Invalid timestamp");
 
 		// Now build the block with all the above information.
 		// Note: We have not validated the block here.
@@ -976,5 +961,44 @@ impl Readable for UntrustedBlock {
 			body,
 		};
 		Ok(UntrustedBlock(block))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use crate::core::block::BlockHeader;
+	use chrono::{DateTime, TimeZone, Utc};
+	#[test]
+	fn test_blockheader_default_timestamp() {
+		// Expected timestamp (Unix epoch start)
+		let expected_timestamp = Utc.timestamp_opt(0, 0).single().expect("Invalid timestamp");
+
+		// Create a default BlockHeader
+		let block_header = BlockHeader::default();
+
+		// Assert that the timestamp matches the expected value
+		assert_eq!(block_header.timestamp, expected_timestamp);
+
+		// Validate that the timestamp converts back to the correct Unix timestamp
+		assert_eq!(block_header.timestamp.timestamp(), 0);
+	}
+	#[test]
+	fn test_from_timestamp_opt() {
+		// Example timestamp (seconds since Unix epoch)
+		let timestamp: i64 = 1_615_000_000; // Corresponds to 2021-03-08T00:00:00Z
+
+		// Convert timestamp to NaiveDateTime using from_timestamp_opt
+		let naive_datetime =
+			DateTime::from_timestamp(timestamp, 0).expect("Failed to create NaiveDateTime");
+
+		// Convert back to timestamp
+		let converted_timestamp = naive_datetime.timestamp();
+
+		// Assert that the original and converted timestamps match
+		assert_eq!(timestamp, converted_timestamp);
+
+		// Optional: Validate against Utc DateTime
+		let utc_datetime = Utc.timestamp_opt(timestamp, 0).single().unwrap();
+		assert_eq!(naive_datetime, utc_datetime);
 	}
 }

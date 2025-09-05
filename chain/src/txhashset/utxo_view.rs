@@ -19,7 +19,7 @@ use crate::core::core::pmmr::{self, ReadonlyPMMR};
 use crate::core::core::{Block, BlockHeader, Input, Output, Transaction};
 use crate::core::global;
 use crate::core::ser::PMMRIndexHashable;
-use crate::error::{Error, ErrorKind};
+use crate::error::Error;
 use crate::store::Batch;
 use crate::util::secp::pedersen::RangeProof;
 use epic_store::pmmr::PMMRBackend;
@@ -84,7 +84,7 @@ impl<'a> UTXOView<'a> {
 				}
 			}
 		}
-		Err(ErrorKind::AlreadySpent(input.commitment()).into())
+		Err(Error::AlreadySpent(input.commitment()).into())
 	}
 
 	// Output is valid if it would not result in a duplicate commitment in the output MMR.
@@ -92,7 +92,7 @@ impl<'a> UTXOView<'a> {
 		if let Ok(pos) = batch.get_output_pos(&output.commitment()) {
 			if let Some(out_mmr) = self.output_pmmr.get_data(pos) {
 				if out_mmr.commitment() == output.commitment() {
-					return Err(ErrorKind::DuplicateCommitment(output.commitment()).into());
+					return Err(Error::DuplicateCommitment(output.commitment()).into());
 				}
 			}
 		}
@@ -104,9 +104,9 @@ impl<'a> UTXOView<'a> {
 		match self.output_pmmr.get_data(pos) {
 			Some(output_id) => match self.rproof_pmmr.get_data(pos) {
 				Some(rproof) => Ok(output_id.into_output(rproof)),
-				None => Err(ErrorKind::RangeproofNotFound.into()),
+				None => Err(Error::RangeproofNotFound.into()),
 			},
-			None => Err(ErrorKind::OutputNotFound.into()),
+			None => Err(Error::OutputNotFound.into()),
 		}
 	}
 
@@ -131,7 +131,7 @@ impl<'a> UTXOView<'a> {
 			// If we have not yet reached 1440 blocks then
 			// we can fail immediately as coinbase cannot be mature.
 			if height < global::coinbase_maturity() {
-				return Err(ErrorKind::ImmatureCoinbase.into());
+				return Err(Error::ImmatureCoinbase.into());
 			}
 
 			// Find the "cutoff" pos in the output MMR based on the
@@ -143,7 +143,7 @@ impl<'a> UTXOView<'a> {
 			// If any output pos exceed the cutoff_pos
 			// we know they have not yet sufficiently matured.
 			if pos > cutoff_pos {
-				return Err(ErrorKind::ImmatureCoinbase.into());
+				return Err(Error::ImmatureCoinbase.into());
 			}
 		}
 
@@ -168,7 +168,7 @@ impl<'a> UTXOView<'a> {
 			let header = batch.get_block_header(&hash)?;
 			Ok(header)
 		} else {
-			Err(ErrorKind::Other("get header by height".to_string()).into())
+			Err(Error::Other("get header by height".to_string()).into())
 		}
 	}
 }

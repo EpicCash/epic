@@ -1,0 +1,4 @@
+tor-expert-bundle-macos-x86_64-14.5.4.tar.gz 28f1a7355abd17d3ad0cc0438caf0a5c563939115e6e22885ea470a8bda55a27
+tor-expert-bundle-macos-aarch64-14.5.4.tar.gz a57479977c07a270390b40bebff6a85f80de3007e0b637d63322e078f09c6ec9
+tor-expert-bundle-linux-x86_64-14.5.4.tar.gz b35a60bb8a07de18eb9cdb4ab7a92c21775e8c9126bd50d9170f2e6d090a32c2
+tor-expert-bundle-windows-x86_64-14.5.4.tar.gz e40719fc2523e32529db63caf015016511e6f684087d89654408ea4a565516e0

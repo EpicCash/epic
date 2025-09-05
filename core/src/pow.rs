@@ -29,7 +29,6 @@
 //#![warn(missing_docs)]
 
 use chrono;
-use num;
 
 #[macro_use]
 mod common;
@@ -47,7 +46,7 @@ mod types;
 use crate::core::{Block, BlockHeader};
 use crate::genesis;
 use crate::global;
-use chrono::{NaiveDateTime, TimeZone, Utc};
+use chrono::{TimeZone, Utc};
 
 pub use self::common::EdgeType;
 pub use self::types::*;
@@ -143,11 +142,10 @@ pub fn pow_size(
 
 		// and if we're back where we started, update the time (changes the hash as
 		// well)
+		//timestamp: Utc.timestamp_opt(0, 0).single().expect("Invalid timestamp"),
+
 		if bh.pow.nonce == start_nonce {
-			bh.timestamp = TimeZone::from_utc_datetime(
-				&Utc,
-				&NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
-			);
+			bh.timestamp = Utc.timestamp_opt(0, 0).single().expect("Invalid timestamp");
 		}
 	}
 }

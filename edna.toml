@@ -58,7 +58,7 @@ skip_sync_wait = false
 
 #whether to run the ncurses TUI. Ncurses must be installed and this
 #will also disable logging to stdout
-run_tui = true
+run_tui = false
 
 #Whether to run a test miner. This is only for developer testing (chaintype
 #usertesting) at cuckoo 16, and will only mine into the default wallet port.
@@ -110,14 +110,13 @@ seeding_type = "DNSSeed"
 #until we get to at least this number
 #peer_min_preferred_count = 8
 
-# 31 = Bit flags for FULL_NODE, with HEADER_FASTSYNC capability
-#This structure needs to be changed internally, to make it more configurable
+peer_min_preferred_outbound_count = 8
 
 # A preferred dandelion_peer, mainly used for testing dandelion
 # dandelion_peer = "10.0.0.1:13144"
 
-[server.p2p_config.capabilities]
-bits = 31
+capabilities = "HEADER_HIST|TXHASHSET_HIST|PEER_LIST|TX_KERNEL_HASH|HEADER_FASTSYNC"
+
 
 
 #########################################
@@ -200,10 +199,10 @@ timeout = 10
 log_to_stdout = true
 
 #log level for stdout: Error, Warning, Info, Debug, Trace
-stdout_log_level = "Warning"
+stdout_log_level = "Info"
 
 #whether to log to a file
-log_to_file = true
+log_to_file = false
 
 #log level for file: Error, Warning, Info, Debug, Trace
 file_log_level = "Info"

@@ -21,7 +21,7 @@ use croaring::Bitmap;
 use crate::core::core::hash::{DefaultHashable, Hash};
 use crate::core::core::pmmr::{self, ReadonlyPMMR, VecBackend, PMMR};
 use crate::core::ser::{self, FixedLength, PMMRable, Readable, Reader, Writeable, Writer};
-use crate::error::{Error, ErrorKind};
+use crate::error::Error;
 
 /// The "bitmap accumulator" allows us to commit to a specific bitmap by splitting it into
 /// fragments and inserting these fragments into an MMR to produce an overall root hash.
@@ -149,7 +149,7 @@ impl BitmapAccumulator {
 		let chunk_pos = pmmr::insertion_to_pmmr_index(chunk_idx + 1);
 		let rewind_pos = chunk_pos.saturating_sub(1);
 		pmmr.rewind(rewind_pos, &Bitmap::new())
-			.map_err(|e| ErrorKind::Other(e))?;
+			.map_err(|e| Error::Other(e))?;
 		Ok(())
 	}
 
@@ -171,7 +171,7 @@ impl BitmapAccumulator {
 		let last_pos = self.backend.size();
 		PMMR::at(&mut self.backend, last_pos)
 			.push(&chunk)
-			.map_err(|e| ErrorKind::Other(e).into())
+			.map_err(|e| Error::Other(e).into())
 	}
 
 	/// The root hash of the bitmap accumulator MMR.

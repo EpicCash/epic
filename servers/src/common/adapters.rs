@@ -38,6 +38,8 @@ use crate::util::OneTime;
 use chrono::prelude::*;
 use chrono::Duration;
 use rand::prelude::*;
+use std::collections::HashMap;
+use std::sync::Mutex;
 
 /// Force full pow verification this many blocks from chaintip
 pub const POW_VERIFICATION_THRESHOLD: u64 = 1000;
@@ -45,6 +47,10 @@ pub const POW_VERIFICATION_THRESHOLD: u64 = 1000;
 /// Ignore block broadcasts from chaintip, until we are less than
 /// this many blocks from chaintip, while syncing
 pub const BLOCK_BROADCAST_IGNORE_THRESHOLD: u64 = 200;
+
+/// Ignore block broadcasts from chaintip, until we are less than
+/// this many blocks from chaintip, while syncing
+pub const HEADER_BROADCAST_IGNORE_THRESHOLD: u64 = 200;
 
 /// Implementation of the NetAdapter for the . Gets notified when new
 /// blocks and transactions are received and forwards to the chain and pool
@@ -60,6 +66,7 @@ where
 	peers: OneTime<Weak<p2p::Peers>>,
 	config: ServerConfig,
 	hooks: Vec<Box<dyn NetEvents + Send + Sync>>,
+	recently_seen_headers: Arc<Mutex<HashMap<Hash, (p2p::PeerAddr, Instant)>>>,
 }
 
 impl<B, P> p2p::ChainAdapter for NetToChainAdapter<B, P>
@@ -67,6 +74,10 @@ where
 	B: BlockChain,
 	P: PoolAdapter,
 {
+	fn sync_status(&self) -> SyncStatus {
+		self.sync_state.status()
+	}
+
 	fn total_difficulty(&self) -> Result<Difficulty, chain::Error> {
 		Ok(self.chain().head()?.total_difficulty)
 	}
@@ -105,6 +116,7 @@ where
 		&self,
 		tx: core::Transaction,
 		stem: bool,
+		peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
 		// nothing much we can do with a new transaction while syncing
 		if self.sync_state.is_syncing() {
@@ -116,7 +128,7 @@ where
 		let header = self.chain().head_header()?;
 
 		for hook in &self.hooks {
-			let _ = hook.on_transaction_received(&tx);
+			let _ = hook.on_transaction_received(&tx, &peer_info);
 		}
 
 		let tx_hash = tx.hash();
@@ -142,10 +154,11 @@ where
 			if b.header.height.clone()
 				> (self.chain().head()?.height + BLOCK_BROADCAST_IGNORE_THRESHOLD)
 			{
-				debug!(
-					"Ignoring full block {}, height({}), delivered during sync",
+				warn!(
+					"Ignoring full block {}, height({}), delivered during sync from peer {}",
 					b.hash(),
-					b.header.height.clone()
+					b.header.height.clone(),
+					peer_info.addr
 				);
 				return Ok(true);
 			}
@@ -183,14 +196,28 @@ where
 				return Ok(true);
 			}
 		}
+
+		let cb_hash = cb.hash();
+
 		// No need to process this compact block if we have previously accepted the _full block_.
-		if self.chain().block_exists(cb.hash())? {
+		if self.chain().block_exists(cb_hash)? {
 			return Ok(true);
 		}
-		let bhash = cb.hash();
+
+		//strict "header first" propagation
+		let header_peer_addr_opt = {
+			let seen = self.recently_seen_headers.lock().unwrap();
+			seen.get(&cb_hash).copied()
+		};
+		let header_peer_addr = header_peer_addr_opt.map(|(addr, _)| addr);
+		if Some(peer_info.addr) != header_peer_addr {
+			// Only accept the compact block from the peer that sent the header
+			return Ok(true);
+		}
+
 		debug!(
 			"Received compact_block {} at {} from {} [out/kern/kern_ids: {}/{}/{}] going to process.",
-			bhash,
+			cb_hash.clone(),
 			cb.header.height,
 			peer_info.addr,
 			cb.out_full().len(),
@@ -198,7 +225,6 @@ where
 			cb.kern_ids().len(),
 		);
 
-		let cb_hash = cb.hash();
 		if cb.kern_ids().is_empty() {
 			// push the freshly hydrated block through the chain pipeline
 			match core::Block::hydrate_from(cb, vec![]) {
@@ -221,7 +247,7 @@ where
 				.chain()
 				.process_block_header(&cb.header, chain::Options::NONE)
 			{
-				debug!("Invalid compact block header {}: {:?}", cb_hash, e.kind());
+				debug!("Invalid compact block header {}: {:?}", cb_hash, e);
 				return Ok(!e.is_bad_data());
 			}
 
@@ -284,15 +310,29 @@ where
 		bh: core::BlockHeader,
 		peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
+		//keep new headers synced exept when in HeaderSync mode
+		if matches!(self.sync_state.status(), SyncStatus::HeaderSync { .. }) {
+			return Ok(true);
+		}
+
 		// No need to process this header if we have previously accepted the _full block_.
 		if self.chain().block_exists(bh.hash())? {
 			return Ok(true);
 		}
+		// Clean up old header entries
+		self.cleanup_recently_seen_headers(std::time::Duration::from_secs(120));
 
-		// Also no need to process if we are syncing headers, we receive a new peer header broadcast
-		if matches!(self.sync_state.status(), SyncStatus::HeaderSync { .. }) {
-			//warn!("Ignoring broadcasted header for block: hash({}) height({})", bh.hash(), bh.height);
-			return Ok(true);
+		let hash = bh.hash();
+		{
+			let mut seen = self.recently_seen_headers.lock().unwrap();
+			if seen.contains_key(&hash) {
+				// Already seen from some peer, drop early
+				return Ok(true);
+			}
+			if seen.len() > 10000 {
+				seen.clear();
+			}
+			seen.insert(hash, (peer_info.addr, Instant::now()));
 		}
 
 		if !self.sync_state.is_syncing() {
@@ -303,15 +343,16 @@ where
 
 		// pushing the new block header through the header chain pipeline
 		// we will go ask for the block if this is a new header
-
 		let res = self.chain().process_block_header(&bh, chain::Options::NONE);
 
 		if let Err(e) = res {
-			debug!(
-				"Block header {} refused by chain: {:?}",
-				bh.hash(),
-				e.kind()
-			);
+			// if we got a bad data error, we can remove the header from the recently seen headers
+			{
+				let mut seen = self.recently_seen_headers.lock().unwrap();
+				seen.remove(&hash);
+			}
+
+			debug!("Block header {} refused by chain: {:?}", bh.hash(), e);
 			if e.is_bad_data() {
 				return Ok(false);
 			} else {
@@ -323,9 +364,9 @@ where
 
 		// we have successfully processed a block header
 		// so we can go request the block itself
-		self.request_compact_block(&bh, peer_info);
+		// moved request for compact block to peers::header_received
+		//self.request_compact_block(&bh, peer_info);
 
-		// done receiving the header
 		Ok(true)
 	}
 
@@ -387,7 +428,11 @@ where
 				return Ok(true);
 			}
 			Err(e) => {
-				debug!("Block headers refused by chain: {:?}", e);
+				debug!(
+					"Block headers refused by chain: {:?} {}",
+					e,
+					e.is_bad_data()
+				);
 				if e.is_bad_data() {
 					return Ok(false);
 				} else {
@@ -534,9 +579,9 @@ where
 			Ok(is_bad_data) => {
 				if is_bad_data {
 					self.chain().clean_txhashset_sandbox();
-					error!("Failed to save txhashset archive: bad data");
+					error!("Failed to save Txhashset archive: bad data");
 					self.sync_state.set_sync_error(
-						chain::ErrorKind::TxHashSetErr("bad txhashset data".to_string()).into(),
+						chain::Error::TxHashSetErr("bad Txhashset data".to_string()).into(),
 					);
 				} else {
 					info!("Received valid txhashset data for {}.", h);
@@ -545,7 +590,7 @@ where
 			}
 			Err(e) => {
 				self.chain().clean_txhashset_sandbox();
-				error!("Failed to save txhashset archive: {}", e);
+				error!("Failed to save Txhashset archive: {}", e);
 				self.sync_state.set_sync_error(e);
 				Ok(false)
 			}
@@ -581,6 +626,9 @@ where
 			peers: OneTime::new(),
 			config,
 			hooks,
+			recently_seen_headers: Arc::new(Mutex::new(
+				HashMap::<Hash, (p2p::PeerAddr, Instant)>::with_capacity(10_000),
+			)),
 		}
 	}
 
@@ -697,25 +745,24 @@ where
 				Ok(false)
 			}
 			Err(e) => {
-				match e.kind() {
-					chain::ErrorKind::Orphan => {
+				match e {
+					chain::Error::Orphan => {
 						if let Ok(previous) = previous {
 							// make sure we did not miss the parent block
 							if !self.chain().is_orphan(&previous.hash())
 								&& !self.sync_state.is_syncing()
 							{
-								debug!("process_block: received an orphan block, checking the parent: {:}", previous.hash());
+								debug!(
+									"Received an orphan block, checking the parent: {:}",
+									previous.hash()
+								);
 								self.request_block(&previous, peer_info, chain::Options::NONE)
 							}
 						}
 						Ok(true)
 					}
 					_ => {
-						debug!(
-							"process_block: block {} refused by chain: {}",
-							bhash,
-							e.kind()
-						);
+						debug!("Block {} refused by chain: {}", bhash, e);
 						Ok(true)
 					}
 				}
@@ -759,8 +806,8 @@ where
 
 		// Roll the dice to trigger compaction at 1/COMPACTION_CHECK chance per block,
 		// uses a different thread to avoid blocking the caller thread (likely a peer)
-		let mut rng = thread_rng();
-		if 0 == rng.gen_range(0, global::COMPACTION_CHECK) {
+		let mut rng = rand::rng();
+		if 0 == rng.random_range(0..global::COMPACTION_CHECK) {
 			let chain = self.chain().clone();
 			let _ = thread::Builder::new()
 				.name("compactor".to_string())
@@ -789,11 +836,12 @@ where
 	// After we have received a block header in "header first" propagation
 	// we need to go request the block (compact representation) from the
 	// same peer that gave us the header (unless we have already accepted the block)
-	fn request_compact_block(&self, bh: &BlockHeader, peer_info: &PeerInfo) {
+	// moved to peers::header_received
+	/*fn request_compact_block(&self, bh: &BlockHeader, peer_info: &PeerInfo) {
 		self.send_block_request_to_peer(bh.hash(), peer_info, |peer, h| {
 			peer.send_compact_block_request(h)
 		})
-	}
+	}*/
 
 	fn send_tx_request_to_peer<F>(&self, h: Hash, peer_info: &PeerInfo, f: F)
 	where
@@ -801,7 +849,7 @@ where
 	{
 		match self.peers().get_connected_peer(peer_info.addr) {
 			None => debug!(
-				"send_tx_request_to_peer: can't send request to peer {:?}, not connected",
+				"Can't send request to peer {:?}, not connected",
 				peer_info.addr
 			),
 			Some(peer) => {
@@ -819,21 +867,27 @@ where
 		match self.chain().block_exists(h) {
 			Ok(false) => match self.peers().get_connected_peer(peer_info.addr) {
 				None => debug!(
-					"send_block_request_to_peer: can't send request to peer {:?}, not connected",
+					"Can't send request to peer {:?}, not connected",
 					peer_info.addr
 				),
 				Some(peer) => {
 					if let Err(e) = f(&peer, h) {
-						error!("send_block_request_to_peer: failed: {:?}", e)
+						error!("Send block request to peer failed: {:?}", e)
 					}
 				}
 			},
-			Ok(true) => debug!("send_block_request_to_peer: block {} already known", h),
+			Ok(true) => debug!("Send block request to peer. Block {} already known", h),
 			Err(e) => error!(
-				"send_block_request_to_peer: failed to check block exists: {:?}",
+				"Send block request to peer. failed to check block exists: {:?}",
 				e
 			),
 		}
+	}
+
+	fn cleanup_recently_seen_headers(&self, timeout: std::time::Duration) {
+		let mut seen = self.recently_seen_headers.lock().unwrap();
+		let now = Instant::now();
+		seen.retain(|_, &mut (_, timestamp)| now.duration_since(timestamp) < timeout);
 	}
 }
 

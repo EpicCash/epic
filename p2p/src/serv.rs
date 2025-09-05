@@ -35,6 +35,7 @@ use crate::types::{
 };
 use crate::util::StopState;
 use chrono::prelude::{DateTime, Utc};
+use epic_chain::types::SyncStatus;
 
 /// P2P server implementation, handling bootstrapping to find and connect to
 /// peers, receiving connections from other peers and keep track of all of them.
@@ -56,12 +57,18 @@ impl Server {
 		adapter: Arc<dyn ChainAdapter>,
 		genesis: Hash,
 		stop_state: Arc<StopState>,
+		onion_addr: Option<String>,
 	) -> Result<Server, Error> {
 		Ok(Server {
 			config: config.clone(),
 			capabilities: capab,
 			handshake: Arc::new(Handshake::new(genesis, config.clone())),
-			peers: Arc::new(Peers::new(PeerStore::new(db_root)?, adapter, config)),
+			peers: Arc::new(Peers::new(
+				PeerStore::new(db_root)?,
+				adapter,
+				config,
+				onion_addr,
+			)),
 			stop_state,
 		})
 	}
@@ -69,12 +76,33 @@ impl Server {
 	/// Starts a new TCP server and listen to incoming connections. This is a
 	/// blocking call until the TCP server stops.
 	pub fn listen(&self) -> Result<(), Error> {
-		// start TCP listener and handle incoming connections
+		// Start TCP listener and handle incoming connections
 		let addr = SocketAddr::new(self.config.host, self.config.port);
-		let listener = TcpListener::bind(addr)?;
+
+		let listener = match TcpListener::bind(addr) {
+			Ok(listener) => listener,
+			Err(ref e) if e.kind() == io::ErrorKind::AddrInUse => {
+				error!(
+					"Address {}:{} is already in use. Please check if another instance is running.",
+					self.config.host, self.config.port
+				);
+				return Err(Error::Connection(io::Error::new(
+					io::ErrorKind::AddrInUse,
+					"Address already in use",
+				)));
+			}
+			Err(e) => {
+				error!(
+					"Failed to bind to address {}:{}: {:?}",
+					self.config.host, self.config.port, e
+				);
+				return Err(Error::Connection(e));
+			}
+		};
+
 		listener.set_nonblocking(true)?;
 
-		let sleep_time = Duration::from_millis(5);
+		let sleep_time = Duration::from_millis(100);
 		loop {
 			// Pause peer ingress connection request. Only for tests.
 			if self.stop_state.is_paused() {
@@ -95,7 +123,6 @@ impl Server {
 					let peer_addr = PeerAddr(peer_addr);
 
 					if self.check_undesirable(&stream) {
-						// Shutdown the incoming TCP connection if it is not desired
 						if let Err(e) = stream.shutdown(Shutdown::Both) {
 							debug!("Error shutting down conn: {:?}", e);
 						}
@@ -283,6 +310,10 @@ impl ChainAdapter for DummyAdapter {
 		None
 	}
 
+	fn sync_status(&self) -> SyncStatus {
+		chain::SyncStatus::NoSync
+	}
+
 	fn tx_kernel_received(&self, _h: Hash, _peer_info: &PeerInfo) -> Result<bool, chain::Error> {
 		Ok(true)
 	}
@@ -290,6 +321,7 @@ impl ChainAdapter for DummyAdapter {
 		&self,
 		_: core::Transaction,
 		_stem: bool,
+		_peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
 		Ok(true)
 	}
@@ -384,5 +416,9 @@ impl NetAdapter for DummyAdapter {
 	fn peer_difficulty(&self, _: PeerAddr, _: Difficulty, _: u64, _: i64) {}
 	fn is_banned(&self, _: PeerAddr) -> bool {
 		false
+	}
+	fn update_onion_addr(&self, _addr: PeerAddr, _onion_addr: String) {}
+	fn my_onion_addr(&self) -> Option<String> {
+		None
 	}
 }

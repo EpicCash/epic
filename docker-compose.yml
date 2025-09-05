@@ -1,0 +1,14 @@
+services:
+  epic-mainnet:
+    build:
+      context: .
+      dockerfile: etc/Dockerfile
+    image: epic-mainnet
+    ports:
+      - "3413:3413"
+      - "3414:3414"
+      - "3415:3415"
+      - "3416:3416"
+    volumes:
+      - ./target/epic_docker/:/root/.epic/main/
+    #command: ["/bin/bash"]

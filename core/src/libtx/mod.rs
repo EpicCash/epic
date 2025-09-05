@@ -32,7 +32,7 @@ use crate::consensus;
 use crate::core::Transaction;
 
 pub use self::proof::ProofBuilder;
-pub use crate::libtx::error::{Error, ErrorKind};
+pub use crate::libtx::error::Error;
 
 const DEFAULT_BASE_FEE: u64 = consensus::MILLI_EPIC;
 

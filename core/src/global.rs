@@ -106,17 +106,9 @@ pub const TXHASHSET_ARCHIVE_INTERVAL: u64 = 12 * 60;
 
 pub const CURRENT_HEADER_VERSION: u16 = 6;
 
-#[cfg(target_family = "unix")]
 pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
 	"5a3a7584127dd31fba18eaeff1c551bfaa74b4e50e537a1e1904fe6730b17f5c";
-#[cfg(target_family = "windows")]
-pub const MAINNET_FOUNDATION_JSON_SHA256: &str =
-	"8ef0a84b35ec04576e583b7ed2f8a0d1becf4ee6ce67f9f3608deff8ad2ad103";
 
-#[cfg(target_family = "unix")]
-pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
-	"503a4d5ccf214df86722d14cc93c1779c54e5b827773c8a2f65888a06f2efbad";
-#[cfg(target_family = "windows")]
 pub const FLOONET_FOUNDATION_JSON_SHA256: &str =
 	"503a4d5ccf214df86722d14cc93c1779c54e5b827773c8a2f65888a06f2efbad";
 
@@ -269,16 +261,10 @@ pub fn use_alternative_path(path_str: String) -> String {
 			"Invalid foundation file!\nCheck if the file `{}` was not changed!",
 			check_path.display()
 		);
-		println!(
-			"Invalid foundation file!\nCheck if the file `{}` was not changed!",
-			check_path.display()
-		);
 	} else {
-		warn!("The file `{}` was not found!", check_path.display());
-		println!("The file `{}` was not found!", check_path.display());
+		warn!("No valid foundation file found on disk. Will use embedded foundation data.");
 	}
-	warn!("Will try to use the alternative file `{}`!", p.display());
-	println!("Will try to use the alternative file `{}`!", p.display());
+	// Do not log the alternative file path, as we now use embedded content
 	return p.to_str().expect("Failed to get the executable's directory and no path to the foundation.json was provided!").to_owned();
 }
 
@@ -292,13 +278,6 @@ pub fn get_foundation_path() -> Option<String> {
 pub fn check_foundation(path_str: String) -> bool {
 	let hash_to_compare = foundation_json_sha256();
 	let hash = get_file_sha256(&path_str);
-
-	println!(
-		"################ foundation sha: {:?},{:?}",
-		path_str, hash_to_compare
-	);
-	println!("################ file sha: {:?}", hash);
-
 	if hash.as_str() != hash_to_compare {
 		false
 	} else {
@@ -662,14 +641,20 @@ pub fn get_file_sha256(path: &str) -> String {
 		)
 		.as_str(),
 	);
-	let mut sha256 = Sha256::new();
-	std::io::copy(&mut file, &mut sha256).expect(
+	let mut contents = Vec::new();
+	std::io::copy(&mut file, &mut contents).expect(
 		format!(
 			"Error trying to read the foundation.json. Couldn't find/open the file {}!",
 			path
 		)
 		.as_str(),
 	);
-	let hash = sha256.result();
+
+	let s = String::from_utf8_lossy(&contents).replace("\r\n", "\n");
+	let normalized = s.into_bytes();
+
+	let mut sha256 = Sha256::new();
+	sha256.update(&normalized);
+	let hash = sha256.finalize();
 	format!("{:x}", hash)
 }

@@ -25,7 +25,7 @@ use self::core::core::{BlockHeader, BlockSums};
 use self::core::{consensus, global};
 use epic_core as core;
 use epic_keychain as keychain;
-use failure::Fail;
+use thiserror::Error;
 
 /// Dandelion "epoch" length.
 const DANDELION_EPOCH_SECS: u16 = 600;
@@ -185,69 +185,45 @@ impl TxSource {
 }
 
 /// Possible errors when interacting with the transaction pool.
-#[derive(Debug, Fail, PartialEq)]
+#[derive(Debug, PartialEq, Error)]
 pub enum PoolError {
 	/// An invalid pool entry caused by underlying tx validation error
-	#[fail(display = "Invalid Tx {}", _0)]
-	InvalidTx(transaction::Error),
+	#[error("Invalid Tx: {0}")]
+	InvalidTx(#[from] transaction::Error),
 	/// An invalid pool entry caused by underlying block validation error
-	#[fail(display = "Invalid Block {}", _0)]
-	InvalidBlock(block::Error),
+	#[error("Invalid Block: {0}")]
+	InvalidBlock(#[from] block::Error),
 	/// Underlying keychain error.
-	#[fail(display = "Keychain error {}", _0)]
-	Keychain(keychain::Error),
+	#[error("Keychain error: {0}")]
+	Keychain(#[from] keychain::Error),
 	/// Underlying "committed" error.
-	#[fail(display = "Committed error {}", _0)]
-	Committed(committed::Error),
+	#[error("Committed error: {0}")]
+	Committed(#[from] committed::Error),
 	/// Attempt to add a transaction to the pool with lock_height
 	/// greater than height of current block
-	#[fail(display = "Immature transaction")]
+	#[error("Transaction lock height is greater than current block height")]
 	ImmatureTransaction,
 	/// Attempt to spend a coinbase output before it has sufficiently matured.
-	#[fail(display = "Immature coinbase")]
+	#[error("Immature coinbase")]
 	ImmatureCoinbase,
 	/// Problem propagating a stem tx to the next Dandelion relay node.
-	#[fail(display = "Dandelion error")]
+	#[error("Dandelion error")]
 	DandelionError,
 	/// Transaction pool is over capacity, can't accept more transactions
-	#[fail(display = "Over capacity")]
+	#[error("Over capacity")]
 	OverCapacity,
 	/// Transaction fee is too low given its weight
-	#[fail(display = "Low fee transaction {}", _0)]
+	#[error("Low fee transaction: {0}")]
 	LowFeeTransaction(u64),
 	/// Attempt to add a duplicate output to the pool.
-	#[fail(display = "Duplicate commitment")]
+	#[error("Duplicate commitment")]
 	DuplicateCommitment,
 	/// Attempt to add a duplicate tx to the pool.
-	#[fail(display = "Duplicate tx")]
+	#[error("Duplicate tx")]
 	DuplicateTx,
 	/// Other kinds of error (not yet pulled out into meaningful errors).
-	#[fail(display = "General pool error {}", _0)]
+	#[error("General pool error: {0}")]
 	Other(String),
-}
-
-impl From<transaction::Error> for PoolError {
-	fn from(e: transaction::Error) -> PoolError {
-		PoolError::InvalidTx(e)
-	}
-}
-
-impl From<block::Error> for PoolError {
-	fn from(e: block::Error) -> PoolError {
-		PoolError::InvalidBlock(e)
-	}
-}
-
-impl From<keychain::Error> for PoolError {
-	fn from(e: keychain::Error) -> PoolError {
-		PoolError::Keychain(e)
-	}
-}
-
-impl From<committed::Error> for PoolError {
-	fn from(e: committed::Error) -> PoolError {
-		PoolError::Committed(e)
-	}
 }
 
 /// Interface that the pool requires from a blockchain implementation.

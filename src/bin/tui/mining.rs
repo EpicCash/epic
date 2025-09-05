@@ -16,7 +16,7 @@
 
 use std::cmp::Ordering;
 
-use crate::tui::chrono::prelude::{NaiveDateTime, TimeZone, Utc};
+use crate::tui::chrono::prelude::{TimeZone, Utc};
 use cursive::direction::Orientation;
 use cursive::event::Key;
 use cursive::view::{Nameable, Resizable, View};
@@ -64,15 +64,18 @@ impl StratumWorkerColumn {
 
 impl TableViewItem<StratumWorkerColumn> for WorkerStats {
 	fn to_column(&self, column: StratumWorkerColumn) -> String {
-		let naive_datetime = NaiveDateTime::from_timestamp_opt(
-			self.last_seen
-				.duration_since(time::UNIX_EPOCH)
-				.unwrap()
-				.as_secs() as i64,
-			0,
-		)
-		.unwrap();
-		let datetime = TimeZone::from_utc_datetime(&Utc, &naive_datetime);
+		let datetime = Utc
+			.timestamp_opt(
+				self.last_seen
+					.duration_since(time::UNIX_EPOCH)
+					.unwrap()
+					.as_secs() as i64,
+				0,
+			)
+			.single()
+			.expect("Invalid timestamp");
+
+		//let datetime = TimeZone::from_utc_datetime(&Utc, &naive_datetime);
 
 		match column {
 			StratumWorkerColumn::Id => self.id.clone(),
@@ -129,8 +132,13 @@ impl DiffColumn {
 
 impl TableViewItem<DiffColumn> for DiffBlock {
 	fn to_column(&self, column: DiffColumn) -> String {
-		let naive_datetime = NaiveDateTime::from_timestamp_opt(self.time as i64, 0).unwrap();
-		let datetime = TimeZone::from_utc_datetime(&Utc, &naive_datetime);
+		let datetime = Utc
+			.timestamp_opt(self.time as i64, 0)
+			.single()
+			.expect("Invalid timestamp");
+
+		//let datetime = TimeZone::from_utc_datetime(&Utc, &naive_datetime);
+
 		let pow_type = self.algorithm.clone();
 		match column {
 			DiffColumn::Height => self.block_height.to_string(),

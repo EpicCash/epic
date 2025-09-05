@@ -31,13 +31,14 @@ Epic is live with mainnet.
 
 # Getting Started
 
-The full Epic Wiki can be found here: [Epic Cash - Wiki](https://github.com/EpicCash/documentation/wiki)
+You can run Epic Cash either by **building from source** or using our **Docker image**.
 
-## Getting started with the project :bulb:
+- If you want to get started quickly, use the [Docker instructions](#running-with-docker) below.
+- If you prefer to build and run Epic Cash yourself, follow the [detailed guides in our Wiki](https://github.com/EpicCash/documentation/wiki).
 
-By the end of this section, you should have the basic knowledge of how to run Epic Cash and its different binaries functions.
+> **Note:** The documentation is comprehensive—feel free to read as much or as little as you need. Choose the method that best fits your experience and needs!
 
-Here are the basic topics:
+## Quick Start Options
 
 - [Running the server](https://github.com/EpicCash/documentation/wiki/Running-the-server)
 - [Running the wallet](https://github.com/EpicCash/documentation/wiki/Running-the-wallet)
@@ -61,6 +62,20 @@ This section is divided by OS:
 - [Windows](https://github.com/EpicCash/documentation/wiki/Windows)
 - [macOS](https://github.com/EpicCash/documentation/wiki/macOS)
 
+# Running with Docker
+
+You can run an Epic node using Docker:
+
+```sh
+docker build -t epic-mainnet -f etc/Dockerfile .
+docker run -d --name epic-mainnet -p 3413:3413 -p 3414:3414 -p 3415:3415 -p 3416:3416 epic-mainnet
+```
+
+Or with Docker Compose:
+```sh
+docker compose up -d
+```
+
 # Contributing :bricks: 
 
 If you want to help us and contribute with our code:
@@ -81,3 +96,8 @@ J.K. Rowling for making it despite extraordinary adversity.
 # License
 
 Apache License v2.0.
+
+## Third-party Software
+
+This project bundles the [Tor expert bundle](https://www.torproject.org/), which is licensed under the 3-clause BSD license.  
+See [LICENSE.tor](./LICENSE.tor) for details.

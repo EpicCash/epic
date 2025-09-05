@@ -354,7 +354,7 @@ mod test {
 
 	use serde_json;
 
-	use rand::{thread_rng, Rng};
+	use rand::{rng, Rng};
 
 	#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 	struct SerTest {
@@ -378,14 +378,14 @@ mod test {
 		pub fn random() -> SerTest {
 			let static_secp = static_secp_instance();
 			let secp = static_secp.lock();
-			let sk = SecretKey::new(&secp, &mut thread_rng());
+			let sk = SecretKey::new(&secp, &mut rng());
 			let mut msg = [0u8; 32];
-			thread_rng().fill(&mut msg);
+			rng().fill(&mut msg);
 			let msg = Message::from_slice(&msg).unwrap();
 			let sig = aggsig::sign_single(&secp, &msg, &sk, None, None).unwrap();
 			let mut commit = [0u8; 33];
 			commit[0] = 0x09;
-			thread_rng().fill(&mut commit[1..]);
+			rng().fill(&mut commit[1..]);
 			let commit = Commitment::from_vec(commit.to_vec());
 			SerTest {
 				opt_skey: Some(sk.clone()),

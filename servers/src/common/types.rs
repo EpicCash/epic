@@ -62,6 +62,8 @@ pub enum Error {
 	Configuration(String),
 	/// General error
 	General(String),
+	TorConfig(String),
+	TorProcess(String),
 }
 
 impl From<core::block::Error> for Error {
@@ -227,6 +229,9 @@ pub struct ServerConfig {
 	//#[serde(default)]
 	// Configuration for the proportions policy on EPIC
 	//pub policy_config: PolicyConfig,
+	/// Tor configuration for this node
+	#[serde(default)]
+	pub tor: TorConfig,
 }
 
 impl Default for ServerConfig {
@@ -244,18 +249,19 @@ impl Default for ServerConfig {
 			stratum_mining_config: Some(StratumServerConfig::default()),
 			chain_type: ChainTypes::default(),
 			archive_mode: Some(false),
-			skip_pow_validation: Some(false),
-			disable_checkpoints: Some(false),
+			skip_pow_validation: Some(true),
+			disable_checkpoints: Some(true),
 			chain_validation_mode: ChainValidationMode::default(),
 			pool_config: pool::PoolConfig::default(),
 			skip_sync_wait: Some(false),
 			header_sync_timeout: 10,
-			run_tui: Some(true),
+			run_tui: Some(false),
 			only_randomx: Some(false),
 			no_progpow: Some(false),
 			run_test_miner: Some(false),
 			test_miner_wallet_url: None,
 			webhook_config: WebHooksConfig::default(),
+			tor: TorConfig::default(),
 			//policy_config: PolicyConfig::default(),
 		}
 	}
@@ -313,7 +319,7 @@ impl Default for StratumServerConfig {
 				cuckatoo_minimum_share_difficulty: consensus::MIN_DIFFICULTY,
 				randomx_minimum_share_difficulty: consensus::MIN_DIFFICULTY_RANDOMX,
 				progpow_minimum_share_difficulty: consensus::MIN_DIFFICULTY_PROGPOW,
-				enable_stratum_server: Some(true),
+				enable_stratum_server: Some(false),
 				stratum_server_addr: Some("127.0.0.1:3416".to_string()),
 			},
 		}
@@ -404,9 +410,9 @@ impl DandelionEpoch {
 		self.relay_peer = peers.outgoing_connected_peers().first().cloned();
 
 		// If stem_probability == 90 then we stem 90% of the time.
-		let mut rng = rand::thread_rng();
+		let mut rng = rand::rng();
 		let stem_probability = self.config.stem_probability;
-		self.is_stem = rng.gen_range(0, 100) < stem_probability;
+		self.is_stem = rng.random_range(0..100) < stem_probability;
 
 		let addr = self.relay_peer.clone().map(|p| p.info.addr);
 		info!(
@@ -450,5 +456,23 @@ impl DandelionEpoch {
 		}
 
 		self.relay_peer.clone()
+	}
+}
+
+/// Tor configuration
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TorConfig {
+	/// Just the address of the socks proxy for now
+	pub socks_proxy_addr: String,
+	/// Send configuration directory
+	pub send_config_dir: String,
+}
+
+impl Default for TorConfig {
+	fn default() -> TorConfig {
+		TorConfig {
+			socks_proxy_addr: "127.0.0.1:9050".to_owned(),
+			send_config_dir: ".".into(),
+		}
 	}
 }

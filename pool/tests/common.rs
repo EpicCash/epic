@@ -21,7 +21,8 @@ use self::core::core::{Block, BlockHeader, BlockSums, Committed, KernelFeatures,
 use self::core::libtx;
 use self::keychain::{ExtKeychain, Keychain};
 use self::pool::types::*;
-use self::pool::TransactionPool;
+use self::pool::{BlockChain, TransactionPool};
+
 use self::util::secp::pedersen::Commitment;
 use self::util::RwLock;
 use epic_chain as chain;
@@ -41,8 +42,7 @@ pub struct ChainAdapter {
 
 impl ChainAdapter {
 	pub fn init(db_root: String) -> Result<ChainAdapter, String> {
-		let target_dir = format!("target/{}", db_root);
-		let chain_store = ChainStore::new(&target_dir)
+		let chain_store = ChainStore::new(&db_root)
 			.map_err(|e| format!("failed to init chain_store, {:?}", e))?;
 		let store = Arc::new(RwLock::new(chain_store));
 		let utxo = Arc::new(RwLock::new(HashSet::new()));
@@ -147,7 +147,7 @@ impl BlockChain for ChainAdapter {
 	}
 }
 
-pub fn test_setup(chain: Arc<dyn BlockChain>) -> TransactionPool {
+pub fn test_setup<B: BlockChain>(chain: Arc<B>) -> TransactionPool<B, NoopAdapter> {
 	TransactionPool::new(
 		PoolConfig {
 			accept_fee_base: 0,
@@ -170,7 +170,7 @@ where
 {
 	let output_sum = output_values.iter().sum::<u64>() as i64;
 
-	let coinbase_reward: u64 = 60_000_000_000;
+	let coinbase_reward: u64 = 1_457_920_000;
 
 	let fees: i64 = coinbase_reward as i64 - output_sum;
 	assert!(fees >= 0);
@@ -236,8 +236,6 @@ pub fn test_source() -> TxSource {
 	TxSource::Broadcast
 }
 
-pub fn clean_output_dir(db_root: String) {
-	if let Err(e) = fs::remove_dir_all(format!("target/{}", db_root)) {
-		println!("cleaning output dir failed - {:?}", e)
-	}
+pub fn clean_output_dir(dir_name: &str) {
+	let _ = fs::remove_dir_all(dir_name);
 }

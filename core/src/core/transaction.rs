@@ -27,14 +27,13 @@ use keychain::{self, BlindingFactor};
 use std::cmp::Ordering;
 use std::cmp::{max, min};
 use std::convert::TryInto;
-//use std::sync::Arc;
-use std::{error, fmt};
+
 use util;
 use util::secp;
 use util::secp::pedersen::{Commitment, RangeProof};
 use util::static_secp_instance;
 //use util::RwLock;
-
+use thiserror::Error;
 /// Various tx kernel variants.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum KernelFeatures {
@@ -210,83 +209,60 @@ impl Readable for KernelFeatures {
 }
 
 /// Errors thrown by Transaction validation
-#[derive(Clone, Eq, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Eq, Debug, PartialEq, Serialize, Deserialize, Error)]
 pub enum Error {
 	/// Underlying Secp256k1 error (signature validation or invalid public key
 	/// typically)
-	Secp(secp::Error),
+	#[error("Secp Error {0}")]
+	Secp(#[from] secp::Error),
 	/// Underlying keychain related error
-	Keychain(keychain::Error),
+	#[error("Keychain Error {0}")]
+	Keychain(#[from] keychain::Error),
 	/// The sum of output minus input commitments does not
 	/// match the sum of kernel commitments
+	#[error("Kernel sum mismatch")]
 	KernelSumMismatch,
 	/// Restrict tx total weight.
+	#[error("Transaction too heavy")]
 	TooHeavy,
 	/// Error originating from an invalid lock-height
+	#[error("Invalid lock height")]
 	LockHeight(u64),
 	/// Range proof validation error
+	#[error("Range proof error")]
 	RangeProof,
 	/// Error originating from an invalid Merkle proof
+	#[error("Merkle proof error")]
 	MerkleProof,
 	/// Returns if the value hidden within the a RangeProof message isn't
 	/// repeated 3 times, indicating it's incorrect
+	#[error("Invalid proof message")]
 	InvalidProofMessage,
 	/// Error when verifying kernel sums via committed trait.
-	Committed(committed::Error),
+	#[error("Committed Error {0}")]
+	Committed(#[from] committed::Error),
 	/// Error when sums do not verify correctly during tx aggregation.
 	/// Likely a "double spend" across two unconfirmed txs.
+	#[error("Aggregation Error")]
 	AggregationError,
 	/// Validation error relating to cut-through (tx is spending its own
 	/// output).
+	#[error("CutThrough Error")]
 	CutThrough,
 	/// Validation error relating to output features.
 	/// It is invalid for a transaction to contain a coinbase output, for example.
+	#[error("Invalid output features")]
 	InvalidOutputFeatures,
 	/// Validation error relating to kernel features.
 	/// It is invalid for a transaction to contain a coinbase kernel, for example.
+	#[error("Invalid kernel features")]
 	InvalidKernelFeatures,
 	/// Signature verification error.
+	#[error("Incorrect signature")]
 	IncorrectSignature,
 	/// Underlying serialization error.
-	Serialization(ser::Error),
-}
-
-impl error::Error for Error {
-	// placeholder for better error messaging
-	// TODO: investigate using source() fn in std::error
-	// to better propogate errors through
-}
-
-impl fmt::Display for Error {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match *self {
-			_ => write!(f, "some kind of keychain error"),
-		}
-	}
-}
-
-impl From<ser::Error> for Error {
-	fn from(e: ser::Error) -> Error {
-		Error::Serialization(e)
-	}
-}
-
-impl From<secp::Error> for Error {
-	fn from(e: secp::Error) -> Error {
-		Error::Secp(e)
-	}
-}
-
-impl From<keychain::Error> for Error {
-	fn from(e: keychain::Error) -> Error {
-		Error::Keychain(e)
-	}
-}
-
-impl From<committed::Error> for Error {
-	fn from(e: committed::Error) -> Error {
-		Error::Committed(e)
-	}
+	#[error("Serialization Error {0}")]
+	Serialization(#[from] ser::Error),
 }
 
 /// A proof that a transaction sums to zero. Includes both the transaction's
@@ -671,7 +647,12 @@ impl TransactionBody {
 	}
 
 	fn overage(&self) -> i64 {
-		self.fee() as i64
+		let fee = self.fee();
+		if fee > i64::MAX as u64 {
+			i64::MAX
+		} else {
+			fee as i64
+		}
 	}
 
 	/// Calculate transaction weight
@@ -1016,9 +997,10 @@ impl Transaction {
 		self.body.fee()
 	}
 
-	/// Total overage across all kernels.
+	/// Total overage across all kernels, safely clamped to i64 range.
 	pub fn overage(&self) -> i64 {
-		self.body.overage()
+		let fee = self.body.overage();
+		fee.clamp(i64::MIN, i64::MAX)
 	}
 
 	/// Lock height of a transaction is the max lock height of the kernels.

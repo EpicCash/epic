@@ -21,13 +21,13 @@
 //! must be shifted the appropriate amount when reading from the hash and data
 //! files.
 
+use croaring::{Bitmap, Portable};
+use log::debug;
 use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
-use croaring::{Bitmap, Portable};
-
-use crate::core::core::pmmr::{bintree_postorder_height, family, path};
 use crate::{read_bitmap, save_via_temp_file};
+use epic_core::core::pmmr::{bintree_postorder_height, family, path};
 
 /// Maintains a list of previously pruned nodes in PMMR, compacting the list as
 /// parents get pruned and allowing checking whether a leaf is pruned. Given

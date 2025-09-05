@@ -18,27 +18,28 @@ use std::net::SocketAddr;
 use clap::ArgMatches;
 
 use crate::api;
-
 use crate::config::GlobalConfig;
 use crate::p2p;
 use crate::servers::ServerConfig;
 use crate::util::file::get_first_line;
 use term;
 
-pub fn client_command(client_args: &ArgMatches<'_>, global_config: GlobalConfig) -> i32 {
+pub fn client_command(client_args: &ArgMatches, global_config: GlobalConfig) -> i32 {
 	// just get defaults from the global config
 	let server_config = global_config.members.unwrap().server;
 	let api_secret = get_first_line(server_config.api_secret_path.clone());
 
 	match client_args.subcommand() {
-		("status", Some(_)) => {
+		Some(("status", _)) => {
 			show_status(&server_config, api_secret);
 		}
-		("listconnectedpeers", Some(_)) => {
+		Some(("listconnectedpeers", _)) => {
 			list_connected_peers(&server_config, api_secret);
 		}
-		("ban", Some(peer_args)) => {
-			let peer = peer_args.value_of("peer").unwrap();
+		Some(("ban", peer_args)) => {
+			let peer = peer_args
+				.get_one::<String>("peer")
+				.expect("peer argument missing");
 
 			if let Ok(addr) = peer.parse() {
 				ban_peer(&server_config, &addr, api_secret);
@@ -46,8 +47,10 @@ pub fn client_command(client_args: &ArgMatches<'_>, global_config: GlobalConfig)
 				panic!("Invalid peer address format");
 			}
 		}
-		("unban", Some(peer_args)) => {
-			let peer = peer_args.value_of("peer").unwrap();
+		Some(("unban", peer_args)) => {
+			let peer = peer_args
+				.get_one::<String>("peer")
+				.expect("peer argument missing");
 
 			if let Ok(addr) = peer.parse() {
 				unban_peer(&server_config, &addr, api_secret);
@@ -55,7 +58,7 @@ pub fn client_command(client_args: &ArgMatches<'_>, global_config: GlobalConfig)
 				panic!("Invalid peer address format");
 			}
 		}
-		_ => panic!("Unknown client command, use 'epic help client' for details"),
+		_ => panic!("No client command provided, use 'epic client --help' for details"),
 	}
 	0
 }
@@ -101,7 +104,7 @@ pub fn ban_peer(config: &ServerConfig, peer_addr: &SocketAddr, api_secret: Optio
 		config.api_http_addr,
 		peer_addr.to_string()
 	);
-	match api::client::post_no_ret(url.as_str(), api_secret, &params).map_err(|e| Error::API(e)) {
+	match api::client::post_no_ret(url.as_str(), api_secret, &params) {
 		Ok(_) => writeln!(e, "Successfully banned peer {}", peer_addr.to_string()).unwrap(),
 		Err(_) => writeln!(e, "Failed to ban peer {}", peer_addr).unwrap(),
 	};
@@ -116,10 +119,7 @@ pub fn unban_peer(config: &ServerConfig, peer_addr: &SocketAddr, api_secret: Opt
 		config.api_http_addr,
 		peer_addr.to_string()
 	);
-	let res: Result<(), api::Error>;
-	res = api::client::post_no_ret(url.as_str(), api_secret, &params);
-
-	match res.map_err(|e| Error::API(e)) {
+	match api::client::post_no_ret(url.as_str(), api_secret, &params) {
 		Ok(_) => writeln!(e, "Successfully unbanned peer {}", peer_addr).unwrap(),
 		Err(_) => writeln!(e, "Failed to unban peer {}", peer_addr).unwrap(),
 	};
@@ -129,8 +129,6 @@ pub fn unban_peer(config: &ServerConfig, peer_addr: &SocketAddr, api_secret: Opt
 pub fn list_connected_peers(config: &ServerConfig, api_secret: Option<String>) {
 	let mut e = term::stdout().unwrap();
 	let url = format!("http://{}/v1/peers/connected", config.api_http_addr);
-	// let peers_info: Result<Vec<p2p::PeerInfoDisplay>, api::Error>;
-
 	let peers_info = api::client::get::<Vec<p2p::types::PeerInfoDisplay>>(url.as_str(), api_secret);
 
 	match peers_info {
@@ -146,7 +144,7 @@ pub fn list_connected_peers(config: &ServerConfig, api_secret: Option<String>) {
 				writeln!(e, "Total difficulty: {}", connected_peer.total_difficulty).unwrap();
 				writeln!(e, "Direction: {:?}", connected_peer.direction).unwrap();
 				println!();
-				index = index + 1;
+				index += 1;
 			}
 		}
 		Err(_) => writeln!(e, "Failed to get connected peers").unwrap(),
@@ -158,17 +156,7 @@ pub fn list_connected_peers(config: &ServerConfig, api_secret: Option<String>) {
 fn get_status_from_node(
 	config: &ServerConfig,
 	api_secret: Option<String>,
-) -> Result<api::Status, Error> {
+) -> Result<api::Status, api::Error> {
 	let url = format!("http://{}/v1/status", config.api_http_addr);
-	match api::client::get::<api::Status>(url.as_str(), api_secret) {
-		Ok(status) => Ok(status),
-		Err(e) => Err(Error::API(e)),
-	}
-}
-
-/// Error type wrapping underlying module errors.
-#[derive(Debug)]
-enum Error {
-	/// Error originating from HTTP API calls.
-	API(api::Error),
+	api::client::get::<api::Status>(url.as_str(), api_secret)
 }

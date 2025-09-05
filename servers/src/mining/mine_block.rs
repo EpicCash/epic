@@ -27,8 +27,8 @@ use crate::core::pow::randomx::rx_current_seed_height;
 use crate::core::pow::PoWType;
 use crate::core::{consensus, core, global};
 use crate::keychain::{ExtKeychain, Identifier, Keychain};
-use chrono::{NaiveDateTime, TimeZone, Utc};
-use rand::{thread_rng, Rng};
+use chrono::{TimeZone, Utc};
+use rand::{rng, Rng};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use std::thread;
@@ -52,8 +52,8 @@ pub fn get_block(
 	while let Err(e) = result {
 		let mut new_key_id = key_id.to_owned();
 		match e {
-			self::Error::Chain(c) => match c.kind() {
-				chain::ErrorKind::DuplicateCommitment(_) => {
+			self::Error::Chain(c) => match c {
+				chain::Error::DuplicateCommitment(_) => {
 					debug!(
 						"Duplicate commit for potential coinbase detected. Trying next derivation."
 					);
@@ -102,11 +102,12 @@ fn build_block(
 		.get_header_hash_by_height(rx_current_seed_height(head.height + 1))?;
 
 	// prepare the block header timestamp
-	let mut now_sec = Utc::now().timestamp();
-	let head_sec = head.timestamp.timestamp();
-	if now_sec <= head_sec {
-		now_sec = head_sec + 1;
-	}
+	//let mut now_sec = Utc::now().timestamp();
+	//let head_sec = head.timestamp.timestamp();
+	//if now_sec <= head_sec {
+	//	now_sec = head_sec + 1;
+	//}
+	//-> was never used
 
 	// Determine the difficulty our block should be at.
 	// Note: do not keep the difficulty_iter in scope (it has an active batch).
@@ -172,12 +173,9 @@ fn build_block(
 	seed_u8.copy_from_slice(&seed.as_bytes()[0..32]);
 
 	b.header.pow.seed = seed_u8;
-	b.header.pow.nonce = thread_rng().gen();
+	b.header.pow.nonce = rng().random();
 	b.header.pow.secondary_scaling = difficulty.secondary_scaling;
-	b.header.timestamp = TimeZone::from_utc_datetime(
-		&Utc,
-		&NaiveDateTime::from_timestamp_opt(now_sec, 0).unwrap(),
-	);
+	b.header.timestamp = Utc.timestamp_opt(0, 0).single().expect("Invalid timestamp");
 	b.header.policy = get_emitted_policy(b.header.height);
 
 	let bottle_cursor = chain.bottles_iter(get_emitted_policy(b.header.height))?;
@@ -196,20 +194,18 @@ fn build_block(
 	match chain.set_txhashset_roots(&mut b) {
 		Ok(_) => Ok((b, block_fees, pow_type)),
 		Err(e) => {
-			match e.kind() {
+			match e {
 				// If this is a duplicate commitment then likely trying to use
 				// a key that hass already been derived but not in the wallet
 				// for some reason, allow caller to retry.
-				chain::ErrorKind::DuplicateCommitment(e) => Err(Error::Chain(
-					chain::ErrorKind::DuplicateCommitment(e).into(),
+				chain::Error::DuplicateCommitment(ref err) => Err(Error::Chain(
+					chain::Error::DuplicateCommitment(err.clone()).into(),
 				)),
 
 				// Some other issue, possibly duplicate kernel
 				_ => {
 					error!("Error setting txhashset root to build a block: {:?}", e);
-					Err(Error::Chain(
-						chain::ErrorKind::Other(format!("{:?}", e)).into(),
-					))
+					Err(Error::Chain(chain::Error::Other(format!("{:?}", e)).into()))
 				}
 			}
 		}

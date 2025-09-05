@@ -21,6 +21,7 @@ use std::thread;
 use walkdir::WalkDir;
 
 use self::zip_rs::result::{ZipError, ZipResult};
+
 use self::zip_rs::write::FileOptions;
 use zip as zip_rs;
 
@@ -47,7 +48,7 @@ pub fn create_zip(dst_file: &File, src_dir: &Path, files: Vec<PathBuf>) -> io::R
 		BufWriter::new(zip)
 	};
 
-	let options = FileOptions::default()
+	let options: FileOptions = FileOptions::default()
 		.compression_method(zip_rs::CompressionMethod::Stored)
 		.unix_permissions(0o644);
 
@@ -82,7 +83,7 @@ pub fn extract_files(from_archive: File, dest: &Path, files: Vec<PathBuf>) -> io
 				io::copy(&mut BufReader::new(file), &mut BufWriter::new(outfile))
 					.expect("write to file");
 
-				info!("extract_files: {:?} -> {:?}", x, path);
+				info!("Extract files: {:?} -> {:?}", x, path);
 
 				// Set file permissions to "644" (Unix only).
 				#[cfg(unix)]

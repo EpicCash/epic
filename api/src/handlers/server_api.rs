@@ -14,15 +14,19 @@
 
 use super::utils::w;
 use crate::chain::{Chain, SyncState, SyncStatus};
+use crate::core::consensus::{blocks_to_next_halving, fast_total_supply, EPIC_BASE};
 use crate::p2p;
 use crate::rest::*;
 use crate::router::{Handler, ResponseFuture};
 use crate::types::*;
 use crate::web::*;
 
-use hyper::{Body, Request, StatusCode};
+use hyper::{Request, StatusCode};
 use serde_json::json;
 use std::sync::Weak;
+
+use bytes::Bytes;
+use http_body_util::Full;
 
 // RESTful index of available api endpoints
 // GET /v1/
@@ -32,8 +36,8 @@ pub struct IndexHandler {
 
 impl IndexHandler {}
 
-impl Handler for IndexHandler {
-	fn get(&self, _req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for IndexHandler {
+	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		json_response_pretty(&self.list)
 	}
 }
@@ -42,8 +46,8 @@ pub struct KernelDownloadHandler {
 	pub peers: Weak<p2p::Peers>,
 }
 
-impl Handler for KernelDownloadHandler {
-	fn post(&self, _req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for KernelDownloadHandler {
+	fn post(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		if let Some(peer) = w_fut!(&self.peers).most_work_peer() {
 			match peer.send_kernel_data_request() {
 				Ok(_) => response(StatusCode::OK, "{}"),
@@ -76,17 +80,25 @@ impl StatusHandler {
 			.map_err(|e| Error::Internal(format!("can't get head: {}", e)))?;
 		let sync_status = w(&self.sync_state)?.status();
 		let (api_sync_status, api_sync_info) = sync_status_to_api(sync_status);
+
+		let next_halving = blocks_to_next_halving(head.height);
+		let supply = fast_total_supply(head.height); // <-- Use the optimized function
+		let max_supply = 21_000_000; // or whatever your max is
+
 		Ok(Status::from_tip_and_peers(
 			head,
 			w(&self.peers)?.peer_count(),
 			api_sync_status,
 			api_sync_info,
+			supply / EPIC_BASE,
+			max_supply,
+			next_halving,
 		))
 	}
 }
 
-impl Handler for StatusHandler {
-	fn get(&self, _req: Request<Body>) -> ResponseFuture {
+impl Handler<Full<Bytes>> for StatusHandler {
+	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		result_to_response(self.get_status())
 	}
 }
@@ -136,6 +148,7 @@ fn sync_status_to_api(sync_status: SyncStatus) -> (String, Option<serde_json::Va
 			Some(json!({ "current_height": current_height, "highest_height": highest_height })),
 		),
 		SyncStatus::Shutdown => ("shutdown".to_string(), None),
+		SyncStatus::Compacting => ("compacting".to_string(), None),
 		// any other status is considered syncing (should be unreachable)
 		_ => ("syncing".to_string(), None),
 	}

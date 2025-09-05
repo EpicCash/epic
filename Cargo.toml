@@ -8,7 +8,7 @@ repository = "https://github.com/EpicCash/epic"
 keywords = ["crypto", "epic", "mimblewimble"]
 readme = "README.md"
 exclude = ["**/*.epic", "**/*.epic2"]
-build = "src/build/build.rs"
+build = "build.rs"
 edition = "2021"
 
 [workspace]
@@ -23,7 +23,7 @@ members = [
     "store",
     "util",
     "pool",
-    "bugreport",
+   
 ]
 exclude = ["etc/gen_gen"]
 
@@ -32,23 +32,21 @@ name = "epic"
 path = "src/bin/epic.rs"
 
 [dependencies]
+time = "0.3"
 blake2-rfc = "0.2"
-chrono = "0.4.31"
-clap = { version = "2.31", features = ["yaml"] }
+chrono = "0.4.41"
+clap = { version = "4.5" }
 ctrlc = { version = "3.1", features = ["termination"] }
-cursive_table_view = "0.14.0"
-humansize = "1.1.0"
-serde = "1"
-futures = "0.3.28"
-serde_json = "1"
+cursive_table_view = "0.15"
+serde = "1.0"
+futures = "0.3.31"
+serde_json = "1.0"
 log = "0.4"
-term = "0.5"
-failure = "0.1"
-failure_derive = "0.1"
-reqwest = "0.11.11"
-
-
-tokio = { version = "1.32", features = ["full"] }
+term = "1.0"
+thiserror = "2.0"
+reqwest = "0.12"
+num-bigint = "0.4"
+tokio = { version = "1.47.1", features = ["full"] }
 
 epic_api = { path = "./api", version = "3.6.0" }
 epic_config = { path = "./config", version = "3.6.0" }
@@ -59,7 +57,7 @@ epic_servers = { path = "./servers", version = "3.6.0" }
 epic_util = { path = "./util", version = "3.6.0" }
 epic_chain = { path = "./chain", version = "3.6.0" }
 
-cursive = { version = "0.17", default-features = false, features = [
+cursive = { version = "0.21.1", default-features = false, features = [
     "pancurses-backend",
 ] }
 
@@ -67,13 +65,25 @@ cursive = { version = "0.17", default-features = false, features = [
 version = "0.16.1"
 features = ["win32"]
 
+
+[features]
+default = []
+with-tor = []
+cucumber-tests = []
+
 [[test]]
 name = "cucumber"
 harness = false
+required-features = ["cucumber-tests"]
 
 [build-dependencies]
-built = { version = "0.7.1", features = ["git2", "cargo-lock"] }
+built = { version = "0.8", features = ["git2", "cargo-lock"] }
+sha2 = "0.10"
+
 
 [dev-dependencies]
 epic_store = { path = "./store", version = "3.6.0" }
 cucumber_rust = { version = "^0.5.1", default-features = false }
+
+
+

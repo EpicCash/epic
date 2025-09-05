@@ -1,6 +1,6 @@
 //! Implementation of MD5 by Yuri Albuquerque
 use crate::pow::common::EdgeType;
-use crate::pow::error::{Error, ErrorKind};
+use crate::pow::error::Error;
 use crate::pow::{PoWContext, Proof};
 //use crate::util;
 use std::marker::PhantomData;
@@ -76,6 +76,6 @@ where
 				return Ok(());
 			}
 		}
-		return Err(ErrorKind::EdgeAddition)?;
+		return Err(Error::EdgeAddition)?;
 	}
 }

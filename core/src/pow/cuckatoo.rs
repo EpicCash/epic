@@ -19,7 +19,7 @@ use croaring::Bitmap;
 
 //use crate::global;
 use crate::pow::common::{CuckooParams, EdgeType, Link};
-use crate::pow::error::{Error, ErrorKind};
+use crate::pow::error::Error;
 use crate::pow::{PoWContext, Proof};
 use crate::util;
 
@@ -87,7 +87,7 @@ where
 	pub fn add_edge(&mut self, u: T, mut v: T) -> Result<(), Error> {
 		let max_nodes_t = to_edge!(self.max_nodes);
 		if u >= max_nodes_t || v >= max_nodes_t {
-			return Err(ErrorKind::EdgeAddition)?;
+			return Err(Error::EdgeAddition)?;
 		}
 		v = v + to_edge!(self.max_nodes);
 		let adj_u = self.adj_list[to_usize!(u ^ T::one())];
@@ -102,7 +102,7 @@ where
 		let ulink = self.links.len();
 		let vlink = self.links.len() + 1;
 		if to_edge!(vlink) == self.nil {
-			return Err(ErrorKind::EdgeAddition)?;
+			return Err(Error::EdgeAddition)?;
 		}
 		self.links.push(Link {
 			next: self.adj_list[to_usize!(u)],
@@ -112,8 +112,8 @@ where
 			next: self.adj_list[to_usize!(v)],
 			to: v,
 		});
-		self.adj_list[to_usize!(u)] = T::from(ulink).ok_or(ErrorKind::IntegerCast)?;
-		self.adj_list[to_usize!(v)] = T::from(vlink).ok_or(ErrorKind::IntegerCast)?;
+		self.adj_list[to_usize!(u)] = T::from(ulink).ok_or(Error::IntegerCast)?;
+		self.adj_list[to_usize!(v)] = T::from(vlink).ok_or(Error::IntegerCast)?;
 		Ok(())
 	}
 
@@ -279,7 +279,7 @@ where
 			self.verify_impl(&s)?;
 		}
 		if self.graph.solutions.is_empty() {
-			Err(ErrorKind::NoSolution)?
+			Err(Error::NoSolution)?
 		} else {
 			Ok(self.graph.solutions.clone())
 		}
@@ -295,10 +295,10 @@ where
 
 			for n in 0..proof.proof_size() {
 				if nonces[n] > to_u64!(self.params.edge_mask) {
-					return Err(ErrorKind::Verification("edge too big".to_owned()))?;
+					return Err(Error::Verification("edge too big".to_owned()))?;
 				}
 				if n > 0 && nonces[n] <= nonces[n - 1] {
-					return Err(ErrorKind::Verification("edges not ascending".to_owned()))?;
+					return Err(Error::Verification("edges not ascending".to_owned()))?;
 				}
 				uvs[2 * n] = to_u64!(self.sipnode(to_edge!(nonces[n]), 0)?);
 				uvs[2 * n + 1] = to_u64!(self.sipnode(to_edge!(nonces[n]), 1)?);
@@ -306,9 +306,7 @@ where
 				xor1 ^= uvs[2 * n + 1];
 			}
 			if xor0 | xor1 != 0 {
-				return Err(ErrorKind::Verification(
-					"endpoints don't match up".to_owned(),
-				))?;
+				return Err(Error::Verification("endpoints don't match up".to_owned()))?;
 			}
 			let mut n = 0;
 			let mut i = 0;
@@ -325,13 +323,13 @@ where
 					if uvs[k] >> 1 == uvs[i] >> 1 {
 						// find other edge endpoint matching one at i
 						if j != i {
-							return Err(ErrorKind::Verification("branch in cycle".to_owned()))?;
+							return Err(Error::Verification("branch in cycle".to_owned()))?;
 						}
 						j = k;
 					}
 				}
 				if j == i || uvs[j] == uvs[i] {
-					return Err(ErrorKind::Verification("cycle dead ends".to_owned()))?;
+					return Err(Error::Verification("cycle dead ends".to_owned()))?;
 				}
 				i = j ^ 1;
 				n += 1;
@@ -342,10 +340,10 @@ where
 			if n == self.params.proof_size {
 				Ok(())
 			} else {
-				Err(ErrorKind::Verification("cycle too short".to_owned()))?
+				Err(Error::Verification("cycle too short".to_owned()))?
 			}
 		} else {
-			Err(ErrorKind::Verification("wrong algorithm".to_owned()))?
+			Err(Error::Verification("wrong algorithm".to_owned()))?
 		}
 	}
 }

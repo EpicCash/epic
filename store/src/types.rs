@@ -12,17 +12,17 @@
 // limitations under the License.
 
 //! Common storage-related types
-use memmap;
-use tempfile::tempfile;
-
-use crate::core::ser::{
+use epic_core::ser::{
 	self, BinWriter, ProtocolVersion, Readable, Reader, StreamingReader, Writeable, Writer,
 };
+use log::debug;
+use memmap;
 use std::fmt::Debug;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufReader, BufWriter, Seek, SeekFrom, Write};
 use std::marker;
 use std::path::{Path, PathBuf};
+use tempfile::tempfile;
 
 /// Represents a single entry in the size_file.
 /// Offset (in bytes) and size (in bytes) of a variable sized entry

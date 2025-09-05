@@ -164,7 +164,7 @@ where
 	let data = mnemonic.as_bytes();
 	let mut seed = [0; 64];
 
-	pbkdf2::<Hmac<Sha512>>(data, &salt[..], 2048, &mut seed);
+	let _ = pbkdf2::<Hmac<Sha512>>(data, &salt[..], 2048, &mut seed);
 
 	Ok(seed)
 }
@@ -173,7 +173,8 @@ where
 mod tests {
 	use super::{from_entropy, to_entropy, to_seed};
 	use crate::util::{from_hex, to_hex};
-	use rand::{thread_rng, Rng};
+	use rand::prelude::IndexedMutRandom;
+	use rand::{rng, Rng};
 
 	struct Test<'a> {
 		mnemonic: &'a str,
@@ -327,15 +328,14 @@ mod tests {
 
 	#[test]
 	fn test_bip39_random() {
-		use rand::seq::SliceRandom;
-		let sizes: [usize; 5] = [16, 20, 24, 28, 32];
+		let mut sizes: [usize; 5] = [16, 20, 24, 28, 32];
 
-		let mut rng = thread_rng();
-		let size = *sizes.choose(&mut rng).unwrap();
+		let mut rng = rng();
+		let size = *sizes.choose_mut(&mut rng).unwrap();
 		let mut entropy: Vec<u8> = Vec::with_capacity(size);
 
 		for _ in 0..size {
-			let val: u8 = rng.gen();
+			let val: u8 = rng.random();
 			entropy.push(val);
 		}
 

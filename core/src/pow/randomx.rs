@@ -1,9 +1,8 @@
-extern crate randomx;
-
+use num_bigint::BigUint;
 use std::marker::PhantomData;
 
 use crate::pow::common::EdgeType;
-use crate::pow::error::{Error, ErrorKind};
+use crate::pow::error::Error;
 use crate::pow::{PoWContext, Proof};
 use crate::util::RwLock;
 
@@ -97,12 +96,13 @@ where
 	}
 
 	fn pow_solve(&mut self) -> Result<Vec<Proof>, Error> {
-		let hash = {
+		let hash: num_bigint::BigUint = {
 			let mut state = RX_STATE.write();
 			slow_hash(&mut state, &self.header, &self.seed)
 		};
 
-		Ok(vec![Proof::RandomXProof { hash: hash.into() }])
+		let hash_bytes: [u8; 32] = biguint_to_u8_32(hash);
+		Ok(vec![Proof::RandomXProof { hash: hash_bytes }])
 	}
 
 	fn verify(&mut self, proof: &Proof) -> Result<(), Error> {
@@ -111,7 +111,7 @@ where
 			slow_hash(&mut state, &self.header, &self.seed)
 		};
 
-		let hash_u8: [u8; 32] = hash.into();
+		let hash_u8: [u8; 32] = biguint_to_u8_32(hash);
 
 		if let Proof::RandomXProof { hash: ref proof } = proof {
 			if &hash_u8 == proof {
@@ -119,6 +119,17 @@ where
 			}
 		}
 
-		Err(ErrorKind::Verification("Hash randomx invalid!".to_string()))?
+		Err(Error::Verification("Hash randomx invalid!".to_string()))?
 	}
+}
+
+fn biguint_to_u8_32(value: BigUint) -> [u8; 32] {
+	let mut bytes = [0u8; 32]; // Initialize a 32-byte array with zeros
+	let biguint_bytes = value.to_bytes_be(); // Get the big-endian byte representation of the BigUint
+
+	// Copy the bytes into the array, starting from the right (least significant bytes)
+	let start = 32usize.saturating_sub(biguint_bytes.len());
+	bytes[start..].copy_from_slice(&biguint_bytes[..std::cmp::min(32, biguint_bytes.len())]);
+
+	bytes
 }
