@@ -1,3 +1,13 @@
+epic (4.0.0) focal; urgency=high
+
+  [ Epic Team ]
+  * Major release with new features and improvements
+  * Updated dependencies and security patches
+  * Performance optimizations and bug fixes
+  * See project documentation for full details
+
+ -- Epic Team <info@epiccash.com>  Sun, 07 Sep 2025 12:00:00 +0000
+ 
 epic (3.6.0) focal; urgency=medium
 
   [ Epic Team ]

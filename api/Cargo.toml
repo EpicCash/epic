@@ -1,6 +1,6 @@
 [package]
 name = "epic_api"
-version = "3.6.0"
+version = "4.0.0"
 authors = ["Epic Foundation <info@epiccash.com>"]
 description = "APIs for epic, a simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
@@ -44,12 +44,12 @@ rand = "0.9.2"
 
 
 
-epic_core = { path = "../core", version = "3.6.0" }
-epic_chain = { path = "../chain", version = "3.6.0" }
-epic_p2p = { path = "../p2p", version = "3.6.0" }
-epic_pool = { path = "../pool", version = "3.6.0" }
-epic_store = { path = "../store", version = "3.6.0" }
-epic_util = { path = "../util", version = "3.6.0" }
+epic_core = { path = "../core", version = "4.0.0" }
+epic_chain = { path = "../chain", version = "4.0.0" }
+epic_p2p = { path = "../p2p", version = "4.0.0" }
+epic_pool = { path = "../pool", version = "4.0.0" }
+epic_store = { path = "../store", version = "4.0.0" }
+epic_util = { path = "../util", version = "4.0.0" }
 
 
 [dev-dependencies]

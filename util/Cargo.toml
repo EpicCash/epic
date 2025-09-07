@@ -1,6 +1,6 @@
 [package]
 name = "epic_util"
-version = "3.6.0"
+version = "4.0.0"
 authors = ["Epic Foundation <info@epiccash.com>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
@@ -34,9 +34,9 @@ chrono = "0.4"
 
 [dependencies.grin_secp256k1zkp]
 git = "https://github.com/EpicCash/rust-secp256k1-zkp"
-branch = "rand_update"
+branch = "master"
 #path = "../../rust-secp256k1-zkp"
-version = "0.7.5"
+version = "0.8.0"
 features = ["bullet-proof-sizing"]
 
 [dev-dependencies]

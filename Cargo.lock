@@ -1121,7 +1121,7 @@ dependencies = [
 
 [[package]]
 name = "epic"
-version = "3.6.0"
+version = "4.0.0"
 dependencies = [
  "blake2-rfc",
  "built",
@@ -1156,7 +1156,7 @@ dependencies = [
 
 [[package]]
 name = "epic_api"
-version = "3.6.0"
+version = "4.0.0"
 dependencies = [
  "bytes",
  "chrono",
@@ -1198,7 +1198,7 @@ dependencies = [
 
 [[package]]
 name = "epic_chain"
-version = "3.6.0"
+version = "4.0.0"
 dependencies = [
  "bit-vec",
  "bitflags 2.9.4",
@@ -1222,7 +1222,7 @@ dependencies = [
 
 [[package]]
 name = "epic_config"
-version = "3.6.0"
+version = "4.0.0"
 dependencies = [
  "dirs 6.0.0",
  "epic_core",
@@ -1238,7 +1238,7 @@ dependencies = [
 
 [[package]]
 name = "epic_core"
-version = "3.6.0"
+version = "4.0.0"
 dependencies = [
  "blake2-rfc",
  "byteorder",
@@ -1269,7 +1269,7 @@ dependencies = [
 
 [[package]]
 name = "epic_keychain"
-version = "3.6.0"
+version = "4.0.0"
 dependencies = [
  "blake2-rfc",
  "byteorder",
@@ -1292,7 +1292,7 @@ dependencies = [
 
 [[package]]
 name = "epic_p2p"
-version = "3.6.0"
+version = "4.0.0"
 dependencies = [
  "bitflags 2.9.4",
  "blake2-rfc",
@@ -1324,7 +1324,7 @@ dependencies = [
 
 [[package]]
 name = "epic_pool"
-version = "3.6.0"
+version = "4.0.0"
 dependencies = [
  "blake2-rfc",
  "chrono",
@@ -1342,7 +1342,7 @@ dependencies = [
 
 [[package]]
 name = "epic_servers"
-version = "3.6.0"
+version = "4.0.0"
 dependencies = [
  "bytes",
  "chrono",
@@ -1383,7 +1383,7 @@ dependencies = [
 
 [[package]]
 name = "epic_store"
-version = "3.6.0"
+version = "4.0.0"
 dependencies = [
  "byteorder",
  "chrono",
@@ -1405,7 +1405,7 @@ dependencies = [
 
 [[package]]
 name = "epic_util"
-version = "3.6.0"
+version = "4.0.0"
 dependencies = [
  "anyhow",
  "backtrace",
@@ -1755,8 +1755,8 @@ dependencies = [
 
 [[package]]
 name = "grin_secp256k1zkp"
-version = "0.7.14"
-source = "git+https://github.com/EpicCash/rust-secp256k1-zkp?branch=rand_update#18f836b51143f70517aaeaab42b95494d9c95a79"
+version = "0.8.0"
+source = "git+https://github.com/EpicCash/rust-secp256k1-zkp?branch=master#e5ee7524f144b9d5fbc6c8a11c0f4967d474ec40"
 dependencies = [
  "arrayvec 0.7.6",
  "cc",
@@ -3218,7 +3218,7 @@ dependencies = [
 [[package]]
 name = "progpow"
 version = "0.1.0"
-source = "git+https://github.com/johanneshahn/progpow-rust?branch=update_dependencies#9918819e96f92482857553ba03a62f65f0ec0b23"
+source = "git+https://github.com/EpicCash/progpow-rust?tag=v0.2.0#7a10ab826479af4d0e61de4d6cccd420e0b8ce8e"
 dependencies = [
  "bindgen 0.71.1",
  "byteorder",
@@ -3235,7 +3235,7 @@ dependencies = [
 [[package]]
 name = "progpow_cpu"
 version = "0.1.0"
-source = "git+https://github.com/johanneshahn/progpow-rust?branch=update_dependencies#9918819e96f92482857553ba03a62f65f0ec0b23"
+source = "git+https://github.com/EpicCash/progpow-rust?tag=v0.2.0#7a10ab826479af4d0e61de4d6cccd420e0b8ce8e"
 dependencies = [
  "crunchy",
  "either",
@@ -3456,8 +3456,8 @@ dependencies = [
 
 [[package]]
 name = "randomx"
-version = "0.1.1"
-source = "git+https://github.com/EpicCash/randomx-rust.git?branch=update_dependencies#351799eca30531995df0c3e4211edbe7b127704f"
+version = "0.2.0"
+source = "git+https://github.com/EpicCash/randomx-rust.git?tag=v0.2.0#d8cdeff53c333707da401a3e06d29b467681cfeb"
 dependencies = [
  "bindgen 0.71.1",
  "byteorder",
