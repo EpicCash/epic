@@ -371,7 +371,6 @@ bitflags! {
 			| Capabilities::PEER_LIST.bits()
 			| Capabilities::TX_KERNEL_HASH.bits()
 			| Capabilities::HEADER_FASTSYNC.bits()
-			| Capabilities::ONIONSTEM.bits()
 			;
 	}
 }
