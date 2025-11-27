@@ -31,6 +31,10 @@ exclude = ["etc/gen_gen"]
 name = "epic"
 path = "src/bin/epic.rs"
 
+[lib]
+name = "epic"
+path = "src/lib.rs"
+
 [dependencies]
 time = "0.3"
 blake2-rfc = "0.2"

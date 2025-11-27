@@ -11,12 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-use crate::config::GlobalConfig;
-use crate::core::global;
-use crate::p2p::{PeerAddr, Seeding};
-use crate::servers;
-use crate::tui::ui;
+use log::{error, warn, info};
+use epic_config::GlobalConfig;
+use epic_core::global;
+use epic_p2p::{PeerAddr, Seeding};
+use epic_servers as servers;
 use clap::ArgMatches;
 use ctrlc;
 use epic_util::logger::LogEntry;
@@ -26,6 +25,7 @@ use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
+use crate::tui::ui::Controller;
 
 pub fn start_server(
     config: servers::ServerConfig,
@@ -63,7 +63,7 @@ fn start_server_tui(
             logs_rx,
             |serv: servers::Server, logs_rx: Option<mpsc::Receiver<LogEntry>>| {
                 let mut controller = match logs_rx {
-                    Some(rx) => match ui::Controller::new(rx) {
+                    Some(rx) => match Controller::new(rx) {
                         Ok(ctrl) => ctrl,
                         Err(e) => {
                             error!("Error loading UI controller: {}", e);

@@ -21,11 +21,29 @@ use cursive::Cursive;
 
 use crate::tui::constants::VIEW_VERSION;
 use crate::tui::types::TUIStatusListener;
-
-use crate::info_strings;
-use crate::servers::ServerStats;
-
+use epic_servers::ServerStats;
+use crate::cmd::built_info;
 pub struct TUIVersionView;
+
+pub fn info_strings() -> (String, String) {
+	(
+		format!(
+			"This is Epic version {}{}, built for {} by {}.",
+			built_info::PKG_VERSION,
+			built_info::GIT_VERSION.map_or_else(|| "".to_owned(), |v| format!(" (git {})", v)),
+			built_info::TARGET,
+			built_info::RUSTC_VERSION,
+		)
+		.to_string(),
+		format!(
+			"Built with profile \"{}\", features \"{}\".",
+			built_info::PROFILE,
+			built_info::FEATURES_STR,
+		)
+		.to_string(),
+	)
+}
+
 
 impl TUIStatusListener for TUIVersionView {
 	/// Create basic status view

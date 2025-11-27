@@ -14,7 +14,7 @@
 
 //! Types specific to the UI module
 
-use crate::servers::ServerStats;
+use epic_servers::ServerStats;
 use cursive::view::View;
 use cursive::Cursive;
 

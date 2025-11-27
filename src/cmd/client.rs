@@ -14,15 +14,14 @@
 
 /// Epic client commands processing
 use std::net::SocketAddr;
-
 use clap::ArgMatches;
-
-use crate::api;
-use crate::config::GlobalConfig;
-use crate::p2p;
-use crate::servers::ServerConfig;
-use crate::util::file::get_first_line;
+use epic_api as api;
+use epic_config::GlobalConfig;
+use epic_util::file::get_first_line;
 use term;
+use epic_servers::ServerConfig;
+use epic_p2p::types;
+
 
 pub fn client_command(client_args: &ArgMatches, global_config: GlobalConfig) -> i32 {
 	// just get defaults from the global config
@@ -129,7 +128,7 @@ pub fn unban_peer(config: &ServerConfig, peer_addr: &SocketAddr, api_secret: Opt
 pub fn list_connected_peers(config: &ServerConfig, api_secret: Option<String>) {
 	let mut e = term::stdout().unwrap();
 	let url = format!("http://{}/v1/peers/connected", config.api_http_addr);
-	let peers_info = api::client::get::<Vec<p2p::types::PeerInfoDisplay>>(url.as_str(), api_secret);
+	let peers_info = api::client::get::<Vec<types::PeerInfoDisplay>>(url.as_str(), api_secret);
 
 	match peers_info {
 		Ok(connected_peers) => {

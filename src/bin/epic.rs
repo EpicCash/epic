@@ -14,19 +14,18 @@
 
 //! Main for building the binary of a Epic peer-to-peer node.
 
-#[macro_use]
+
+use epic::cmd;
 extern crate log;
+use log::{debug, info};
 use crate::cmd::built_info;
 use crate::cmd::epic_args;
 use crate::config::config::SERVER_CONFIG_FILE_NAME;
 use crate::core::core::foundation;
 use crate::core::{consensus, global};
 use crate::util::init_logger;
-use epic_api as api;
-use epic_chain as chain;
 use epic_config as config;
 use epic_core as core;
-use epic_p2p as p2p;
 use epic_servers as servers;
 use epic_util as util;
 use epic_util::logger::LogEntry;
@@ -34,8 +33,7 @@ use servers::foundation::create_foundation;
 use std::env;
 use std::path::Path;
 use std::sync::mpsc;
-mod cmd;
-pub mod tui;
+
 
 pub fn info_strings() -> (String, String) {
 	(

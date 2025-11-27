@@ -16,7 +16,7 @@
 
 use std::cmp::Ordering;
 
-use crate::tui::chrono::prelude::{TimeZone, Utc};
+use chrono::prelude::{TimeZone, Utc};
 use cursive::direction::Orientation;
 use cursive::event::Key;
 use cursive::view::{Nameable, Resizable, View};
@@ -31,8 +31,13 @@ use crate::tui::constants::{
 };
 use crate::tui::types::TUIStatusListener;
 
-use crate::core::pow::PoWType;
-use crate::servers::{DiffBlock, ServerStats, WorkerStats};
+// use crate::core::pow::PoWType;
+use epic_core::pow::PoWType;
+// Update the import path to the correct module where these types are defined.
+// For example, if they are in crate::api, use:
+// Or, if they are in epic_servers, use:
+use epic_servers::{DiffBlock, ServerStats, WorkerStats};
+// Remove this line if you need to manually define or re-export these types.
 use cursive_table_view::{TableView, TableViewItem};
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]

@@ -13,8 +13,8 @@
 // limitations under the License.
 
 /// Epic configuration file output command
-use crate::config::GlobalConfig;
-use crate::core::global;
+use epic_config::GlobalConfig;
+use epic_core::global;
 use std::env;
 
 /// Create a config file in the current directory

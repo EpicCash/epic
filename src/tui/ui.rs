@@ -14,7 +14,7 @@
 
 //! Basic TUI to better output the overall system status and status
 //! of various subsystems
-
+use log::warn;
 use chrono::prelude::Utc;
 use cursive::direction::Orientation;
 use cursive::theme::BaseColor::{Black, Blue, Cyan, White};
@@ -29,8 +29,8 @@ use cursive::views::{BoxedView, CircularFocus, Dialog, LinearLayout, Panel, Stac
 use cursive::{CursiveRunnable, CursiveRunner};
 use std::sync::mpsc;
 
-use crate::built_info;
-use crate::servers::Server;
+// use crate::built_info; // Removed, not available
+use epic_servers::Server;
 use crate::tui::constants::ROOT_STACK;
 use crate::tui::types::{TUIStatusListener, UIMessage};
 use crate::tui::{logs, menu, mining, peers, status, version};
@@ -94,7 +94,7 @@ impl UI {
 		title_string.append(StyledString::styled(
 			format!(
 				"epic Version {} (proto: {})",
-				built_info::PKG_VERSION,
+				env!("CARGO_PKG_VERSION"),
 				Server::protocol_version()
 			),
 			Color::Dark(BaseColor::Green),

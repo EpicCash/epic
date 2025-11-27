@@ -16,8 +16,10 @@
 
 use std::cmp::Ordering;
 
-use crate::servers::{PeerStats, ServerStats};
-use crate::util::format::human_readable_size;
+// use crate::servers::{PeerStats, ServerStats};
+// Fix: adjust the import path or create the module if missing
+use epic_servers::{PeerStats, ServerStats}; // Example: adjust path if servers.rs is under tui/
+use epic_util::format::human_readable_size;
 use chrono::prelude::*;
 
 use cursive::direction::Orientation;
