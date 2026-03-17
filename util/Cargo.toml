@@ -36,7 +36,7 @@ chrono = "0.4"
 git = "https://github.com/EpicCash/rust-secp256k1-zkp"
 branch = "master"
 #path = "../../rust-secp256k1-zkp"
-version = "0.8.0"
+version = "0.8.1"
 features = ["bullet-proof-sizing"]
 
 [dev-dependencies]
