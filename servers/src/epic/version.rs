@@ -5,9 +5,9 @@ use std::str;
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::Resolver;
 
-const MAINNET_DNS_VERSION: &str = "epicversion.epic.tech.";
+const MAINNET_DNS_VERSION: &str = "epicversion.epiccash.com.";
 
-const FLOONET_DNS_VERSION: &str = "epicversion.51pool.online.";
+const FLOONET_DNS_VERSION: &str = "floonetversion.epiccash.com";
 
 pub fn get_dns_version() -> io::Result<Version> {
 	let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default())?;
