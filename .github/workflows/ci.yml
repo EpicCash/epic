@@ -3,37 +3,46 @@ name: CI
 on:
   push:
     branches:
-      - '**'
+      - master
     tags:
       - 'v*.*.*'
+
   pull_request:
     branches:
-      - '**'
+      - master
+
+  workflow_dispatch:
+
   schedule:
     - cron: '0 2 * * *' # Every day at 2am UTC
 
 jobs:
   build-and-test:
+    # Prevent scheduled/push runs in forks of the repository.
+    if: github.repository == 'EpicCash/epic'
+
     runs-on: ${{ matrix.os }}
+
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
 
     steps:
       # Checkout the repository
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Set up Rust
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
 
       # Cache Cargo dependencies
       - name: Cache Cargo registry
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
@@ -41,7 +50,7 @@ jobs:
             ${{ runner.os }}-cargo-registry-
 
       - name: Cache Cargo build
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
@@ -63,20 +72,17 @@ jobs:
       # Run tests
       - name: Run tests
         run: cargo test --workspace -- --nocapture --test-threads=1
-      
+
   release:
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') && github.repository == 'EpicCash/epic'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Build release binaries
         run: cargo build --release --workspace
@@ -100,23 +106,24 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   cucumber-tests:
-    if: github.ref == 'refs/heads/main' || github.event_name == 'schedule'
+    if: >-
+      github.repository == 'EpicCash/epic' &&
+      (github.ref == 'refs/heads/master' ||
+       github.event_name == 'schedule' ||
+       github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
       # Checkout the repository
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Set up Rust
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
 
       # Cache Cargo dependencies
       - name: Cache Cargo registry
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
@@ -124,7 +131,7 @@ jobs:
             ${{ runner.os }}-cargo-registry-
 
       - name: Cache Cargo build
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
