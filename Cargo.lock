@@ -3420,7 +3420,7 @@ dependencies = [
 [[package]]
 name = "randomx"
 version = "0.2.0"
-source = "git+https://github.com/EpicCash/randomx-rust.git?tag=v0.2.1#9a412a1588ae999484ab26d94f9b40449a856514"
+source = "git+https://github.com/who-biz/randomx-rust.git?branch=cs-fixes#e5174e7814551d161af4e64e4d7c2c2f1abb177a"
 dependencies = [
  "bindgen",
  "byteorder",
