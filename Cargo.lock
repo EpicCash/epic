@@ -1417,7 +1417,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cea14ef9355e3beab063703aa9dab15afd25f0667c341310c1e5274bb1d0da18"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2362,7 +2362,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if 1.0.0",
- "windows-targets 0.53.0",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -3420,7 +3420,7 @@ dependencies = [
 [[package]]
 name = "randomx"
 version = "0.2.0"
-source = "git+https://github.com/who-biz/randomx-rust.git?branch=cs-fixes#e5174e7814551d161af4e64e4d7c2c2f1abb177a"
+source = "git+https://github.com/who-biz/randomx-rust.git?branch=cs-fixes#79a795945329b9005974a0c5ce7a66af12886915"
 dependencies = [
  "bindgen",
  "byteorder",
@@ -3635,7 +3635,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4172,7 +4172,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "rustix",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
