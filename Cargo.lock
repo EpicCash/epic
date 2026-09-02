@@ -2362,7 +2362,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if 1.0.0",
- "windows-targets 0.48.5",
+ "windows-targets 0.53.0",
 ]
 
 [[package]]
@@ -3420,7 +3420,7 @@ dependencies = [
 [[package]]
 name = "randomx"
 version = "0.2.0"
-source = "git+https://github.com/who-biz/randomx-rust.git?branch=cs-fixes#7b1daec386af3877736e27cfd0becf067d08be30"
+source = "git+https://github.com/EpicCash/randomx-rust.git?tag=v0.2.0.2#0455ae29ce466e55139b8292b92f7c483e74e6e9"
 dependencies = [
  "bindgen",
  "byteorder",

@@ -36,7 +36,7 @@ zeroize = "1.8.1"
 
 keychain = { package = "epic_keychain", path = "../keychain", version = "4.0.3" }
 util = { package = "epic_util", path = "../util", version = "4.0.3" }
-randomx = { git = "https://github.com/who-biz/randomx-rust.git", branch = "cs-fixes" }
+randomx = { git = "https://github.com/EpicCash/randomx-rust.git", tag = "v0.2.0.2" }
 progpow = { git = "https://github.com/EpicCash/progpow-rust", tag = "v0.2.0" }
 
 
