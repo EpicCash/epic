@@ -1417,7 +1417,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cea14ef9355e3beab063703aa9dab15afd25f0667c341310c1e5274bb1d0da18"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3420,7 +3420,7 @@ dependencies = [
 [[package]]
 name = "randomx"
 version = "0.2.0"
-source = "git+https://github.com/EpicCash/randomx-rust.git?tag=v0.2.1#9a412a1588ae999484ab26d94f9b40449a856514"
+source = "git+https://github.com/EpicCash/randomx-rust.git?tag=v0.2.0.2#0455ae29ce466e55139b8292b92f7c483e74e6e9"
 dependencies = [
  "bindgen",
  "byteorder",
@@ -3635,7 +3635,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4172,7 +4172,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "rustix",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
