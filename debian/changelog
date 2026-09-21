@@ -1,3 +1,12 @@
+epic (4.0.4) jammy; urgency=high
+
+  [ Epic Team ]
+  * regression fix
+  * dependency update
+  * version bump
+
+ -- Epic Team <info@epiccash.com>  Mon, 21 Sep 2026 12:00:00 +0000
+
 epic (4.0.2) jammy; urgency=high
 
   [ Epic Team ]

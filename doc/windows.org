@@ -43,7 +43,7 @@ section we explain how to install and setup your epic server.
 
 The following steps explain how to install and run the epic server:
 
-1. Download the latest version of the *epic* server for windows [[https://epic.tech/downloads/][here]].
+1. Download the latest version of the *epic* server for windows [[https://epiccash.com/downloads/][here]].
 
 2. Unpack the zip file.
 
@@ -125,7 +125,7 @@ Epic Server]].
 ** Installation
 The following steps explain how to install and run the epic-wallet:
 
-1. Download the latest version of the *epic-wallet* for windows [[https://epic.tech/downloads/][here]].
+1. Download the latest version of the *epic-wallet* for windows [[https://epiccash.com/downloads/][here]].
 
 2. Unpack the downloaded .zip file. Since the wallet doesn't have a
    TUI (TEXT USER INTERFACE), you will need to run it by the command
@@ -339,7 +339,7 @@ You should see an output like this:
    The following steps explain how to install and run the epic-miner.
 
    1. Download the latest version of the desired *epic-miner* executable
-      [[https://epic.tech/downloads/][here]]:
+      [[https://epiccash.com/downloads/][here]]:
 
    2. Extract the downloaded .zip file.
 
