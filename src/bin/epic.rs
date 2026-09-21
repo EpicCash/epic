@@ -134,7 +134,7 @@ fn real_main() -> i32 {
 		Some(("wallet", _)) => {
 			println!();
 			println!("As of v1.1.0, the wallet has been split into a separate executable.");
-			println!("Please visit https://epic.tech/downloads/ to download");
+			println!("Please visit https://epiccash.com/downloads/ to download");
 			println!();
 			return 0;
 		}
