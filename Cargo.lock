@@ -1144,7 +1144,7 @@ dependencies = [
 
 [[package]]
 name = "epic"
-version = "4.0.4"
+version = "4.1.0"
 dependencies = [
  "blake2-rfc",
  "built",
@@ -1178,7 +1178,7 @@ dependencies = [
 
 [[package]]
 name = "epic_api"
-version = "4.0.4"
+version = "4.1.0"
 dependencies = [
  "bytes",
  "chrono",
@@ -1220,7 +1220,7 @@ dependencies = [
 
 [[package]]
 name = "epic_chain"
-version = "4.0.4"
+version = "4.1.0"
 dependencies = [
  "bit-vec",
  "bitflags 2.9.4",
@@ -1245,7 +1245,7 @@ dependencies = [
 
 [[package]]
 name = "epic_config"
-version = "4.0.4"
+version = "4.1.0"
 dependencies = [
  "dirs 6.0.0",
  "epic_core",
@@ -1261,7 +1261,7 @@ dependencies = [
 
 [[package]]
 name = "epic_core"
-version = "4.0.4"
+version = "4.1.0"
 dependencies = [
  "blake2-rfc",
  "byteorder",
@@ -1292,7 +1292,7 @@ dependencies = [
 
 [[package]]
 name = "epic_keychain"
-version = "4.0.4"
+version = "4.1.0"
 dependencies = [
  "blake2-rfc",
  "byteorder",
@@ -1315,7 +1315,7 @@ dependencies = [
 
 [[package]]
 name = "epic_p2p"
-version = "4.0.4"
+version = "4.1.0"
 dependencies = [
  "bitflags 2.9.4",
  "blake2-rfc",
@@ -1348,7 +1348,7 @@ dependencies = [
 
 [[package]]
 name = "epic_pool"
-version = "4.0.4"
+version = "4.1.0"
 dependencies = [
  "blake2-rfc",
  "chrono",
@@ -1366,7 +1366,7 @@ dependencies = [
 
 [[package]]
 name = "epic_servers"
-version = "4.0.4"
+version = "4.1.0"
 dependencies = [
  "bytes",
  "chrono",
@@ -1407,7 +1407,7 @@ dependencies = [
 
 [[package]]
 name = "epic_store"
-version = "4.0.4"
+version = "4.1.0"
 dependencies = [
  "byteorder",
  "chrono",
@@ -1429,7 +1429,7 @@ dependencies = [
 
 [[package]]
 name = "epic_util"
-version = "4.0.4"
+version = "4.1.0"
 dependencies = [
  "anyhow",
  "backtrace",
