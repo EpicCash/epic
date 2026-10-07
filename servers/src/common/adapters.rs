@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2020 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +18,6 @@
 
 use crate::util::RwLock;
 use std::fs::File;
-use std::io::Read;
 use std::path::PathBuf;
 use std::sync::{Arc, Weak};
 use std::thread;
@@ -43,6 +43,39 @@ use std::sync::Mutex;
 
 /// Force full pow verification this many blocks from chaintip
 pub const POW_VERIFICATION_THRESHOLD: u64 = 1000;
+
+fn forced_pow_threshold(network_height: u64) -> u64 {
+	network_height.saturating_sub(POW_VERIFICATION_THRESHOLD)
+}
+
+fn should_skip_pow(config: &ServerConfig, checkpointed: bool, below_tip_window: bool) -> bool {
+	config.skip_pow_validation.unwrap_or(false)
+		&& (checkpointed
+			|| (config.chain_type != global::ChainTypes::Mainnet
+				&& config.disable_checkpoints.unwrap_or(false)
+				&& below_tip_window))
+}
+
+fn is_bad_txhashset_data(error: &chain::Error) -> bool {
+	matches!(
+		error,
+		chain::Error::InvalidBlockProof(_)
+			| chain::Error::InvalidRoot
+			| chain::Error::InvalidMMRSize
+			| chain::Error::Secp(_)
+			| chain::Error::AlreadySpent(_)
+			| chain::Error::DuplicateCommitment(_)
+			| chain::Error::ImmatureCoinbase
+			| chain::Error::MerkleProof
+			| chain::Error::OutputNotFound
+			| chain::Error::RangeproofNotFound
+			| chain::Error::TxKernelNotFound
+			| chain::Error::OutputSpent
+			| chain::Error::InvalidTxHashSet(_)
+			| chain::Error::Transaction(_)
+			| chain::Error::Committed(_)
+	)
+}
 
 /// Ignore block broadcasts from chaintip, until we are less than
 /// this many blocks from chaintip, while syncing
@@ -252,6 +285,11 @@ where
 				debug!("Invalid compact block header {}: {:?}", cb_hash, e);
 				return Ok(!e.is_bad_data());
 			}
+			peer_info.update_validated_tip(
+				cb.header.height,
+				cb.header.total_difficulty(),
+				cb.header.hash(),
+			);
 
 			let (txs, missing_short_ids) = {
 				self.tx_pool
@@ -369,6 +407,7 @@ where
 		}
 
 		// we have successfully processed a block header
+		peer_info.update_validated_tip(bh.height, bh.total_difficulty(), bh.hash());
 		// so we can go request the block itself
 		// moved request for compact block to peers::header_received
 		//self.request_compact_block(&bh, peer_info);
@@ -394,13 +433,12 @@ where
 		);
 
 		let mut ctx_option = Options::SYNC;
-		let mut within_checkpointed_range = false;
-		let mut disable_checkpoints = false;
+		let mut within_checkpointed_range = true;
 
 		for header in bhs {
 			match self.chain().check_header_against_checkpoints(header) {
 				Ok(in_range) => {
-					within_checkpointed_range = in_range;
+					within_checkpointed_range &= in_range;
 				}
 				Err(e) => {
 					return Err(e);
@@ -408,25 +446,19 @@ where
 			}
 		}
 
-		if self.config.disable_checkpoints.is_some() {
-			if self.config.disable_checkpoints.unwrap() {
-				disable_checkpoints = true;
-			}
-		}
-
-		if self.config.skip_pow_validation.is_some() {
-			if self.config.skip_pow_validation.unwrap() {
-				if within_checkpointed_range || disable_checkpoints {
-					// only skip pow validation if setting is toggled AND we are within checkpointed range
-					// OR if we have 'skip_pow_validation' AND 'disable_checkpoints' toggled
-					// fully validate pow for all other cases
-					ctx_option = Options::SKIP_POW;
-				}
-			}
+		if should_skip_pow(&self.config, within_checkpointed_range, true) {
+			ctx_option = Options::SKIP_POW;
 		}
 
 		match self.chain().sync_block_headers(bhs, ctx_option) {
 			Ok(_) => {
+				if let Some(header) = bhs.iter().max_by_key(|header| header.total_difficulty()) {
+					peer_info.update_validated_tip(
+						header.height,
+						header.total_difficulty(),
+						header.hash(),
+					);
+				}
 				info!(
 					"------------ Validation required: {:?} sec ------------",
 					Utc::now().timestamp() - start_time,
@@ -497,16 +529,6 @@ where
 			Ok(b) => Some(b),
 			_ => None,
 		}
-	}
-
-	fn kernel_data_read(&self) -> Result<File, chain::Error> {
-		self.chain().kernel_data_read()
-	}
-
-	fn kernel_data_write(&self, reader: &mut dyn Read) -> Result<bool, chain::Error> {
-		let res = self.chain().kernel_data_write(reader)?;
-		error!("***** kernel_data_write: {:?}", res);
-		Ok(true)
 	}
 
 	/// Provides a reading view into the current txhashset state as well as
@@ -595,10 +617,11 @@ where
 				Ok(is_bad_data)
 			}
 			Err(e) => {
+				let is_bad_data = is_bad_txhashset_data(&e);
 				self.chain().clean_txhashset_sandbox();
 				error!("Failed to save Txhashset archive: {}", e);
 				self.sync_state.set_sync_error(e);
-				Ok(false)
+				Ok(is_bad_data)
 			}
 		}
 	}
@@ -698,23 +721,13 @@ where
 		let bhash = b.hash();
 		let previous = self.chain().get_previous_header(&b.header);
 		let within_checkpointed_range;
-		let mut disable_checkpoints = false;
-		let mut outside_forced_pow_threshold = false;
 		let mut options = opts;
 
 		let network_height = self.chain().header_head()?.height;
 		// ensure we check proof-of-work for last (POW_VERIFICATION_THRESHOLD) blocks from network chaintip
-		let check_pow_dyn_threshold = network_height - POW_VERIFICATION_THRESHOLD;
+		let check_pow_dyn_threshold = forced_pow_threshold(network_height);
 
-		if self.config.disable_checkpoints.is_some() {
-			if self.config.disable_checkpoints.unwrap() {
-				disable_checkpoints = true;
-				if b.header.height < check_pow_dyn_threshold {
-					// don't honor disable_checkpoints once we hit dynamic threshold
-					outside_forced_pow_threshold = true;
-				}
-			}
-		}
+		let outside_forced_pow_threshold = b.header.height < check_pow_dyn_threshold;
 
 		match self.chain().check_header_against_checkpoints(&b.header) {
 			Ok(in_range) => {
@@ -725,23 +738,19 @@ where
 			}
 		}
 
-		if self.config.skip_pow_validation.is_some() {
-			if self.config.skip_pow_validation.unwrap() {
-				if within_checkpointed_range
-					|| (disable_checkpoints && outside_forced_pow_threshold)
-				{
-					// skip pow validation if skip_pow_validation = true, and 1 of 2 conditions holds:
-					// 1.) we are within checkpointed range
-					// 2.) we have disable_checkpoints = true AND we are more than 1k blocks from chaintip
-					// Fully verify proof-of-work, for all other cases
-					options = chain::Options::SKIP_POW;
-				}
-				//warn!("b.header.height({}), dyn_threshold({}), options({:?})", b.header.height, check_pow_dyn_threshold, options);
-			}
+		if should_skip_pow(
+			&self.config,
+			within_checkpointed_range,
+			outside_forced_pow_threshold,
+		) {
+			options = chain::Options::SKIP_POW;
 		}
 
+		let height = b.header.height;
+		let total_difficulty = b.header.total_difficulty();
 		match self.chain().process_block(b, options) {
 			Ok(_) => {
+				peer_info.update_validated_tip(height, total_difficulty, bhash.clone());
 				self.validate_chain(bhash);
 				self.check_compact();
 				Ok(true)
@@ -1149,5 +1158,44 @@ impl pool::BlockChain for PoolToChainAdapter {
 		self.chain()
 			.verify_tx_lock_height(tx)
 			.map_err(|_| pool::PoolError::ImmatureTransaction)
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn forced_pow_threshold_saturates_below_window() {
+		assert_eq!(forced_pow_threshold(0), 0);
+		assert_eq!(forced_pow_threshold(POW_VERIFICATION_THRESHOLD + 1), 1);
+	}
+
+	#[test]
+	fn default_pow_policy_skips_only_checkpointed_history() {
+		let config = ServerConfig::default();
+		assert!(should_skip_pow(&config, true, true));
+		assert!(!should_skip_pow(&config, false, true));
+	}
+
+	#[test]
+	fn mainnet_ignores_disable_checkpoints() {
+		let mut config = ServerConfig::default();
+		config.disable_checkpoints = Some(true);
+		assert!(should_skip_pow(&config, true, true));
+		assert!(!should_skip_pow(&config, false, true));
+
+		config.chain_type = global::ChainTypes::AutomatedTesting;
+		assert!(should_skip_pow(&config, false, true));
+	}
+
+	#[test]
+	fn only_peer_attributable_txhashset_errors_are_bannable() {
+		assert!(is_bad_txhashset_data(&chain::Error::InvalidTxHashSet(
+			"invalid archive".to_owned()
+		)));
+		assert!(!is_bad_txhashset_data(&chain::Error::Io(
+			std::io::Error::new(std::io::ErrorKind::Other, "disk failure")
+		)));
 	}
 }

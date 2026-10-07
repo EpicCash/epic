@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -245,20 +246,19 @@ impl PeerStats {
 			p2p::types::Direction::Inbound => "Inbound",
 			p2p::types::Direction::Outbound => "Outbound",
 		};
-		let mut total_diff: u64 = 0;
-		total_diff =
-			total_diff.saturating_add(peer.info.total_difficulty().to_num(PoWType::Cuckatoo));
-		total_diff =
-			total_diff.saturating_add(peer.info.total_difficulty().to_num(PoWType::ProgPow));
-		total_diff =
-			total_diff.saturating_add(peer.info.total_difficulty().to_num(PoWType::RandomX));
+		let advertised_total_difficulty = peer.info.advertised_total_difficulty();
+		let mut total_diff = advertised_total_difficulty.to_num(PoWType::Cuckatoo);
+		total_diff = total_diff
+			.saturating_add(advertised_total_difficulty.to_num(PoWType::ProgPow));
+		total_diff = total_diff
+			.saturating_add(advertised_total_difficulty.to_num(PoWType::RandomX));
 		PeerStats {
 			state: state.to_string(),
 			addr,
 			version: peer.info.version,
 			user_agent: peer.info.user_agent.clone(),
 			total_difficulty: total_diff,
-			height: peer.info.height(),
+			height: peer.info.advertised_height(),
 			direction: direction.to_string(),
 			last_seen: peer.info.last_seen(),
 			sent_bytes_per_sec: peer.last_min_sent_bytes().unwrap_or(0) / 60,

@@ -1,4 +1,17 @@
-use num_bigint::BigUint;
+// Copyright 2026 The Epic Cash Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use std::marker::PhantomData;
 
 use crate::pow::common::EdgeType;
@@ -96,40 +109,26 @@ where
 	}
 
 	fn pow_solve(&mut self) -> Result<Vec<Proof>, Error> {
-		let hash: num_bigint::BigUint = {
+		let hash: [u8; 32] = {
 			let mut state = RX_STATE.write();
 			slow_hash(&mut state, &self.header, &self.seed)
 		};
 
-		let hash_bytes: [u8; 32] = biguint_to_u8_32(hash);
-		Ok(vec![Proof::RandomXProof { hash: hash_bytes }])
+		Ok(vec![Proof::RandomXProof { hash }])
 	}
 
 	fn verify(&mut self, proof: &Proof) -> Result<(), Error> {
-		let hash = {
+		let hash: [u8; 32] = {
 			let mut state = RX_STATE.write();
 			slow_hash(&mut state, &self.header, &self.seed)
 		};
 
-		let hash_u8: [u8; 32] = biguint_to_u8_32(hash);
-
 		if let Proof::RandomXProof { hash: ref proof } = proof {
-			if &hash_u8 == proof {
+			if &hash == proof {
 				return Ok(());
 			}
 		}
 
 		Err(Error::Verification("Hash randomx invalid!".to_string()))?
 	}
-}
-
-fn biguint_to_u8_32(value: BigUint) -> [u8; 32] {
-	let mut bytes = [0u8; 32]; // Initialize a 32-byte array with zeros
-	let biguint_bytes = value.to_bytes_be(); // Get the big-endian byte representation of the BigUint
-
-	// Copy the bytes into the array, starting from the right (least significant bytes)
-	let start = 32usize.saturating_sub(biguint_bytes.len());
-	bytes[start..].copy_from_slice(&biguint_bytes[..std::cmp::min(32, biguint_bytes.len())]);
-
-	bytes
 }

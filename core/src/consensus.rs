@@ -1,4 +1,6 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,7 +21,7 @@
 //! here.
 
 use crate::core::block::feijoada::{
-	get_bottles_default, next_block_bottles, Deterministic, Feijoada, Policy,
+	get_bottles_default, next_block_bottles, Deterministic, Feijoada, FeijoadaError, Policy,
 };
 use crate::core::block::HeaderVersion;
 use crate::core::hash::{Hash, ZERO_HASH};
@@ -623,7 +625,7 @@ pub fn clamp(actual: u64, goal: u64, clamp_factor: u64) -> u64 {
 	max(goal / clamp_factor, min(actual, goal * clamp_factor))
 }
 
-pub fn next_policy<T>(policy: u8, cursor: T) -> (PoWType, Policy)
+pub fn next_policy<T>(policy: u8, cursor: T) -> Result<(PoWType, Policy), FeijoadaError>
 where
 	T: IntoIterator<Item = Policy>,
 {
@@ -635,10 +637,11 @@ where
 		get_bottles_default()
 	};
 
-	let pow_type = Deterministic::choose_algo(&global::get_policies(policy).unwrap(), &bottles);
-	let b = next_block_bottles(pow_type, &bottles);
+	let policy = global::get_policies(policy).ok_or(FeijoadaError::UnknownPolicy)?;
+	let pow_type = Deterministic::choose_algo(&policy, &bottles)?;
+	let b = next_block_bottles(pow_type, &bottles)?;
 
-	(pow_type, b)
+	Ok((pow_type, b))
 }
 
 /*macro_rules! error_invalid_pow {

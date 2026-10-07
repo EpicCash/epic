@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -655,7 +656,7 @@ impl Readable for Proof {
 		match pow_type {
 			0 => {
 				let edge_bits = reader.read_u8()?;
-				if edge_bits == 0 || edge_bits > 64 {
+				if edge_bits == 0 || edge_bits >= 64 {
 					return Err(ser::Error::CorruptedData);
 				}
 
@@ -691,19 +692,20 @@ impl Readable for Proof {
 			1 => {
 				let edge_bits = reader.read_u8()?;
 				let proof_bytes = reader.read_bytes_len_prefix()?;
-				let proof = std::str::from_utf8(&proof_bytes).unwrap().to_string();
+				let proof = std::str::from_utf8(&proof_bytes)
+					.map_err(|_| ser::Error::CorruptedData)?
+					.to_string();
 				Ok(Proof::MD5Proof { edge_bits, proof })
 			}
 			2 => {
-				let hash = from_slice(&reader.read_fixed_bytes(32).unwrap());
+				let hash = from_slice(&reader.read_fixed_bytes(32)?);
 				Ok(Proof::RandomXProof { hash })
 			}
 			3 => {
-				let mix = from_slice(&reader.read_fixed_bytes(32).unwrap());
-				//let value = from_slice(&reader.read_fixed_bytes(32).unwrap());
+				let mix = from_slice(&reader.read_fixed_bytes(32)?);
 				Ok(Proof::ProgPowProof { mix })
 			}
-			_ => panic!("Unknown byte"),
+			_ => Err(ser::Error::CorruptedData),
 		}
 	}
 }

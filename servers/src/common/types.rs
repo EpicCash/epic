@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -178,8 +179,8 @@ pub struct ServerConfig {
 	/// Outside of checkpointed range
 	pub skip_pow_validation: Option<bool>,
 
-	/// Disable pow validation all the way to chaintip, only has effect when
-	/// skip_pow_validation is also set to 'true'
+	/// Disable pow validation all the way to chaintip outside mainnet, only has
+	/// effect when skip_pow_validation is also set to 'true'
 	pub disable_checkpoints: Option<bool>,
 
 	/// Whether to skip the sync timeout on startup
@@ -250,7 +251,7 @@ impl Default for ServerConfig {
 			chain_type: ChainTypes::default(),
 			archive_mode: Some(false),
 			skip_pow_validation: Some(true),
-			disable_checkpoints: Some(true),
+			disable_checkpoints: Some(false),
 			chain_validation_mode: ChainValidationMode::default(),
 			pool_config: pool::PoolConfig::default(),
 			skip_sync_wait: Some(false),

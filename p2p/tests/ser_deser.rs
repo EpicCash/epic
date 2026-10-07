@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -38,6 +39,12 @@ fn test_reason_for_ban_enum() {
 #[test]
 fn test_type_enum() {
 	assert_eq!(p2p::msg::Type::from_i32(0), Some(p2p::msg::Type::Error));
+}
+
+#[test]
+fn test_legacy_kernel_data_message_types_are_retired() {
+	assert_eq!(p2p::msg::Type::from_u8(21), None);
+	assert_eq!(p2p::msg::Type::from_u8(22), None);
 }
 
 #[test]

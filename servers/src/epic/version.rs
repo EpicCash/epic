@@ -1,16 +1,40 @@
+// Copyright 2026 The Epic Cash Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use crate::core::global;
 use crate::core::global::Version;
 use std::io::{self, Error, ErrorKind};
 use std::str;
-use trust_dns_resolver::config::*;
-use trust_dns_resolver::Resolver;
+use hickory_resolver::proto::rr::RData;
+use hickory_resolver::Resolver;
+use tokio::runtime::Runtime;
+
+//TODO: (Biz) find a much better way to do this
 
 const MAINNET_DNS_VERSION: &str = "epicversion.epiccash.com.";
 
 const FLOONET_DNS_VERSION: &str = "floonetversion.epiccash.com.";
 
 pub fn get_dns_version() -> io::Result<Version> {
-	let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default())?;
+	let runtime = Runtime::new()?;
+	let resolver = {
+		let _guard = runtime.enter();
+		Resolver::builder_tokio()
+			.map_err(Error::other)?
+			.build()
+			.map_err(Error::other)?
+	};
 
 	let txt_lookup = if global::is_floonet() {
 		FLOONET_DNS_VERSION
@@ -18,13 +42,22 @@ pub fn get_dns_version() -> io::Result<Version> {
 		MAINNET_DNS_VERSION
 	};
 	info!("txt_lookup {:?}", txt_lookup);
-	let response = resolver.txt_lookup(txt_lookup)?;
+	let response = runtime
+		.block_on(resolver.txt_lookup(txt_lookup))
+		.map_err(Error::other)?;
 
-	let response_next = response.iter().next().ok_or(Error::new(
-		ErrorKind::Other,
-		"Invalid response when checking the node version!",
-	))?;
-	let version_next = response_next.iter().next().ok_or(Error::new(
+	let response_next = response
+		.answers()
+		.iter()
+		.find_map(|record| match &record.data {
+			RData::TXT(txt) => Some(txt),
+			_ => None,
+		})
+		.ok_or(Error::new(
+			ErrorKind::Other,
+			"Invalid response when checking the node version!",
+		))?;
+	let version_next = response_next.txt_data.first().ok_or(Error::new(
 		ErrorKind::Other,
 		"Invalid response! Response doesn't include the node version!",
 	))?;

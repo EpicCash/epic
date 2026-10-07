@@ -1,4 +1,6 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2019 The Grin Developers
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -140,13 +142,6 @@ where
 		self.file.path()
 	}
 
-	/// Create a new tempfile containing the contents of this data file.
-	/// This allows callers to see a consistent view of the data without
-	/// locking the data file.
-	pub fn as_temp_file(&self) -> io::Result<File> {
-		self.file.as_temp_file()
-	}
-
 	/// Drop underlying file handles
 	pub fn release(&mut self) {
 		self.file.release();
@@ -283,6 +278,18 @@ where
 	fn append_elmt(&mut self, data: &T) -> io::Result<()> {
 		let mut bytes = ser::ser_vec(data, self.version)
 			.map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+		if let SizeInfo::FixedSize(expected) = &self.size_info {
+			if bytes.len() != usize::from(*expected) {
+				return Err(io::Error::new(
+					io::ErrorKind::InvalidData,
+					format!(
+						"serialized element has width {}, expected {}",
+						bytes.len(),
+						expected
+					),
+				));
+			}
+		}
 		self.append(&mut bytes)?;
 		Ok(())
 	}

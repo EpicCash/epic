@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2020 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,7 +22,7 @@ use crate::router::{Handler, ResponseFuture};
 use crate::types::*;
 use crate::web::*;
 
-use hyper::{Request, StatusCode};
+use hyper::Request;
 use serde_json::json;
 use std::sync::Weak;
 
@@ -39,29 +40,6 @@ impl IndexHandler {}
 impl Handler<Full<Bytes>> for IndexHandler {
 	fn get(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		json_response_pretty(&self.list)
-	}
-}
-
-pub struct KernelDownloadHandler {
-	pub peers: Weak<p2p::Peers>,
-}
-
-impl Handler<Full<Bytes>> for KernelDownloadHandler {
-	fn post(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
-		if let Some(peer) = w_fut!(&self.peers).most_work_peer() {
-			match peer.send_kernel_data_request() {
-				Ok(_) => response(StatusCode::OK, "{}"),
-				Err(e) => response(
-					StatusCode::INTERNAL_SERVER_ERROR,
-					format!("requesting kernel data from peer failed: {:?}", e),
-				),
-			}
-		} else {
-			response(
-				StatusCode::INTERNAL_SERVER_ERROR,
-				format!("requesting kernel data from peer failed (no peers)"),
-			)
-		}
 	}
 }
 

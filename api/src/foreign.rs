@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2020 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +15,7 @@
 
 //! Foreign API External Definition
 
-use crate::chain::{Chain, SyncState};
+use crate::chain::{Chain, SyncState, SyncStatus};
 use crate::core::core::hash::Hash;
 use crate::core::core::transaction::Transaction;
 use crate::core::core::Block;
@@ -30,11 +31,15 @@ use crate::pool::{self, BlockChain, PoolAdapter, PoolEntry};
 use crate::rest::*;
 use crate::types::{
 	BlockHeaderPrintable, BlockPrintable, LocatedTxKernel, OutputListing, OutputPrintable, Tip,
-	Version,
+	ReadyForTxs, Version,
 };
 use crate::util::RwLock;
 use epic_core::core::TxKernel;
 use std::sync::Weak;
+
+fn sync_state_ready_for_txs(sync_state: &SyncState) -> bool {
+	matches!(sync_state.status(), SyncStatus::NoSync)
+}
 
 /// Main interface into all node API functions.
 /// Node APIs are split into two seperate blocks of functionality
@@ -58,6 +63,16 @@ where
 	B: BlockChain,
 	P: PoolAdapter,
 {
+	pub fn ready_for_txs(&self) -> Result<ReadyForTxs, Error> {
+		let sync_state = self
+			.sync_state
+			.upgrade()
+			.ok_or_else(|| Error::Internal("failed to upgrade sync state".to_owned()))?;
+		Ok(ReadyForTxs {
+			ready_for_txs: sync_state_ready_for_txs(&sync_state),
+		})
+	}
+
 	/// Create a new API instance with the chain, transaction pool, peers and `sync_state`. All subsequent
 	/// API calls will operate on this instance of node API.
 	///
@@ -403,5 +418,20 @@ where
 			tx_pool: self.tx_pool.clone(),
 		};
 		pool_handler.push_transaction(tx, fluff)
+	}
+}
+
+#[cfg(test)]
+mod readiness_tests {
+	use super::*;
+
+	#[test]
+	fn readiness_tracks_authoritative_sync_state() {
+		let sync_state = SyncState::new();
+		assert!(!sync_state_ready_for_txs(&sync_state));
+		sync_state.update(SyncStatus::NoSync);
+		assert!(sync_state_ready_for_txs(&sync_state));
+		sync_state.update(SyncStatus::Compacting);
+		assert!(!sync_state_ready_for_txs(&sync_state));
 	}
 }

@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -285,9 +286,10 @@ mod tests {
 	fn test_update_ban_reason() {
 		let peer_addr = "127.0.0.1:13414".parse().map(PeerAddr).unwrap();
 		let ban_reason = ReasonForBan::BadBlock;
+		let db_root = tempfile::tempdir().unwrap();
 
 		// Erstelle einen PeerStore und füge einen Peer hinzu
-		let peer_store = PeerStore::new("/tmp/peer_store_test").unwrap();
+		let peer_store = PeerStore::new(db_root.path().to_str().unwrap()).unwrap();
 		let peer_data = PeerData {
 			addr: peer_addr.clone(),
 			capabilities: Capabilities::UNKNOWN,

@@ -89,6 +89,8 @@ fn test_start_api() {
 // Hyper-tls client doesn't accept self-signed certificates. The easiest way is to use mkcert
 // https://github.com/FiloSottile/mkcert to install CA and generate a certificate on your local machine.
 // You need to put the file to api/tests folder
+
+//TODO: develop an actual test here, do not ignore
 #[ignore]
 #[test]
 fn test_start_api_tls() {

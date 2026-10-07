@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -92,6 +93,65 @@ fn peer_handshake() {
 	thread::sleep(time::Duration::from_secs(1));
 
 	let server_peer = server.peers.get_connected_peer(my_addr).unwrap();
-	assert_eq!(server_peer.info.total_difficulty(), Difficulty::min());
+	assert_eq!(
+		server_peer.info.advertised_total_difficulty(),
+		Difficulty::min()
+	);
+	assert_eq!(
+		server_peer.info.validated_total_difficulty(),
+		Difficulty::zero()
+	);
 	assert!(server.peers.peer_count() > 0);
+}
+
+#[test]
+fn genesis_mismatch_does_not_ban_client() {
+	let server_config = p2p::P2PConfig {
+		host: "127.0.0.1".parse().unwrap(),
+		port: open_port(),
+		peers_allow: None,
+		peers_deny: None,
+		..p2p::P2PConfig::default()
+	};
+	let root = tempfile::tempdir().unwrap();
+	let server = Arc::new(
+		p2p::Server::new(
+			root.path().to_str().unwrap(),
+			p2p::Capabilities::UNKNOWN,
+			server_config.clone(),
+			Arc::new(p2p::DummyAdapter {}),
+			Hash::from_vec(&[1]),
+			Arc::new(StopState::new()),
+			None,
+		)
+		.unwrap(),
+	);
+	let listener = server.clone();
+	let listener_thread = thread::spawn(move || listener.listen());
+	let addr = SocketAddr::new(server_config.host, server_config.port);
+	let stream = (0..50)
+		.find_map(|_| TcpStream::connect(addr).ok().or_else(|| {
+			thread::sleep(time::Duration::from_millis(20));
+			None
+		}))
+		.expect("connect mismatched client");
+	let client_addr = PeerAddr(stream.local_addr().unwrap());
+	let client_config = p2p::P2PConfig {
+		host: "127.0.0.1".parse().unwrap(),
+		port: open_port(),
+		..p2p::P2PConfig::default()
+	};
+	let result = Peer::connect(
+		stream,
+		p2p::Capabilities::UNKNOWN,
+		Difficulty::min(),
+		PeerAddr(SocketAddr::new(client_config.host, client_config.port)),
+		&p2p::handshake::Handshake::new(Hash::from_vec(&[2]), client_config),
+		Arc::new(p2p::DummyAdapter {}),
+	);
+	assert!(result.is_err());
+	thread::sleep(time::Duration::from_millis(200));
+	assert!(!server.peers.is_banned(client_addr));
+	server.stop();
+	listener_thread.join().unwrap().unwrap();
 }

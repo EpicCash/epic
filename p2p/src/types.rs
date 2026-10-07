@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,7 +17,7 @@ use crate::core::core::BlockHeader;
 use crate::util::RwLock;
 use std::convert::From;
 use std::fs::File;
-use std::io::{self, Read};
+use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -401,8 +402,13 @@ enum_from_primitive! {
 
 #[derive(Clone, Debug)]
 pub struct PeerLiveInfo {
-	pub total_difficulty: Difficulty,
-	pub height: u64,
+	advertised_total_difficulty: Difficulty,
+	advertised_height: u64,
+	validated_total_difficulty: Difficulty,
+	validated_height: u64,
+	validated_tip_hash: Option<Hash>,
+	last_header_probe_difficulty: Option<Difficulty>,
+	bounded_header_probe_pending: bool,
 	pub last_seen: DateTime<Utc>,
 	pub stuck_detector: DateTime<Utc>,
 	pub first_seen: DateTime<Utc>,
@@ -425,8 +431,13 @@ pub struct PeerInfo {
 impl PeerLiveInfo {
 	pub fn new(difficulty: Difficulty) -> PeerLiveInfo {
 		PeerLiveInfo {
-			total_difficulty: difficulty,
-			height: 0,
+			advertised_total_difficulty: difficulty,
+			advertised_height: 0,
+			validated_total_difficulty: Difficulty::zero(),
+			validated_height: 0,
+			validated_tip_hash: None,
+			last_header_probe_difficulty: None,
+			bounded_header_probe_pending: false,
 			first_seen: Utc::now(),
 			last_seen: Utc::now(),
 			local_timestamp: 0,
@@ -438,9 +449,14 @@ impl PeerLiveInfo {
 }
 
 impl PeerInfo {
-	/// The current total_difficulty of the peer.
-	pub fn total_difficulty(&self) -> Difficulty {
-		self.live_info.read().total_difficulty.clone()
+	/// The total difficulty claimed by the peer via handshake or Ping/Pong.
+	pub fn advertised_total_difficulty(&self) -> Difficulty {
+		self.live_info.read().advertised_total_difficulty.clone()
+	}
+
+	/// The greatest total difficulty this peer has demonstrated with accepted headers.
+	pub fn validated_total_difficulty(&self) -> Difficulty {
+		self.live_info.read().validated_total_difficulty.clone()
 	}
 
 	pub fn is_outbound(&self) -> bool {
@@ -451,9 +467,14 @@ impl PeerInfo {
 		self.direction == Direction::Inbound
 	}
 
-	/// The current height of the peer.
-	pub fn height(&self) -> u64 {
-		self.live_info.read().height
+	/// The height claimed by the peer via Ping/Pong.
+	pub fn advertised_height(&self) -> u64 {
+		self.live_info.read().advertised_height
+	}
+
+	/// The height associated with this peer's greatest demonstrated work.
+	pub fn validated_height(&self) -> u64 {
+		self.live_info.read().validated_height
 	}
 
 	/// Time of last_seen for this peer (via ping/pong).
@@ -471,20 +492,89 @@ impl PeerInfo {
 		self.live_info.read().local_timestamp
 	}
 
-	/// Update the total_difficulty, height and last_seen of the peer.
+	pub(super) fn is_stuck(&self) -> (bool, Difficulty) {
+		let live_info = self.live_info.read();
+		let cutoff = live_info.stuck_detector.timestamp_millis() + global::STUCK_PEER_KICK_TIME;
+		(Utc::now().timestamp_millis() > cutoff, live_info.advertised_total_difficulty.clone())
+	}
+
+	/// Update the peer's unverified advertised tip and last-seen metadata.
 	/// Takes a write lock on the live_info.
-	pub fn update(&self, height: u64, total_difficulty: Difficulty, local_timestamp: i64) {
+	pub fn update_advertised_tip(
+		&self,
+		height: u64,
+		total_difficulty: Difficulty,
+		local_timestamp: i64,
+	) {
 		let mut live_info = self.live_info.write();
 
-		//debug!("update peer stuck live_info: {:?}, total_difficulty {:?}", live_info.clone(), total_difficulty);
-
-		if total_difficulty != live_info.total_difficulty {
+		if total_difficulty != live_info.advertised_total_difficulty {
 			live_info.stuck_detector = Utc::now();
 		}
-		live_info.height = height;
-		live_info.total_difficulty = total_difficulty;
+		live_info.advertised_height = height;
+		live_info.advertised_total_difficulty = total_difficulty;
 		live_info.last_seen = Utc::now();
 		live_info.local_timestamp = local_timestamp;
+	}
+
+	/// Record work this peer demonstrated through successfully accepted headers.
+	/// A peer's validated tip never regresses when it later serves historical data.
+	pub fn update_validated_tip(&self, height: u64, total_difficulty: Difficulty, hash: Hash) {
+		let mut live_info = self.live_info.write();
+		if total_difficulty > live_info.validated_total_difficulty {
+			live_info.validated_height = height;
+			live_info.validated_total_difficulty = total_difficulty;
+			live_info.validated_tip_hash = Some(hash);
+		}
+	}
+
+	/// Whether this peer demonstrated the exact locally accepted tip.
+	pub fn validated_tip_matches(
+		&self,
+		height: u64,
+		total_difficulty: &Difficulty,
+		hash: &Hash,
+	) -> bool {
+		let live_info = self.live_info.read();
+		live_info.validated_height == height
+			&& live_info.validated_total_difficulty == total_difficulty.clone()
+			&& live_info.validated_tip_hash.as_ref() == Some(hash)
+	}
+
+	/// Whether this connection may use its advertisement to request one more
+	/// bounded header batch. Validated progress re-enables the next probe.
+	pub fn header_probe_eligible(&self) -> bool {
+		let live_info = self.live_info.read();
+		match &live_info.last_header_probe_difficulty {
+			Some(last_probe) => live_info.validated_total_difficulty > last_probe.clone(),
+			None => true,
+		}
+	}
+
+	/// Record the validated-work watermark at which a header probe was issued.
+	pub fn mark_header_probe_started(&self) {
+		let mut live_info = self.live_info.write();
+		let validated_total_difficulty = live_info.validated_total_difficulty.clone();
+		live_info.last_header_probe_difficulty = Some(validated_total_difficulty);
+	}
+
+	pub(super) fn start_bounded_header_probe(&self) {
+		let mut live_info = self.live_info.write();
+		let validated_total_difficulty = live_info.validated_total_difficulty.clone();
+		live_info.synced_headers.clear();
+		live_info.last_header_probe_difficulty = Some(validated_total_difficulty);
+		live_info.bounded_header_probe_pending = true;
+	}
+
+	pub(super) fn take_bounded_header_probe(&self) -> bool {
+		let mut live_info = self.live_info.write();
+		std::mem::take(&mut live_info.bounded_header_probe_pending)
+	}
+
+	pub(super) fn cancel_bounded_header_probe(&self) {
+		let mut live_info = self.live_info.write();
+		live_info.bounded_header_probe_pending = false;
+		live_info.last_header_probe_difficulty = None;
 	}
 
 	/// store received untrusted headers. will be added later to chain
@@ -493,9 +583,123 @@ impl PeerInfo {
 		live_info.synced_headers = headers;
 	}
 
-	/// untrusted headers from header sync.
-	pub fn get_headers(&self) -> Vec<BlockHeader> {
-		self.live_info.read().synced_headers.clone()
+	/// Take untrusted headers received during header sync.
+	pub fn take_headers(&self) -> Vec<BlockHeader> {
+		std::mem::take(&mut self.live_info.write().synced_headers)
+	}
+}
+
+#[cfg(test)]
+mod peer_tip_tests {
+	use super::*;
+
+	fn peer_with_advertised_tip(difficulty: Difficulty) -> PeerInfo {
+		PeerInfo {
+			capabilities: Capabilities::UNKNOWN,
+			user_agent: "test".to_owned(),
+			version: ProtocolVersion::local(),
+			addr: PeerAddr("127.0.0.1:3414".parse().unwrap()),
+			direction: Direction::Inbound,
+			live_info: Arc::new(RwLock::new(PeerLiveInfo::new(difficulty))),
+		}
+	}
+
+	#[test]
+	fn advertised_tip_cannot_advance_validated_tip() {
+		let peer = peer_with_advertised_tip(Difficulty::from_num(10));
+		assert_eq!(peer.validated_total_difficulty(), Difficulty::zero());
+		assert_eq!(peer.validated_height(), 0);
+
+		peer.update_advertised_tip(1_000, Difficulty::from_num(1_000), 123);
+		assert_eq!(
+			peer.advertised_total_difficulty(),
+			Difficulty::from_num(1_000)
+		);
+		assert_eq!(peer.advertised_height(), 1_000);
+		assert_eq!(peer.validated_total_difficulty(), Difficulty::zero());
+		assert_eq!(peer.validated_height(), 0);
+
+		peer.update_validated_tip(
+			20,
+			Difficulty::from_num(20),
+			Hash::from_vec(&[20]),
+		);
+		peer.update_advertised_tip(2_000, Difficulty::from_num(2_000), 456);
+		assert_eq!(
+			peer.validated_total_difficulty(),
+			Difficulty::from_num(20)
+		);
+		assert_eq!(peer.validated_height(), 20);
+	}
+
+	#[test]
+	fn validated_tip_does_not_regress() {
+		let peer = peer_with_advertised_tip(Difficulty::from_num(100));
+		peer.update_validated_tip(
+			80,
+			Difficulty::from_num(80),
+			Hash::from_vec(&[80]),
+		);
+		peer.update_validated_tip(
+			40,
+			Difficulty::from_num(40),
+			Hash::from_vec(&[40]),
+		);
+
+		assert_eq!(
+			peer.validated_total_difficulty(),
+			Difficulty::from_num(80)
+		);
+		assert_eq!(peer.validated_height(), 80);
+	}
+
+	#[test]
+	fn validated_tip_match_requires_the_same_hash() {
+		let peer = peer_with_advertised_tip(Difficulty::from_num(100));
+		let hash = Hash::from_vec(&[80]);
+		peer.update_validated_tip(80, Difficulty::from_num(80), hash);
+
+		assert!(peer.validated_tip_matches(80, &Difficulty::from_num(80), &hash));
+		assert!(!peer.validated_tip_matches(
+			80,
+			&Difficulty::from_num(80),
+			&Hash::from_vec(&[81]),
+		));
+	}
+
+	#[test]
+	fn header_probe_requires_validated_progress_before_retry() {
+		let peer = peer_with_advertised_tip(Difficulty::from_num(1_000));
+		assert!(peer.header_probe_eligible());
+
+		peer.mark_header_probe_started();
+		assert!(!peer.header_probe_eligible());
+
+		peer.update_advertised_tip(2_000, Difficulty::from_num(2_000), 0);
+		assert!(!peer.header_probe_eligible());
+
+		peer.update_validated_tip(1, Difficulty::from_num(1), Hash::from_vec(&[1]));
+		assert!(peer.header_probe_eligible());
+	}
+
+	#[test]
+	fn bounded_header_probe_marker_is_one_shot() {
+		let peer = peer_with_advertised_tip(Difficulty::from_num(1_000));
+		peer.start_bounded_header_probe();
+
+		assert!(!peer.header_probe_eligible());
+		assert!(peer.take_bounded_header_probe());
+		assert!(!peer.take_bounded_header_probe());
+	}
+
+	#[test]
+	fn failed_bounded_header_probe_can_be_retried() {
+		let peer = peer_with_advertised_tip(Difficulty::from_num(1_000));
+		peer.start_bounded_header_probe();
+		peer.cancel_bounded_header_probe();
+
+		assert!(!peer.take_bounded_header_probe());
+		assert!(peer.header_probe_eligible());
 	}
 }
 
@@ -508,7 +712,9 @@ pub struct PeerInfoDisplay {
 	pub version: ProtocolVersion,
 	pub addr: PeerAddr,
 	pub direction: Direction,
+	/// Unverified total difficulty advertised by the peer.
 	pub total_difficulty: Difficulty,
+	/// Unverified height advertised by the peer.
 	pub height: u64,
 	pub onion_addr: Option<String>,
 }
@@ -521,8 +727,8 @@ impl From<PeerInfo> for PeerInfoDisplay {
 			version: info.version,
 			addr: info.addr.clone(),
 			direction: info.direction.clone(),
-			total_difficulty: info.total_difficulty(),
-			height: info.height(),
+			total_difficulty: info.advertised_total_difficulty(),
+			height: info.advertised_height(),
 			onion_addr: info.live_info.read().onion_addr.clone(),
 		}
 	}
@@ -615,10 +821,6 @@ pub trait ChainAdapter: Sync + Send {
 	/// Gets a full block by its hash.
 	fn get_block(&self, h: Hash) -> Option<core::Block>;
 
-	fn kernel_data_read(&self) -> Result<File, chain::Error>;
-
-	fn kernel_data_write(&self, reader: &mut dyn Read) -> Result<bool, chain::Error>;
-
 	/// Provides a reading view into the current txhashset state as well as
 	/// the required indexes for a consumer to rewind to a consistant state
 	/// at the provided block hash.
@@ -670,8 +872,8 @@ pub trait NetAdapter: ChainAdapter {
 	/// A list of peers has been received from one of our peers.
 	fn peer_addrs_received(&self, _: Vec<PeerAddr>);
 
-	/// Heard total_difficulty from a connected peer (via ping/pong).
-	fn peer_difficulty(&self, _: PeerAddr, _: Difficulty, _: u64, _: i64);
+	/// Heard an advertised total difficulty from a connected peer via Ping/Pong.
+	fn peer_advertised_difficulty(&self, _: PeerAddr, _: Difficulty, _: u64, _: i64);
 
 	/// Is this peer currently banned?
 	fn is_banned(&self, addr: PeerAddr) -> bool;

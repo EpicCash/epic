@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2020 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,12 +38,12 @@ use self::peers_api::PeersOnionAddressesHandler;
 use self::pool_api::PoolInfoHandler;
 use self::pool_api::PoolPushHandler;
 use self::server_api::IndexHandler;
-use self::server_api::KernelDownloadHandler;
 use self::server_api::StatusHandler;
 use self::transactions_api::TxHashSetHandler;
 use self::version_api::VersionHandler;
 use crate::auth::{
-	BasicAuthURIMiddleware, EPIC_BASIC_REALM, EPIC_FOREIGN_BASIC_REALM,
+	basic_auth_matches, unauthorized_response, BasicAuthURIMiddleware, EPIC_BASIC_REALM,
+	EPIC_FOREIGN_BASIC_REALM,
 };
 use crate::chain;
 use crate::chain::{Chain, SyncState};
@@ -67,9 +68,11 @@ use easy_jsonrpc_mw::{Handler, MaybeReply};
 use bytes::Bytes;
 use hyper::{Request, Response, StatusCode};
 
-use http_body_util::Full;
+use http_body_util::{BodyExt, Full, Limited};
+use hyper::header::AUTHORIZATION;
 use std::net::SocketAddr;
 use std::sync::{Arc, Weak};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::web::boxed_body;
 use crate::web::BoxBodyType;
@@ -106,31 +109,24 @@ where
 
 
 
-	// Add basic auth to v2 owner API
-	if let Some(api_secret) = api_secret {
-		let api_basic_auth =
-			"Basic ".to_string() + &to_base64(&("epic:".to_string() + &api_secret));
-		
-		// Protect all v1 endpoints
-		let v1_auth = Arc::new(BasicAuthURIMiddleware::new(
-			api_basic_auth.clone(),
-			&EPIC_BASIC_REALM,
-			"/v1".into(),
-		));
-		router.add_middleware(v1_auth);
-		
-		let basic_auth_middleware = Arc::new(BasicAuthURIMiddleware::new(
-			api_basic_auth,
-			&EPIC_BASIC_REALM,
-			"/v2/owner".into(),
-		));
-		router.add_middleware(basic_auth_middleware);
-	}
+	let owner_api_basic_auth = api_secret.as_ref().map(|api_secret|
+		"Basic ".to_string() + &to_base64(&("epic:".to_string() + api_secret))
+	);
+
+	// Legacy v1 mixes public and Owner operations, so retain its existing Owner
+	// authentication and fail closed when no Owner secret was loaded.
+	let v1_auth = Arc::new(BasicAuthURIMiddleware::new_required(
+		owner_api_basic_auth.clone(),
+		&EPIC_BASIC_REALM,
+		"/v1".into(),
+	));
+	router.add_middleware(v1_auth);
 
 	let owner_api_handler = OwnerAPIHandlerV2::new(
 		Arc::downgrade(&chain),
 		Arc::downgrade(&peers),
 		Arc::downgrade(&sync_state),
+		owner_api_basic_auth,
 	);
 	router.add_route("/v2/owner", Arc::new(owner_api_handler))?;
 
@@ -195,17 +191,90 @@ pub struct OwnerAPIHandlerV2 {
     pub chain: Weak<Chain>,
     pub peers: Weak<p2p::Peers>,
     pub sync_state: Weak<SyncState>,
+    api_basic_auth: Option<String>,
+}
+
+const LEGACY_OWNER_STATUS_BODY_LIMIT: usize = 4 * 1024;
+static LEGACY_OWNER_STATUS_REQUESTS: AtomicU64 = AtomicU64::new(0);
+
+#[derive(Debug, PartialEq, Eq)]
+enum OwnerAuthorization {
+	Authenticated,
+	Compatibility,
+}
+
+fn owner_authorization(
+	supplied: Option<&hyper::header::HeaderValue>,
+	expected: Option<&str>,
+) -> OwnerAuthorization {
+	match (supplied, expected) {
+		(Some(value), Some(expected)) if basic_auth_matches(value, expected) => {
+			OwnerAuthorization::Authenticated
+		}
+		_ => OwnerAuthorization::Compatibility,
+	}
 }
 
 impl OwnerAPIHandlerV2 {
     /// Create a new owner API handler for GET methods
-    pub fn new(chain: Weak<Chain>, peers: Weak<p2p::Peers>, sync_state: Weak<SyncState>) -> Self {
+    pub fn new(
+        chain: Weak<Chain>,
+        peers: Weak<p2p::Peers>,
+        sync_state: Weak<SyncState>,
+        api_basic_auth: Option<String>,
+    ) -> Self {
         OwnerAPIHandlerV2 {
             chain,
             peers,
             sync_state,
+            api_basic_auth,
         }
     }
+}
+
+fn is_legacy_status_request(value: &serde_json::Value) -> bool {
+	let object = match value.as_object() {
+		Some(object) => object,
+		None => return false,
+	};
+	if object.get("jsonrpc").and_then(|v| v.as_str()) != Some("2.0")
+		|| object.get("method").and_then(|v| v.as_str()) != Some("get_status")
+		|| !matches!(
+			object.get("id"),
+			Some(serde_json::Value::Number(_))
+				| Some(serde_json::Value::String(_))
+				| Some(serde_json::Value::Null)
+		)
+		|| object
+			.keys()
+			.any(|key| !matches!(key.as_str(), "jsonrpc" | "method" | "params" | "id"))
+	{
+		return false;
+	}
+	match object.get("params") {
+		Some(serde_json::Value::Null) => true,
+		Some(serde_json::Value::Array(params)) => params.is_empty(),
+		_ => false,
+	}
+}
+
+fn legacy_status_response(api: &Owner, request: &serde_json::Value) -> Response<BoxBodyType> {
+	let count = LEGACY_OWNER_STATUS_REQUESTS.fetch_add(1, Ordering::Relaxed) + 1;
+	if count.is_power_of_two() {
+		debug!(
+			"served {} legacy compatible Owner get_status requests",
+			count
+		);
+	}
+	let id = request.get("id").cloned().unwrap_or(serde_json::Value::Null);
+	match api.get_status() {
+		Ok(status) => json_response_pretty(&serde_json::json!({
+			"jsonrpc": "2.0",
+			"result": { "Ok": status },
+			"id": id,
+		})),
+		Err(error) => response(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()),
+	}
 }
 
 impl crate::router::Handler<Full<Bytes>> for OwnerAPIHandlerV2 {
@@ -216,23 +285,43 @@ impl crate::router::Handler<Full<Bytes>> for OwnerAPIHandlerV2 {
             self.sync_state.clone(),
         );
 
+		let authorization = owner_authorization(
+			req.headers().get(AUTHORIZATION),
+			self.api_basic_auth.as_deref(),
+		);
+		if authorization == OwnerAuthorization::Authenticated {
+			return Box::pin(async move {
+				match parse_body(req).await {
+					Ok(val) => {
+						let owner_api = &api as &dyn OwnerRpc;
+						let res = match owner_api.handle_request(val) {
+							MaybeReply::Reply(r) => r,
+							MaybeReply::DontReply => serde_json::json!([]),
+						};
+						Ok(json_response_pretty(&res))
+					}
+					Err(e) => Ok(create_error_response(e)),
+				}
+			});
+		}
+
 		Box::pin(async move {
-			match parse_body(req).await {
+			let body = Limited::new(req.into_body(), LEGACY_OWNER_STATUS_BODY_LIMIT);
+			let parsed = body.collect().await
+				.map_err(|e| Error::RequestError(format!("Failed to read request: {}", e)))
+				.and_then(|body| serde_json::from_slice::<serde_json::Value>(&body.to_bytes())
+					.map_err(|e| Error::RequestError(format!("Invalid request body: {}", e))));
+			match parsed {
 				Ok(val) => {
-					let owner_api = &api as &dyn OwnerRpc;
-					let res = match owner_api.handle_request(val) {
-						MaybeReply::Reply(r) => r,
-						MaybeReply::DontReply => {
-							// Since it's http, we need to return something. We return [] because jsonrpc
-							// clients will parse it as an empty batch response.
-							serde_json::json!([])
-						}
-					};
-					Ok(json_response_pretty(&res))
+					if is_legacy_status_request(&val) {
+						Ok(legacy_status_response(&api, &val))
+					} else {
+						unauthorized_response(&EPIC_BASIC_REALM).await
+					}
 				}
 				Err(e) => {
 					error!("Request Error: {:?}", e);
-					Ok(create_error_response(e))
+					unauthorized_response(&EPIC_BASIC_REALM).await
 				}
 			}
 		})
@@ -240,6 +329,75 @@ impl crate::router::Handler<Full<Bytes>> for OwnerAPIHandlerV2 {
 
 	fn options(&self, _req: Request<hyper::body::Incoming>) -> ResponseFuture {
 		Box::pin(async { Ok(create_ok_response("{}")) })
+	}
+}
+
+#[cfg(test)]
+mod owner_compat_tests {
+	use super::{is_legacy_status_request, owner_authorization, OwnerAuthorization};
+	use hyper::header::HeaderValue;
+	use serde_json::json;
+
+	#[test]
+	fn only_single_strict_get_status_is_legacy_compatible() {
+		assert!(is_legacy_status_request(&json!({
+			"jsonrpc": "2.0", "method": "get_status", "params": null, "id": 1
+		})));
+		assert!(is_legacy_status_request(&json!({
+			"jsonrpc": "2.0", "method": "get_status", "params": [], "id": 1
+		})));
+		for method in [
+			"validate_chain",
+			"compact_chain",
+			"get_peers",
+			"get_connected_peers",
+			"ban_peer",
+			"unban_peer",
+			"get_onion_addresses",
+		] {
+			assert!(!is_legacy_status_request(&json!({
+				"jsonrpc": "2.0", "method": method, "params": [], "id": 1
+			})));
+		}
+		assert!(!is_legacy_status_request(&json!([{
+			"jsonrpc": "2.0", "method": "get_status", "params": [], "id": 1
+		}])));
+		assert!(!is_legacy_status_request(&json!({
+			"jsonrpc": "2.0", "method": "get_status", "params": ["unexpected"], "id": 1
+		})));
+		assert!(!is_legacy_status_request(&json!({
+			"jsonrpc": "2.0", "method": "Get_Status", "params": null, "id": 1
+		})));
+		assert!(!is_legacy_status_request(&json!({
+			"jsonrpc": "2.0", "method": "get_status", "params": null, "id": 1,
+			"unexpected": true
+		})));
+	}
+
+	#[test]
+	fn owner_status_compatibility_ignores_supplied_credentials() {
+		let valid = HeaderValue::from_static("Basic valid");
+		let invalid = HeaderValue::from_static("Basic invalid");
+		assert_eq!(
+			owner_authorization(Some(&valid), Some("Basic valid")),
+			OwnerAuthorization::Authenticated
+		);
+		assert_eq!(
+			owner_authorization(Some(&invalid), Some("Basic valid")),
+			OwnerAuthorization::Compatibility
+		);
+		assert_eq!(
+			owner_authorization(Some(&valid), None),
+			OwnerAuthorization::Compatibility
+		);
+		assert_eq!(
+			owner_authorization(None, Some("Basic valid")),
+			OwnerAuthorization::Compatibility
+		);
+		assert_eq!(
+			owner_authorization(None, None),
+			OwnerAuthorization::Compatibility
+		);
 	}
 }
 
@@ -499,9 +657,6 @@ where
 		peers: Arc::downgrade(&peers),
 		sync_state: Arc::downgrade(&sync_state),
 	};
-	let kernel_download_handler = KernelDownloadHandler {
-		peers: Arc::downgrade(&peers),
-	};
 	let txhashset_handler = TxHashSetHandler {
 		chain: Arc::downgrade(&chain),
 	};
@@ -543,7 +698,6 @@ where
 	router.add_route("/v1/chain/validate", Arc::new(chain_validation_handler))?;
 	router.add_route("/v1/txhashset/*", Arc::new(txhashset_handler))?;
 	router.add_route("/v1/status", Arc::new(status_handler))?;
-	router.add_route("/v1/kerneldownload", Arc::new(kernel_download_handler))?;
 	router.add_route("/v1/pool", Arc::new(pool_info_handler))?;
 	router.add_route("/v1/pool/push_tx", Arc::new(pool_push_handler))?;
 	router.add_route("/v1/peers/all", Arc::new(peers_all_handler))?;

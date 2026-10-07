@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -1567,7 +1568,13 @@ pub fn zip_write(
 	// No attempt is made to be permissive or forgiving with "alternative" paths.
 	// These are the *only* files we will attempt to extract from the zip file.
 	// If any of these are missing we will attempt to continue as some are potentially optional.
-	zip::extract_files(txhashset_data, &txhashset_path, files)?;
+	zip::extract_files(txhashset_data, &txhashset_path, files).map_err(|e| {
+		if e.kind() == std::io::ErrorKind::InvalidData {
+			Error::InvalidTxHashSet(e.to_string())
+		} else {
+			e.into()
+		}
+	})?;
 	Ok(())
 }
 
@@ -1620,4 +1627,55 @@ fn input_pos_to_rewind(
 	}
 
 	Ok(bitmap)
+}
+
+#[cfg(test)]
+mod archive_validation_tests {
+	use super::*;
+	use std::io::{Read, Seek, Write};
+
+	#[test]
+	fn malformed_archive_is_peer_attributable_bad_data() {
+		let root = tempfile::tempdir().unwrap();
+		let mut archive = tempfile::tempfile().unwrap();
+		archive.write_all(b"not a zip archive").unwrap();
+		archive.rewind().unwrap();
+
+		assert!(matches!(
+			zip_write(root.path().to_owned(), archive, &BlockHeader::default()),
+			Err(Error::InvalidTxHashSet(_))
+		));
+	}
+
+	#[test]
+	fn corrupt_archive_data_is_peer_attributable_near_completion() {
+		let root = tempfile::tempdir().unwrap();
+		let source = root.path().join("source");
+		let path = PathBuf::from("kernel/pmmr_data.bin");
+		fs::create_dir_all(source.join("kernel")).unwrap();
+		let marker = b"corrupt-archive-end-marker";
+		let mut data = vec![42; 1024 * 1024];
+		data.extend_from_slice(marker);
+		fs::write(source.join(&path), data).unwrap();
+
+		let mut archive = tempfile::tempfile().unwrap();
+		zip::create_zip(&archive, &source, vec![path]).unwrap();
+		archive.rewind().unwrap();
+		let mut bytes = Vec::new();
+		archive.read_to_end(&mut bytes).unwrap();
+		let offset = bytes
+			.windows(marker.len())
+			.position(|window| window == marker)
+			.unwrap();
+		bytes[offset] ^= 1;
+		archive.set_len(0).unwrap();
+		archive.rewind().unwrap();
+		archive.write_all(&bytes).unwrap();
+		archive.rewind().unwrap();
+
+		assert!(matches!(
+			zip_write(root.path().to_owned(), archive, &BlockHeader::default()),
+			Err(Error::InvalidTxHashSet(_))
+		));
+	}
 }

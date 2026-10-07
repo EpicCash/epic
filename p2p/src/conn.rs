@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,10 +22,9 @@
 //! stream and make sure we get the right number of bytes out.
 
 use crate::core::ser;
-use crate::core::ser::{FixedLength, ProtocolVersion};
+use crate::core::ser::{FixedLength, ProtocolVersion, StreamingReader};
 use crate::msg::{
-	read_body, read_discard, read_header, read_item, write_message, Msg, MsgHeader,
-	MsgHeaderWrapper,
+	read_body, read_discard, read_header, write_message, Msg, MsgHeader, MsgHeaderWrapper,
 };
 use crate::types::Error;
 use crate::util::{RateCounter, RwLock};
@@ -33,10 +33,7 @@ use std::net::{Shutdown, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 use std::time::Duration;
-use std::{
-	cmp,
-	thread::{self, JoinHandle},
-};
+use std::thread::{self, JoinHandle};
 
 pub const SEND_CHANNEL_CAP: usize = 100 * 10;
 
@@ -94,6 +91,7 @@ macro_rules! try_header {
 /// header lazily consumes the message body, handling its deserialization.
 pub struct Message<'a> {
 	pub header: MsgHeader,
+	remaining: u64,
 	stream: &'a mut dyn Read,
 	version: ProtocolVersion,
 }
@@ -105,10 +103,20 @@ impl<'a> Message<'a> {
 		version: ProtocolVersion,
 	) -> Message<'a> {
 		Message {
+			remaining: header.msg_len,
 			header,
 			stream,
 			version,
 		}
+	}
+
+	#[cfg(test)]
+	pub(crate) fn from_header_for_test(
+		header: MsgHeader,
+		stream: &'a mut dyn Read,
+		version: ProtocolVersion,
+	) -> Message<'a> {
+		Self::from_header(header, stream, version)
 	}
 
 	/// Read the message body from the underlying connection
@@ -116,22 +124,31 @@ impl<'a> Message<'a> {
 		read_body(&self.header, self.stream, self.version)
 	}
 
-	/// Read a single "thing" from the underlying connection.
-	/// Return the thing and the total bytes read.
+	/// Read one item without crossing the enclosing message frame.
 	pub fn streaming_read<T: ser::Readable>(&mut self) -> Result<(T, u64), Error> {
-		read_item(self.stream, self.version)
+		let mut reader = StreamingReader::with_limit(self.stream, self.version, self.remaining);
+		let item = T::read(&mut reader)?;
+		let bytes_read = reader.total_bytes_read();
+		self.remaining = self
+			.remaining
+			.checked_sub(bytes_read)
+			.ok_or(Error::MsgLen)?;
+		Ok((item, bytes_read))
 	}
 
 	pub fn copy_attachment(&mut self, len: usize, writer: &mut dyn Write) -> Result<usize, Error> {
-		let mut written = 0;
-		while written < len {
-			let read_len = cmp::min(8000, len - written);
-			let mut buf = vec![0u8; read_len];
-			self.stream.read_exact(&mut buf[..])?;
-			writer.write_all(&mut buf)?;
-			written += read_len;
+		if len == 0 {
+			return Ok(0);
 		}
-		Ok(written)
+		//TODO: (Biz) can we use a constant here to make the 8000 less suspicous-looking?
+		let mut buf = [0u8; 8000];
+		let read_len = len.min(buf.len());
+		let read = self.stream.read(&mut buf[..read_len])?;
+		if read == 0 {
+			return Err(io::Error::from(io::ErrorKind::UnexpectedEof).into());
+		}
+		writer.write_all(&buf[..read])?;
+		Ok(read)
 	}
 }
 
@@ -189,14 +206,26 @@ impl ConnHandle {
 	/// If the buffer is full because there is an underlying issue with the peer
 	/// and potentially the peer connection. We assume this will be handled at the peer level.
 	pub fn send(&self, msg: Msg) -> Result<(), Error> {
+		self.try_send(msg, true)
+	}
+
+	pub(super) fn send_request(&self, msg: Msg) -> Result<(), Error> {
+		self.try_send(msg, false)
+	}
+
+	fn try_send(&self, msg: Msg, drop_if_full: bool) -> Result<(), Error> {
 		match self.send_channel.try_send(msg) {
 			Ok(()) => Ok(()),
 			Err(mpsc::TrySendError::Disconnected(_)) => {
 				Err(Error::Send("try_send disconnected".to_owned()))
 			}
 			Err(mpsc::TrySendError::Full(_)) => {
-				debug!("conn_handle: try_send but buffer is full, dropping msg");
-				Ok(())
+				if drop_if_full {
+					debug!("conn_handle: try_send but buffer is full, dropping msg");
+					Ok(())
+				} else {
+					Err(Error::Send("try_send full".to_owned()))
+				}
 			}
 		}
 	}
@@ -207,6 +236,55 @@ pub struct Tracker {
 	pub sent_bytes: Arc<RwLock<RateCounter>>,
 	/// Bytes we've received.
 	pub received_bytes: Arc<RwLock<RateCounter>>,
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use crate::core::pow::Difficulty;
+	use crate::msg::{Ping, Type};
+
+	struct OneByteReader(&'static [u8]);
+
+	impl Read for OneByteReader {
+		fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+			if self.0.is_empty() {
+				return Ok(0);
+			}
+			buf[0] = self.0[0];
+			self.0 = &self.0[1..];
+			Ok(1)
+		}
+	}
+
+	#[test]
+	fn attachment_copy_returns_after_each_socket_read() {
+		let mut input = OneByteReader(b"abc");
+		let header = MsgHeader::new(Type::TxHashSetArchive, 0);
+		let mut message = Message::from_header(header, &mut input, ProtocolVersion::local());
+		let mut output = Vec::new();
+
+		assert_eq!(message.copy_attachment(3, &mut output).unwrap(), 1);
+		assert_eq!(output, b"a");
+	}
+
+	#[test]
+	fn full_channel_reports_request_as_unsent() {
+		let (send_channel, _receiver) = mpsc::sync_channel(0);
+		let handle = ConnHandle { send_channel };
+		let msg = Msg::new(
+			Type::Ping,
+			Ping {
+				total_difficulty: Difficulty::zero(),
+				height: 0,
+				local_timestamp: 0,
+			},
+			ProtocolVersion::local(),
+		)
+		.unwrap();
+
+		assert!(handle.send_request(msg).is_err());
+	}
 }
 
 impl Tracker {

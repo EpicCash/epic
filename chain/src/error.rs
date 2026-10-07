@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -153,6 +154,8 @@ pub enum Error {
 	/// comment here
 	#[error("Wrong sort algorithm")]
 	InvalidSortAlgo,
+	#[error("Invalid bottles state")]
+	InvalidBottles,
 	/// comment here
 	#[error("There's not policy")]
 	ThereIsNotPolicy,

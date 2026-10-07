@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2020 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,9 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::thread;
-use std::time;
 
 use chrono::prelude::{DateTime, Utc};
 use chrono::Duration;
@@ -22,18 +22,26 @@ use chrono::Duration;
 use crate::chain::{self, SyncState, SyncStatus};
 use crate::core::core::hash::Hash;
 use crate::p2p;
+use epic_p2p::types::MAX_BLOCK_BODIES;
 use epic_p2p::PeerAddr;
 
 pub struct BodySync {
 	chain: Arc<chain::Chain>,
 	peers: Arc<p2p::Peers>,
 	sync_state: Arc<SyncState>,
-	blocks_requested: u64,
-	receive_timeout: DateTime<Utc>,
-	prev_blocks_received: u64,
-	requested_peers: std::collections::HashSet<(PeerAddr, Hash)>,
+	pending_requests: HashMap<Hash, (PeerAddr, DateTime<Utc>)>,
 	hashes_to_get: Vec<Hash>,
-	hash_request_timestamps: std::collections::HashMap<Hash, DateTime<Utc>>, // Zeitstempel für Hash-Anfragen
+}
+
+fn request_window(peer_count: usize, orphan_count: usize) -> usize {
+	let window = peer_count
+		.min(MAX_BLOCK_BODIES as usize)
+		.min(chain::MAX_ORPHAN_SIZE.saturating_sub(orphan_count));
+	if peer_count == 0 {
+		0
+	} else {
+		window.max(1)
+	}
 }
 
 impl BodySync {
@@ -46,12 +54,8 @@ impl BodySync {
 			sync_state,
 			peers,
 			chain,
-			blocks_requested: 0,
-			receive_timeout: Utc::now(),
-			prev_blocks_received: 0,
-			requested_peers: std::collections::HashSet::new(),
+			pending_requests: HashMap::new(),
 			hashes_to_get: Vec::new(),
-			hash_request_timestamps: std::collections::HashMap::new(), // Initialisiere als leer
 		}
 	}
 
@@ -62,8 +66,10 @@ impl BodySync {
 		_head: &chain::Tip,
 		_highest_height: u64,
 	) -> Result<bool, chain::Error> {
+		self.cleanup_completed_requests()?;
 		self.cleanup_stale_block_requests();
-		self.cleanup_disconnected_peers();
+		let peers = self.peers.outgoing_connected_peers();
+		self.cleanup_disconnected_peers(&peers);
 
 		match self.sync_state.status() {
 			SyncStatus::TxHashsetSetup
@@ -74,25 +80,19 @@ impl BodySync {
 			_ => {}
 		}
 
-		if self.body_sync_due()? {
-			if self.body_sync()? {
+		if self.body_sync_due(&peers) {
+			if self.body_sync(&peers)? {
 				return Ok(true);
 			}
 		}
 		Ok(false)
 	}
 
-	fn body_sync(&mut self) -> Result<bool, chain::Error> {
-		
-		let peers = self.peers.outgoing_connected_peers();
+	fn body_sync(&mut self, peers: &[Arc<p2p::Peer>]) -> Result<bool, chain::Error> {
 		if peers.is_empty() {
 			debug!("body_sync: no peers, nothing to do");
-			thread::sleep(time::Duration::from_secs(10));
 			return Ok(false);
 		}
-
-		// Check if new blocks have been received and update the status
-		self.update_blocks_received()?;
 
 		// If no new hashes are available, fetch new ones
 		if self.hashes_to_get.is_empty() {
@@ -109,122 +109,62 @@ impl BodySync {
 			return Ok(false);
 		}
 
-		// Initialize progress
-		self.blocks_requested = 0;
-
 		// Send requests to available peers
-		self.request_blocks_from_peers()?;
+		let requested = self.request_blocks_from_peers(peers)?;
 
-		// Wait for blocks to be received or timeout
-		self.wait_for_blocks()?;
-
-		// Update timeout and log progress
-		self.log_sync_progress()?;
+		self.log_sync_progress(requested)?;
 
 		Ok(false)
 	}
 
 	// Should we run block body sync and ask for more full blocks?
-	fn body_sync_due(&mut self) -> Result<bool, chain::Error> {
-		let blocks_received = self.blocks_received()?;
-
-		// If blocks were requested but none were received, reset state
-		if self.blocks_requested > 0 {
-			let timeout = Utc::now() > self.receive_timeout;
-			if timeout && blocks_received <= self.prev_blocks_received {
-				warn!(
-                    "Block Sync: expecting {} more blocks and none received for a while. Resetting state.",
-                    self.blocks_requested,
-                );
-
-				// Reset lists
-				self.hashes_to_get.clear();
-				self.requested_peers.clear();
-				self.hash_request_timestamps.clear();
-				self.blocks_requested = 0;
-				self.prev_blocks_received = 0;
-				self.receive_timeout = Utc::now(); // Reset timeout
-
-				// Restart synchronization
-				return Ok(false);
-			}
+	fn body_sync_due(&self, peers: &[Arc<p2p::Peer>]) -> bool {
+		if self.hashes_to_get.is_empty() {
+			return true;
 		}
 
-		// Update status if blocks were received
-		if blocks_received > self.prev_blocks_received {
-			self.blocks_requested = self
-				.blocks_requested
-				.saturating_sub(blocks_received - self.prev_blocks_received);
-			self.prev_blocks_received = blocks_received;
-		}
-
-		// Check if a peer is available to send new requests
-		if self.peers.outgoing_connected_peers().iter().any(|peer| {
-			self.requested_peers
-				.iter()
-				.all(|(addr, _)| addr != &peer.info.addr)
-		}) {
-			return Ok(true);
-		}
-
-		Ok(false)
+		let window = request_window(peers.len(), self.chain.orphans_len());
+		self.pending_requests.len() < window
+			&& peers.iter().any(|peer| {
+				self.pending_requests
+					.values()
+					.all(|(addr, _)| addr != &peer.info.addr)
+			})
 	}
 
-	// Total numbers received on this chain, including the head and orphans
-	fn blocks_received(&mut self) -> Result<u64, chain::Error> {
-		let mut received = 0;
+	fn cleanup_completed_requests(&mut self) -> Result<usize, chain::Error> {
 		let mut to_remove = vec![];
 
-		for (peer_addr, hash) in self.requested_peers.iter() {
-			if let Ok(header) = self.chain.get_block_header(hash) {
-				// Check if the parent block exists
-				if self.chain.get_block(&header.prev_hash).is_ok() {
-					to_remove.push((peer_addr.clone(), *hash));
-				}
+		for hash in self.pending_requests.keys() {
+			if self.chain.block_exists(*hash)? || self.chain.is_orphan(hash) {
+				to_remove.push(*hash);
 			}
 		}
 
-		for (peer_addr, hash) in to_remove {
-			self.requested_peers.remove(&(peer_addr, hash));
-			self.hash_request_timestamps.remove(&hash);
-			self.receive_timeout = Utc::now() + Duration::seconds(20);
-			received += 1;
+		let completed = to_remove.len();
+		for hash in to_remove {
+			self.pending_requests.remove(&hash);
 		}
 
-		Ok(received)
-	}
-
-	fn update_blocks_received(&mut self) -> Result<(), chain::Error> {
-		let blocks_received = self.blocks_received()?;
-		if blocks_received > self.prev_blocks_received {
-			self.blocks_requested = self
-				.blocks_requested
-				.saturating_sub(blocks_received - self.prev_blocks_received);
-			self.prev_blocks_received = blocks_received;
-		}
-		Ok(())
+		Ok(completed)
 	}
 
 	fn cleanup_stale_block_requests(&mut self) {
 		let now = Utc::now();
 		let timeout = Duration::seconds(10);
-		let mut to_remove = vec![];
-		for (peer_addr, hash) in self.requested_peers.iter() {
-			if let Some(ts) = self.hash_request_timestamps.get(hash) {
-				if now.signed_duration_since(*ts) > timeout {
-					// Disconnect the peer before removing
-					if let Err(e) = self.peers.disconnect_peer(peer_addr.clone()) {
-						warn!("Failed to disconnect peer {}: {:?}", peer_addr, e);
-					} else {
-						info!("Disconnected peer {} due to block request timeout", peer_addr);
-					}
-					to_remove.push((peer_addr.clone(), *hash));
-				}
+		let expired = self
+			.pending_requests
+			.iter()
+			.filter(|(_, (_, timestamp))| now.signed_duration_since(*timestamp) > timeout)
+			.map(|(hash, (peer_addr, _))| (*hash, *peer_addr))
+			.collect::<Vec<_>>();
+		for (hash, peer_addr) in expired {
+			if let Err(e) = self.peers.disconnect_peer(peer_addr) {
+				warn!("Failed to disconnect peer {}: {:?}", peer_addr, e);
+			} else {
+				info!("Disconnected peer {} due to block request timeout", peer_addr);
 			}
-		}
-		for (peer_addr, hash) in to_remove {
-			self.requested_peers.remove(&(peer_addr, hash));
-			self.hash_request_timestamps.remove(&hash);
+			self.pending_requests.remove(&hash);
 			warn!(
 				"Block request for {:?} from peer {} timed out, will retry with another peer.",
 				hash, peer_addr
@@ -232,23 +172,10 @@ impl BodySync {
 		}
 	}
 
-	fn cleanup_disconnected_peers(&mut self) {
-		let connected: std::collections::HashSet<_> = self
-			.peers
-			.outgoing_connected_peers()
-			.iter()
-			.map(|p| p.info.addr)
-			.collect();
-		let to_remove: Vec<_> = self
-			.requested_peers
-			.iter()
-			.filter(|(addr, _)| !connected.contains(addr))
-			.cloned()
-			.collect();
-		for (addr, hash) in to_remove {
-			self.requested_peers.remove(&(addr, hash));
-			self.hash_request_timestamps.remove(&hash);
-		}
+	fn cleanup_disconnected_peers(&mut self, peers: &[Arc<p2p::Peer>]) {
+		let connected = peers.iter().map(|peer| peer.info.addr).collect::<HashSet<_>>();
+		self.pending_requests
+			.retain(|_, (addr, _)| connected.contains(addr));
 	}
 
 	fn fetch_new_hashes(&mut self) -> Result<bool, chain::Error> {
@@ -290,47 +217,51 @@ impl BodySync {
 		Ok(())
 	}
 
-	fn request_blocks_from_peers(&mut self) -> Result<(), chain::Error> {
-		let peers = self.peers.outgoing_connected_peers();
+	fn request_blocks_from_peers(
+		&mut self,
+		peers: &[Arc<p2p::Peer>],
+	) -> Result<usize, chain::Error> {
+		let window = request_window(peers.len(), self.chain.orphans_len());
+		let open_slots = window.saturating_sub(self.pending_requests.len());
+		if open_slots == 0 {
+			return Ok(0);
+		}
 
-		// Number of blocks to request in parallel
-		// only 1 works best, maybe if peers do not block
-		// when they receive a header we can higher this value
-		let max_parallel = 1;
+		let pending_peers = self
+			.pending_requests
+			.values()
+			.map(|(addr, _)| *addr)
+			.collect::<HashSet<_>>();
+		let free_peers = peers
+			.iter()
+			.filter(|peer| !pending_peers.contains(&peer.info.addr))
+			.take(open_slots)
+			.collect::<Vec<_>>();
+		let hashes = self
+			.hashes_to_get
+			.iter()
+			.filter(|hash| !self.pending_requests.contains_key(hash))
+			.take(free_peers.len())
+			.copied()
+			.collect::<Vec<_>>();
 
-		for hash in self.hashes_to_get.iter().take(max_parallel) {
-			let should_request = match self.hash_request_timestamps.get(hash) {
-				Some(timestamp) => Utc::now() > *timestamp + Duration::seconds(5),
-				None => true,
-			};
-
-			if !should_request {
-				continue;
-			}
-
-			// Find a peer that hasn't been asked for this hash
-			if let Some(peer) = peers.iter().find(|peer| {
-				!self
-					.requested_peers
-					.iter()
-					.any(|(addr, h)| addr == &peer.info.addr && h == hash)
-			}) {
-				if let Err(e) = peer.send_block_request(*hash, chain::Options::SYNC) {
-					debug!("Skipped request to {}: {:?}", peer.info.addr, e);
-					peer.stop();
-				} else {
-					debug!("Requested block {:?} from peer {:?}", hash, peer.info.addr);
-					self.blocks_requested += 1;
-					self.requested_peers.insert((peer.info.addr.clone(), *hash));
-					self.hash_request_timestamps.insert(*hash, Utc::now());
-				}
+		let mut requested = 0;
+		for (peer, hash) in free_peers.into_iter().zip(hashes) {
+			if let Err(e) = peer.send_block_request(hash, chain::Options::SYNC) {
+				debug!("Skipped request to {}: {:?}", peer.info.addr, e);
+				peer.stop();
+			} else {
+				debug!("Requested block {:?} from peer {:?}", hash, peer.info.addr);
+				self.pending_requests
+					.insert(hash, (peer.info.addr, Utc::now()));
+				requested += 1;
 			}
 		}
-		Ok(())
+		Ok(requested)
 	}
 
-	fn log_sync_progress(&mut self) -> Result<(), chain::Error> {
-		if self.blocks_requested > 0 {
+	fn log_sync_progress(&self, requested: usize) -> Result<(), chain::Error> {
+		if requested > 0 {
 			let body_head = self.chain.head()?;
 			let header_head = self.chain.header_head()?;
 
@@ -347,7 +278,7 @@ impl BodySync {
 
 			info!(
 				"Block Sync: Requested {:>width$} more block(s), {:>width$} block(s) remaining, {:>6.2}% completed",
-				self.blocks_requested,
+				requested,
 				remaining_blocks,
 				percentage_synced,
 				width = max_width
@@ -355,18 +286,138 @@ impl BodySync {
 		}
 		Ok(())
 	}
+}
 
-	fn wait_for_blocks(&mut self) -> Result<(), chain::Error> {
-		let start_time = Utc::now();
-		while Utc::now() < start_time + Duration::seconds(20) {
-			let blocks_received = self.blocks_received()?;
-			if blocks_received > 0 {
-				debug!("Block received, proceeding to the next block.");
-				self.hashes_to_get.remove(0);
-				break;
-			}
-			thread::sleep(time::Duration::from_millis(100));
-		}
-		Ok(())
+#[cfg(test)]
+mod test {
+	use super::*;
+	use crate::core::core::hash::Hashed;
+	use crate::epic::sync::test::TestNode;
+	use crate::p2p::Capabilities;
+
+	#[test]
+	fn request_window_respects_protocol_and_orphan_caps() {
+		assert_eq!(request_window(32, 0), MAX_BLOCK_BODIES as usize);
+		assert_eq!(request_window(32, chain::MAX_ORPHAN_SIZE - 3), 3);
+		assert_eq!(request_window(32, chain::MAX_ORPHAN_SIZE), 1);
+		assert_eq!(request_window(0, chain::MAX_ORPHAN_SIZE), 0);
+	}
+
+	#[test]
+	fn parent_block_does_not_complete_requested_block() {
+		let node = TestNode::with_outbound_peer(Capabilities::UNKNOWN);
+		node.persist_header_head(1, 100);
+		let hash = node.chain.get_header_by_height(1).unwrap().hash();
+		let mut sync = BodySync::new(
+			Arc::new(SyncState::new()),
+			node.server.peers.clone(),
+			node.chain.clone(),
+		);
+		sync.pending_requests
+			.insert(hash, (node.peer.info.addr, Utc::now()));
+
+		assert_eq!(sync.cleanup_completed_requests().unwrap(), 0);
+		assert!(sync.pending_requests.contains_key(&hash));
+	}
+
+	#[test]
+	fn exact_block_completes_requested_block() {
+		let node = TestNode::with_outbound_peer(Capabilities::UNKNOWN);
+		let hash = node.chain.head().unwrap().hash();
+		let mut sync = BodySync::new(
+			Arc::new(SyncState::new()),
+			node.server.peers.clone(),
+			node.chain.clone(),
+		);
+		sync.pending_requests
+			.insert(hash, (node.peer.info.addr, Utc::now()));
+
+		assert_eq!(sync.cleanup_completed_requests().unwrap(), 1);
+		assert!(sync.pending_requests.is_empty());
+	}
+
+	#[test]
+	fn block_sync_requests_one_block_from_each_available_peer() {
+		let mut node = TestNode::with_outbound_peer(Capabilities::UNKNOWN);
+		node.add_outbound_peer(Capabilities::UNKNOWN);
+		node.add_outbound_peer(Capabilities::UNKNOWN);
+		node.persist_header_head(4, 100);
+		let mut sync = BodySync::new(
+			Arc::new(SyncState::new()),
+			node.server.peers.clone(),
+			node.chain.clone(),
+		);
+		sync.hashes_to_get = (1..=4)
+			.map(|height| node.chain.get_header_by_height(height).unwrap().hash())
+			.collect();
+
+		let peers = node.server.peers.outgoing_connected_peers();
+		sync.request_blocks_from_peers(&peers).unwrap();
+
+		assert_eq!(sync.pending_requests.len(), 3);
+		assert_eq!(
+			sync
+				.pending_requests
+				.values()
+				.map(|(addr, _)| *addr)
+				.collect::<std::collections::HashSet<_>>()
+				.len(),
+			3
+		);
+	}
+
+	#[test]
+	fn completed_request_refills_its_peer_slot() {
+		let mut node = TestNode::with_outbound_peer(Capabilities::UNKNOWN);
+		let second_peer = node.add_outbound_peer(Capabilities::UNKNOWN);
+		node.persist_header_head(2, 100);
+		let genesis = node.chain.head().unwrap().hash();
+		let first = node.chain.get_header_by_height(1).unwrap().hash();
+		let second = node.chain.get_header_by_height(2).unwrap().hash();
+		let mut sync = BodySync::new(
+			Arc::new(SyncState::new()),
+			node.server.peers.clone(),
+			node.chain.clone(),
+		);
+		sync.hashes_to_get = vec![genesis, first, second];
+		sync
+			.pending_requests
+			.insert(genesis, (node.peer.info.addr, Utc::now()));
+		sync
+			.pending_requests
+			.insert(first, (second_peer.info.addr, Utc::now()));
+
+		assert_eq!(sync.cleanup_completed_requests().unwrap(), 1);
+		sync.filter_unprocessed_hashes().unwrap();
+		let peers = node.server.peers.outgoing_connected_peers();
+		assert!(sync.body_sync_due(&peers));
+		assert_eq!(sync.request_blocks_from_peers(&peers).unwrap(), 1);
+		assert_eq!(sync.pending_requests.len(), 2);
+		assert!(sync
+			.pending_requests
+			.get(&second)
+			.map(|(addr, _)| *addr == node.peer.info.addr)
+			.unwrap_or(false));
+	}
+
+	#[test]
+	fn timed_out_request_disconnects_without_banning() {
+		let node = TestNode::with_outbound_peer(Capabilities::UNKNOWN);
+		node.persist_header_head(1, 100);
+		let hash = node.chain.get_header_by_height(1).unwrap().hash();
+		let mut sync = BodySync::new(
+			Arc::new(SyncState::new()),
+			node.server.peers.clone(),
+			node.chain.clone(),
+		);
+		sync
+			.pending_requests
+			.insert(hash, (node.peer.info.addr, Utc::now() - Duration::seconds(11)));
+
+		sync.cleanup_stale_block_requests();
+
+		assert!(sync.pending_requests.is_empty());
+		assert!(!node.peer.is_banned());
+		assert!(!node.server.peers.is_banned(node.peer.info.addr));
 	}
 }

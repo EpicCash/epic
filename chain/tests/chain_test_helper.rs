@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -145,8 +146,8 @@ where
 
 	let emitted_policy = get_emitted_policy(height);
 	let policy = get_policies(emitted_policy).unwrap();
-	let algo = Deterministic::choose_algo(&policy, &prev.bottles);
-	b.header.bottles = next_block_bottles(algo, &prev.bottles);
+	let algo = Deterministic::choose_algo(&policy, &prev.bottles).unwrap();
+	b.header.bottles = next_block_bottles(algo, &prev.bottles).unwrap();
 	//b.header.pow.proof = get_pow_type(&algo, prev.height);
 	b.header.pow.proof = get_pow_type(&algo, prev.height + key_id_branch as u64);
 	b.header.policy = emitted_policy;
@@ -205,7 +206,7 @@ fn prepare_block_with_coinbase(
 	b.header.timestamp = prev.timestamp + Duration::seconds(60);
 	b.header.pow.total_difficulty = prev.total_difficulty() + Difficulty::from_num(diff);
 	b.header.pow.proof = pow::Proof::random(proof_size);
-	b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles);
+	b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles).unwrap();
 
 	let mut seed = [0u8; 32];
 	seed.copy_from_slice(&hash.as_bytes()[0..32]);

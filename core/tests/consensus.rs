@@ -1,4 +1,6 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -21,6 +23,10 @@ use self::core::global;
 use self::core::pow::{Difficulty, PoWType};
 use chrono::prelude::Utc;
 use std::fmt::{self, Display};
+use std::sync::Mutex;
+
+// These tests change process-wide consensus parameters and must not overlap.
+static CHAIN_TYPE_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 /// Last n blocks for difficulty calculation purposes
 /// (copied from stats in server crate)
@@ -279,6 +285,7 @@ fn repeat_offs(from: u64, interval: u64, diff: u64, len: u64) -> Vec<HeaderInfo>
 /// Checks different next_target adjustments and difficulty boundaries
 #[test]
 fn adjustment_scenarios() {
+	let _chain_type_guard = CHAIN_TYPE_TEST_LOCK.lock().unwrap();
 	// Use production parameters for genesis diff
 	global::set_mining_mode(global::ChainTypes::Mainnet);
 
@@ -353,6 +360,7 @@ fn adjustment_scenarios() {
 /// Checks different next_target adjustments and difficulty boundaries
 #[test]
 fn next_target_adjustment() {
+	let _chain_type_guard = CHAIN_TYPE_TEST_LOCK.lock().unwrap();
 	global::set_mining_mode(global::ChainTypes::AutomatedTesting);
 	let cur_time = Utc::now().timestamp() as u64;
 	let diff_min = Difficulty::min();
@@ -528,6 +536,7 @@ fn next_target_adjustment() {
 
 #[test]
 fn test_secondary_pow_ratio() {
+	let _chain_type_guard = CHAIN_TYPE_TEST_LOCK.lock().unwrap();
 	// Tests for mainnet chain type.
 	{
 		global::set_mining_mode(global::ChainTypes::Mainnet);
@@ -615,6 +624,7 @@ fn test_secondary_pow_ratio() {
 
 #[test]
 fn test_secondary_pow_scale() {
+	let _chain_type_guard = CHAIN_TYPE_TEST_LOCK.lock().unwrap();
 	let window = DIFFICULTY_ADJUST_WINDOW;
 	let mut hi = HeaderInfo::from_diff_scaling(Difficulty::from_num(10), 100);
 
@@ -695,6 +705,7 @@ fn test_secondary_pow_scale() {
 
 #[test]
 fn hard_forks() {
+	let _chain_type_guard = CHAIN_TYPE_TEST_LOCK.lock().unwrap();
 	global::set_mining_mode(global::ChainTypes::AutomatedTesting);
 	assert!(!valid_header_version(199, HeaderVersion(6)));
 	assert!(valid_header_version(200, HeaderVersion(7)));

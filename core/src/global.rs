@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the &Apache License, Version 2.0 (the "License");
@@ -423,12 +424,19 @@ pub fn initial_block_difficulty() -> u64 {
 }
 /// Initial mining secondary scale
 pub fn initial_graph_weight() -> u32 {
-	let param_ref = CHAIN_TYPE.read();
-	match *param_ref {
-		ChainTypes::AutomatedTesting => TESTING_INITIAL_GRAPH_WEIGHT,
-		ChainTypes::UserTesting => TESTING_INITIAL_GRAPH_WEIGHT,
-		ChainTypes::Floonet => graph_weight(0, SECOND_POW_EDGE_BITS) as u32,
-		ChainTypes::Mainnet => graph_weight(0, SECOND_POW_EDGE_BITS) as u32,
+	let use_testing_weight = {
+		let chain_type = CHAIN_TYPE.read();
+		match *chain_type {
+			ChainTypes::AutomatedTesting | ChainTypes::UserTesting => true,
+			ChainTypes::Floonet | ChainTypes::Mainnet => false,
+		}
+	};
+
+	if use_testing_weight {
+		TESTING_INITIAL_GRAPH_WEIGHT
+	} else {
+		// The CHAIN_TYPE read guard must be dropped before graph_weight() reacquires it.
+		graph_weight(0, SECOND_POW_EDGE_BITS) as u32
 	}
 }
 

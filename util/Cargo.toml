@@ -28,12 +28,12 @@ log4rs = { version = "1.3.0", features = [
 log = "0.4"
 walkdir = "2.2.9"
 zip = { version = "0.5.11", default-features = false }
-parking_lot = { version = "0.6" }
+parking_lot = { version = "0.12.5" }
 zeroize = "1.3"
 chrono = "0.4"
 
 [dependencies.grin_secp256k1zkp]
-git = "https://github.com/EpicCash/rust-secp256k1-zkp"
+git = "https://github.com/EpicCash/rust-secp256k1-zkp.git"
 branch = "master"
 #path = "../../rust-secp256k1-zkp"
 version = "0.8.1"

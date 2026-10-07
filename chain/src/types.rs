@@ -1,4 +1,4 @@
-// Copyright 2019-2023, Epic Cash Developers
+// Copyright 2019-2026, Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -511,6 +511,14 @@ impl BlockchainCheckpoints {
 				height: 2200000,
 				block_hash: Hash::from_hex(
 					"1243520890d08026daba8207ed3d67186da64d2b71b5c1e2dd26d34092dee6ba",
+				)
+				.unwrap(),
+			},
+			//TODO: (Biz) add more intermediary checkpoints here 
+			Checkpoint {
+				height: 3710000,
+				block_hash: Hash::from_hex(
+					"88e8166f7ec4b9564dd602bd169ab187e72c9c9a39136c8537c784593c7a9cfb",
 				)
 				.unwrap(),
 			},

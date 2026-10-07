@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2020 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,15 +21,15 @@ use chrono::prelude::Utc;
 use crate::chain::{self, SyncState, SyncStatus};
 use crate::common::types::Error;
 use crate::core::core::hash::{Hash, Hashed};
-use crate::p2p::{self, types::ReasonForBan, Peer, Peers};
+use crate::p2p::{self, Peer, Peers};
 
-//experimental get netowrk stability and standby mode
-//use crate::util::network::{is_network_stable, is_system_in_standby};
+//TODO: (Biz) we can reduce this
+const HEADER_SYNC_TIMEOUT_SECS: i64 = 15;
 
-pub struct HeaderSync {
+pub(super) struct HeaderSync {
 	sync_state: Arc<SyncState>,
 	peers: Arc<Peers>,
-	pub peer: Arc<Peer>,
+	peer: Arc<Peer>,
 	chain: Arc<chain::Chain>,
 	history_locator: Vec<(u64, Hash)>,
 	header_head_height: u64,
@@ -39,7 +40,7 @@ pub struct HeaderSync {
 }
 
 impl HeaderSync {
-	pub fn new(
+	pub(super) fn new(
 		sync_state: Arc<SyncState>,
 		peers: Arc<Peers>,
 		peer: Arc<Peer>,
@@ -61,22 +62,22 @@ impl HeaderSync {
 			start_time: Utc::now().timestamp(),
 		}
 	}
-	pub fn offset(&self) -> u8 {
-		self.offset
-	}
-
-	pub fn check_run(&mut self) -> Result<(Vec<BlockHeader>, bool), chain::Error> {
+	pub(super) fn check_run(&mut self) -> Result<(Vec<BlockHeader>, bool), chain::Error> {
 		let mut peer_blocks = false;
 
 		match self.peers.get_connected_peer(self.peer.info.addr) {
 			Some(peer) => {
-				if !peer.is_connected() || peer.is_banned() {
+				if !Arc::ptr_eq(&peer, &self.peer) || !peer.is_connected() || peer.is_banned() {
 					peer_blocks = true;
 				}
 			}
 			None => {
 				peer_blocks = true;
 			}
+		}
+
+		if peer_blocks {
+			return Ok((vec![], true));
 		}
 
 		if !self.syncing_peer {
@@ -95,60 +96,49 @@ impl HeaderSync {
 			//reset previous queued headers
 			self.peer.info.set_headers(vec![]);
 
-			self.header_sync();
+			peer_blocks = !self.header_sync();
 		} else {
+			let headers = self.peer.info.take_headers();
+			if !headers.is_empty() {
+				return Ok((headers, false));
+			}
 			peer_blocks = self.header_sync_due();
 		}
-		Ok((self.peer.info.get_headers().clone(), peer_blocks))
+		Ok((vec![], peer_blocks))
 	}
 
 	fn header_sync_due(&mut self) -> bool {
 		let now = Utc::now().timestamp();
-
-		// Check if the network connection is unstable
-		// this is only experimental
-		/*if is_system_in_standby(self.start_time) || !is_network_stable() {
-			warn!(
-				"System was in standby mode or network is unstable, skipping fraud check for peer {}",
-				self.peer.info.addr
-			);
-
-			self.start_time = now; // Reset start time
-			return true;
-		}*/
-
-		if (now - self.start_time) > 180 {
-			let _ = self
-				.peers
-				.ban_peer(self.peer.info.addr, ReasonForBan::FraudHeight);
-
-			info!(
-				"sync: banning a fraudulent peer: {}, claimed height: {}, total difficulty: {}",
-				self.peer.info.addr,
-				self.peer.info.height(),
-				self.peer.info.total_difficulty(),
-			);
+		if (now - self.start_time) >= HEADER_SYNC_TIMEOUT_SECS {
+			debug!("sync: header request to {} timed out", self.peer.info.addr);
+			let _ = self.peers.disconnect_peer(self.peer.info.addr);
 			return true;
 		}
 
 		false
 	}
 
-	fn header_sync(&mut self) {
+	#[cfg(test)]
+	pub(super) fn expire_request(&mut self) {
+		self.start_time = Utc::now().timestamp() - HEADER_SYNC_TIMEOUT_SECS;
+	}
+
+	fn header_sync(&mut self) -> bool {
 		if let Ok(header_head) = self.chain.header_head() {
 			let difficulty = header_head.total_difficulty;
-			if self.peer.info.total_difficulty() > difficulty {
-				self.request_headers_fastsync();
+			if self.peer.info.advertised_total_difficulty() > difficulty {
+				return self.request_headers_fastsync();
 			}
 		}
+		false
 	}
 
 	/// Request some block headers from a peer to advance us.
-	fn request_headers_fastsync(&mut self) {
+	fn request_headers_fastsync(&mut self) -> bool {
 		if let Ok(locator) = self.get_locator() {
 			self.start_time = Utc::now().timestamp();
 
-			if self.offset == 0
+			let request = if self.offset == 0
 				&& !self
 					.peer
 					.info
@@ -159,15 +149,30 @@ impl HeaderSync {
 					"sync: request slowsync headers: asking {} for headers, {:?}, offset {:?}",
 					self.peer.info.addr, locator, self.offset
 				);
-				let _ = self.peer.send_header_request(locator);
+				self.peer.send_header_request(locator)
 			} else {
 				info!(
 					"sync: request fastsync headers: asking {} for headers, {:?}, offset {:?}",
 					self.peer.info.addr, locator, self.offset
 				);
-				let _ = self.peer.send_header_fastsync_request(locator, self.offset);
+				self.peer.send_header_fastsync_request(locator, self.offset)
+			};
+
+			match request {
+				Ok(_) => {
+					self.peer.info.mark_header_probe_started();
+					return true;
+				}
+				Err(e) => {
+					debug!(
+						"sync: failed to request headers from {}: {:?}",
+						self.peer.info.addr, e
+					);
+					let _ = self.peers.disconnect_peer(self.peer.info.addr);
+				}
 			}
 		}
+		false
 	}
 
 	/// We build a locator based on sync_head.
@@ -239,7 +244,7 @@ fn close_enough(locator: &Vec<(u64, Hash)>, height: u64) -> Option<(u64, Hash)> 
 }
 
 // current height back to 0 decreasing in powers of 2
-fn get_locator_heights(height: u64) -> Vec<u64> {
+pub(super) fn get_locator_heights(height: u64) -> Vec<u64> {
 	let mut current = height;
 	let mut heights = vec![];
 	while current > 0 {
@@ -258,6 +263,130 @@ fn get_locator_heights(height: u64) -> Vec<u64> {
 mod test {
 	use super::*;
 	use crate::core::core::hash;
+	use crate::epic::sync::test::TestNode;
+	use crate::p2p::{Capabilities, ChainAdapter};
+
+	#[test]
+	fn header_timeout_rotates_without_banning_peer() {
+		let node = TestNode::with_outbound_peer(Capabilities::UNKNOWN);
+		let sync_state = Arc::new(SyncState::new());
+		let mut header_sync = HeaderSync::new(
+			sync_state,
+			node.server.peers.clone(),
+			node.peer.clone(),
+			node.chain.clone(),
+			0,
+			1,
+			0,
+		);
+		header_sync.syncing_peer = true;
+		header_sync.start_time = Utc::now().timestamp() - HEADER_SYNC_TIMEOUT_SECS;
+
+		let (_, timed_out) = header_sync.check_run().unwrap();
+		assert!(timed_out);
+		assert!(!node.peer.is_banned());
+	}
+
+	#[test]
+	fn received_headers_complete_expired_request_without_disconnect() {
+		let node = TestNode::with_outbound_peer(Capabilities::HEADER_FASTSYNC);
+		let mut header_sync = HeaderSync::new(
+			Arc::new(SyncState::new()),
+			node.server.peers.clone(),
+			node.peer.clone(),
+			node.chain.clone(),
+			0,
+			1,
+			0,
+		);
+		header_sync.syncing_peer = true;
+		header_sync.start_time = Utc::now().timestamp() - HEADER_SYNC_TIMEOUT_SECS;
+		node.peer.info.set_headers(vec![BlockHeader::default()]);
+
+		let (headers, timed_out) = header_sync.check_run().unwrap();
+		assert_eq!(headers.len(), 1);
+		assert!(!timed_out);
+		assert!(node
+			.server
+			.peers
+			.get_connected_peer(node.peer.info.addr)
+			.is_some());
+	}
+
+	#[test]
+	fn issued_header_request_timeout_also_rotates_without_banning() {
+		let node = TestNode::with_outbound_peer(Capabilities::UNKNOWN);
+		node.peer.info.update_advertised_tip(
+			1_000_000,
+			crate::core::pow::Difficulty::from_num(1_000_000),
+			0,
+		);
+		let mut header_sync = HeaderSync::new(
+			Arc::new(SyncState::new()),
+			node.server.peers.clone(),
+			node.peer.clone(),
+			node.chain.clone(),
+			0,
+			1,
+			0,
+		);
+		header_sync.check_run().unwrap();
+		assert!(!node.peer.info.header_probe_eligible());
+		header_sync.start_time = Utc::now().timestamp() - HEADER_SYNC_TIMEOUT_SECS;
+
+		let (_, timed_out) = header_sync.check_run().unwrap();
+		assert!(timed_out);
+		assert!(!node.peer.is_banned());
+		assert!(
+			node.server
+				.peers
+				.get_connected_peer(node.peer.info.addr)
+				.is_none()
+				|| node.peer.info.header_probe_eligible(),
+			"timeout left a connected peer permanently ineligible"
+		);
+	}
+
+	#[test]
+	fn replacement_connection_cannot_complete_an_old_header_request() {
+		let mut node = TestNode::with_outbound_peer(Capabilities::HEADER_FASTSYNC);
+		let old_peer = node.peer.clone();
+		let mut header_sync = HeaderSync::new(
+			Arc::new(SyncState::new()),
+			node.server.peers.clone(),
+			old_peer.clone(),
+			node.chain.clone(),
+			0,
+			1,
+			0,
+		);
+		header_sync.syncing_peer = true;
+
+		let replacement = node.reconnect_outbound_peer();
+		assert_eq!(replacement.info.addr, old_peer.info.addr);
+		assert!(!Arc::ptr_eq(&replacement, &old_peer));
+
+		let (_, request_finished) = header_sync.check_run().unwrap();
+		assert!(request_finished);
+		assert!(replacement.is_connected());
+	}
+
+	#[test]
+	fn empty_headers_are_a_retry_not_a_ban() {
+		let node = TestNode::with_outbound_peer(Capabilities::UNKNOWN);
+		node.peer.send_bounded_header_request(vec![]).unwrap();
+		assert!(node
+			.server
+			.peers
+			.headers_received(&[], &node.peer.info)
+			.unwrap());
+		assert!(!node.peer.is_banned());
+		assert!(node
+			.server
+			.peers
+			.get_connected_peer(node.peer.info.addr)
+			.is_none());
+	}
 
 	#[test]
 	fn test_get_locator_heights() {

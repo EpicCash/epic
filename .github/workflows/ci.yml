@@ -73,38 +73,6 @@ jobs:
       - name: Run tests
         run: cargo test --workspace -- --nocapture --test-threads=1
 
-  release:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') && github.repository == 'EpicCash/epic'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build release binaries
-        run: cargo build --release --workspace
-
-      - name: Generate checksums
-        run: |
-          cd target/release
-          for f in *; do
-            if [ -x "$f" ] && [ ! -d "$f" ]; then
-              shasum -a 256 "$f" > "$f.sha256"
-            fi
-          done
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            target/release/*
-            !target/release/.*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   cucumber-tests:
     if: >-
       github.repository == 'EpicCash/epic' &&

@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,9 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashSet;
 use std::fs::File;
-use std::io::{self, Read};
-use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
+use std::io;
+use std::net::{IpAddr, Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
@@ -33,7 +35,7 @@ use crate::types::{
 	Capabilities, ChainAdapter, Error, NetAdapter, P2PConfig, PeerAddr, PeerInfo, ReasonForBan,
 	TxHashSetRead,
 };
-use crate::util::StopState;
+use crate::util::{Mutex, StopState};
 use chrono::prelude::{DateTime, Utc};
 use epic_chain::types::SyncStatus;
 
@@ -45,6 +47,23 @@ pub struct Server {
 	handshake: Arc<Handshake>,
 	pub peers: Arc<Peers>,
 	stop_state: Arc<StopState>,
+	pending_handshake_ips: Arc<Mutex<HashSet<IpAddr>>>,
+}
+
+struct HandshakeSlot {
+	pending_ips: Arc<Mutex<HashSet<IpAddr>>>,
+	peer_ip: IpAddr,
+}
+
+impl Drop for HandshakeSlot {
+	fn drop(&mut self) {
+		let mut pending_ips = self.pending_ips.lock();
+		pending_ips.remove(&self.peer_ip);
+	}
+}
+
+fn bannable_handshake_error(error: &Error) -> bool {
+	matches!(error, Error::BadMessage | Error::MsgLen)
 }
 
 // TODO TLS
@@ -70,12 +89,13 @@ impl Server {
 				onion_addr,
 			)),
 			stop_state,
+			pending_handshake_ips: Arc::new(Mutex::new(HashSet::new())),
 		})
 	}
 
 	/// Starts a new TCP server and listen to incoming connections. This is a
 	/// blocking call until the TCP server stops.
-	pub fn listen(&self) -> Result<(), Error> {
+	pub fn listen(self: &Arc<Self>) -> Result<(), Error> {
 		// Start TCP listener and handle incoming connections
 		let addr = SocketAddr::new(self.config.host, self.config.port);
 
@@ -128,13 +148,44 @@ impl Server {
 						}
 						continue;
 					}
-					match self.handle_new_peer(stream) {
-						Err(Error::ConnectionClose) => debug!("shutting down, ignoring a new peer"),
-						Err(e) => {
-							debug!("Error accepting peer {}: {:?}", peer_addr.to_string(), e);
-							let _ = self.peers.add_banned(peer_addr, ReasonForBan::BadHandshake);
+
+					let slot = match self.try_acquire_handshake_slot(peer_addr.0.ip()) {
+						Some(slot) => slot,
+						None => {
+							debug!("Pending handshake admission rejected.");
+							if let Err(e) = stream.shutdown(Shutdown::Both) {
+								debug!("Error shutting down conn: {:?}", e);
+							}
+							continue;
 						}
-						Ok(_) => {}
+					};
+
+					let server = Arc::clone(self);
+					if let Err(e) = thread::Builder::new()
+						.name("p2p-handshake".to_string())
+						.spawn(move || {
+							let _slot = slot;
+							match server.handle_new_peer(stream) {
+								Err(Error::ConnectionClose) => {
+									debug!("shutting down, ignoring a new peer")
+								}
+								Err(e) => {
+									debug!(
+										"Error accepting peer {}: {:?}",
+										peer_addr.to_string(),
+										e
+									);
+									if bannable_handshake_error(&e) {
+										let _ = server
+											.peers
+											.add_banned(peer_addr, ReasonForBan::BadHandshake);
+									}
+								}
+								Ok(_) => {}
+							}
+						})
+					{
+						debug!("Failed to start handshake worker: {:?}", e);
 					}
 				}
 				Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
@@ -150,6 +201,20 @@ impl Server {
 			thread::sleep(sleep_time);
 		}
 		Ok(())
+	}
+
+	fn try_acquire_handshake_slot(&self, peer_ip: IpAddr) -> Option<HandshakeSlot> {
+		let limit = self.config.peer_listener_buffer_count().max(1) as usize;
+		let mut pending_ips = self.pending_handshake_ips.lock();
+		// we don't need an atomic counter, when we can check length instead
+		if pending_ips.len() >= limit || !pending_ips.insert(peer_ip) {
+			return None;
+		}
+		Some(HandshakeSlot {
+			//TODO: (Biz) we can still simplify this with 1 more abstraction
+			pending_ips: self.pending_handshake_ips.clone(),
+			peer_ip,
+		})
 	}
 
 	/// Asks the server to connect to a new peer. Directly returns the peer if
@@ -363,18 +428,12 @@ impl ChainAdapter for DummyAdapter {
 	fn get_block(&self, _: Hash) -> Option<core::Block> {
 		None
 	}
-	fn kernel_data_read(&self) -> Result<File, chain::Error> {
-		unimplemented!()
-	}
-	fn kernel_data_write(&self, _reader: &mut dyn Read) -> Result<bool, chain::Error> {
-		unimplemented!()
-	}
 	fn txhashset_read(&self, _h: Hash) -> Option<TxHashSetRead> {
 		unimplemented!()
 	}
 
 	fn txhashset_archive_header(&self) -> Result<core::BlockHeader, chain::Error> {
-		unimplemented!()
+		Err(chain::Error::Other("txhashset unavailable".into()))
 	}
 
 	fn txhashset_receive_ready(&self) -> bool {
@@ -413,12 +472,29 @@ impl NetAdapter for DummyAdapter {
 		vec![]
 	}
 	fn peer_addrs_received(&self, _: Vec<PeerAddr>) {}
-	fn peer_difficulty(&self, _: PeerAddr, _: Difficulty, _: u64, _: i64) {}
+	fn peer_advertised_difficulty(&self, _: PeerAddr, _: Difficulty, _: u64, _: i64) {}
 	fn is_banned(&self, _: PeerAddr) -> bool {
 		false
 	}
 	fn update_onion_addr(&self, _addr: PeerAddr, _onion_addr: String) {}
 	fn my_onion_addr(&self) -> Option<String> {
 		None
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn handshake_bans_only_peer_attributable_protocol_errors() {
+		assert!(bannable_handshake_error(&Error::BadMessage));
+		assert!(bannable_handshake_error(&Error::MsgLen));
+		assert!(!bannable_handshake_error(&Error::PeerWithSelf));
+		assert!(!bannable_handshake_error(&Error::GenesisMismatch {
+			us: Hash::from_vec(&[1]),
+			peer: Hash::from_vec(&[2]),
+		}));
+		assert!(!bannable_handshake_error(&Error::Timeout));
 	}
 }

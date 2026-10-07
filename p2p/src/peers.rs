@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +16,6 @@
 use crate::util::RwLock;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -203,79 +203,34 @@ impl Peers {
 		self.incoming_connected_peers().len() as u32
 	}
 
-	// Return vec of connected peers that currently advertise more work
-	// (total_difficulty) than we do.
-	pub fn more_work_peers(&self) -> Result<Vec<Arc<Peer>>, chain::Error> {
-		let peers = self.connected_peers();
-		if peers.len() == 0 {
-			return Ok(vec![]);
-		}
-
-		let total_difficulty = self.total_difficulty()?;
-
-		let mut max_peers = peers
-			.into_iter()
-			.filter(|x| x.info.is_outbound())
-			.filter(|x| x.info.total_difficulty() > total_difficulty)
-			.collect::<Vec<_>>();
-
-		max_peers.shuffle(&mut rng());
-		Ok(max_peers)
-	}
-
-	// Return number of connected peers that currently advertise more/same work
-	// (total_difficulty) than/as we do.
-	pub fn more_or_same_work_peers(&self) -> Result<usize, chain::Error> {
-		let peers = self.connected_peers();
-		if peers.len() == 0 {
-			return Ok(0);
-		}
-
-		let total_difficulty = self.total_difficulty()?;
-
-		Ok(peers
-			.iter()
-			.filter(|x| x.info.total_difficulty() >= total_difficulty)
-			.count())
-	}
-
-	/// Returns single random peer with more work than us.
-	pub fn more_work_peer(&self) -> Option<Arc<Peer>> {
-		match self.more_work_peers() {
-			Ok(mut peers) => peers.pop(),
-			Err(e) => {
-				debug!("failed to get more work peers: {:?}", e);
-				None
-			}
-		}
-	}
-
-	/// Return vec of connected peers that currently have the most worked
-	/// branch, showing the highest total difficulty.
-	pub fn most_work_peers(&self) -> Vec<Arc<Peer>> {
+	/// Return connected peers claiming the greatest total difficulty.
+	pub fn most_advertised_work_peers(&self) -> Vec<Arc<Peer>> {
 		let peers = self.connected_peers();
 		if peers.len() == 0 {
 			return vec![];
 		}
 
-		let max_total_difficulty = match peers.iter().map(|x| x.info.total_difficulty()).max() {
+		let max_total_difficulty = match peers
+			.iter()
+			.map(|x| x.info.advertised_total_difficulty())
+			.max()
+		{
 			Some(v) => v,
 			None => return vec![],
 		};
 
 		let mut max_peers = peers
 			.into_iter()
-			.filter(|x| x.info.total_difficulty() == max_total_difficulty)
+			.filter(|x| x.info.advertised_total_difficulty() == max_total_difficulty)
 			.collect::<Vec<_>>();
 
 		max_peers.shuffle(&mut rng());
 		max_peers
 	}
 
-	/// Returns single random peer with the most worked branch, showing the
-	/// highest total difficulty.
-	pub fn most_work_peer(&self) -> Option<Arc<Peer>> {
-		self.most_work_peers().pop()
+	/// Returns one random peer claiming the greatest total difficulty.
+	pub fn most_advertised_work_peer(&self) -> Option<Arc<Peer>> {
+		self.most_advertised_work_peers().pop()
 	}
 
 	/// Check if we are connected to a peer with the provided address.
@@ -533,7 +488,7 @@ impl Peers {
 			.map_err(From::from)
 	}
 
-	/// Updates the ban reason of a peer in store    
+	/// Updates the ban reason of a peer in store
 	pub fn update_ban_reason(
 		&self,
 		peer_addr: PeerAddr,
@@ -821,18 +776,23 @@ impl ChainAdapter for Peers {
 		headers: &[core::BlockHeader],
 		peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
-		if headers.len() > 0 {
-			peer_info.set_headers(headers.to_vec());
-			Ok(true)
-		} else {
-			self.ban_peer(peer_info.addr.clone(), ReasonForBan::BadBlockHeader)
-				.map_err(|e| {
-					let err: chain::Error =
-						chain::Error::Other(format!("ban peer error :{:?}", e)).into();
-					err
-				})?;
-			Ok(false)
+		if peer_info.take_bounded_header_probe() {
+			if headers.is_empty() {
+				debug!("sync: bounded header probe from {} was empty", peer_info.addr);
+				let _ = self.disconnect_peer(peer_info.addr);
+				return Ok(true);
+			}
+			debug!(
+				"sync: validating {} bounded probe headers from {}",
+				headers.len(),
+				peer_info.addr
+			);
+			return self.adapter.headers_received(headers, peer_info);
 		}
+		if !headers.is_empty() {
+			peer_info.set_headers(headers.to_vec());
+		}
+		Ok(true)
 	}
 
 	fn locate_headers(
@@ -845,14 +805,6 @@ impl ChainAdapter for Peers {
 
 	fn get_block(&self, h: Hash) -> Option<core::Block> {
 		self.adapter.get_block(h)
-	}
-
-	fn kernel_data_read(&self) -> Result<File, chain::Error> {
-		self.adapter.kernel_data_read()
-	}
-
-	fn kernel_data_write(&self, reader: &mut dyn Read) -> Result<bool, chain::Error> {
-		self.adapter.kernel_data_write(reader)
 	}
 
 	fn txhashset_read(&self, h: Hash) -> Option<TxHashSetRead> {
@@ -981,9 +933,16 @@ impl NetAdapter for Peers {
 		}
 	}
 
-	fn peer_difficulty(&self, addr: PeerAddr, diff: Difficulty, height: u64, local_timestamp: i64) {
+	fn peer_advertised_difficulty(
+		&self,
+		addr: PeerAddr,
+		diff: Difficulty,
+		height: u64,
+		local_timestamp: i64,
+	) {
 		if let Some(peer) = self.get_connected_peer(addr) {
-			peer.info.update(height, diff, local_timestamp);
+			peer.info
+				.update_advertised_tip(height, diff, local_timestamp);
 		}
 	}
 
@@ -1013,5 +972,42 @@ impl NetAdapter for Peers {
 
 	fn my_onion_addr(&self) -> Option<String> {
 		self.my_onion_addr.read().clone()
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use crate::core::ser::ProtocolVersion;
+	use crate::serv::DummyAdapter;
+	use crate::types::{Direction, PeerLiveInfo};
+
+	#[test]
+	fn bounded_probe_response_bypasses_header_sync_queue() {
+		let root = tempfile::tempdir().unwrap();
+		let peers = Peers::new(
+			PeerStore::new(root.path().to_str().unwrap()).unwrap(),
+			Arc::new(DummyAdapter {}),
+			P2PConfig::default(),
+			None,
+		);
+		let peer = PeerInfo {
+			capabilities: Capabilities::UNKNOWN,
+			user_agent: "test".into(),
+			version: ProtocolVersion::local(),
+			addr: PeerAddr("127.0.0.1:3414".parse().unwrap()),
+			direction: Direction::Outbound,
+			live_info: Arc::new(RwLock::new(PeerLiveInfo::new(Difficulty::min()))),
+		};
+		let header = core::BlockHeader::default();
+
+		peer.start_bounded_header_probe();
+		assert!(ChainAdapter::headers_received(&peers, &[header.clone()], &peer).unwrap());
+		assert!(peer.take_headers().is_empty());
+
+		peer.start_bounded_header_probe();
+		assert!(ChainAdapter::headers_received(&peers, &[], &peer).unwrap());
+		assert!(ChainAdapter::headers_received(&peers, &[header], &peer).unwrap());
+		assert_eq!(peer.take_headers().len(), 1);
 	}
 }

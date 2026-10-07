@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -179,7 +180,8 @@ fn build_block(
 	b.header.policy = get_emitted_policy(b.header.height);
 
 	let bottle_cursor = chain.bottles_iter(get_emitted_policy(b.header.height))?;
-	let (pow_type, bottles) = consensus::next_policy(b.header.policy, bottle_cursor);
+	let (pow_type, bottles) = consensus::next_policy(b.header.policy, bottle_cursor)
+		.map_err(|e| Error::General(format!("invalid policy state: {:?}", e)))?;
 	b.header.bottles = bottles;
 
 	debug!(

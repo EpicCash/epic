@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,6 +47,11 @@ pub struct Version {
 	pub node_version: String,
 	/// Block header version
 	pub block_header_version: u16,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct ReadyForTxs {
+	pub ready_for_txs: bool,
 }
 
 /// The state of the current fork tip
@@ -365,13 +371,19 @@ impl OutputPrintable {
 			.proof
 			.clone()
 			.ok_or_else(|| ser::Error::HexError(format!("output range_proof missing")))?;
+		let proof_len = util::secp::constants::MAX_PROOF_SIZE * 2;
+		if proof_str.len() != proof_len
+			|| !proof_str.as_bytes().iter().all(|b| b.is_ascii_hexdigit())
+		{
+			return Err(ser::Error::HexError(format!(
+				"invalid output range_proof"
+			)));
+		}
 
 		let p_vec = util::from_hex(proof_str)
 			.map_err(|_| ser::Error::HexError(format!("invalid output range_proof")))?;
 		let mut p_bytes = [0; util::secp::constants::MAX_PROOF_SIZE];
-		for i in 0..p_bytes.len() {
-			p_bytes[i] = p_vec[i];
-		}
+		p_bytes.copy_from_slice(&p_vec);
 		Ok(pedersen::RangeProof {
 			proof: p_bytes,
 			plen: p_bytes.len(),
@@ -840,6 +852,39 @@ mod test {
 		let deserialized: OutputPrintable = serde_json::from_str(&hex_output).unwrap();
 		let serialized = serde_json::to_string(&deserialized).unwrap();
 		assert_eq!(serialized, hex_output);
+	}
+
+	#[test]
+	fn output_printable_range_proof_requires_canonical_encoding() {
+		let hex_output = "{\
+			 \"output_type\":\"Coinbase\",\
+			 \"commit\":\"083eafae5d61a85ab07b12e1a51b3918d8e6de11fc6cde641d54af53608aa77b9f\",\
+			 \"spent\":false,\
+			 \"proof\":null,\
+			 \"proof_hash\":\"ed6ba96009b86173bade6a9227ed60422916593fa32dd6d78b25b7a4eeef4946\",\
+			 \"block_height\":0,\
+			 \"merkle_proof\":null,\
+			 \"mmr_index\":0\
+			 }";
+		let mut output: OutputPrintable = serde_json::from_str(&hex_output).unwrap();
+
+		output.proof = Some("00".repeat(util::secp::constants::MAX_PROOF_SIZE));
+		assert_eq!(
+			output.range_proof().unwrap().plen,
+			util::secp::constants::MAX_PROOF_SIZE
+		);
+
+		for invalid in [
+			String::new(),
+			"00".repeat(util::secp::constants::MAX_PROOF_SIZE - 1),
+			"00".repeat(util::secp::constants::MAX_PROOF_SIZE + 1),
+			"g".repeat(util::secp::constants::MAX_PROOF_SIZE * 2),
+			"é".repeat(util::secp::constants::MAX_PROOF_SIZE),
+			"00".repeat(util::secp::constants::MAX_PROOF_SIZE * 20),
+		] {
+			output.proof = Some(invalid);
+			assert!(output.range_proof().is_err());
+		}
 	}
 
 	#[test]

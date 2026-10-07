@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +15,7 @@
 
 use std::fs::{self, File};
 /// Wrappers around the `zip-rs` library to compress and decompress zip archives.
-use std::io::{self, BufReader, BufWriter, Write};
+use std::io::{self, BufReader, BufWriter, Read, Write};
 use std::panic;
 use std::path::{Path, PathBuf};
 use std::thread;
@@ -24,6 +25,35 @@ use self::zip_rs::result::{ZipError, ZipResult};
 
 use self::zip_rs::write::FileOptions;
 use zip as zip_rs;
+
+fn invalid_archive_error(error: ZipError) -> io::Error {
+	match error {
+		ZipError::Io(error) => archive_read_error(error),
+		_ => io::Error::new(io::ErrorKind::InvalidData, error),
+	}
+}
+
+fn archive_read_error(error: io::Error) -> io::Error {
+	if matches!(
+		error.kind(),
+		io::ErrorKind::InvalidData
+			| io::ErrorKind::InvalidInput
+			| io::ErrorKind::UnexpectedEof
+	) || error.to_string() == "Invalid checksum"
+	{
+		io::Error::new(io::ErrorKind::InvalidData, error)
+	} else {
+		error
+	}
+}
+
+struct ArchiveReader<R>(R);
+
+impl<R: Read> Read for ArchiveReader<R> {
+	fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+		self.0.read(buf).map_err(archive_read_error)
+	}
+}
 
 // Sanitize file path for normal components, excluding '/', '..', and '.'
 // From private function in zip crate
@@ -72,37 +102,83 @@ pub fn create_zip(dst_file: &File, src_dir: &Path, files: Vec<PathBuf>) -> io::R
 pub fn extract_files(from_archive: File, dest: &Path, files: Vec<PathBuf>) -> io::Result<()> {
 	let dest: PathBuf = PathBuf::from(dest);
 	let files: Vec<_> = files.iter().cloned().collect();
-	let res = thread::spawn(move || {
-		let mut archive = zip_rs::ZipArchive::new(from_archive).expect("archive file exists");
+	let res = thread::spawn(move || -> io::Result<()> {
+		let mut archive = zip_rs::ZipArchive::new(from_archive).map_err(invalid_archive_error)?;
 		for x in files {
-			if let Ok(file) = archive.by_name(x.to_str().expect("valid path")) {
-				let path = dest.join(file.mangled_name());
-				let parent_dir = path.parent().expect("valid parent dir");
-				fs::create_dir_all(&parent_dir).expect("create parent dir");
-				let outfile = fs::File::create(&path).expect("file created");
-				io::copy(&mut BufReader::new(file), &mut BufWriter::new(outfile))
-					.expect("write to file");
+			let name = x
+				.to_str()
+				.ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid zip path"))?;
+			match archive.by_name(name) {
+				Ok(file) => {
+					let path = dest.join(file.mangled_name());
+					let parent_dir = path.parent().ok_or_else(|| {
+						io::Error::new(io::ErrorKind::InvalidData, "invalid archive path")
+					})?;
+					fs::create_dir_all(&parent_dir)?;
+					let outfile = fs::File::create(&path)?;
+					let mut writer = BufWriter::new(outfile);
+					io::copy(&mut BufReader::new(ArchiveReader(file)), &mut writer)?;
+					writer.flush()?;
 
-				info!("Extract files: {:?} -> {:?}", x, path);
+					info!("Extract files: {:?} -> {:?}", x, path);
 
-				// Set file permissions to "644" (Unix only).
-				#[cfg(unix)]
-				{
-					use std::os::unix::fs::PermissionsExt;
-					let mode = PermissionsExt::from_mode(0o644);
-					fs::set_permissions(&path, mode).expect("set file permissions");
+					// Set file permissions to "644" (Unix only).
+					#[cfg(unix)]
+					{
+						use std::os::unix::fs::PermissionsExt;
+						let mode = PermissionsExt::from_mode(0o644);
+						fs::set_permissions(&path, mode)?;
+					}
 				}
+				Err(ZipError::FileNotFound) => {}
+				Err(e) => return Err(invalid_archive_error(e)),
 			}
 		}
+		Ok(())
 	})
 	.join();
 
-	// If join() above is Ok then we successfully extracted the files.
-	// If the result is Err then we failed to extract the files.
-	res.map_err(|e| {
-		error!("failed to extract files from zip: {:?}", e);
-		io::Error::new(io::ErrorKind::Other, "failed to extract files from zip")
-	})
+	match res {
+		Ok(result) => result,
+		Err(e) => {
+			error!("failed to extract files from zip: {:?}", e);
+			Err(io::Error::new(
+				io::ErrorKind::Other,
+				"failed to extract files from zip",
+			))
+		}
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn archive_errors_preserve_local_io_failures() {
+		let local = invalid_archive_error(ZipError::Io(io::Error::new(
+			io::ErrorKind::PermissionDenied,
+			"local read failure",
+		)));
+		assert_eq!(local.kind(), io::ErrorKind::PermissionDenied);
+		assert_eq!(
+			invalid_archive_error(ZipError::InvalidArchive("bad header")).kind(),
+			io::ErrorKind::InvalidData
+		);
+		assert_eq!(
+			invalid_archive_error(ZipError::Io(io::Error::new(
+				io::ErrorKind::UnexpectedEof,
+				"truncated archive",
+			)))
+			.kind(),
+			io::ErrorKind::InvalidData
+		);
+		assert_eq!(
+			archive_read_error(io::Error::new(io::ErrorKind::Other, "Invalid checksum"))
+				.kind(),
+			io::ErrorKind::InvalidData
+		);
+	}
 }
 
 /// Compress a source directory recursively into a zip file.

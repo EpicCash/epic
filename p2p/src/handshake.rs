@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,8 +23,10 @@ use crate::types::{Capabilities, Direction, Error, P2PConfig, PeerAddr, PeerInfo
 use crate::util::RwLock;
 use rand::{rng, Rng};
 use std::collections::VecDeque;
+use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 /// Local generated nonce for peer connecting.
 /// Used for self-connecting detection (on receiver side),
@@ -33,6 +36,70 @@ const NONCES_CAP: usize = 100;
 /// Used in connecting request to avoid self-connecting request,
 /// 10 should be enough since most of servers don't have more than 10 IP addresses.
 const ADDRS_CAP: usize = 10;
+
+/// The initial Hand message should come in immediately after the connection is initiated.
+/// But for consistency use the same timeout for reading both Hand and Shake messages.
+const HAND_READ_TIMEOUT: Duration = Duration::from_millis(10_000);
+
+/// We need to allow time for the peer to receive our Hand message and send back a Shake reply.
+const SHAKE_READ_TIMEOUT: Duration = Duration::from_millis(10_000);
+
+/// Fail fast when trying to write a Hand message to the tcp stream.
+/// If we cannot write it within a couple of seconds then something has likely gone wrong.
+const HAND_WRITE_TIMEOUT: Duration = Duration::from_millis(2_000);
+
+/// Fail fast when trying to write a Shake message to the tcp stream.
+/// If we cannot write it within a couple of seconds then something has likely gone wrong.
+const SHAKE_WRITE_TIMEOUT: Duration = Duration::from_millis(2_000);
+
+/// Applies one non-resettable deadline across the full inbound handshake.
+struct DeadlineStream<'a> {
+	stream: &'a mut TcpStream,
+	deadline: Instant,
+	write_timeout: Duration,
+}
+
+impl<'a> DeadlineStream<'a> {
+	fn new(stream: &'a mut TcpStream, timeout: Duration, write_timeout: Duration) -> Self {
+		Self {
+			stream,
+			deadline: Instant::now() + timeout,
+			write_timeout,
+		}
+	}
+
+	fn remaining(&self) -> io::Result<Duration> {
+		self.deadline
+			.checked_duration_since(Instant::now())
+			.filter(|remaining| !remaining.is_zero())
+			.ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, "handshake deadline exceeded"))
+	}
+
+	fn tcp_stream(&self) -> &TcpStream {
+		self.stream
+	}
+}
+
+impl Read for DeadlineStream<'_> {
+	fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+		self.stream.set_read_timeout(Some(self.remaining()?))?;
+		self.stream.read(buf)
+	}
+}
+
+impl Write for DeadlineStream<'_> {
+	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+		let timeout = self.write_timeout.min(self.remaining()?);
+		self.stream.set_write_timeout(Some(timeout))?;
+		self.stream.write(buf)
+	}
+
+	fn flush(&mut self) -> io::Result<()> {
+		let timeout = self.write_timeout.min(self.remaining()?);
+		self.stream.set_write_timeout(Some(timeout))?;
+		self.stream.flush()
+	}
+}
 
 /// Handles the handshake negotiation when two peers connect and decides on
 /// protocol.
@@ -83,6 +150,12 @@ impl Handshake {
 		self_addr: PeerAddr,
 		conn: &mut TcpStream,
 	) -> Result<PeerInfo, Error> {
+		// Set explicit timeouts on the tcp stream for hand/shake messages.
+		// Once the peer is up and running we will set new values for these.
+		// We initiate this connection, writing a Hand message and read a Shake reply.
+		conn.set_write_timeout(Some(HAND_WRITE_TIMEOUT))?;
+		conn.set_read_timeout(Some(SHAKE_READ_TIMEOUT))?;
+
 		// prepare the first part of the handshake
 		let nonce = self.next_nonce();
 		let peer_addr = match conn.peer_addr() {
@@ -150,7 +223,15 @@ impl Handshake {
 		total_difficulty: Difficulty,
 		conn: &mut TcpStream,
 	) -> Result<PeerInfo, Error> {
-		let hand: Hand = read_message(conn, self.protocol_version, Type::Hand)?;
+		// Set explicit timeouts on the tcp stream for hand/shake messages.
+		// Once the peer is up and running we will set new values for these.
+		// We accept an inbound connection, reading a Hand then writing a Shake reply.
+
+		//TODO: (Biz) can we do this without a mutable declaration? feels like we need a
+		// separate crate for Stream handlers?
+		let mut conn = DeadlineStream::new(conn, HAND_READ_TIMEOUT, SHAKE_WRITE_TIMEOUT);
+
+		let hand: Hand = read_message(&mut conn, self.protocol_version, Type::Hand)?;
 
 		// all the reasons we could refuse this connection for
 		if hand.genesis != self.genesis {
@@ -161,7 +242,7 @@ impl Handshake {
 		} else {
 			// check the nonce to see if we are trying to connect to ourselves
 			let nonces = self.nonces.read();
-			let addr = resolve_peer_addr(hand.sender_addr, &conn);
+			let addr = resolve_peer_addr(hand.sender_addr, conn.tcp_stream());
 			if nonces.contains(&hand.nonce) {
 				// save ip addresses of ourselves
 				let mut addrs = self.addrs.write();
@@ -179,7 +260,7 @@ impl Handshake {
 		let peer_info = PeerInfo {
 			capabilities: hand.capabilities,
 			user_agent: hand.user_agent,
-			addr: resolve_peer_addr(hand.sender_addr, &conn),
+			addr: resolve_peer_addr(hand.sender_addr, conn.tcp_stream()),
 			version: negotiated_version,
 			live_info: Arc::new(RwLock::new(PeerLiveInfo::new(hand.total_difficulty))),
 			direction: Direction::Inbound,
@@ -203,7 +284,7 @@ impl Handshake {
 		};
 
 		let msg = Msg::new(Type::Shake, shake, negotiated_version)?;
-		write_message(conn, &msg, self.tracker.clone())?;
+		write_message(&mut conn, &msg, self.tracker.clone())?;
 
 		trace!("Success handshake with {}.", peer_info.addr);
 

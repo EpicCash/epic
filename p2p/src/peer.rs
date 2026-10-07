@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,10 +17,8 @@ use crate::util::{Mutex, RwLock};
 use lru_cache::LruCache;
 use std::fmt;
 use std::fs::File;
-use std::io::Read;
 use std::net::{Shutdown, TcpStream};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use crate::chain;
@@ -27,13 +26,13 @@ use crate::conn;
 use crate::core::core::hash::{Hash, Hashed};
 use crate::core::pow::Difficulty;
 use crate::core::ser::Writeable;
-use crate::core::{core, global};
+use crate::core::core;
 use crate::handshake::Handshake;
 use crate::msg::{
-	self, BanReason, GetPeerAddrs, KernelDataRequest, Locator, LocatorFastSync, Msg,
-	OnionAddressRequest, Ping, TxHashSetRequest, Type,
+	self, BanReason, GetPeerAddrs, Locator, LocatorFastSync, Msg, OnionAddressRequest, Ping,
+	TxHashSetRequest, Type,
 };
-use crate::protocol::Protocol;
+use crate::protocol::{Protocol, TxHashSetRequestState};
 use crate::types::{
 	Capabilities, ChainAdapter, Error, NetAdapter, P2PConfig, PeerAddr, PeerInfo, ReasonForBan,
 	TxHashSetRead,
@@ -64,8 +63,9 @@ pub struct Peer {
 	// because it may be locked by different reasons, so we should wait for that, close
 	// mutex can be taken only during shutdown, it happens once
 	stop_handle: Mutex<conn::StopHandle>,
-	// Whether or not we requested a txhashset from this peer
-	state_sync_requested: Arc<AtomicBool>,
+	// Exact txhashset archive requested from this connection.
+	//TODO: (Biz) is here a simpler type we can use here?
+	state_sync_requested: Arc<Mutex<Option<TxHashSetRequestState>>>,
 }
 
 impl fmt::Debug for Peer {
@@ -78,7 +78,7 @@ impl Peer {
 	// Only accept and connect can be externally used to build a peer
 	fn new(info: PeerInfo, conn: TcpStream, adapter: Arc<dyn NetAdapter>) -> std::io::Result<Peer> {
 		let state = Arc::new(RwLock::new(State::Connected));
-		let state_sync_requested = Arc::new(AtomicBool::new(false));
+		let state_sync_requested = Arc::new(Mutex::new(None));
 		let tracking_adapter = TrackingAdapter::new(adapter);
 		let handler = Protocol::new(
 			Arc::new(tracking_adapter.clone()),
@@ -217,14 +217,7 @@ impl Peer {
 
 	/// Whether this peer is stuck on sync.
 	pub fn is_stuck(&self) -> (bool, Difficulty) {
-		let peer_live_info = self.info.live_info.read();
-		let now = Utc::now().timestamp_millis();
-		// if last updated difficulty is 2 hours ago, we're sure this peer is a stuck node.
-		if now > peer_live_info.stuck_detector.timestamp_millis() + global::STUCK_PEER_KICK_TIME {
-			(true, peer_live_info.total_difficulty.clone())
-		} else {
-			(false, peer_live_info.total_difficulty.clone())
-		}
+		self.info.is_stuck()
 	}
 
 	/// Whether the peer is considered abusive, mostly for spammy nodes
@@ -267,6 +260,11 @@ impl Peer {
 				Ok(())
 			}
 		}
+	}
+
+	fn send_request<T: Writeable>(&self, msg: T, msg_type: Type) -> Result<(), Error> {
+		let msg = Msg::new(msg_type, msg, self.info.version)?;
+		self.send_handle.lock().send_request(msg)
 	}
 
 	/// Send a ping to the remote peer, providing our local difficulty and
@@ -391,7 +389,18 @@ impl Peer {
 
 	/// Sends a request for block headers from the provided block locator
 	pub fn send_header_request(&self, locator: Vec<Hash>) -> Result<(), Error> {
-		self.send(&Locator { hashes: locator }, msg::Type::GetHeaders)
+		self.info.take_bounded_header_probe();
+		self.send_request(&Locator { hashes: locator }, msg::Type::GetHeaders)
+	}
+
+	/// Sends a bounded discovery request whose response is validated immediately.
+	pub fn send_bounded_header_request(&self, locator: Vec<Hash>) -> Result<(), Error> {
+		self.info.start_bounded_header_probe();
+		let result = self.send_request(&Locator { hashes: locator }, msg::Type::GetHeaders);
+		if result.is_err() {
+			self.info.cancel_bounded_header_probe();
+		}
+		result
 	}
 
 	/// Sends a request for block headers with a offset value from the provided block locator
@@ -400,8 +409,9 @@ impl Peer {
 		locator: Vec<Hash>,
 		offset: u8,
 	) -> Result<(), Error> {
+		self.info.take_bounded_header_probe();
 		//TODO: maybe handle errors
-		self.send(
+		self.send_request(
 			&LocatorFastSync {
 				hashes: locator,
 				offset,
@@ -442,21 +452,26 @@ impl Peer {
 		)
 	}
 
-	pub fn send_txhashset_request(&self, height: u64, hash: Hash) -> Result<(), Error> {
+	pub fn send_txhashset_request(
+		&self,
+		height: u64,
+		hash: Hash,
+		max_bytes: u64,
+	) -> Result<(), Error> {
 		debug!(
 			"Asking {} for txhashset archive at {} {}.",
 			self.info.addr, height, hash
 		);
-		self.state_sync_requested.store(true, Ordering::Relaxed);
-		self.send(
+		*self.state_sync_requested.lock() =
+			Some(TxHashSetRequestState::new(height, hash, max_bytes));
+		let result = self.send_request(
 			&TxHashSetRequest { hash, height },
 			msg::Type::TxHashSetRequest,
-		)
-	}
-
-	pub fn send_kernel_data_request(&self) -> Result<(), Error> {
-		debug!("Asking {} for kernel data.", self.info.addr);
-		self.send(&KernelDataRequest {}, msg::Type::KernelDataRequest)
+		);
+		if result.is_err() {
+			*self.state_sync_requested.lock() = None;
+		}
+		result
 	}
 
 	/// Stops the peer
@@ -617,14 +632,6 @@ impl ChainAdapter for TrackingAdapter {
 		self.adapter.get_block(h)
 	}
 
-	fn kernel_data_read(&self) -> Result<File, chain::Error> {
-		self.adapter.kernel_data_read()
-	}
-
-	fn kernel_data_write(&self, reader: &mut dyn Read) -> Result<bool, chain::Error> {
-		self.adapter.kernel_data_write(reader)
-	}
-
 	fn txhashset_read(&self, h: Hash) -> Option<TxHashSetRead> {
 		self.adapter.txhashset_read(h)
 	}
@@ -674,9 +681,15 @@ impl NetAdapter for TrackingAdapter {
 		self.adapter.peer_addrs_received(addrs)
 	}
 
-	fn peer_difficulty(&self, addr: PeerAddr, diff: Difficulty, height: u64, local_timestamp: i64) {
+	fn peer_advertised_difficulty(
+		&self,
+		addr: PeerAddr,
+		diff: Difficulty,
+		height: u64,
+		local_timestamp: i64,
+	) {
 		self.adapter
-			.peer_difficulty(addr, diff, height, local_timestamp)
+			.peer_advertised_difficulty(addr, diff, height, local_timestamp)
 	}
 
 	fn is_banned(&self, addr: PeerAddr) -> bool {

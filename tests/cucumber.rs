@@ -1,3 +1,17 @@
+// Copyright 2026 The Epic Cash Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #[macro_use]
 extern crate cucumber_rust;
 
@@ -158,8 +172,8 @@ mod mine_chain {
 				let emitted_policy = get_emitted_policy(block.header.height);
 				let policy = get_policies(emitted_policy).unwrap();
 				// Mining
-				let algo = Deterministic::choose_algo(&policy, &prev.bottles);
-				block.header.bottles = next_block_bottles(algo, &prev.bottles);
+				let algo = Deterministic::choose_algo(&policy, &prev.bottles).unwrap();
+				block.header.bottles = next_block_bottles(algo, &prev.bottles).unwrap();
 				block.header.pow.proof = get_pow_type(&algo, prev.height);
 				block.header.policy = emitted_policy;
 
@@ -543,7 +557,8 @@ mod mine_chain {
 					}.unwrap();
 					b.header.timestamp = prev.timestamp + Duration::seconds(60);
 					b.header.pow.secondary_scaling = next_header_info.secondary_scaling;
-					b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles);
+					b.header.bottles =
+						next_block_bottles(FType::Cuckatoo, &prev.bottles).unwrap();
 
 					let hash = chain.header_pmmr().read().get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1)).unwrap();
 					let mut seed = [0u8; 32];
@@ -628,7 +643,10 @@ mod mine_chain {
 				let algo = get_fw_type(matches[1].as_str());
 				let emitted_policy = get_emitted_policy(prev.height + 1);
 				let policy = get_policies(emitted_policy).unwrap();
-				assert_eq!(Deterministic::choose_algo(&policy, &prev.bottles), algo);
+				assert_eq!(
+					Deterministic::choose_algo(&policy, &prev.bottles).unwrap(),
+					algo
+				);
 			};
 
 			then regex "Check the next algorithm <([a-zA-Z0-9]+)> on the height <([0-9]+)>" |world, matches, _step| {
@@ -636,18 +654,21 @@ mod mine_chain {
 				let height = matches[2].parse().unwrap();
 				let emitted_policy = get_emitted_policy(height);
 				let policy = get_policies(emitted_policy).unwrap();
-				assert_eq!(Deterministic::choose_algo(&policy, &world.bottles), algo);
+				assert_eq!(
+					Deterministic::choose_algo(&policy, &world.bottles).unwrap(),
+					algo
+				);
 			};
 
 			then regex "Increase bottles <([A-Za-z0-9]+)>" |world, matches, _step| {
 				let algo = get_fw_type(matches[1].as_str());
-				world.bottles = next_block_bottles(algo, &world.bottles);
+				world.bottles = next_block_bottles(algo, &world.bottles).unwrap();
 			};
 
 			given regex "I setup a chain with genesis block mined with <([a-zA-Z0-9]+)>" |world, matches, _step| {
 				let algo = get_fw_type(matches[1].as_str());
 				let mut genesis = pow::mine_genesis_block().unwrap();
-				genesis.header.bottles = next_block_bottles(algo, &world.bottles);
+				genesis.header.bottles = next_block_bottles(algo, &world.bottles).unwrap();
 				world.genesis = Some(genesis);
 				world.chain = Some(setup(&world.output_dir, world.genesis.as_ref().unwrap().clone()));
 				world.keychain = Some(epic_keychain::ExtKeychain::from_seed(&[2,0,0], false).unwrap());
@@ -663,7 +684,7 @@ mod mine_chain {
 				let mut genesis = genesis::genesis_dev();
 				// creating the block with the desired reward
 				genesis = genesis.with_reward(reward.0, reward.1);
-				genesis.header.bottles = next_block_bottles(algo, &world.bottles);
+				genesis.header.bottles = next_block_bottles(algo, &world.bottles).unwrap();
 
 				// mining "manually" the genesis
 				let genesis_difficulty = genesis.header.pow.total_difficulty.clone();
@@ -760,8 +781,8 @@ mod mine_chain {
 				// Mining
 				let emitted_policy = get_emitted_policy(height);
 				let policy = get_policies(emitted_policy).unwrap();
-				let algo = Deterministic::choose_algo(&policy, &prev.bottles);
-				block.header.bottles = next_block_bottles(algo, &prev.bottles);
+				let algo = Deterministic::choose_algo(&policy, &prev.bottles).unwrap();
+				block.header.bottles = next_block_bottles(algo, &prev.bottles).unwrap();
 				block.header.pow.proof = get_pow_type(&algo, prev.height);
 				block.header.policy = emitted_policy;
 				chain.process_block(block, chain::Options::SKIP_POW).unwrap();
@@ -900,7 +921,7 @@ mod mine_chain {
 					let mut block = prepare_block(&kc, &prev, &chain, height + i);
 					let _policy = get_policies(emitted_policy).unwrap();
 					let cursor = chain.bottles_iter(emitted_policy).unwrap();
-					let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
+					let (algo, bottles) = consensus::next_policy(emitted_policy, cursor).unwrap();
 					block.header.bottles = bottles;
 					block.header.pow.proof = get_pow_type(&algo, prev.height);
 					block.header.policy = emitted_policy;
@@ -916,7 +937,7 @@ mod mine_chain {
 				let mut genesis = genesis::genesis_dev();
 				genesis.header.timestamp = timestamp_from_num(initial_timestamp);
 				// creating the block with the desired reward
-				genesis.header.bottles = next_block_bottles(algo, &world.bottles);
+				genesis.header.bottles = next_block_bottles(algo, &world.bottles).unwrap();
 				let mut diff = DifficultyNumber::new();
 				diff.insert(FType::Cuckaroo, 2_u64.pow(2));
 				diff.insert(FType::Cuckatoo, 2_u64.pow(2));
@@ -952,7 +973,7 @@ mod mine_chain {
 						.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 						.unwrap();
 					let cursor = chain.bottles_iter(emitted_policy).unwrap();
-					let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
+					let (algo, bottles) = consensus::next_policy(emitted_policy, cursor).unwrap();
 					let (timespan, block_diff) = match algo{
 						FType::Cuckatoo => {
 							let mut diff = world.difficulty.clone();
@@ -1044,7 +1065,7 @@ mod mine_chain {
 				// policy
 				let _policy = get_policies(0).unwrap();
 				let cursor = chain.bottles_iter(0).unwrap();
-				let (_, bottles) = consensus::next_policy(0, cursor);
+				let (_, bottles) = consensus::next_policy(0, cursor).unwrap();
 				let algo = get_fw_type(algorithm.as_str());
 				block.header.bottles = bottles;
 				block.header.pow.proof = get_pow_type(&algo, prev.height);
@@ -1138,7 +1159,7 @@ mod mine_chain {
 					let kc = epic_keychain::ExtKeychain::from_seed(&[i as u8], false).unwrap().clone();
 					let prev = chain.head_header().unwrap();
 					let mut block = prepare_block(&kc, &prev, &chain, prev.height + 1);
-					block.header.bottles = next_block_bottles(algo, &prev.bottles);
+					block.header.bottles = next_block_bottles(algo, &prev.bottles).unwrap();
 					block.header.pow.proof = get_pow_type(&algo, prev.height);
 					count = match chain.process_block(block, chain::Options::SKIP_POW){
 						Err(_) => count,
@@ -1160,7 +1181,7 @@ mod mine_chain {
 			then "I check if the bottle is being emptied" |world, _step| {
 				let chain = world.chain.as_ref().unwrap();
 				let bottles = chain.head_header().unwrap().bottles;
-				assert_eq!(count_beans(&bottles), 1);
+				assert_eq!(count_beans(&bottles).unwrap(), 1);
 			};
 
 			given regex "The file foundation <([0-9a-z.//]+)>" |_world, matches, _step| {
@@ -1199,7 +1220,7 @@ mod mine_chain {
 				let mut block = prepare_fork_block(kc, &prev, &chain, diff);
 				let _policy = get_policies(emitted_policy).unwrap();
 				let cursor = chain.bottles_iter(emitted_policy).unwrap();
-				let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
+				let (algo, bottles) = consensus::next_policy(emitted_policy, cursor).unwrap();
 				block.header.bottles = bottles;
 				block.header.pow.proof = get_pow_type(&algo, prev.height);
 				block.header.policy = emitted_policy;
@@ -1234,7 +1255,7 @@ mod mine_chain {
 				let mut block = prepare_fork_block(kc, &prev, &chain, diff);
 				let _policy = get_policies(emitted_policy).unwrap();
 				let cursor = chain.bottles_iter(emitted_policy).unwrap();
-				let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
+				let (algo, bottles) = consensus::next_policy(emitted_policy, cursor).unwrap();
 				block.header.bottles = bottles;
 				block.header.pow.proof = get_pow_type(&algo, prev.height);
 				block.header.policy = emitted_policy;
@@ -1533,7 +1554,8 @@ mod mine_chain {
 					PoWType::MD5 => FType::Cuckatoo,
 				},
 				&prev.bottles,
-			);
+			)
+			.unwrap();
 
 			let hash = chain
 				.header_pmmr()
@@ -1730,7 +1752,7 @@ mod mine_chain {
 		b.header.pow.total_difficulty = prev.total_difficulty() + diff;
 		b.header.pow.proof = pow::Proof::random(proof_size);
 		b.header.pow.seed = seed;
-		b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles);
+		b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles).unwrap();
 		b
 	}
 
@@ -1812,7 +1834,7 @@ mod mine_chain {
 		b.header.timestamp = prev.timestamp + Duration::seconds(60);
 		b.header.pow.total_difficulty = prev.total_difficulty() + Difficulty::from_num(diff);
 		b.header.pow.proof = pow::Proof::random(proof_size);
-		b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles);
+		b.header.bottles = next_block_bottles(FType::Cuckatoo, &prev.bottles).unwrap();
 
 		let mut seed = [0u8; 32];
 		seed.copy_from_slice(&hash.as_bytes()[0..32]);
@@ -1872,7 +1894,7 @@ mod mine_chain {
 			// just for the test
 			pow::Proof::MD5Proof { .. } => FType::Cuckatoo,
 		};
-		b.header.bottles = next_block_bottles(fw_type, &prev.bottles);
+		b.header.bottles = next_block_bottles(fw_type, &prev.bottles).unwrap();
 
 		let mut seed = [0u8; 32];
 		seed.copy_from_slice(&hash.as_bytes()[0..32]);
