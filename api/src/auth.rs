@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2020 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -86,7 +87,7 @@ impl Handler<Full<Bytes>> for BasicAuthMiddleware {
 
 // Basic Authentication Middleware
 pub struct BasicAuthURIMiddleware {
-    api_basic_auth: String,
+    api_basic_auth: Option<String>,
     basic_realm: &'static HeaderValue,
     target_uri: String,
 }
@@ -94,6 +95,18 @@ pub struct BasicAuthURIMiddleware {
 impl BasicAuthURIMiddleware {
     pub fn new(
         api_basic_auth: String,
+        basic_realm: &'static HeaderValue,
+        target_uri: String,
+    ) -> BasicAuthURIMiddleware {
+        BasicAuthURIMiddleware {
+            api_basic_auth: Some(api_basic_auth),
+            basic_realm,
+            target_uri,
+        }
+    }
+
+    pub fn new_required(
+        api_basic_auth: Option<String>,
         basic_realm: &'static HeaderValue,
         target_uri: String,
     ) -> BasicAuthURIMiddleware {
@@ -121,13 +134,10 @@ impl Handler<Full<Bytes>> for BasicAuthURIMiddleware {
         let path = req.uri().path();
         // Protect the target_uri and all its subpaths
         if path == self.target_uri || path.starts_with(&(self.target_uri.clone() + "/")) {
-            if req.headers().contains_key(AUTHORIZATION)
-                && req.headers()[AUTHORIZATION]
-                    .as_bytes()
-                    .ct_eq(&self.api_basic_auth.as_bytes())
-                    .unwrap_u8()
-                    == 1
-            {
+            if matches!(
+                (req.headers().get(AUTHORIZATION), self.api_basic_auth.as_deref()),
+                (Some(value), Some(expected)) if basic_auth_matches(value, expected)
+            ) {
                 next_handler.call(req, handlers)
             } else {
                 // Unauthorized 401
@@ -139,7 +149,15 @@ impl Handler<Full<Bytes>> for BasicAuthURIMiddleware {
     }
 }
 
-fn unauthorized_response(basic_realm: &HeaderValue) -> ResponseFuture {
+pub(super) fn basic_auth_matches(value: &HeaderValue, expected: &str) -> bool {
+    value
+        .as_bytes()
+        .ct_eq(expected.as_bytes())
+        .unwrap_u8()
+        == 1
+}
+
+pub(super) fn unauthorized_response(basic_realm: &HeaderValue) -> ResponseFuture {
     let body = boxed_body(
         r#"{
             "jsonrpc": "2.0",

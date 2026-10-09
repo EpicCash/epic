@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,34 +16,111 @@
 use crate::chain;
 use crate::conn::{Message, MessageHandler, Tracker};
 use crate::core::core::{self, hash::Hash, hash::Hashed, CompactBlock};
-use crate::util::format::human_readable_size;
+use crate::util::{format::human_readable_size, Mutex};
 
 use crate::msg::{
-	BanReason, FastHeaders, GetPeerAddrs, Headers, KernelDataResponse, Locator, LocatorFastSync,
-	Msg, OnionAddressResponse, PeerAddrs, Ping, Pong, TxHashSetArchive, TxHashSetRequest, Type,
+	BanReason, FastHeaders, GetPeerAddrs, Headers, Locator, LocatorFastSync, Msg,
+	OnionAddressResponse, PeerAddrs, Ping, Pong, TxHashSetArchive, TxHashSetRequest, Type,
 };
-use crate::types::{Error, NetAdapter, PeerInfo};
+use crate::types::{Error, NetAdapter, PeerInfo, MAX_BLOCK_HEADERS};
 use chrono::prelude::Utc;
-use rand::{rng, Rng};
-use std::cmp;
-use std::fs::{self, File, OpenOptions};
-use std::io::{BufWriter, Seek, SeekFrom};
+use fs2::FileExt;
+use std::io::BufWriter;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
-use tempfile::tempfile;
+use std::time::{Duration, Instant};
+use tempfile::NamedTempFile;
+
+//TODO: (Biz) can we clean this up at all? I don't like how unwieldy this looks
+const TXHASHSET_DOWNLOAD_DEADLINE: Duration = Duration::from_secs(2 * 60 * 60);
+const TXHASHSET_MIN_RATE_GRACE: Duration = Duration::from_secs(2 * 60);
+const TXHASHSET_MIN_BYTES_PER_SEC: u64 = 16 * 1024;
+const TXHASHSET_DISK_RESERVE: u64 = 256 * 1024 * 1024;
+const TXHASHSET_READ_CHUNK: usize = 8_000;
+
+pub(crate) struct TxHashSetRequestState {
+	height: u64,
+	hash: Hash,
+	max_bytes: u64,
+	requested_at: Instant,
+}
+
+impl TxHashSetRequestState {
+	pub(crate) fn new(height: u64, hash: Hash, max_bytes: u64) -> Self {
+		Self {
+			height,
+			hash,
+			max_bytes,
+			requested_at: Instant::now(),
+		}
+	}
+}
+// end TODO cleanup
 
 pub struct Protocol {
 	adapter: Arc<dyn NetAdapter>,
 	peer_info: PeerInfo,
-	state_sync_requested: Arc<AtomicBool>,
+	state_sync_requested: Arc<Mutex<Option<TxHashSetRequestState>>>,
+}
+
+fn txhashset_response_matches(expected: &TxHashSetRequestState, height: u64, hash: Hash) -> bool {
+	expected.height == height && expected.hash == hash
+}
+
+fn txhashset_archive_len(bytes: u64, max_bytes: u64) -> Result<usize, Error> {
+	if bytes > max_bytes {
+		return Err(Error::BadMessage);
+	}
+	usize::try_from(bytes).map_err(|_| Error::MsgLen)
+}
+
+fn txhashset_required_space(bytes: u64) -> Result<u64, Error> {
+	bytes.checked_add(TXHASHSET_DISK_RESERVE).ok_or(Error::MsgLen)
+}
+
+fn txhashset_transfer_expired(
+	requested_at: Instant,
+	window_started_at: Instant,
+	now: Instant,
+	window_bytes: u64,
+) -> bool {
+	let window_elapsed = now.saturating_duration_since(window_started_at);
+	now.saturating_duration_since(requested_at) >= TXHASHSET_DOWNLOAD_DEADLINE
+		|| (window_elapsed >= TXHASHSET_MIN_RATE_GRACE
+			&& window_bytes
+				< window_elapsed
+					.as_secs()
+					.saturating_mul(TXHASHSET_MIN_BYTES_PER_SEC))
+}
+
+fn read_streamed_headers(msg: &mut Message<'_>) -> Result<Headers, Error> {
+	let (count, mut total_bytes_read): (u16, _) = msg.streaming_read()?;
+	if count > MAX_BLOCK_HEADERS as u16 {
+		return Err(crate::core::ser::Error::TooLargeReadErr.into());
+	}
+
+	let mut headers = Headers {
+		count,
+		headers: Vec::with_capacity(count as usize),
+	};
+	for _ in 0..count {
+		let (header, bytes_read) = msg.streaming_read::<core::UntrustedBlockHeader>()?;
+		total_bytes_read = total_bytes_read
+			.checked_add(bytes_read)
+			.ok_or(Error::MsgLen)?;
+		headers.headers.push(header.into());
+	}
+	if total_bytes_read != msg.header.msg_len {
+		return Err(Error::MsgLen);
+	}
+	Ok(headers)
 }
 
 impl Protocol {
 	pub fn new(
 		adapter: Arc<dyn NetAdapter>,
 		peer_info: PeerInfo,
-		state_sync_requested: Arc<AtomicBool>,
+		state_sync_requested: Arc<Mutex<Option<TxHashSetRequestState>>>,
 	) -> Protocol {
 		Protocol {
 			adapter,
@@ -75,7 +153,7 @@ impl MessageHandler for Protocol {
 		match msg.header.msg_type {
 			Type::Ping => {
 				let ping: Ping = msg.body()?;
-				adapter.peer_difficulty(
+				adapter.peer_advertised_difficulty(
 					self.peer_info.addr,
 					ping.total_difficulty,
 					ping.height,
@@ -95,7 +173,7 @@ impl MessageHandler for Protocol {
 
 			Type::Pong => {
 				let pong: Pong = msg.body()?;
-				adapter.peer_difficulty(
+				adapter.peer_advertised_difficulty(
 					self.peer_info.addr,
 					pong.total_difficulty,
 					pong.height,
@@ -232,33 +310,9 @@ impl MessageHandler for Protocol {
 				Ok(None)
 			}
 			Type::Headers => {
-				let mut total_bytes_read = 0;
-
-				// Read the count (u16) so we now how many headers to read.
-				let (count, bytes_read): (u16, _) = msg.streaming_read()?;
-				total_bytes_read += bytes_read;
-
-				// Read chunks of headers off the stream and pass them off to the adapter.
-				let mut headers = Headers {
-					count: 0,
-					headers: vec![],
-				};
-				let chunk_size = 128;
-				for chunk in (0..count).collect::<Vec<_>>().chunks(chunk_size) {
-					for _ in chunk {
-						let (header, bytes_read) =
-							msg.streaming_read::<core::UntrustedBlockHeader>()?;
-						headers.headers.push(header.into());
-						total_bytes_read += bytes_read;
-					}
-				}
+				let mut headers = read_streamed_headers(&mut msg)?;
 				headers.headers.sort_by_key(|a| a.height);
 				adapter.headers_received(&headers.headers, &self.peer_info)?;
-
-				// Now check we read the correct total number of bytes off the stream.
-				if total_bytes_read != msg.header.msg_len {
-					return Err(Error::MsgLen);
-				}
 
 				Ok(None)
 			}
@@ -286,53 +340,6 @@ impl MessageHandler for Protocol {
 				Ok(None)
 			}
 
-			Type::KernelDataRequest => {
-				let kernel_data = self.adapter.kernel_data_read()?;
-				let bytes = kernel_data.metadata()?.len();
-				let kernel_data_response = KernelDataResponse { bytes };
-				let mut response = Msg::new(
-					Type::KernelDataResponse,
-					&kernel_data_response,
-					self.peer_info.version,
-				)?;
-				response.add_attachment(kernel_data);
-				Ok(Some(response))
-			}
-
-			Type::KernelDataResponse => {
-				let response: KernelDataResponse = msg.body()?;
-				debug!("Kerneldata response bytes: {}", response.bytes);
-
-				let mut writer = BufWriter::new(tempfile()?);
-
-				let total_size = response.bytes as usize;
-				let mut remaining_size = total_size;
-
-				while remaining_size > 0 {
-					let size = msg.copy_attachment(remaining_size, &mut writer)?;
-					remaining_size = remaining_size.saturating_sub(size);
-
-					// Increase received bytes quietly (without affecting the counters).
-					// Otherwise we risk banning a peer as "abusive".
-					tracker.inc_quiet_received(size as u64);
-				}
-
-				// Remember to seek back to start of the file as the caller is likely
-				// to read this file directly without reopening it.
-				writer.seek(SeekFrom::Start(0))?;
-
-				let mut file = writer.into_inner().map_err(|_| Error::Internal)?;
-
-				debug!(
-					"Kerneldata response file size: {}",
-					file.metadata().unwrap().len()
-				);
-
-				self.adapter.kernel_data_write(&mut file)?;
-
-				Ok(None)
-			}
-
 			Type::TxHashSetRequest => {
 				let sm_req: TxHashSetRequest = msg.body()?;
 				info!(
@@ -342,6 +349,14 @@ impl MessageHandler for Protocol {
 
 				let txhashset_header = self.adapter.txhashset_archive_header()?;
 				let txhashset_header_hash = txhashset_header.hash();
+				if txhashset_header.height != sm_req.height
+					|| txhashset_header_hash != sm_req.hash
+				{
+					debug!(
+						"Requested txhashset target is not the archive this peer currently serves",
+					);
+					return Ok(None);
+				}
 				let txhashset = self.adapter.txhashset_read(txhashset_header_hash);
 
 				// Note: Investigate why the last rangeproof is empty (None, None) when importing txhashset data.
@@ -374,10 +389,18 @@ impl MessageHandler for Protocol {
 					debug!("Txhashset archive received but SyncStatus not on TxHashsetDownload",);
 					return Err(Error::BadMessage);
 				}
-				if !self.state_sync_requested.load(Ordering::Relaxed) {
-					debug!("Txhashset archive received but from the wrong peer",);
+				let request = self
+					.state_sync_requested
+					.lock()
+					.take()
+					.ok_or(Error::BadMessage)?;
+				if !txhashset_response_matches(&request, sm_arch.height, sm_arch.hash) {
+					debug!(
+						"Txhashset archive did not match this connection's request",
+					);
 					return Err(Error::BadMessage);
 				}
+				let total_size = txhashset_archive_len(sm_arch.bytes, request.max_bytes)?;
 
 				let size = human_readable_size(sm_arch.bytes);
 				info!(
@@ -385,62 +408,75 @@ impl MessageHandler for Protocol {
 					sm_arch.hash, sm_arch.height, size,
 				);
 
-				// Update the sync state requested status
-				self.state_sync_requested.store(true, Ordering::Relaxed);
-
 				let download_start_time = Utc::now();
 				self.adapter
 					.txhashset_download_update(download_start_time, 0, sm_arch.bytes);
 
-				let nonce: u32 = rng().random_range(1..1_000_000);
-				let tmp = self.adapter.get_tmpfile_pathname(format!(
-					"txhashset-{}-{}.zip",
-					download_start_time.timestamp(),
-					nonce
-				));
+				let tmp_dir = self.adapter.get_tmp_dir();
+				std::fs::create_dir_all(&tmp_dir)?;
+				let required_space = txhashset_required_space(sm_arch.bytes)?;
+				if fs2::available_space(&tmp_dir)? < required_space {
+					return Err(Error::Connection(std::io::Error::new(
+						std::io::ErrorKind::Other,
+						"insufficient space for txhashset archive",
+					)));
+				}
+				let mut tmp = NamedTempFile::new_in(&tmp_dir)?;
+				tmp.as_file().allocate(sm_arch.bytes)?;
 
-				let mut save_txhashset_to_file = |file| -> Result<(), Error> {
+				{
 					let mut tmp_zip = BufWriter::with_capacity(
 						1_048_576, // 1 MB buffer
-						OpenOptions::new().write(true).create_new(true).open(file)?,
+						tmp.as_file_mut(),
 					);
-					let total_size = sm_arch.bytes as usize;
-					let target_time = 600; // 10 minutes in seconds
-					let average_upload_speed = 1_398_101; // 1.4 MB/s in bytes
-
-					// Calculate optimal request_size
-					let mut request_size = cmp::min(1_048_576, total_size); // Start with 1 MB
-					if total_size > average_upload_speed * target_time {
-						request_size = cmp::min(512_000, total_size); // Adjust to 512 KB for slower connections
-					}
 
 					let mut downloaded_size: usize = 0;
-					let mut now = Instant::now();
-					let download_start_time = Instant::now();
+					let mut progress_updated_at = Instant::now();
+					let mut rate_window_started_at = request.requested_at;
+					let mut rate_window_bytes = 0u64;
 
-					while request_size > 0 {
+					while downloaded_size < total_size {
+						let checked_at = Instant::now();
+						if txhashset_transfer_expired(
+							request.requested_at,
+							rate_window_started_at,
+							checked_at,
+							rate_window_bytes,
+						) {
+							return Err(Error::Timeout);
+						}
+						if checked_at.saturating_duration_since(rate_window_started_at)
+							>= TXHASHSET_MIN_RATE_GRACE
+						{
+							rate_window_started_at = checked_at;
+							rate_window_bytes = 0;
+						}
+						let request_size = TXHASHSET_READ_CHUNK.min(total_size - downloaded_size);
 						let size = msg.copy_attachment(request_size, &mut tmp_zip)?;
-						downloaded_size += size;
-						request_size = cmp::min(request_size, total_size - downloaded_size);
+						downloaded_size = downloaded_size.checked_add(size).ok_or(Error::MsgLen)?;
+						rate_window_bytes = rate_window_bytes
+							.checked_add(size as u64)
+							.ok_or(Error::MsgLen)?;
+						if txhashset_transfer_expired(
+							request.requested_at,
+							rate_window_started_at,
+							Instant::now(),
+							rate_window_bytes,
+						) {
+							return Err(Error::Timeout);
+						}
 
-						// Calculate elapsed time and download speed
-						let elapsed_time = download_start_time.elapsed().as_secs_f64();
-						let download_speed = downloaded_size as f64 / elapsed_time; // Bytes per second
-						let remaining_size = total_size - downloaded_size;
-						let remaining_time = if download_speed > 0.0 {
-							remaining_size as f64 / download_speed
-						} else {
-							0.0
-						};
-
-						// Update progress less frequently
-						if downloaded_size % 1_000_000 == 0 || now.elapsed().as_secs() > 10 {
+						if progress_updated_at.elapsed() > Duration::from_secs(10) {
 							self.adapter.txhashset_download_update(
-								Utc::now(), // Use the current UTC time instead
+								download_start_time,
 								downloaded_size as u64,
 								total_size as u64,
 							);
-							now = Instant::now();
+							progress_updated_at = Instant::now();
+							let elapsed_time = request.requested_at.elapsed().as_secs_f64();
+							let download_speed = downloaded_size as f64 / elapsed_time;
+							let remaining_time =
+								(total_size - downloaded_size) as f64 / download_speed;
 							info!(
 								"Downloading Txhashset archive: {}/{} from peer {}. Speed: {:.2} KB/s, Remaining time: {:.2} seconds",
 								downloaded_size,
@@ -472,24 +508,9 @@ impl MessageHandler for Protocol {
 						.into_inner()
 						.map_err(|_| Error::Internal)?
 						.sync_all()?;
-					Ok(())
-				};
-
-				if let Err(e) = save_txhashset_to_file(tmp.clone()) {
-					error!(
-						"Txhashset archive save to file fail from peer {}. err={:?}",
-						self.peer_info.addr, e
-					);
-					return Err(e);
 				}
 
-				trace!(
-					"Txhashset archive save to file {:?} success from peer {}",
-					tmp,
-					self.peer_info.addr
-				);
-
-				let tmp_zip = File::open(tmp.clone())?;
+				let tmp_zip = tmp.reopen()?;
 				let res = self
 					.adapter
 					.txhashset_write(sm_arch.hash, tmp_zip, &self.peer_info)?;
@@ -498,13 +519,6 @@ impl MessageHandler for Protocol {
 					"Txhashset archive for {} at {}, DONE. Data Ok: {} from peer {}",
 					sm_arch.hash, sm_arch.height, !res, self.peer_info.addr
 				);
-
-				if let Err(e) = fs::remove_file(tmp.clone()) {
-					warn!(
-						"Txhashset archive fail to remove tmp file: {:?}. err: {} from peer {}",
-						tmp, e, self.peer_info.addr
-					);
-				}
 
 				Ok(None)
 			}
@@ -539,5 +553,175 @@ impl MessageHandler for Protocol {
 				Ok(None)
 			}
 		}
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use crate::core::pow::Difficulty;
+	use crate::core::ser::{self, ProtocolVersion};
+	use crate::msg::{MsgHeader, Type};
+	use crate::serv::DummyAdapter;
+	use crate::types::{Capabilities, Direction, PeerAddr, PeerLiveInfo};
+	use crate::util::RwLock;
+	use std::panic::{catch_unwind, AssertUnwindSafe};
+
+	fn read_headers(body: &[u8]) -> Result<Headers, Error> {
+		let mut input = body;
+		let header = MsgHeader::new(Type::Headers, body.len() as u64);
+		let mut msg =
+			Message::from_header_for_test(header, &mut input, ProtocolVersion::local());
+		read_streamed_headers(&mut msg)
+	}
+
+	fn legacy_md5_header_with_length(len: u64) -> Vec<u8> {
+		let mut body = Vec::new();
+		body.extend_from_slice(&1u16.to_be_bytes()); // one header
+		body.extend_from_slice(&6u16.to_be_bytes()); // pre-fork header version
+		body.extend_from_slice(&0u64.to_be_bytes()); // height
+		body.extend_from_slice(&0i64.to_be_bytes()); // timestamp
+		body.extend_from_slice(&[0; 32 * 6]); // five hashes and kernel offset
+		body.extend_from_slice(&0u64.to_be_bytes()); // output MMR size
+		body.extend_from_slice(&0u64.to_be_bytes()); // kernel MMR size
+		body.extend_from_slice(&0u64.to_be_bytes()); // empty Difficulty map
+		body.extend_from_slice(&0u32.to_be_bytes()); // secondary scaling
+		body.extend_from_slice(&0u64.to_be_bytes()); // nonce
+		// Legacy MD5 wire tag. It is decoded before current policy rejects it.
+		body.push(1);
+		body.push(16); // edge bits
+		body.extend_from_slice(&len.to_be_bytes());
+		body
+	}
+
+	#[test]
+	fn streamed_headers_reject_count_above_protocol_limit() {
+		let body = (MAX_BLOCK_HEADERS as u16 + 1).to_be_bytes();
+		assert!(matches!(
+			read_headers(&body),
+			Err(Error::Serialization(ser::Error::TooLargeReadErr))
+		));
+	}
+
+	#[test]
+	fn streamed_headers_reject_trailing_frame_bytes() {
+		assert!(matches!(read_headers(&[0, 0, 0]), Err(Error::MsgLen)));
+	}
+
+	#[test]
+	fn streamed_headers_accept_exact_empty_batch() {
+		let headers = read_headers(&[0, 0]).unwrap();
+		assert_eq!(headers.count, 0);
+		assert!(headers.headers.is_empty());
+	}
+
+	#[test]
+	fn streamed_legacy_md5_length_is_rejected_before_allocation() {
+		let body = legacy_md5_header_with_length(u64::MAX);
+		let mut input = &body[..];
+		let header = MsgHeader::new(Type::Headers, body.len() as u64);
+		let msg =
+			Message::from_header_for_test(header, &mut input, ProtocolVersion::local());
+		let peer_info = PeerInfo {
+			capabilities: Capabilities::UNKNOWN,
+			user_agent: "stream-budget".into(),
+			version: ProtocolVersion::local(),
+			addr: PeerAddr("127.0.0.1:3414".parse().unwrap()),
+			direction: Direction::Inbound,
+			live_info: Arc::new(RwLock::new(PeerLiveInfo::new(Difficulty::zero()))),
+		};
+		let protocol = Protocol::new(
+			Arc::new(DummyAdapter {}),
+			peer_info,
+			Arc::new(Mutex::new(None)),
+		);
+		let result = catch_unwind(AssertUnwindSafe(|| {
+			protocol.consume(
+				msg,
+				Arc::new(AtomicBool::new(false)),
+				Arc::new(Tracker::new()),
+			)
+		}));
+
+		assert!(matches!(
+			result,
+			Ok(Err(Error::Serialization(ser::Error::TooLargeReadErr)))
+		));
+	}
+
+	#[test]
+	fn txhashset_response_requires_exact_requested_height_and_hash() {
+		let hash = Hash::from_vec(&[1]);
+		let request = TxHashSetRequestState::new(100, hash, 1024);
+		assert!(txhashset_response_matches(&request, 100, hash));
+		assert!(!txhashset_response_matches(&request, 101, hash));
+		assert!(!txhashset_response_matches(
+			&request,
+			100,
+			Hash::from_vec(&[2]),
+		));
+	}
+
+	#[test]
+	fn txhashset_archive_size_rejects_only_values_over_limit() {
+		assert_eq!(txhashset_archive_len(999, 1000).unwrap(), 999);
+		assert_eq!(txhashset_archive_len(1000, 1000).unwrap(), 1000);
+		assert!(matches!(
+			txhashset_archive_len(1001, 1000),
+			Err(Error::BadMessage)
+		));
+	}
+
+	#[test]
+	fn txhashset_disk_budget_keeps_reserve_and_checks_overflow() {
+		assert_eq!(
+			txhashset_required_space(1024).unwrap(),
+			1024 + TXHASHSET_DISK_RESERVE
+		);
+		assert!(matches!(
+			txhashset_required_space(u64::MAX),
+			Err(Error::MsgLen)
+		));
+	}
+
+	#[test]
+	fn txhashset_transfer_has_absolute_and_rate_deadlines() {
+		let start = Instant::now();
+		assert!(!txhashset_transfer_expired(
+			start,
+			start,
+			start + TXHASHSET_MIN_RATE_GRACE,
+			TXHASHSET_MIN_RATE_GRACE.as_secs() * TXHASHSET_MIN_BYTES_PER_SEC,
+		));
+		assert!(txhashset_transfer_expired(
+			start,
+			start,
+			start + TXHASHSET_MIN_RATE_GRACE,
+			TXHASHSET_MIN_RATE_GRACE.as_secs() * TXHASHSET_MIN_BYTES_PER_SEC - 1,
+		));
+		assert!(txhashset_transfer_expired(
+			start,
+			start + TXHASHSET_MIN_RATE_GRACE,
+			start + 2 * TXHASHSET_MIN_RATE_GRACE,
+			TXHASHSET_MIN_RATE_GRACE.as_secs() * TXHASHSET_MIN_BYTES_PER_SEC - 1,
+		));
+		assert!(txhashset_transfer_expired(
+			start,
+			start + TXHASHSET_DOWNLOAD_DEADLINE - Duration::from_secs(1),
+			start + TXHASHSET_DOWNLOAD_DEADLINE,
+			u64::MAX,
+		));
+	}
+
+	#[test]
+	fn txhashset_tempfile_is_removed_on_drop() {
+		let dir = tempfile::tempdir().unwrap();
+		let path = {
+			let file = NamedTempFile::new_in(dir.path()).unwrap();
+			let path = file.path().to_owned();
+			assert!(path.exists());
+			path
+		};
+		assert!(!path.exists());
 	}
 }

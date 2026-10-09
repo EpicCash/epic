@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -379,6 +380,8 @@ pub fn ser_vec<W: Writeable>(thing: &W, version: ProtocolVersion) -> Result<Vec<
 	Ok(vec)
 }
 
+const MAX_SINGLE_READ: usize = 100_000;
+
 /// Utility to read from a binary source
 pub struct BinReader<'a> {
 	source: &'a mut dyn Read,
@@ -419,14 +422,14 @@ impl<'a> Reader for BinReader<'a> {
 	}
 	/// Read a variable size vector from the underlying Read. Expects a usize
 	fn read_bytes_len_prefix(&mut self) -> Result<Vec<u8>, Error> {
-		let len = self.read_u64()?;
-		self.read_fixed_bytes(len as usize)
+		let len = usize::try_from(self.read_u64()?).map_err(|_| Error::TooLargeReadErr)?;
+		self.read_fixed_bytes(len)
 	}
 
 	/// Read a fixed number of bytes.
 	fn read_fixed_bytes(&mut self, len: usize) -> Result<Vec<u8>, Error> {
 		// not reading more than 100k bytes in a single read
-		if len > 100_000 {
+		if len > MAX_SINGLE_READ {
 			return Err(Error::TooLargeReadErr);
 		}
 		let mut buf = vec![0; len];
@@ -457,16 +460,26 @@ impl<'a> Reader for BinReader<'a> {
 /// Tracks total bytes read so we can verify we read the right number afterwards.
 pub struct StreamingReader<'a> {
 	total_bytes_read: u64,
+	max_bytes: u64,
 	version: ProtocolVersion,
 	stream: &'a mut dyn Read,
 }
 
 impl<'a> StreamingReader<'a> {
-	/// Create a new streaming reader with the provided underlying stream.
-	/// Also takes a duration to be used for each individual read_exact call.
-	pub fn new(stream: &'a mut dyn Read, version: ProtocolVersion) -> StreamingReader<'a> {
+	/// Create a streaming reader for trusted local data without an enclosing frame.
+	pub fn new(stream: &'a mut dyn Read, version: ProtocolVersion) -> Self {
+		Self::with_limit(stream, version, u64::MAX)
+	}
+
+	/// Create a streaming reader limited to the remaining bytes in its enclosing frame.
+	pub fn with_limit(
+		stream: &'a mut dyn Read,
+		version: ProtocolVersion,
+		max_bytes: u64,
+	) -> Self {
 		StreamingReader {
 			total_bytes_read: 0,
+			max_bytes,
 			version,
 			stream,
 		}
@@ -508,15 +521,21 @@ impl<'a> Reader for StreamingReader<'a> {
 	/// Read a variable size vector from the underlying stream. Expects a usize
 	fn read_bytes_len_prefix(&mut self) -> Result<Vec<u8>, Error> {
 		let len = self.read_u64()?;
-		self.total_bytes_read += 8;
-		self.read_fixed_bytes(len as usize)
+		let len = usize::try_from(len).map_err(|_| Error::TooLargeReadErr)?;
+		self.read_fixed_bytes(len)
 	}
 
 	/// Read a fixed number of bytes.
 	fn read_fixed_bytes(&mut self, len: usize) -> Result<Vec<u8>, Error> {
+		let len_u64 = u64::try_from(len).map_err(|_| Error::TooLargeReadErr)?;
+		let remaining = self.max_bytes.saturating_sub(self.total_bytes_read);
+		// Match BinReader's per-read cap and enforce the enclosing frame before allocation.
+		if len > MAX_SINGLE_READ || len_u64 > remaining {
+			return Err(Error::TooLargeReadErr);
+		}
 		let mut buf = vec![0u8; len];
 		self.stream.read_exact(&mut buf)?;
-		self.total_bytes_read += len as u64;
+		self.total_bytes_read += len_u64;
 		Ok(buf)
 	}
 
@@ -1391,4 +1410,63 @@ where
 			lifetime: std::marker::PhantomData,
 		},
 	)
+}
+
+#[cfg(test)]
+mod streaming_reader_tests {
+	use super::*;
+	use std::panic::{catch_unwind, AssertUnwindSafe};
+
+	fn length_prefix(len: u64) -> [u8; 8] {
+		len.to_be_bytes()
+	}
+
+	#[test]
+	fn rejects_single_read_above_cap_before_allocation() {
+		let mut input = &length_prefix(100_001)[..];
+		let mut reader = StreamingReader::new(&mut input, ProtocolVersion::local());
+
+		assert!(matches!(
+			reader.read_bytes_len_prefix(),
+			Err(Error::TooLargeReadErr)
+		));
+	}
+
+	#[test]
+	fn rejects_unrepresentable_or_maximum_length_without_panicking() {
+		for len in [usize::MAX as u64, u64::MAX] {
+			let mut input = &length_prefix(len)[..];
+			let result = catch_unwind(AssertUnwindSafe(|| {
+				let mut reader = StreamingReader::new(&mut input, ProtocolVersion::local());
+				reader.read_bytes_len_prefix()
+			}));
+
+			assert!(matches!(result, Ok(Err(Error::TooLargeReadErr))));
+		}
+	}
+
+	#[test]
+	fn rejects_read_larger_than_remaining_frame() {
+		let mut bytes = length_prefix(4).to_vec();
+		bytes.extend_from_slice(&[1, 2, 3, 4]);
+		let mut input = &bytes[..];
+		let mut reader = StreamingReader::with_limit(&mut input, ProtocolVersion::local(), 11);
+
+		assert!(matches!(
+			reader.read_bytes_len_prefix(),
+			Err(Error::TooLargeReadErr)
+		));
+		assert_eq!(reader.total_bytes_read(), 8);
+	}
+
+	#[test]
+	fn counts_length_prefix_once() {
+		let mut bytes = length_prefix(4).to_vec();
+		bytes.extend_from_slice(&[1, 2, 3, 4]);
+		let mut input = &bytes[..];
+		let mut reader = StreamingReader::with_limit(&mut input, ProtocolVersion::local(), 12);
+
+		assert_eq!(reader.read_bytes_len_prefix().unwrap(), [1, 2, 3, 4]);
+		assert_eq!(reader.total_bytes_read(), 12);
+	}
 }

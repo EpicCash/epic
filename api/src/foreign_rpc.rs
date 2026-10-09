@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2020 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +25,7 @@ use crate::pool::{BlockChain, PoolAdapter, PoolEntry};
 use crate::rest::Error;
 use crate::types::{
 	BlockHeaderPrintable, BlockPrintable, LocatedTxKernel, OutputListing, OutputPrintable, Tip,
-	Version,
+	ReadyForTxs, Version,
 };
 use crate::util;
 use epic_core::core::TxKernel;
@@ -35,6 +36,7 @@ use epic_core::core::TxKernel;
 /// * The endpoint only supports POST operations, with the json-rpc request as the body
 #[easy_jsonrpc_mw::rpc]
 pub trait ForeignRpc: Sync + Send {
+	fn ready_for_txs(&self) -> Result<ReadyForTxs, Error>;
 	/**
 	Networked version of [Foreign::get_header](struct.Node.html#method.get_header).
 
@@ -811,6 +813,10 @@ where
 	B: BlockChain,
 	P: PoolAdapter,
 {
+	fn ready_for_txs(&self) -> Result<ReadyForTxs, Error> {
+		Foreign::ready_for_txs(self)
+	}
+
 	fn get_header(
 		&self,
 		height: Option<u64>,

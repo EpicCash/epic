@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -75,6 +76,56 @@ fn mine_short_chain() {
 		head.height, 3,
 		"Chain head should be at height 3 after mining 3 blocks"
 	);
+
+	clean_output_dir(chain_dir);
+}
+
+#[test]
+fn rejects_header_with_missing_scheduled_bottle() {
+	let chain_dir = ".epic.invalid_bottles";
+	clean_output_dir(chain_dir);
+	set_foundation_path_for_test("foundation_floonet.json");
+
+	let genesis = pow::mine_genesis_block().unwrap();
+	let chain = init_chain(chain_dir, genesis);
+	let keychain = ExtKeychain::from_random_seed(false).unwrap();
+	let head = chain.head_header().unwrap();
+	let mut block = prepare_block(&keychain, &head, &chain, 1, vec![], 1);
+	let emitted_policy = core::global::get_emitted_policy(block.header.height);
+	let policy = core::global::get_policies(emitted_policy).unwrap();
+	let scheduled = policy
+		.iter()
+		.find_map(|(algo, proportion)| (*proportion > 0).then_some(*algo))
+		.unwrap();
+	block.header.bottles.remove(&scheduled);
+
+	let result = chain.process_block(block, chain::Options::SKIP_POW);
+	assert!(matches!(result, Err(chain::Error::InvalidBottles)));
+	assert_eq!(chain.head_header().unwrap().hash(), head.hash());
+
+	clean_output_dir(chain_dir);
+}
+
+#[test]
+fn rejects_header_with_bottle_total_past_reset_boundary() {
+	let chain_dir = ".epic.invalid_bottle_total";
+	clean_output_dir(chain_dir);
+	set_foundation_path_for_test("foundation_floonet.json");
+
+	let genesis = pow::mine_genesis_block().unwrap();
+	let chain = init_chain(chain_dir, genesis);
+	let keychain = ExtKeychain::from_random_seed(false).unwrap();
+	let head = chain.head_header().unwrap();
+	let mut block = prepare_block(&keychain, &head, &chain, 1, vec![], 1);
+	block.header.bottles = core::core::block::feijoada::get_bottles_default();
+	block
+		.header
+		.bottles
+		.insert(core::pow::PoWType::RandomX, u32::MAX);
+
+	let result = chain.process_block(block, chain::Options::SKIP_POW);
+	assert!(matches!(result, Err(chain::Error::InvalidBottles)));
+	assert_eq!(chain.head_header().unwrap().hash(), head.hash());
 
 	clean_output_dir(chain_dir);
 }

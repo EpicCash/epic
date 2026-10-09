@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2020 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,8 +15,6 @@
 
 use std::collections::HashSet;
 use std::convert::TryFrom;
-use std::fs::File;
-
 use croaring::Bitmap;
 
 use crate::core::hash::Hash;
@@ -73,10 +72,6 @@ impl<T: PMMRable> Backend<T> for VecBackend<T> {
 		} else {
 			None
 		}
-	}
-
-	fn data_as_temp_file(&self) -> Result<File, String> {
-		unimplemented!()
 	}
 
 	/// Number of leaves in the MMR

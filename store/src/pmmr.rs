@@ -1,4 +1,6 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -13,7 +15,7 @@
 
 //! Implementation of the persistent Backend for the prunable MMR tree.
 
-use std::fs::{self, File};
+use std::fs;
 use std::{io, time};
 
 use crate::leaf_set::LeafSet;
@@ -171,12 +173,6 @@ impl<T: PMMRable> Backend<T> for PMMRBackend<T> {
 		} else {
 			panic!("leaf_idx_iter not implemented for non-prunable PMMR")
 		}
-	}
-
-	fn data_as_temp_file(&self) -> Result<File, String> {
-		self.data_file
-			.as_temp_file()
-			.map_err(|_| "Failed to build temp data file".to_string())
 	}
 
 	/// Rewind the PMMR backend to the given position.

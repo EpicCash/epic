@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -107,7 +108,7 @@ fn comments() -> HashMap<String, String> {
 		"skip_pow_validation".to_string(),
 		"
 #Whether or not to skip pow validation when syncing headers
-#Only applies to blocks in checkpointed range, unless disable_checkpoints is set to true
+#Only applies through the latest checkpoint
 "
 		.to_string(),
 	);
@@ -115,8 +116,8 @@ fn comments() -> HashMap<String, String> {
 	retval.insert(
 		"disable_checkpoints".to_string(),
 		"
-#Disables checkpoint-based pow_validation, no proof of work will be validated whatsoever
-#while syncing. Has no effect unless 'skip_pow_validation' is set to true
+#Extends skipped PoW validation beyond the latest checkpoint while syncing.
+#Ignored on mainnet, for safety.
 "
 		.to_string(),
 	);

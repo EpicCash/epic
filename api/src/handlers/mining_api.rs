@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2025 The Epic Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -132,7 +133,8 @@ where
 		header.policy = get_emitted_policy(header.height);
 
 		let bottle_cursor = chain.bottles_iter(get_emitted_policy(header.height))?;
-		let (pow_type, bottles) = consensus::next_policy(header.policy, bottle_cursor);
+		let (pow_type, bottles) = consensus::next_policy(header.policy, bottle_cursor)
+			.map_err(|e| Error::Internal(format!("invalid policy state: {:?}", e)))?;
 		header.bottles = bottles;
 
 		//build epochs for RandomX

@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -66,14 +67,13 @@ pub fn verify_size(bh: &BlockHeader) -> Result<(), Error> {
 		Proof::ProgPowProof { .. } => new_progpow_ctx(),
 		Proof::RandomXProof { .. } => new_randomx_ctx(bh.pow.seed),
 		Proof::MD5Proof { .. } => new_md5_ctx(bh.pow.edge_bits(), global::proofsize(), MAX_SOLS),
-		Proof::CuckooProof { ref nonces, .. } => Ok(global::create_pow_context::<u64>(
+		Proof::CuckooProof { ref nonces, .. } => global::create_pow_context::<u64>(
 			bh.height,
 			bh.pow.edge_bits(),
 			nonces.len(),
 			MAX_SOLS,
-		)?),
-	}
-	.unwrap();
+		),
+	}?;
 
 	if let Proof::CuckooProof { .. } = bh.pow.proof {
 		ctx.set_header_nonce(bh.pre_pow(), None, Some(bh.height), false)?;

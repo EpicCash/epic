@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2020 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -219,9 +220,15 @@ where
 	D: Deserializer<'de>,
 {
 	use serde::de::{Error, IntoDeserializer};
+	use util::secp::constants::MAX_PROOF_SIZE;
 
-	let val = String::deserialize(deserializer)
-		.and_then(|string| from_hex(string).map_err(|err| Error::custom(err.to_string())))?;
+	let hex = String::deserialize(deserializer)?;
+	if hex.len() != MAX_PROOF_SIZE * 2
+		|| !hex.as_bytes().iter().all(|byte| byte.is_ascii_hexdigit())
+	{
+		return Err(D::Error::custom("invalid range proof encoding"));
+	}
+	let val = from_hex(hex).map_err(|err| D::Error::custom(err.to_string()))?;
 	RangeProof::deserialize(val.into_deserializer())
 }
 
@@ -347,7 +354,9 @@ pub mod opt_string_or_u64 {
 #[cfg(test)]
 mod test {
 	use super::*;
+	use crate::core::Output;
 	use crate::libtx::aggsig;
+	use util::secp::constants::MAX_PROOF_SIZE;
 	use util::secp::key::{PublicKey, SecretKey};
 	use util::secp::{Message, Signature};
 	use util::static_secp_instance;
@@ -355,6 +364,39 @@ mod test {
 	use serde_json;
 
 	use rand::{rng, Rng};
+
+	fn output_json(proof: &str) -> String {
+		format!(
+			r#"{{"features":"Plain","commit":"{}","proof":"{}"}}"#,
+			"00".repeat(33),
+			proof
+		)
+	}
+
+	#[test]
+	fn rangeproof_from_hex_requires_canonical_encoding() {
+		let valid = "00".repeat(MAX_PROOF_SIZE);
+		let output: Output = serde_json::from_str(&output_json(&valid)).unwrap();
+		assert_eq!(output.proof.plen, MAX_PROOF_SIZE);
+
+		for invalid in [
+			String::new(),
+			"0".to_owned(),
+			"0".repeat(MAX_PROOF_SIZE * 2 - 2),
+			"0".repeat(MAX_PROOF_SIZE * 2 + 2),
+			"g".repeat(MAX_PROOF_SIZE * 2),
+			"é".repeat(MAX_PROOF_SIZE),
+			"0".repeat(MAX_PROOF_SIZE * 20),
+		] {
+			assert!(serde_json::from_str::<Output>(&output_json(&invalid)).is_err());
+		}
+	}
+
+	#[test]
+	fn range_proof_deserialize_rejects_oversized_proof() {
+		let oversized = serde_json::to_string(&vec![0u8; MAX_PROOF_SIZE + 1]).unwrap();
+		assert!(serde_json::from_str::<RangeProof>(&oversized).is_err());
+	}
 
 	#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 	struct SerTest {

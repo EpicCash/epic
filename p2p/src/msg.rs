@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2019 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -65,8 +66,8 @@ enum_from_primitive! {
 		BanReason = 18,
 		GetTransaction = 19,
 		TransactionKernel = 20,
-		KernelDataRequest = 21,
-		KernelDataResponse = 22,
+		//KernelDataRequest = 21,
+		//KernelDataResponse = 22,
 		GetHeadersFastSync = 23,
 		FastHeaders = 24,
 		OnionAddressRequest = 25,
@@ -111,8 +112,8 @@ fn max_msg_size(msg_type: Type) -> u64 {
 		Type::BanReason => 64,
 		Type::GetTransaction => 32,
 		Type::TransactionKernel => 32,
-		Type::KernelDataRequest => 0,
-		Type::KernelDataResponse => 8,
+		//Type::KernelDataRequest => 0,
+		//Type::KernelDataResponse => 8,
 		Type::OnionAddressRequest => 0,
 		Type::OnionAddressResponse => 256,
 	}
@@ -809,33 +810,6 @@ impl Readable for TxHashSetArchive {
 			height,
 			bytes,
 		})
-	}
-}
-
-pub struct KernelDataRequest {}
-
-impl Writeable for KernelDataRequest {
-	fn write<W: Writer>(&self, _writer: &mut W) -> Result<(), ser::Error> {
-		Ok(())
-	}
-}
-
-pub struct KernelDataResponse {
-	/// Size in bytes of the attached kernel data file.
-	pub bytes: u64,
-}
-
-impl Writeable for KernelDataResponse {
-	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ser::Error> {
-		writer.write_u64(self.bytes)?;
-		Ok(())
-	}
-}
-
-impl Readable for KernelDataResponse {
-	fn read(reader: &mut dyn Reader) -> Result<KernelDataResponse, ser::Error> {
-		let bytes = reader.read_u64()?;
-		Ok(KernelDataResponse { bytes })
 	}
 }
 

@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,8 +14,6 @@
 // limitations under the License.
 
 //! Lightweight readonly view into kernel MMR for convenience.
-
-use std::fs::File;
 
 use crate::core::core::pmmr::RewindablePMMR;
 use crate::core::core::{BlockHeader, TxKernel};
@@ -66,15 +65,5 @@ impl<'a> RewindableKernelView<'a> {
 			.into());
 		}
 		Ok(())
-	}
-
-	/// Read the "raw" kernel backend data file (via temp file for consistent view on data).
-	pub fn kernel_data_read(&self) -> Result<File, Error> {
-		let file = self
-			.pmmr
-			.backend()
-			.data_as_temp_file()
-			.map_err(|_| Error::FileReadErr("Data file woes".into()))?;
-		Ok(file)
 	}
 }

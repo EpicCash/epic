@@ -1,4 +1,4 @@
-// Copyright 2020 The Epic Developers
+// Copyright 2026 The Epic Cash Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,6 +62,22 @@ fn is_test_network() -> bool {
 	match *global::CHAIN_TYPE.read() {
 		global::ChainTypes::Mainnet => false,
 		_ => true,
+	}
+}
+
+fn log_pow_config(config: &ServerConfig) {
+	if let global::ChainTypes::Mainnet = config.chain_type {
+		let skip_pow = config.skip_pow_validation.unwrap_or(false);
+		if skip_pow {
+			let checkpoints = chain::types::BlockchainCheckpoints::new();
+			let checkpoint = checkpoints.checkpoints.last().unwrap();
+			info!(
+				"Header PoW validation skipped through checkpoint {} ({}); required above it",
+				checkpoint.height, checkpoint.block_hash
+			);
+		} else {
+			info!("Header PoW validation required at all heights");
+		}
 	}
 }
 
@@ -235,6 +251,8 @@ impl Server {
 			tokio::sync::oneshot::Receiver<()>,
 		),
 	) -> Result<Server, Error> {
+		log_pow_config(&config);
+
 		// Obtain our lock_file or fail immediately with an error.
 		let lock_file = Server::one_epic_at_a_time(&config)?;
 
@@ -820,5 +838,18 @@ fn get_difficulty_info_average(diff_entries: Vec<DiffBlock>) -> (String, String)
 		)
 	} else {
 		("NaN".to_owned(), "NaN".to_owned())
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn mainnet_default_keeps_checkpoint_boundary() {
+		let mut config = ServerConfig::default();
+		config.chain_type = global::ChainTypes::Mainnet;
+		assert_eq!(config.disable_checkpoints, Some(false));
+		log_pow_config(&config);
 	}
 }

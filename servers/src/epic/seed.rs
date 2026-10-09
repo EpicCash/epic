@@ -1,3 +1,4 @@
+// Copyright 2026 The Epic Cash Developers
 // Copyright 2020 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -203,7 +204,7 @@ fn monitor_peers(peers: Arc<p2p::Peers>, config: p2p::P2PConfig, tx: mpsc::Sende
 		peers.peer_inbound_count(),    // Number of inbound connections
 		peers.peer_outbound_count(),   // Number of outbound connections
 		peers.peer_count(),            // Total number of connected peers
-		peers.most_work_peers().len(), // Number of peers with the highest work
+		peers.most_advertised_work_peers().len(), // Number of peers claiming the highest work
 		total_count,                   // Total number of known peers
 		healthy_count,                 // Number of healthy peers
 		banned_count,                  // Number of banned peers

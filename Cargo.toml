@@ -1,6 +1,6 @@
 [package]
 name = "epic"
-version = "4.0.4"
+version = "4.1.0"
 authors = ["Epic Foundation <info@epiccash.com>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
@@ -32,7 +32,7 @@ name = "epic"
 path = "src/bin/epic.rs"
 
 [dependencies]
-time = "0.3"
+time = "0.3.47"
 blake2-rfc = "0.2"
 chrono = "0.4.41"
 clap = { version = "4.5" }
@@ -48,22 +48,18 @@ reqwest = "0.12"
 num-bigint = "0.4"
 tokio = { version = "1.47.1", features = ["full"] }
 
-epic_api = { path = "./api", version = "4.0.4" }
-epic_config = { path = "./config", version = "4.0.4" }
-epic_core = { path = "./core", version = "4.0.4" }
-epic_keychain = { path = "./keychain", version = "4.0.4" }
-epic_p2p = { path = "./p2p", version = "4.0.4" }
-epic_servers = { path = "./servers", version = "4.0.4" }
-epic_util = { path = "./util", version = "4.0.4" }
-epic_chain = { path = "./chain", version = "4.0.4" }
+epic_api = { path = "./api", version = "4.1.0" }
+epic_config = { path = "./config", version = "4.1.0" }
+epic_core = { path = "./core", version = "4.1.0" }
+epic_keychain = { path = "./keychain", version = "4.1.0" }
+epic_p2p = { path = "./p2p", version = "4.1.0" }
+epic_servers = { path = "./servers", version = "4.1.0" }
+epic_util = { path = "./util", version = "4.1.0" }
+epic_chain = { path = "./chain", version = "4.1.0" }
 
 cursive = { version = "0.21.1", default-features = false, features = [
-    "pancurses-backend",
+    "crossterm-backend",
 ] }
-
-[target.'cfg(windows)'.dependencies.pancurses]
-version = "0.16.1"
-features = ["win32"]
 
 
 [features]
@@ -82,8 +78,7 @@ sha2 = "0.10"
 
 
 [dev-dependencies]
-epic_store = { path = "./store", version = "4.0.4" }
+epic_store = { path = "./store", version = "4.1.0" }
 cucumber_rust = { version = "^0.5.1", default-features = false }
-
 
 

@@ -1,4 +1,4 @@
-// Copyright 2019-2023, Epic Cash Developers
+// Copyright 2019-2026, Epic Cash Developers
 // Copyright 2018 The Grin Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +17,7 @@
 
 use crate::core::consensus;
 use crate::core::core::block;
-use crate::core::core::feijoada::{is_allowed_policy, PoWType};
+use crate::core::core::feijoada::{is_allowed_policy, validate_bottles, PoWType};
 use crate::core::core::hash::{Hash, Hashed};
 use crate::core::core::Committed;
 use crate::core::core::{Block, BlockHeader, BlockSums};
@@ -252,6 +252,10 @@ pub fn process_block_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) ->
         }
     }
 
+    // Full validation must precede header PMMR mutation. Errors returned after
+    // header_extending() succeeds cannot roll back its synchronized backend.
+    validate_header(header, ctx)?;
+
     txhashset::header_extending(
         &mut ctx.header_pmmr,
         &header_head,
@@ -267,7 +271,6 @@ pub fn process_block_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) ->
         },
     )?;
 
-    validate_header(header, ctx)?;
     add_block_header(header, &ctx.batch)?;
 
     if has_more_work(header, &header_head) {
@@ -394,9 +397,14 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
         return Err(Error::PolicyIsNotAllowed.into());
     }
 
-    if let Some(_p) = global::get_policies(header.policy) {
+    let emitted_policy = global::get_emitted_policy(header.height);
+    let active_policy = global::get_policies(emitted_policy).ok_or(Error::ThereIsNotPolicy)?;
+    validate_bottles(&active_policy, &header.bottles).map_err(|_| Error::InvalidBottles)?;
+
+    if global::get_policies(header.policy).is_some() {
         let cursor = BottleIter::from_batch(prev.hash(), &ctx.batch, header.policy);
-        let (algo, _) = consensus::next_policy(header.policy, cursor);
+        let (algo, _) = consensus::next_policy(header.policy, cursor)
+            .map_err(|_| Error::InvalidBottles)?;
 
         let is_correct = match header.pow.proof {
             pow::Proof::CuckooProof { edge_bits, .. } => {

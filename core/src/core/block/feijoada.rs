@@ -1,3 +1,17 @@
+// Copyright 2026 The Epic Cash Developers
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use super::consensus;
 use crate::ser::{self, Readable, Reader, Writeable, Writer};
 use serde::de;
@@ -332,6 +346,14 @@ impl Default for PolicyConfig {
 /// The ideal proportion each block should have according to the current policy
 pub type Policy = HashMap<PoWType, u32>;
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum FeijoadaError {
+	UnknownPolicy,
+	NoScheduledAlgorithm,
+	MissingBottle(PoWType),
+	BeanCountOverflow,
+}
+
 pub fn get_bottles_default() -> Policy {
 	let mut policy: Policy = Policy::new();
 	policy.insert(PoWType::Cuckaroo, 0);
@@ -341,19 +363,19 @@ pub fn get_bottles_default() -> Policy {
 	policy
 }
 
-fn next_should_reset(bottle: &Policy) -> bool {
-	count_beans(bottle) == 100
+fn next_should_reset(bottle: &Policy) -> Result<bool, FeijoadaError> {
+	Ok(count_beans(bottle)? == 100)
 }
 
-pub fn next_block_bottles(pow: PoWType, bottle: &Policy) -> Policy {
-	let mut new_bottle = if next_should_reset(bottle) {
+pub fn next_block_bottles(pow: PoWType, bottle: &Policy) -> Result<Policy, FeijoadaError> {
+	let mut new_bottle = if next_should_reset(bottle)? {
 		get_bottles_default()
 	} else {
 		bottle.clone()
 	};
 	let entry = new_bottle.entry(pow).or_insert(0);
-	*entry += 1;
-	new_bottle
+	*entry = entry.checked_add(1).ok_or(FeijoadaError::BeanCountOverflow)?;
+	Ok(new_bottle)
 }
 
 pub fn is_allowed_policy(allowed_policy: AllowedPolicy, height: u64, policy: u8) -> bool {
@@ -413,19 +435,43 @@ fn check_policy(policy: &Policy) {
 	assert_eq!(100, policy.values().fold(0, |acc, &x| x + acc));
 }*/
 
-pub fn count_beans(bottles: &Policy) -> u32 {
-	std::cmp::max(bottles.values().fold(0, |acc, &x| x + acc), 1)
+pub fn count_beans(bottles: &Policy) -> Result<u32, FeijoadaError> {
+	let count = bottles
+		.values()
+		.try_fold(0u32, |acc, count| acc.checked_add(*count))
+		.ok_or(FeijoadaError::BeanCountOverflow)?;
+	Ok(std::cmp::max(count, 1))
+}
+
+pub fn validate_bottles(policy: &Policy, bottles: &Policy) -> Result<(), FeijoadaError> {
+	let mut scheduled = false;
+	for (&algo, &proportion) in policy {
+		if proportion > 0 {
+			scheduled = true;
+			if !bottles.contains_key(&algo) {
+				return Err(FeijoadaError::MissingBottle(algo));
+			}
+		}
+	}
+	if !scheduled {
+		return Err(FeijoadaError::NoScheduledAlgorithm);
+	}
+	if count_beans(bottles)? > 100 {
+		return Err(FeijoadaError::BeanCountOverflow);
+	}
+	Ok(())
 }
 
 pub trait Feijoada {
-	fn choose_algo(policy: &Policy, bottles: &Policy) -> PoWType;
+	fn choose_algo(policy: &Policy, bottles: &Policy) -> Result<PoWType, FeijoadaError>;
 }
 
 pub struct Deterministic;
 
 impl Feijoada for Deterministic {
-	fn choose_algo(policy: &Policy, bottles: &Policy) -> PoWType {
-		let bean_total = count_beans(bottles);
+	fn choose_algo(policy: &Policy, bottles: &Policy) -> Result<PoWType, FeijoadaError> {
+		validate_bottles(policy, bottles)?;
+		let bean_total = count_beans(bottles)?;
 		// Mapping to a vec because we need the algos to be sorted
 		// Filtering because when the bottles are filled, a proportion of 0 might be selected
 		let mut policy_vec: Vec<(PoWType, f32)> = policy
@@ -439,15 +485,19 @@ impl Feijoada for Deterministic {
 			})
 			.collect();
 		policy_vec.sort_by(|(algo1, _), (algo2, _)| algo1.cmp(algo2));
-		let scores: HashMap<PoWType, f32> = bottles
-			.iter()
-			.map(|(&algo, &beans)| (algo, 100.0 * (beans as f32) / (bean_total as f32)))
-			.collect();
-		*(policy_vec
-			.iter()
-			.map(|(a, v)| (a, v - scores[a]))
-			.max_by(|&(_, x), &(_, y)| x.partial_cmp(&y).unwrap())
-			.unwrap()
-			.0)
+		let mut selected = None;
+		for (algo, proportion) in policy_vec {
+			let beans = bottles
+				.get(&algo)
+				.ok_or(FeijoadaError::MissingBottle(algo))?;
+			let score = proportion - 100.0 * (*beans as f32) / (bean_total as f32);
+			match selected {
+				Some((_, best_score)) if score < best_score => {}
+				_ => selected = Some((algo, score)),
+			}
+		}
+		selected
+			.map(|(algo, _)| algo)
+			.ok_or(FeijoadaError::NoScheduledAlgorithm)
 	}
 }
