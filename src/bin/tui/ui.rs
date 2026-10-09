@@ -61,11 +61,11 @@ impl UI {
 	pub fn new(
 		controller_tx: mpsc::Sender<ControllerMessage>,
 		logs_rx: mpsc::Receiver<LogEntry>,
-	) -> UI {
+	) -> Result<UI, String> {
 		let (ui_tx, ui_rx) = mpsc::channel::<UIMessage>();
 
 		let mut epic_ui = UI {
-			cursive: cursive::default().into_runner(),
+			cursive: init_runner(cursive::default())?,
 			ui_tx,
 			ui_rx,
 			controller_tx,
@@ -124,7 +124,12 @@ impl UI {
 				.unwrap();
 		});
 		epic_ui.cursive.set_fps(3);
-		epic_ui
+		Ok(epic_ui)
+	}
+
+	/// Paint the first frame before entering the manually stepped event loop.
+	pub fn refresh(&mut self) {
+		self.cursive.refresh();
 	}
 
 	/// Step the UI by calling into Cursive's step function, then
@@ -161,6 +166,12 @@ impl UI {
 	}
 }
 
+fn init_runner(cursive: CursiveRunnable) -> Result<CursiveRunner<CursiveRunnable>, String> {
+	cursive
+		.try_into_runner()
+		.map_err(|e| format!("Unable to initialize terminal backend: {}", e))
+}
+
 pub struct Controller {
 	rx: mpsc::Receiver<ControllerMessage>,
 	ui: UI,
@@ -176,7 +187,7 @@ impl Controller {
 		let (tx, rx) = mpsc::channel::<ControllerMessage>();
 		Ok(Controller {
 			rx,
-			ui: UI::new(tx, logs_rx),
+			ui: UI::new(tx, logs_rx)?,
 		})
 	}
 
@@ -184,6 +195,7 @@ impl Controller {
 	pub fn run(&mut self, server: Server) {
 		let stat_update_interval = 1;
 		let mut next_stat_update = Utc::now().timestamp() + stat_update_interval;
+		self.ui.refresh();
 		while self.ui.step() {
 			while let Some(message) = self.rx.try_iter().next() {
 				match message {
@@ -204,5 +216,26 @@ impl Controller {
 			}
 		}
 		server.stop();
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use std::io;
+
+	#[test]
+	fn terminal_backend_error_is_returned() {
+		let cursive = CursiveRunnable::new::<io::Error, _>(|| {
+			Err(io::Error::new(io::ErrorKind::NotFound, "no terminal"))
+		});
+		let error = match init_runner(cursive) {
+			Ok(_) => panic!("backend initialization unexpectedly succeeded"),
+			Err(error) => error,
+		};
+		assert_eq!(
+			error,
+			"Unable to initialize terminal backend: no terminal"
+		);
 	}
 }
