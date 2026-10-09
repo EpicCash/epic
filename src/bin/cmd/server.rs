@@ -66,7 +66,10 @@ fn start_server_tui(
                     Some(rx) => match ui::Controller::new(rx) {
                         Ok(ctrl) => ctrl,
                         Err(e) => {
-                            error!("Error loading UI controller: {}", e);
+                            let message = format!("Error loading UI controller: {}", e);
+                            eprintln!("{}", message);
+                            error!("{}", message);
+                            serv.stop();
                             return;
                         }
                     },

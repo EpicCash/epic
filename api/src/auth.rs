@@ -18,7 +18,7 @@ use crate::web::response;
 
 use futures::future::ok;
 use hyper::header::{HeaderValue, AUTHORIZATION, WWW_AUTHENTICATE};
-use hyper::{Request, Response, StatusCode};
+use hyper::{Method, Request, Response, StatusCode};
 use subtle::ConstantTimeEq;
 
 use crate::web::boxed_body;
@@ -90,6 +90,7 @@ pub struct BasicAuthURIMiddleware {
     api_basic_auth: Option<String>,
     basic_realm: &'static HeaderValue,
     target_uri: String,
+    public_get_uri: Option<String>,
 }
 
 impl BasicAuthURIMiddleware {
@@ -102,6 +103,7 @@ impl BasicAuthURIMiddleware {
             api_basic_auth: Some(api_basic_auth),
             basic_realm,
             target_uri,
+            public_get_uri: None,
         }
     }
 
@@ -114,8 +116,35 @@ impl BasicAuthURIMiddleware {
             api_basic_auth,
             basic_realm,
             target_uri,
+            public_get_uri: None,
         }
     }
+
+    pub fn new_required_with_public_get(
+        api_basic_auth: Option<String>,
+        basic_realm: &'static HeaderValue,
+        target_uri: String,
+        public_get_uri: String,
+    ) -> BasicAuthURIMiddleware {
+        BasicAuthURIMiddleware {
+            api_basic_auth,
+            basic_realm,
+            target_uri,
+            public_get_uri: Some(public_get_uri),
+        }
+    }
+}
+
+fn uri_requires_auth(
+    method: &Method,
+    path: &str,
+    target_uri: &str,
+    public_get_uri: Option<&str>,
+) -> bool {
+    if method == Method::GET && public_get_uri == Some(path) {
+        return false;
+    }
+    path == target_uri || path.starts_with(&(target_uri.to_owned() + "/"))
 }
 
 impl Handler<Full<Bytes>> for BasicAuthURIMiddleware {
@@ -133,7 +162,12 @@ impl Handler<Full<Bytes>> for BasicAuthURIMiddleware {
         }
         let path = req.uri().path();
         // Protect the target_uri and all its subpaths
-        if path == self.target_uri || path.starts_with(&(self.target_uri.clone() + "/")) {
+        if uri_requires_auth(
+            req.method(),
+            path,
+            &self.target_uri,
+            self.public_get_uri.as_deref(),
+        ) {
             if matches!(
                 (req.headers().get(AUTHORIZATION), self.api_basic_auth.as_deref()),
                 (Some(value), Some(expected)) if basic_auth_matches(value, expected)
@@ -145,6 +179,34 @@ impl Handler<Full<Bytes>> for BasicAuthURIMiddleware {
             }
         } else {
             next_handler.call(req, handlers)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::uri_requires_auth;
+    use hyper::Method;
+
+    #[test]
+    fn public_get_exception_is_exact_and_method_scoped() {
+        let target = "/v1";
+        let public = Some("/v1/version");
+        for (method, path, required) in [
+            (Method::GET, "/v1/version", false),
+            (Method::POST, "/v1/version", true),
+            (Method::HEAD, "/v1/version", true),
+            (Method::GET, "/v1/version/extra", true),
+            (Method::GET, "/v1/status", true),
+            (Method::GET, "/v2/foreign", false),
+        ] {
+            assert_eq!(
+                uri_requires_auth(&method, path, target, public),
+                required,
+                "unexpected auth policy for {} {}",
+                method,
+                path
+            );
         }
     }
 }
