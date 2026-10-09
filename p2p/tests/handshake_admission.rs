@@ -25,7 +25,7 @@ use p2p::types::PeerAddr;
 use p2p::Peer;
 
 use std::io::{self, Read, Write};
-use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream, UdpSocket};
 use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -47,8 +47,12 @@ struct TestServer {
 
 impl TestServer {
     fn start(listener_buffer: u32) -> Self {
+        Self::start_on(IpAddr::V4(Ipv4Addr::LOCALHOST), listener_buffer)
+    }
+
+    fn start_on(host: IpAddr, listener_buffer: u32) -> Self {
         let config = p2p::P2PConfig {
-            host: "127.0.0.1".parse().unwrap(),
+            host,
             port: open_port(),
             peers_allow: None,
             peers_deny: None,
@@ -79,14 +83,15 @@ impl TestServer {
         }
     }
 
-    fn addr(&self) -> SocketAddr {
-        SocketAddr::new(self.config.host, self.config.port)
+    fn connect(&self) -> TcpStream {
+        self.connect_to(self.config.host)
     }
 
-    fn connect(&self) -> TcpStream {
+    fn connect_to(&self, host: IpAddr) -> TcpStream {
+        let addr = SocketAddr::new(host, self.config.port);
         (0..50)
             .find_map(|_| {
-                TcpStream::connect(self.addr()).ok().or_else(|| {
+                TcpStream::connect(addr).ok().or_else(|| {
                     thread::sleep(Duration::from_millis(20));
                     None
                 })
@@ -108,19 +113,78 @@ impl Drop for TestServer {
     }
 }
 
+#[derive(Clone, Copy)]
+enum DistinctLocalAddress {
+    LoopbackAlias(Ipv4Addr),
+    Interface(Ipv4Addr),
+}
+
+impl DistinctLocalAddress {
+    fn connect(self, port: u16) -> io::Result<TcpStream> {
+        match self {
+            Self::LoopbackAlias(source) => {
+                let builder = TcpBuilder::new_v4()?;
+                builder.bind(SocketAddr::new(IpAddr::V4(source), 0))?;
+                builder.connect(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port))
+            }
+            Self::Interface(target) => {
+                TcpStream::connect(SocketAddr::new(IpAddr::V4(target), port))
+            }
+        }
+    }
+}
+
+fn distinct_local_address() -> Option<DistinctLocalAddress> {
+    let alias = Ipv4Addr::new(127, 0, 0, 2);
+    if TcpBuilder::new_v4()
+        .and_then(|builder| {
+            builder.bind(SocketAddr::new(IpAddr::V4(alias), 0))?;
+            Ok(())
+        })
+        .is_ok()
+    {
+        return Some(DistinctLocalAddress::LoopbackAlias(alias));
+    }
+
+    // BSD/macOS commonly configures only 127.0.0.1 on loopback. A connected
+    // UDP socket performs a route lookup without sending traffic and exposes
+    // another local interface address that can reach a wildcard listener.
+    let probe = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).ok()?;
+    probe.connect((Ipv4Addr::new(192, 0, 2, 1), 9)).ok()?;
+    match probe.local_addr().ok()?.ip() {
+        IpAddr::V4(ip) if !ip.is_loopback() && !ip.is_unspecified() => {
+            Some(DistinctLocalAddress::Interface(ip))
+        }
+        _ => None,
+    }
+}
+
 fn connection_was_closed(stream: &mut TcpStream, wait: Duration) -> bool {
-    stream.set_read_timeout(Some(wait)).unwrap();
+    stream
+        .set_nonblocking(true)
+        .expect("set closure probe nonblocking");
+    let deadline = Instant::now() + wait;
     let mut byte = [0u8; 1];
-    match stream.read(&mut byte) {
-        Ok(0) => true,
-        Err(e) => matches!(
-            e.kind(),
-            io::ErrorKind::ConnectionAborted
-                | io::ErrorKind::ConnectionReset
-                | io::ErrorKind::BrokenPipe
-                | io::ErrorKind::NotConnected
-        ),
-        _ => false,
+    loop {
+        match stream.read(&mut byte) {
+            Ok(0) => return true,
+            Ok(_) => {}
+            Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => {}
+            Err(e) => {
+                return matches!(
+                    e.kind(),
+                    io::ErrorKind::ConnectionAborted
+                        | io::ErrorKind::ConnectionReset
+                        | io::ErrorKind::BrokenPipe
+                        | io::ErrorKind::NotConnected
+                )
+            }
+        }
+        if Instant::now() >= deadline {
+            return false;
+        }
+        thread::sleep(Duration::from_millis(10));
     }
 }
 
@@ -170,20 +234,24 @@ fn timed_out_handshake_releases_capacity_without_banning_source() {
 
 #[test]
 fn silent_handshake_does_not_block_honest_admission() {
-    let mut test_server = TestServer::start(8);
-    let silent = test_server.connect();
+    let distinct_address = match distinct_local_address() {
+        Some(address) => address,
+        None => {
+            eprintln!("skipping cross-source admission test: no second local IPv4 address");
+            return;
+        }
+    };
+    let mut test_server = TestServer::start_on(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 8);
+    let silent = test_server.connect_to(IpAddr::V4(Ipv4Addr::LOCALHOST));
+    let silent_source = silent.local_addr().unwrap().ip();
     thread::sleep(Duration::from_millis(250));
 
     let config = test_server.config.clone();
-    let addr = test_server.addr();
+    let port = test_server.config.port;
     let (result_tx, result_rx) = mpsc::channel();
     let honest = thread::spawn(move || {
-        let stream = TcpBuilder::new_v4()
-            .unwrap()
-            .bind(SocketAddr::new("127.0.0.2".parse().unwrap(), 0))
-            .unwrap()
-            .connect(addr)
-            .unwrap();
+        let stream = distinct_address.connect(port).unwrap();
+        assert_ne!(stream.local_addr().unwrap().ip(), silent_source);
         let result = Peer::connect(
             stream,
             p2p::Capabilities::UNKNOWN,
