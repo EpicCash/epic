@@ -157,6 +157,7 @@ pub struct ServerConfig {
 	pub foreign_api_secret_path: Option<String>,
 
 	/// Path to the directory where the file of pre-generated foundation coinbases is in.
+	#[serde(default)]
 	pub foundation_path: String,
 
 	/// TLS certificate file

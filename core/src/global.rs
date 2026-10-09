@@ -221,7 +221,13 @@ pub fn get_epic_version() -> Option<Version> {
 /// Set the path to the foundation.json file (file with the foundation wallet outputs/kernels)
 pub fn set_foundation_path(path: String) {
 	let mut foundation_path = FOUNDATION_FILE.write();
-	let path_str = use_alternative_path(path);
+	// An omitted configuration path is represented by an empty string and
+	// selects the foundation data embedded in the binary.
+	let path_str = if path.is_empty() {
+		path
+	} else {
+		use_alternative_path(path)
+	};
 	*foundation_path = Some(path_str);
 }
 
