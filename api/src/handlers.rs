@@ -113,12 +113,13 @@ where
 		"Basic ".to_string() + &to_base64(&("epic:".to_string() + api_secret))
 	);
 
-	// Legacy v1 mixes public and Owner operations, so retain its existing Owner
-	// authentication and fail closed when no Owner secret was loaded.
-	let v1_auth = Arc::new(BasicAuthURIMiddleware::new_required(
+	// Legacy v1 mixes public and Owner operations, so authenticate the entire
+	// namespace except the read-only version endpoint required by older wallets.
+	let v1_auth = Arc::new(BasicAuthURIMiddleware::new_required_with_public_get(
 		owner_api_basic_auth.clone(),
 		&EPIC_BASIC_REALM,
 		"/v1".into(),
+		"/v1/version".into(),
 	));
 	router.add_middleware(v1_auth);
 
