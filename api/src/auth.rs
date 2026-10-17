@@ -90,7 +90,7 @@ pub struct BasicAuthURIMiddleware {
     api_basic_auth: Option<String>,
     basic_realm: &'static HeaderValue,
     target_uri: String,
-    public_get_uri: Option<String>,
+    public_get_uris: Vec<String>,
 }
 
 impl BasicAuthURIMiddleware {
@@ -103,7 +103,7 @@ impl BasicAuthURIMiddleware {
             api_basic_auth: Some(api_basic_auth),
             basic_realm,
             target_uri,
-            public_get_uri: None,
+            public_get_uris: Vec::new(),
         }
     }
 
@@ -116,7 +116,7 @@ impl BasicAuthURIMiddleware {
             api_basic_auth,
             basic_realm,
             target_uri,
-            public_get_uri: None,
+            public_get_uris: Vec::new(),
         }
     }
 
@@ -130,8 +130,13 @@ impl BasicAuthURIMiddleware {
             api_basic_auth,
             basic_realm,
             target_uri,
-            public_get_uri: Some(public_get_uri),
+            public_get_uris: vec![public_get_uri],
         }
+    }
+
+    pub fn with_public_get(mut self, public_get_uri: String) -> BasicAuthURIMiddleware {
+        self.public_get_uris.push(public_get_uri);
+        self
     }
 }
 
@@ -139,9 +144,9 @@ fn uri_requires_auth(
     method: &Method,
     path: &str,
     target_uri: &str,
-    public_get_uri: Option<&str>,
+    public_get_uris: &[String],
 ) -> bool {
-    if method == Method::GET && public_get_uri == Some(path) {
+    if method == Method::GET && public_get_uris.iter().any(|uri| uri == path) {
         return false;
     }
     path == target_uri || path.starts_with(&(target_uri.to_owned() + "/"))
@@ -166,7 +171,7 @@ impl Handler<Full<Bytes>> for BasicAuthURIMiddleware {
             req.method(),
             path,
             &self.target_uri,
-            self.public_get_uri.as_deref(),
+            &self.public_get_uris,
         ) {
             if matches!(
                 (req.headers().get(AUTHORIZATION), self.api_basic_auth.as_deref()),
@@ -191,17 +196,21 @@ mod tests {
     #[test]
     fn public_get_exception_is_exact_and_method_scoped() {
         let target = "/v1";
-        let public = Some("/v1/version");
+        let public = vec!["/v1/version".to_owned(), "/v1/status".to_owned()];
         for (method, path, required) in [
             (Method::GET, "/v1/version", false),
+            (Method::GET, "/v1/status", false),
             (Method::POST, "/v1/version", true),
+            (Method::POST, "/v1/status", true),
             (Method::HEAD, "/v1/version", true),
+            (Method::HEAD, "/v1/status", true),
             (Method::GET, "/v1/version/extra", true),
-            (Method::GET, "/v1/status", true),
+            (Method::GET, "/v1/status/extra", true),
+            (Method::GET, "/v1/chain", true),
             (Method::GET, "/v2/foreign", false),
         ] {
             assert_eq!(
-                uri_requires_auth(&method, path, target, public),
+                uri_requires_auth(&method, path, target, &public),
                 required,
                 "unexpected auth policy for {} {}",
                 method,
