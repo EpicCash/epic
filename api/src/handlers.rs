@@ -114,13 +114,16 @@ where
 	);
 
 	// Legacy v1 mixes public and Owner operations, so authenticate the entire
-	// namespace except the read-only version endpoint required by older wallets.
-	let v1_auth = Arc::new(BasicAuthURIMiddleware::new_required_with_public_get(
-		owner_api_basic_auth.clone(),
-		&EPIC_BASIC_REALM,
-		"/v1".into(),
-		"/v1/version".into(),
-	));
+	// namespace except the read-only compatibility endpoints required by clients.
+	let v1_auth = Arc::new(
+		BasicAuthURIMiddleware::new_required_with_public_get(
+			owner_api_basic_auth.clone(),
+			&EPIC_BASIC_REALM,
+			"/v1".into(),
+			"/v1/version".into(),
+		)
+		.with_public_get("/v1/status".into()),
+	);
 	router.add_middleware(v1_auth);
 
 	let owner_api_handler = OwnerAPIHandlerV2::new(
