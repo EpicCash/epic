@@ -38,7 +38,9 @@ use crate::util::StopState;
 // DNS Seeds with contact email associated
 const MAINNET_DNS_SEEDS: &'static [&'static str] = &["node.epiccash.com"];
 const FLOONET_DNS_SEEDS: &'static [&'static str] = &["floonet.epiccash.com"]; //does not exist yet
-const MAX_OUTBOUND_CONNECTION_ATTEMPTS: usize = 128;
+const MAX_OUTBOUND_CANDIDATES: usize = 128;
+const MAX_OUTBOUND_CONNECTION_ATTEMPTS: usize = 10;
+const PROVEN_PEERS_PER_DISCOVERY_ATTEMPT: usize = 4;
 pub fn connect_and_monitor(
 	p2p_server: Arc<p2p::Server>,
 	capabilities: p2p::Capabilities,
@@ -232,7 +234,7 @@ fn monitor_peers(
 		stored_peers,
 		&connected,
 		preferred_peers.unwrap_or(&[]),
-		MAX_OUTBOUND_CONNECTION_ATTEMPTS,
+		MAX_OUTBOUND_CANDIDATES,
 	) {
 		trace!("try sending peer addr to connection queue: {}", addr);
 		let _ = tx.send(addr);
@@ -263,26 +265,56 @@ fn connection_candidates(
 		.map(|peer| peer.addr)
 		.collect::<HashSet<_>>();
 	let mut seen = HashSet::new();
-	preferred_peers
+	let mut proven = preferred_peers
 		.iter()
 		.copied()
 		.chain(
 			stored_peers
-				.into_iter()
-				.filter_map(|peer| match peer.flags {
-					p2p::State::Healthy | p2p::State::Unknown => Some(peer.addr),
-					p2p::State::Defunct
-						if peer.capabilities != p2p::Capabilities::UNKNOWN
-							|| peer.last_connected == 0 =>
-					{
-						Some(peer.addr)
-					}
-					_ => None,
-				}),
+				.iter()
+				.filter(|peer| {
+					peer.flags == p2p::State::Healthy
+						|| (peer.flags == p2p::State::Defunct
+							&& peer.capabilities != p2p::Capabilities::UNKNOWN)
+				})
+				.map(|peer| peer.addr),
 		)
 		.filter(|addr| !connected.contains(addr) && !banned.contains(addr) && seen.insert(*addr))
-		.take(limit)
-		.collect()
+		.collect::<Vec<_>>()
+		.into_iter();
+	let mut unverified = stored_peers
+		.into_iter()
+		.filter(|peer| {
+			peer.flags == p2p::State::Unknown
+				|| (peer.flags == p2p::State::Defunct && peer.last_connected == 0)
+		})
+		.map(|peer| peer.addr)
+		.filter(|addr| !connected.contains(addr) && !banned.contains(addr) && seen.insert(*addr))
+		.collect::<Vec<_>>()
+		.into_iter();
+
+	let mut candidates = Vec::with_capacity(limit);
+	while candidates.len() < limit {
+		let mut added = false;
+		for _ in 0..PROVEN_PEERS_PER_DISCOVERY_ATTEMPT {
+			if let Some(addr) = proven.next() {
+				candidates.push(addr);
+				added = true;
+				if candidates.len() == limit {
+					break;
+				}
+			}
+		}
+		if candidates.len() < limit {
+			if let Some(addr) = unverified.next() {
+				candidates.push(addr);
+				added = true;
+			}
+		}
+		if !added {
+			break;
+		}
+	}
+	candidates
 }
 
 /// Connect to all healthy peers from the peer store.
@@ -360,19 +392,22 @@ fn listen_for_addrs(
 	// here to prevent it backing up.
 	let mut seen = HashSet::new();
 	let addrs: Vec<PeerAddr> = rx.try_iter().filter(|addr| seen.insert(*addr)).collect();
-	let available_slots =
-		outbound_connection_capacity(peers.peer_outbound_count() as usize, max_outbound);
-	if available_slots == 0 {
+	let startup_mode = connecting_history.is_empty();
+	let attempt_budget = outbound_attempt_budget(
+		peers.peer_outbound_count() as usize,
+		max_outbound,
+		startup_mode,
+	);
+	if attempt_budget == 0 {
 		return;
 	}
 
 	// Note: We drained the rx queue earlier to keep it under control.
 	// Even if there are many addresses to try we will only try a bounded number of them for safety.
 	let connect_min_interval = 30;
-	let startup_mode = connecting_history.is_empty();
 	let mut attempts = 0;
 	for addr in addrs {
-		if attempts >= available_slots {
+		if attempts >= attempt_budget {
 			break;
 		}
 		if peers.is_connected(addr) {
@@ -440,8 +475,19 @@ fn listen_for_addrs(
 	}
 }
 
-fn outbound_connection_capacity(outbound_count: usize, max_outbound: usize) -> usize {
-	max_outbound.saturating_sub(outbound_count)
+fn outbound_attempt_budget(
+	outbound_count: usize,
+	max_outbound: usize,
+	startup_mode: bool,
+) -> usize {
+	let attempt_limit = if startup_mode {
+		MAX_OUTBOUND_CANDIDATES
+	} else {
+		MAX_OUTBOUND_CONNECTION_ATTEMPTS
+	};
+	max_outbound
+		.saturating_sub(outbound_count)
+		.min(attempt_limit)
 }
 
 pub fn dns_seeds() -> Box<dyn Fn() -> Vec<PeerAddr> + Send> {
@@ -480,7 +526,7 @@ pub fn predefined_seeds(addrs: Vec<PeerAddr>) -> Box<dyn Fn() -> Vec<PeerAddr> +
 
 #[cfg(test)]
 mod tests {
-	use super::{connection_candidates, outbound_connection_capacity};
+	use super::{connection_candidates, outbound_attempt_budget};
 	use crate::p2p;
 	use crate::p2p::types::PeerAddr;
 	use std::collections::HashSet;
@@ -504,17 +550,18 @@ mod tests {
 	}
 
 	#[test]
-	fn outbound_capacity_depends_only_on_outbound_count() {
-		assert_eq!(outbound_connection_capacity(1, 4), 3);
-		assert_eq!(outbound_connection_capacity(4, 4), 0);
+	fn outbound_attempt_budget_depends_only_on_outbound_count() {
+		assert_eq!(outbound_attempt_budget(1, 4, false), 3);
+		assert_eq!(outbound_attempt_budget(4, 4, false), 0);
+		assert_eq!(outbound_attempt_budget(3, 128, false), 10);
+		assert_eq!(outbound_attempt_budget(3, 128, true), 125);
 	}
 
 	#[test]
 	fn maintenance_prioritizes_previously_connected_peers() {
 		let healthy = peer(1, p2p::State::Healthy, p2p::Capabilities::FULL_NODE, 10);
 		let known_defunct = peer(2, p2p::State::Defunct, p2p::Capabilities::FULL_NODE, 20);
-		let recent_known_defunct =
-			peer(8, p2p::State::Defunct, p2p::Capabilities::FULL_NODE, 60);
+		let recent_known_defunct = peer(8, p2p::State::Defunct, p2p::Capabilities::FULL_NODE, 60);
 		let unknown = peer(3, p2p::State::Unknown, p2p::Capabilities::UNKNOWN, 0);
 		let untried = peer(4, p2p::State::Defunct, p2p::Capabilities::UNKNOWN, 0);
 		let failed_unknown = peer(5, p2p::State::Defunct, p2p::Capabilities::UNKNOWN, 30);
@@ -550,5 +597,25 @@ mod tests {
 		assert!(!candidates.contains(&failed_unknown.addr));
 		assert!(!candidates.contains(&banned.addr));
 		assert!(!candidates.contains(&connected_addrs.iter().next().copied().unwrap()));
+	}
+
+	#[test]
+	fn maintenance_reserves_capacity_for_peer_discovery() {
+		let mut stored = (1..=10)
+			.map(|last_octet| {
+				peer(
+					last_octet,
+					p2p::State::Defunct,
+					p2p::Capabilities::FULL_NODE,
+					last_octet as i64,
+				)
+			})
+			.collect::<Vec<_>>();
+		let unknown = peer(11, p2p::State::Unknown, p2p::Capabilities::UNKNOWN, 0);
+		stored.push(unknown.clone());
+
+		let candidates = connection_candidates(stored, &HashSet::new(), &[], 10);
+
+		assert!(candidates[..5].contains(&unknown.addr));
 	}
 }
