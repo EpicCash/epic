@@ -1,10 +1,18 @@
+epic (4.1.1) jammy; urgency=medium
+
+  [ Epic Team ]
+  * improve peer recovery and maintenance
+  * version bump
+
+ -- Epic Team <info@epiccash.com>  Tue, 20 Oct 2026 12:00:00 +0000
+
 epic (4.1.0) jammy; urgency=high
 
   [ Epic Team ]
   * hardening and fixes
   * version bump
 
- -- Epic Team <info@epiccash.com>  Mon, 7 Oct 2026 12:00:00 +0000
+ -- Epic Team <info@epiccash.com>  Wed, 7 Oct 2026 12:00:00 +0000
 
 epic (4.0.4) jammy; urgency=high
 
