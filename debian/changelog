@@ -1,3 +1,11 @@
+epic (4.1.2) jammy; urgency=medium
+
+  [ Epic Team ]
+  * update dependencies, hardening
+  * version bump
+
+ -- Epic Team <info@epiccash.com>  Tue, 2 Nov 2026 12:00:00 +0000
+
 epic (4.1.1) jammy; urgency=medium
 
   [ Epic Team ]
