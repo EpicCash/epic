@@ -146,10 +146,19 @@ fn uri_requires_auth(
     target_uri: &str,
     public_get_uris: &[String],
 ) -> bool {
-    if method == Method::GET && public_get_uris.iter().any(|uri| uri == path) {
+    let path = path.trim_start_matches('/');
+    let target_uri = target_uri.trim_start_matches('/');
+    if method == Method::GET
+        && public_get_uris
+            .iter()
+            .any(|uri| uri.trim_start_matches('/') == path)
+    {
         return false;
     }
-    path == target_uri || path.starts_with(&(target_uri.to_owned() + "/"))
+    path == target_uri
+        || path
+            .strip_prefix(target_uri)
+            .map_or(false, |suffix| suffix.starts_with('/'))
 }
 
 impl Handler<Full<Bytes>> for BasicAuthURIMiddleware {
@@ -218,6 +227,7 @@ mod tests {
             );
         }
     }
+
 }
 
 pub(super) fn basic_auth_matches(value: &HeaderValue, expected: &str) -> bool {

@@ -920,10 +920,13 @@ mod mine_chain {
 					let prev = chain.head_header().unwrap();
 					let mut block = prepare_block(&kc, &prev, &chain, height + i);
 					let _policy = get_policies(emitted_policy).unwrap();
-					let cursor = chain.bottles_iter(emitted_policy).unwrap();
+					let cursor = chain.bottles_iter_from(block.header.prev_hash, emitted_policy).unwrap();
 					let (algo, bottles) = consensus::next_policy(emitted_policy, cursor).unwrap();
 					block.header.bottles = bottles;
-					block.header.pow.proof = get_pow_type(&algo, prev.height);
+					block.header.pow.proof = get_pow_type(
+						&algo,
+						prev.hash().to_u64() & ((1_u64 << global::min_edge_bits()) - 1),
+					);
 					block.header.policy = emitted_policy;
 					chain.process_block(block, chain::Options::SKIP_POW).unwrap();
 				};
@@ -972,7 +975,7 @@ mod mine_chain {
 						.read()
 						.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 						.unwrap();
-					let cursor = chain.bottles_iter(emitted_policy).unwrap();
+					let cursor = chain.bottles_iter_from(prev.hash(), emitted_policy).unwrap();
 					let (algo, bottles) = consensus::next_policy(emitted_policy, cursor).unwrap();
 					let (timespan, block_diff) = match algo{
 						FType::Cuckatoo => {
@@ -1019,7 +1022,7 @@ mod mine_chain {
 			// 			.read()
 			// 			.get_header_hash_by_height(pow::randomx::rx_current_seed_height(prev.height + 1))
 			// 			.unwrap();
-			// 		let cursor = chain.bottles_iter(emitted_policy).unwrap();
+			// 		let cursor = chain.bottles_iter_from(prev.hash(), emitted_policy).unwrap();
 			// 		let (algo, bottles) = consensus::next_policy(emitted_policy, cursor);
 			// 		println!("\n==================Block height {}===================", i);
 			// 		let diff_iter = chain.difficulty_iter().unwrap();
@@ -1064,7 +1067,7 @@ mod mine_chain {
 
 				// policy
 				let _policy = get_policies(0).unwrap();
-				let cursor = chain.bottles_iter(0).unwrap();
+				let cursor = chain.bottles_iter_from(block.header.prev_hash, 0).unwrap();
 				let (_, bottles) = consensus::next_policy(0, cursor).unwrap();
 				let algo = get_fw_type(algorithm.as_str());
 				block.header.bottles = bottles;
@@ -1219,10 +1222,13 @@ mod mine_chain {
 
 				let mut block = prepare_fork_block(kc, &prev, &chain, diff);
 				let _policy = get_policies(emitted_policy).unwrap();
-				let cursor = chain.bottles_iter(emitted_policy).unwrap();
+				let cursor = chain.bottles_iter_from(block.header.prev_hash, emitted_policy).unwrap();
 				let (algo, bottles) = consensus::next_policy(emitted_policy, cursor).unwrap();
 				block.header.bottles = bottles;
-				block.header.pow.proof = get_pow_type(&algo, prev.height);
+				block.header.pow.proof = get_pow_type(
+					&algo,
+					block.header.pow.total_difficulty.to_num(algo),
+				);
 				block.header.policy = emitted_policy;
 
 				let last_height = block.header.height;
@@ -1254,10 +1260,13 @@ mod mine_chain {
 
 				let mut block = prepare_fork_block(kc, &prev, &chain, diff);
 				let _policy = get_policies(emitted_policy).unwrap();
-				let cursor = chain.bottles_iter(emitted_policy).unwrap();
+				let cursor = chain.bottles_iter_from(block.header.prev_hash, emitted_policy).unwrap();
 				let (algo, bottles) = consensus::next_policy(emitted_policy, cursor).unwrap();
 				block.header.bottles = bottles;
-				block.header.pow.proof = get_pow_type(&algo, prev.height);
+				block.header.pow.proof = get_pow_type(
+					&algo,
+					block.header.pow.total_difficulty.to_num(algo),
+				);
 				block.header.policy = emitted_policy;
 
 				let block_result = chain.process_block(block, chain::Options::SKIP_POW).unwrap();

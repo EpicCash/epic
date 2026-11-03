@@ -179,7 +179,7 @@ fn build_block(
 	
 	b.header.policy = get_emitted_policy(b.header.height);
 
-	let bottle_cursor = chain.bottles_iter(get_emitted_policy(b.header.height))?;
+	let bottle_cursor = chain.bottles_iter_from(b.header.prev_hash, b.header.policy)?;
 	let (pow_type, bottles) = consensus::next_policy(b.header.policy, bottle_cursor)
 		.map_err(|e| Error::General(format!("invalid policy state: {:?}", e)))?;
 	b.header.bottles = bottles;

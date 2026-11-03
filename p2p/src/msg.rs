@@ -38,6 +38,7 @@ pub const USER_AGENT: &'static str = concat!("MW/Epic ", env!("CARGO_PKG_VERSION
 const OTHER_MAGIC: [u8; 2] = [73, 43];
 const FLOONET_MAGIC: [u8; 2] = [83, 59];
 const MAINNET_MAGIC: [u8; 2] = [97, 61];
+const DISCARD_BUFFER_SIZE: usize = 8 * 1024;
 
 // Types of messages.
 // Note: Values here are *important* so we should only add new values at the
@@ -195,9 +196,13 @@ pub fn read_body<T: Readable>(
 }
 
 /// Read (an unknown) message from the provided stream and discard it.
-pub fn read_discard(msg_len: u64, stream: &mut dyn Read) -> Result<(), Error> {
-	let mut buffer = vec![0u8; msg_len as usize];
-	stream.read_exact(&mut buffer)?;
+pub fn read_discard(mut msg_len: u64, stream: &mut dyn Read) -> Result<(), Error> {
+	let mut buffer = [0u8; DISCARD_BUFFER_SIZE];
+	while msg_len > 0 {
+		let len = msg_len.min(buffer.len() as u64) as usize;
+		stream.read_exact(&mut buffer[..len])?;
+		msg_len -= len as u64;
+	}
 	Ok(())
 }
 

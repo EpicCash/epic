@@ -403,8 +403,11 @@ fn validate_header(header: &BlockHeader, ctx: &mut BlockContext<'_>) -> Result<(
 
     if global::get_policies(header.policy).is_some() {
         let cursor = BottleIter::from_batch(prev.hash(), &ctx.batch, header.policy);
-        let (algo, _) = consensus::next_policy(header.policy, cursor)
+        let (algo, expected_bottles) = consensus::next_policy(header.policy, cursor)
             .map_err(|_| Error::InvalidBottles)?;
+        if header.bottles != expected_bottles {
+            return Err(Error::InvalidBottles.into());
+        }
 
         let is_correct = match header.pow.proof {
             pow::Proof::CuckooProof { edge_bits, .. } => {

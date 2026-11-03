@@ -1,5 +1,4 @@
-// Copyright 2026 The Epic Cash Developers
-// Copyright 2025 The Epic Developers
+// Copyright 2025 The Epic Cash Developers
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -132,7 +131,7 @@ where
 
 		header.policy = get_emitted_policy(header.height);
 
-		let bottle_cursor = chain.bottles_iter(get_emitted_policy(header.height))?;
+		let bottle_cursor = chain.bottles_iter_from(header.prev_hash, header.policy)?;
 		let (pow_type, bottles) = consensus::next_policy(header.policy, bottle_cursor)
 			.map_err(|e| Error::Internal(format!("invalid policy state: {:?}", e)))?;
 		header.bottles = bottles;
