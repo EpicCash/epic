@@ -1144,7 +1144,7 @@ dependencies = [
 
 [[package]]
 name = "epic"
-version = "4.1.1"
+version = "4.1.2"
 dependencies = [
  "blake2-rfc",
  "built",
@@ -1178,7 +1178,7 @@ dependencies = [
 
 [[package]]
 name = "epic_api"
-version = "4.1.1"
+version = "4.1.2"
 dependencies = [
  "bytes",
  "chrono",
@@ -1220,7 +1220,7 @@ dependencies = [
 
 [[package]]
 name = "epic_chain"
-version = "4.1.1"
+version = "4.1.2"
 dependencies = [
  "bit-vec",
  "bitflags 2.9.4",
@@ -1245,7 +1245,7 @@ dependencies = [
 
 [[package]]
 name = "epic_config"
-version = "4.1.1"
+version = "4.1.2"
 dependencies = [
  "dirs 6.0.0",
  "epic_core",
@@ -1261,7 +1261,7 @@ dependencies = [
 
 [[package]]
 name = "epic_core"
-version = "4.1.1"
+version = "4.1.2"
 dependencies = [
  "blake2-rfc",
  "byteorder",
@@ -1292,7 +1292,7 @@ dependencies = [
 
 [[package]]
 name = "epic_keychain"
-version = "4.1.1"
+version = "4.1.2"
 dependencies = [
  "blake2-rfc",
  "byteorder",
@@ -1315,7 +1315,7 @@ dependencies = [
 
 [[package]]
 name = "epic_p2p"
-version = "4.1.1"
+version = "4.1.2"
 dependencies = [
  "bitflags 2.9.4",
  "blake2-rfc",
@@ -1348,7 +1348,7 @@ dependencies = [
 
 [[package]]
 name = "epic_pool"
-version = "4.1.1"
+version = "4.1.2"
 dependencies = [
  "blake2-rfc",
  "chrono",
@@ -1366,7 +1366,7 @@ dependencies = [
 
 [[package]]
 name = "epic_servers"
-version = "4.1.1"
+version = "4.1.2"
 dependencies = [
  "bytes",
  "chrono",
@@ -1407,7 +1407,7 @@ dependencies = [
 
 [[package]]
 name = "epic_store"
-version = "4.1.1"
+version = "4.1.2"
 dependencies = [
  "byteorder",
  "chrono",
@@ -1429,7 +1429,7 @@ dependencies = [
 
 [[package]]
 name = "epic_util"
-version = "4.1.1"
+version = "4.1.2"
 dependencies = [
  "anyhow",
  "backtrace",
@@ -1755,9 +1755,9 @@ checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
 
 [[package]]
 name = "git2"
-version = "0.20.2"
+version = "0.20.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2deb07a133b1520dc1a5690e9bd08950108873d7ed5de38dcc74d3b5ebffa110"
+checksum = "7b88256088d75a56f8ecfa070513a775dd9107f6530ef14919dac831af9cfe2b"
 dependencies = [
  "bitflags 2.9.4",
  "libc",
@@ -2499,9 +2499,9 @@ checksum = "6a82ae493e598baaea5209805c49bbf2ea7de956d50d7da0da1164f9c6d28543"
 
 [[package]]
 name = "libgit2-sys"
-version = "0.18.1+1.9.0"
+version = "0.18.8+1.9.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1dcb20f84ffcdd825c7a311ae347cce604a6f084a767dec4a4929829645290e"
+checksum = "7f7c568b25d7489bc3fb2988ed69ab111d2944d2f5fec3d5c987fe545ea97b50"
 dependencies = [
  "cc",
  "libc",
@@ -2542,9 +2542,9 @@ dependencies = [
 
 [[package]]
 name = "libz-sys"
-version = "1.1.22"
+version = "1.1.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b70e7a7df205e92a1a4cd9aaae7898dac0aa555503cc0a649494d0d60e7651d"
+checksum = "ff20308ecabd635a2dc1dd5834a86c462cca20efba1d5d3ddab1f8aea3455cb2"
 dependencies = [
  "cc",
  "libc",
@@ -3789,9 +3789,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.45"
+version = "0.23.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
+checksum = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
 dependencies = [
  "aws-lc-rs",
  "log",
@@ -3834,9 +3834,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.15"
+version = "0.103.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3c3cf1d8b1e7d4927e2d154c3fcb02979afb9939629c62cd9048d4f07b60ac2"
+checksum = "4443b1b6d39d7c663139942cc4558262562d2c84123bb6282ef177009ca8b281"
 dependencies = [
  "aws-lc-rs",
  "ring",
@@ -5065,9 +5065,9 @@ dependencies = [
 
 [[package]]
 name = "webpki-roots"
-version = "1.0.0"
+version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2853738d1cc4f2da3a225c18ec6c3721abb31961096e9dbf5ab35fa88b19cfdb"
+checksum = "f5f280bbb2b287bc8e7de7e3852945a0ff50d1bbcb5ed42b6c7a568c546df171"
 dependencies = [
  "rustls-pki-types",
 ]

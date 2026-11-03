@@ -1,6 +1,6 @@
 [package]
 name = "epic_servers"
-version = "4.1.1"
+version = "4.1.2"
 authors = ["Epic Foundation <info@epiccash.com>"]
 description = "Simple, private and scalable cryptocurrency implementation based on the MimbleWimble chain format."
 license = "Apache-2.0"
@@ -15,10 +15,10 @@ hyper-util = "0.1"
 http-body-util = "0.1"
 bytes = "1.11.1"
 hyper-rustls = "0.27.7"
-rustls = "0.23.45"
+rustls = "0.23.46"
 rustls-pemfile ="2.2.0"
 webpki = "0.22"
-webpki-roots = "1.0"
+webpki-roots = "1.0.10"
 pki-types = { package = "rustls-pki-types", version = "1.12.0" }
 
 fs2 = "0.4"
@@ -41,11 +41,11 @@ hickory-resolver = "0.26.3"
 walkdir = "2.2"
 
 
-epic_api = { path = "../api", version = "4.1.1" }
-epic_chain = { path = "../chain", version = "4.1.1" }
-epic_core = { path = "../core", version = "4.1.1" }
-epic_keychain = { path = "../keychain", version = "4.1.1" }
-epic_p2p = { path = "../p2p", version = "4.1.1" }
-epic_pool = { path = "../pool", version = "4.1.1" }
-epic_store = { path = "../store", version = "4.1.1" }
-epic_util = { path = "../util", version = "4.1.1" }
+epic_api = { path = "../api", version = "4.1.2" }
+epic_chain = { path = "../chain", version = "4.1.2" }
+epic_core = { path = "../core", version = "4.1.2" }
+epic_keychain = { path = "../keychain", version = "4.1.2" }
+epic_p2p = { path = "../p2p", version = "4.1.2" }
+epic_pool = { path = "../pool", version = "4.1.2" }
+epic_store = { path = "../store", version = "4.1.2" }
+epic_util = { path = "../util", version = "4.1.2" }

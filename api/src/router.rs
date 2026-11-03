@@ -18,7 +18,7 @@ use bytes::Bytes;
 use futures::future::{self, Future};
 use http_body_util::Full;
 use hyper::Method;
-use hyper::{Request, Response, StatusCode};
+use hyper::{Request, Response, StatusCode, Uri};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::pin::Pin;
@@ -148,7 +148,7 @@ impl Router {
 
 	fn find(&self, parent: NodeId, key: u64) -> Option<NodeId> {
 		let node = self.node(parent);
-		node.children
+		node.children[..node.children_count]
 			.iter()
 			.find(|&id| {
 				let node_key = self.node(*id).key;
@@ -219,8 +219,11 @@ impl Service<Request<hyper::body::Incoming>> for Router {
 		Poll::Ready(Ok(()))
 	}
 
-	fn call(&mut self, req: Request<hyper::body::Incoming>) -> Self::Future {
+	fn call(&mut self, mut req: Request<hyper::body::Incoming>) -> Self::Future {
 		// Delegate to your router's handler logic
+		if normalize_uri_path(req.uri_mut()).is_err() {
+			return not_found();
+		}
 		match self.get(req.uri().path()) {
 			Err(_) => not_found(),
 			Ok(mut handlers) => match handlers.next() {
@@ -229,6 +232,29 @@ impl Service<Request<hyper::body::Incoming>> for Router {
 			},
 		}
 	}
+}
+
+fn normalize_uri_path(uri: &mut Uri) -> Result<(), ()> {
+	let path = uri.path().trim_start_matches('/');
+	if path.contains("//") {
+		return Err(());
+	}
+	if uri.path().len() - path.len() <= 1 {
+		return Ok(());
+	}
+
+	let mut normalized = String::with_capacity(path.len() + 1);
+	normalized.push('/');
+	normalized.push_str(path);
+	if let Some(query) = uri.query() {
+		normalized.push('?');
+		normalized.push_str(query);
+	}
+
+	let mut parts = uri.clone().into_parts();
+	parts.path_and_query = Some(normalized.parse().map_err(|_| ())?);
+	*uri = Uri::from_parts(parts).map_err(|_| ())?;
+	Ok(())
 }
 
 impl Node {
