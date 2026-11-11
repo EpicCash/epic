@@ -387,6 +387,7 @@ where
 
 		// pushing the new block header through the header chain pipeline
 		// we will go ask for the block if this is a new header
+		let _validation = chain::ValidationGuard::new(self.sync_state.as_ref());
 		let res = self.chain().process_block_header(&bh, chain::Options::NONE);
 
 		if let Err(e) = res {
@@ -450,6 +451,7 @@ where
 			ctx_option = Options::SKIP_POW;
 		}
 
+		let _validation = chain::ValidationGuard::new(self.sync_state.as_ref());
 		match self.chain().sync_block_headers(bhs, ctx_option) {
 			Ok(_) => {
 				if let Some(header) = bhs.iter().max_by_key(|header| header.total_difficulty()) {
@@ -707,6 +709,10 @@ where
 		peer_info: &PeerInfo,
 		opts: chain::Options,
 	) -> Result<bool, chain::Error> {
+		// Mark this block as being validated so the sync loop does not change
+		// sync state underneath an in-flight validation.
+		let _validation = chain::ValidationGuard::new(self.sync_state.as_ref());
+
 		// We cannot process blocks earlier than the horizon so check for this here.
 		{
 			let head = self.chain().head()?;

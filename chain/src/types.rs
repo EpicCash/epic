@@ -16,6 +16,7 @@
 //! Base types that the block chain pipeline requires.
 
 use chrono::prelude::{DateTime, Utc};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use crate::core::core::hash::{Hash, Hashed, ZERO_HASH};
@@ -95,6 +96,7 @@ pub enum SyncStatus {
 pub struct SyncState {
 	current: RwLock<SyncStatus>,
 	sync_error: Arc<RwLock<Option<Error>>>,
+	validating: AtomicUsize,
 }
 
 impl SyncState {
@@ -103,6 +105,7 @@ impl SyncState {
 		SyncState {
 			current: RwLock::new(SyncStatus::Initial),
 			sync_error: Arc::new(RwLock::new(None)),
+			validating: AtomicUsize::new(0),
 		}
 	}
 
@@ -110,6 +113,23 @@ impl SyncState {
 	/// Note: This includes our "initial" state.
 	pub fn is_syncing(&self) -> bool {
 		*self.current.read() != SyncStatus::NoSync
+	}
+
+	/// Whether incoming headers or blocks are currently being validated.
+	/// The sync loop uses this to avoid changing sync state underneath an
+	/// in-flight validation.
+	pub fn is_validating(&self) -> bool {
+		self.validating.load(Ordering::SeqCst) > 0
+	}
+
+	/// Mark the start of validating incoming headers or blocks.
+	pub fn begin_validation(&self) {
+		self.validating.fetch_add(1, Ordering::SeqCst);
+	}
+
+	/// Mark the end of validating incoming headers or blocks.
+	pub fn end_validation(&self) {
+		self.validating.fetch_sub(1, Ordering::SeqCst);
 	}
 
 	/// Current syncing status
@@ -154,6 +174,25 @@ impl SyncState {
 	/// Clear sync error
 	pub fn clear_sync_error(&self) {
 		*self.sync_error.write() = None;
+	}
+}
+
+/// RAII guard that keeps `SyncState::is_validating` true while it is alive.
+pub struct ValidationGuard<'a> {
+	state: &'a SyncState,
+}
+
+impl<'a> ValidationGuard<'a> {
+	/// Mark the start of validation and return a guard that clears it on drop.
+	pub fn new(state: &'a SyncState) -> ValidationGuard<'a> {
+		state.begin_validation();
+		ValidationGuard { state }
+	}
+}
+
+impl Drop for ValidationGuard<'_> {
+	fn drop(&mut self) {
+		self.state.end_validation();
 	}
 }
 

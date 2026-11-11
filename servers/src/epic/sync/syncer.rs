@@ -153,6 +153,24 @@ fn bounded_probe_height(header_height: u64, peer_info: &PeerInfo) -> u64 {
 	}
 }
 
+/// Whether the sync loop should enter HeaderSync from an idle state.
+///
+/// A new HeaderSync is only justified when a peer has demonstrated more work
+/// than our current header head, and no incoming header/block validation is
+/// currently in flight.
+fn should_enter_headersync(
+	status: SyncStatus,
+	most_work_height: u64,
+	header_height: u64,
+	validating: bool,
+) -> bool {
+	matches!(
+		status,
+		SyncStatus::NoSync | SyncStatus::Initial | SyncStatus::AwaitingPeers(_)
+	) && most_work_height > header_height
+		&& !validating
+}
+
 fn header_sync_peer_eligible(
 	peer_info: &PeerInfo,
 	header_height: u64,
@@ -397,12 +415,12 @@ impl SyncRunner {
 					}
 				}
 				continue;
-			} else if matches!(
+			} else if should_enter_headersync(
 				self.sync_state.status(),
-				SyncStatus::NoSync | SyncStatus::Initial | SyncStatus::AwaitingPeers(_)
-			)
-				&& most_work_height > self.chain.header_head().map(|tip| tip.height).unwrap_or(0)
-			{
+				most_work_height,
+				self.chain.header_head().map(|tip| tip.height).unwrap_or(0),
+				self.sync_state.is_validating(),
+			) {
 				warn!("Node is out of sync, switching to syncing mode");
 				needs_headersync = true;
 			}
@@ -682,7 +700,10 @@ impl SyncRunner {
 				SyncStatus::AwaitingPeers(_) => {
 					// Only start header download if enough outbound peers are available
 
-					if self.peers.enough_outbound_peers() && !download_headers {
+					if self.peers.enough_outbound_peers()
+						&& !download_headers
+						&& !self.sync_state.is_validating()
+					{
 						let sync_head = unwrap_or_restart_loop!(self.chain.get_sync_head());
 						info!(
 							"Initial transition to HeaderSync. Head {} at {}, resetting to: {} at {}",
@@ -722,13 +743,23 @@ impl SyncRunner {
 
 				_ => {
 					if header_head.height >= highest_network_height {
-						// Header-Synchronisierung abgeschlossen
+						// A single header can run ahead of the body through
+						// "header first" propagation. That transient gap is not
+						// a reason to leave NoSync: request the missing body but
+						// keep reporting the node as caught up, so a gossip block
+						// does not flip the node into BodySync.
+						let header_first_gap = self.sync_state.status() == SyncStatus::NoSync
+							&& header_head.height <= head.height.saturating_add(1);
 
-						// Wechsel zu Body-Synchronisierung
-						self.sync_state.update(SyncStatus::BodySync {
-							current_height: head.height,
-							highest_height: highest_network_height,
-						});
+						if !header_first_gap {
+							// Header-Synchronisierung abgeschlossen
+
+							// Wechsel zu Body-Synchronisierung
+							self.sync_state.update(SyncStatus::BodySync {
+								current_height: head.height,
+								highest_height: highest_network_height,
+							});
+						}
 						download_headers = false;
 						header_syncs.clear();
 						fastsync_header_queue.clear();
@@ -777,6 +808,15 @@ impl SyncRunner {
 		let header_head = self.chain.header_head()?;
 		let header_height = header_head.height;
 		let status = self.sync_state.status();
+
+		// While incoming headers or blocks are being validated, do not make a
+		// sync decision. A freshly accepted header advances header_head before
+		// its body has been processed; flipping to BodySync in that window is
+		// what makes an otherwise idle node look like it is syncing.
+		if status == SyncStatus::NoSync && self.sync_state.is_validating() {
+			debug!("sync: deferring sync decision while validating incoming headers/blocks");
+			return Ok((false, 0, None));
+		}
 
 		// Start or resume with one bounded HeaderSync batch. Peer validation is
 		// connection-scoped, while the locally validated header head survives a
@@ -846,6 +886,21 @@ impl SyncRunner {
 		}
 
 		if status == SyncStatus::NoSync {
+			// Re-read the header head. The snapshot at the top of this function
+			// may be stale if we blocked on the chain lock while building
+			// validated_peer_infos. If validated headers are already ahead of
+			// the body, that work belongs to BodySync, not a new HeaderSync.
+			let header_head = self.chain.header_head()?;
+			let header_height = header_head.height;
+			if header_height > local_head.height {
+				let target_peer = validated_outbound_sync_peer(
+					validated_peer_infos.iter().cloned(),
+					&local_diff,
+				)
+				.map(|peer| peer.addr.0);
+				return Ok((true, header_height, target_peer));
+			}
+
 			// Retain the existing five-block threshold for entering HeaderSync.
 			let threshold = {
 				let diff_iter = match self.chain.difficulty_iter() {
@@ -1287,6 +1342,79 @@ mod test {
 		assert_eq!(height, 512);
 		assert!(peer.is_none());
 		assert_eq!(sync_state.status(), SyncStatus::NoSync);
+	}
+
+	#[test]
+	fn no_sync_defers_while_incoming_data_is_validated() {
+		let sync_state = Arc::new(SyncState::new());
+		assert!(!sync_state.is_validating());
+		{
+			let _guard = chain::ValidationGuard::new(sync_state.as_ref());
+			assert!(sync_state.is_validating());
+		}
+		assert!(!sync_state.is_validating());
+	}
+
+	#[test]
+	fn no_sync_defers_body_sync_decision_while_validating() {
+		let node = TestNode::with_outbound_peer(Capabilities::HEADER_FASTSYNC);
+		node.persist_header_head(512, 100_000);
+		node.peer
+			.info
+			.update_advertised_tip(512, Difficulty::from_num(100_000), 0);
+		let sync_state = Arc::new(SyncState::new());
+		sync_state.update(SyncStatus::NoSync);
+		let runner = SyncRunner::new(
+			sync_state.clone(),
+			node.server.peers.clone(),
+			node.chain.clone(),
+			Arc::new(StopState::new()),
+		);
+
+		// The header head is ahead of the body, so without in-flight
+		// validation the node asks for a body sync.
+		let (needs_syncing, height, _) = runner.needs_syncing().unwrap();
+		assert!(needs_syncing);
+		assert_eq!(height, 512);
+
+		// While a header or block is being validated the decision is deferred,
+		// even though the header head is still ahead of the body.
+		let _guard = chain::ValidationGuard::new(sync_state.as_ref());
+		let (needs_syncing, height, peer) = runner.needs_syncing().unwrap();
+		assert!(!needs_syncing);
+		assert_eq!(height, 0);
+		assert!(peer.is_none());
+	}
+
+	#[test]
+	fn headersync_entry_is_blocked_while_validating() {
+		assert!(should_enter_headersync(
+			SyncStatus::NoSync,
+			100,
+			50,
+			false
+		));
+		assert!(!should_enter_headersync(
+			SyncStatus::NoSync,
+			100,
+			50,
+			true
+		));
+		assert!(!should_enter_headersync(
+			SyncStatus::NoSync,
+			50,
+			50,
+			false
+		));
+		assert!(!should_enter_headersync(
+			SyncStatus::BodySync {
+				current_height: 1,
+				highest_height: 2,
+			},
+			100,
+			50,
+			false
+		));
 	}
 
 	#[test]
