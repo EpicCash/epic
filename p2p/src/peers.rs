@@ -754,15 +754,23 @@ impl ChainAdapter for Peers {
 				})?;
 			Ok(false)
 		} else {
-			// At the top of fn header_received in Peers:
-			if !matches!(self.adapter.sync_status(), SyncStatus::NoSync) {
+			// After we have received a block header in "header first" propagation
+			// we need to go request the block (compact representation) from the
+			// same peer that gave us the header (unless we have already accepted the block).
+			//
+			// This must also happen while in BodySync: the sync loop switches to
+			// BodySync as soon as a freshly accepted header runs ahead of the body.
+			// If we suppressed the gossip fetch here, the very block that closes
+			// that gap would only be requested by body_sync, so an otherwise idle
+			// node could linger in BodySync instead of falling back to NoSync.
+			if !matches!(
+				self.adapter.sync_status(),
+				SyncStatus::NoSync | SyncStatus::BodySync { .. }
+			) {
 				return Ok(true);
 			}
 
 			// move from NetAdapter header_received here
-			// After we have received a block header in "header first" propagation
-			// we need to go request the block (compact representation) from the
-			// same peer that gave us the header (unless we have already accepted the block)
 			if let Some(peer) = self.get_connected_peer(peer_info.addr) {
 				let _ = peer.send_compact_block_request(bh.hash().clone());
 			}
