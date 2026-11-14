@@ -237,17 +237,23 @@ where
 			return Ok(true);
 		}
 
-		// strict "header first" propagation: only accept compact block from
-		// a peer that previously sent the corresponding header. We store a
-		// per-hash map of peers we've seen that header from and check for
-		// a matching entry for the current peer.
-		let seen_match = {
+		// Accept a pushed compact block from any peer, as v3.6.0 did.
+		// The v4.0.0 "strict header first" rule only accepted a compact block from a
+		// peer that had sent its header first, but the node that mines a block
+		// broadcasts the compact block directly without a header, so a freshly
+		// mined block was dropped by its direct 4.x peers and only spread later
+		// through header sync and body requests.
+		// The block still goes through full header + block validation below.
+		let seen_header_from_peer = {
 			let seen = self.recently_seen_headers.lock().unwrap();
-			seen.get(&cb_hash).and_then(|m| m.get(&peer_info.addr).copied())
+			seen.get(&cb_hash)
+				.map_or(false, |m| m.contains_key(&peer_info.addr))
 		};
-		if seen_match.is_none() {
-			// Only accept the compact block from the peer that sent the header
-			return Ok(true);
+		if !seen_header_from_peer {
+			debug!(
+				"Accepting pushed compact block {} at {} from {} without a prior header",
+				cb_hash, cb.header.height, peer_info.addr
+			);
 		}
 
 		debug!(
@@ -938,6 +944,10 @@ where
 			// If we received the block from another node then broadcast "header first"
 			// to minimize network traffic.
 			if opts.contains(Options::MINE) {
+				// Header first, then the compact block. Unpatched 4.x peers only
+				// accept a compact block from a peer whose header they have seen, so a
+				// bare compact block from the miner was dropped by all of them.
+				self.peers().broadcast_header(&b.header);
 				// propagate compact block out if we mined the block
 				let cb: CompactBlock = b.clone().into();
 				self.peers().broadcast_compact_block(&cb);
