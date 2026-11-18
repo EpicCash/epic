@@ -827,7 +827,11 @@ async fn accept_connections(listen_addr: SocketAddr, handler: Arc<Handler>) {
 
 		let h = handler.clone();
 		let read = async move {
-			while let Some(line) = reader.try_next().await.unwrap() {
+			while let Some(line) = reader
+				.try_next()
+				.await
+				.map_err(|e| error!("error reading line: {}", e))?
+			{
 				let request = serde_json::from_str(&line)
 					.map_err(|e| error!("error serializing line: {}", e))?;
 
@@ -850,15 +854,9 @@ async fn accept_connections(listen_addr: SocketAddr, handler: Arc<Handler>) {
 
 		let task = async move {
 			pin_mut!(read, write);
-			match futures::future::select(read, write).await {
-				futures::future::Either::Left(_) => {
-					trace!("Worker {} disconnected", worker_id);
-				}
-				futures::future::Either::Right(_) => {
-					trace!("Worker {} disconnected", worker_id);
-					handler.workers.remove_worker(worker_id);
-				}
-			};
+			let _ = futures::future::select(read, write).await;
+			trace!("Worker {} disconnected", worker_id);
+			handler.workers.remove_worker(worker_id);
 		};
 		tokio::spawn(task);
 	}
@@ -918,12 +916,12 @@ impl WorkersList {
 		worker_id
 	}
 	pub fn remove_worker(&self, worker_id: usize) {
-		self.update_stats(worker_id, |ws| ws.is_connected = false);
-		self.workers_list
-			.write()
-			.remove(&worker_id)
-			.expect("Stratum: no such addr in map");
-		self.stratum_stats.write().num_workers = self.workers_list.read().len();
+		if self.workers_list.write().remove(&worker_id).is_some() {
+			self.update_stats(worker_id, |ws| ws.is_connected = false);
+			self.stratum_stats.write().num_workers = self.workers_list.read().len();
+		} else {
+			warn!("Stratum: remove_worker called for unknown id {}", worker_id);
+		}
 	}
 
 	pub fn login(&self, worker_id: usize, login: String, agent: String) -> Result<(), RpcError> {
@@ -1073,6 +1071,31 @@ impl StratumServer {
 		handler.run(&self.config, &self.tx_pool);
 	} // fn run_loop()
 } // StratumServer
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[tokio::test]
+	async fn removing_a_worker_updates_live_stats_and_is_idempotent() {
+		let stratum_stats = Arc::new(RwLock::new(StratumStats::default()));
+		let workers = WorkersList::new(stratum_stats.clone());
+		let (tx, _rx) = mpsc::unbounded();
+		let worker_id = workers.add_worker(tx).await;
+
+		assert_eq!(stratum_stats.read().num_workers, 1);
+		assert!(stratum_stats.read().worker_stats[worker_id].is_connected);
+
+		workers.remove_worker(worker_id);
+		assert_eq!(workers.count(), 0);
+		assert_eq!(stratum_stats.read().num_workers, 0);
+		assert!(!stratum_stats.read().worker_stats[worker_id].is_connected);
+
+		workers.remove_worker(worker_id);
+		assert_eq!(workers.count(), 0);
+		assert_eq!(stratum_stats.read().num_workers, 0);
+	}
+}
 
 // Utility function to parse a JSON RPC parameter object, returning a proper
 // error if things go wrong.

@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use chrono::prelude::{DateTime, Utc};
 use chrono::Duration;
+use rand::seq::SliceRandom;
 
 use crate::chain::{self, SyncState, SyncStatus};
 use crate::core::core::hash::Hash;
@@ -25,12 +26,32 @@ use crate::p2p;
 use epic_p2p::types::MAX_BLOCK_BODIES;
 use epic_p2p::PeerAddr;
 
+const BLOCK_REQUEST_TIMEOUT_SECS: i64 = 6;
+const MAX_CONSECUTIVE_TIMEOUTS: u32 = 3;
+
 pub struct BodySync {
 	chain: Arc<chain::Chain>,
 	peers: Arc<p2p::Peers>,
 	sync_state: Arc<SyncState>,
 	pending_requests: HashMap<Hash, (PeerAddr, DateTime<Utc>)>,
 	hashes_to_get: Vec<Hash>,
+	tried_peers: HashMap<Hash, HashSet<PeerAddr>>,
+	peer_timeouts: HashMap<PeerAddr, u32>,
+}
+
+fn order_peers_for_block<'a>(
+	peers: &[&'a Arc<p2p::Peer>],
+	block_height: u64,
+) -> Vec<&'a Arc<p2p::Peer>> {
+	let (mut have, mut rest): (Vec<_>, Vec<_>) = peers
+		.iter()
+		.copied()
+		.partition(|peer| peer.info.advertised_height() >= block_height);
+	let mut rng = rand::rng();
+	have.shuffle(&mut rng);
+	rest.shuffle(&mut rng);
+	have.extend(rest);
+	have
 }
 
 fn request_window(peer_count: usize, orphan_count: usize) -> usize {
@@ -56,6 +77,8 @@ impl BodySync {
 			chain,
 			pending_requests: HashMap::new(),
 			hashes_to_get: Vec::new(),
+			tried_peers: HashMap::new(),
+			peer_timeouts: HashMap::new(),
 		}
 	}
 
@@ -143,7 +166,10 @@ impl BodySync {
 
 		let completed = to_remove.len();
 		for hash in to_remove {
-			self.pending_requests.remove(&hash);
+			if let Some((addr, _)) = self.pending_requests.remove(&hash) {
+				self.peer_timeouts.remove(&addr);
+			}
+			self.tried_peers.remove(&hash);
 		}
 
 		Ok(completed)
@@ -151,7 +177,7 @@ impl BodySync {
 
 	fn cleanup_stale_block_requests(&mut self) {
 		let now = Utc::now();
-		let timeout = Duration::seconds(10);
+		let timeout = Duration::seconds(BLOCK_REQUEST_TIMEOUT_SECS);
 		let expired = self
 			.pending_requests
 			.iter()
@@ -159,10 +185,19 @@ impl BodySync {
 			.map(|(hash, (peer_addr, _))| (*hash, *peer_addr))
 			.collect::<Vec<_>>();
 		for (hash, peer_addr) in expired {
-			if let Err(e) = self.peers.disconnect_peer(peer_addr) {
-				warn!("Failed to disconnect peer {}: {:?}", peer_addr, e);
-			} else {
-				info!("Disconnected peer {} due to block request timeout", peer_addr);
+			self.tried_peers.entry(hash).or_default().insert(peer_addr);
+			let count = self.peer_timeouts.entry(peer_addr).or_insert(0);
+			*count += 1;
+			if *count >= MAX_CONSECUTIVE_TIMEOUTS {
+				self.peer_timeouts.remove(&peer_addr);
+				if let Err(e) = self.peers.disconnect_peer(peer_addr) {
+					warn!("Failed to disconnect peer {}: {:?}", peer_addr, e);
+				} else {
+					info!(
+						"Disconnected peer {} after {} block request timeouts in a row",
+						peer_addr, MAX_CONSECUTIVE_TIMEOUTS
+					);
+				}
 			}
 			self.pending_requests.remove(&hash);
 			warn!(
@@ -214,6 +249,8 @@ impl BodySync {
 			.drain(..)
 			.filter(|x| !self.chain.get_block(x).is_ok() && !self.chain.is_orphan(x))
 			.collect();
+		let wanted = self.hashes_to_get.iter().collect::<HashSet<_>>();
+		self.tried_peers.retain(|hash, _| wanted.contains(hash));
 		Ok(())
 	}
 
@@ -227,26 +264,49 @@ impl BodySync {
 			return Ok(0);
 		}
 
-		let pending_peers = self
+		let mut busy_peers = self
 			.pending_requests
 			.values()
 			.map(|(addr, _)| *addr)
 			.collect::<HashSet<_>>();
-		let free_peers = peers
-			.iter()
-			.filter(|peer| !pending_peers.contains(&peer.info.addr))
-			.take(open_slots)
-			.collect::<Vec<_>>();
 		let hashes = self
 			.hashes_to_get
 			.iter()
 			.filter(|hash| !self.pending_requests.contains_key(hash))
-			.take(free_peers.len())
+			.take(open_slots)
 			.copied()
 			.collect::<Vec<_>>();
 
+		let mut assignments = vec![];
+		for hash in hashes {
+			let free = peers
+				.iter()
+				.filter(|peer| !busy_peers.contains(&peer.info.addr))
+				.collect::<Vec<_>>();
+			if free.is_empty() {
+				break;
+			}
+			let height = self
+				.chain
+				.get_block_header(&hash)
+				.map(|h| h.height)
+				.unwrap_or(0);
+			let tried = self.tried_peers.get(&hash);
+			let ordered = order_peers_for_block(&free, height);
+			let peer = ordered
+				.iter()
+				.find(|peer| tried.map_or(true, |tried| !tried.contains(&peer.info.addr)))
+				.or_else(|| ordered.first())
+				.copied()
+				.cloned();
+			if let Some(peer) = peer {
+				busy_peers.insert(peer.info.addr);
+				assignments.push((peer, hash));
+			}
+		}
+
 		let mut requested = 0;
-		for (peer, hash) in free_peers.into_iter().zip(hashes) {
+		for (peer, hash) in assignments {
 			if let Err(e) = peer.send_block_request(hash, chain::Options::SYNC) {
 				debug!("Skipped request to {}: {:?}", peer.info.addr, e);
 				peer.stop();
@@ -292,6 +352,7 @@ impl BodySync {
 mod test {
 	use super::*;
 	use crate::core::core::hash::Hashed;
+	use crate::core::pow::Difficulty;
 	use crate::epic::sync::test::TestNode;
 	use crate::p2p::Capabilities;
 
@@ -401,7 +462,7 @@ mod test {
 	}
 
 	#[test]
-	fn timed_out_request_disconnects_without_banning() {
+	fn single_timeout_keeps_peer_and_marks_it_tried() {
 		let node = TestNode::with_outbound_peer(Capabilities::UNKNOWN);
 		node.persist_header_head(1, 100);
 		let hash = node.chain.get_header_by_height(1).unwrap().hash();
@@ -410,14 +471,70 @@ mod test {
 			node.server.peers.clone(),
 			node.chain.clone(),
 		);
-		sync
-			.pending_requests
-			.insert(hash, (node.peer.info.addr, Utc::now() - Duration::seconds(11)));
+		sync.pending_requests.insert(
+			hash,
+			(
+				node.peer.info.addr,
+				Utc::now() - Duration::seconds(BLOCK_REQUEST_TIMEOUT_SECS + 1),
+			),
+		);
 
 		sync.cleanup_stale_block_requests();
 
 		assert!(sync.pending_requests.is_empty());
+		assert!(sync.tried_peers[&hash].contains(&node.peer.info.addr));
+		assert_eq!(sync.peer_timeouts[&node.peer.info.addr], 1);
+		assert!(node
+			.server
+			.peers
+			.outgoing_connected_peers()
+			.iter()
+			.any(|peer| peer.info.addr == node.peer.info.addr));
 		assert!(!node.peer.is_banned());
 		assert!(!node.server.peers.is_banned(node.peer.info.addr));
+	}
+
+	#[test]
+	fn block_request_prefers_peer_that_advertises_the_block() {
+		let mut node = TestNode::with_outbound_peer(Capabilities::UNKNOWN);
+		let ahead = node.add_outbound_peer(Capabilities::UNKNOWN);
+		node.persist_header_head(1, 100);
+		ahead
+			.info
+			.update_advertised_tip(1, Difficulty::from_num(100), 0);
+		let hash = node.chain.get_header_by_height(1).unwrap().hash();
+		let mut sync = BodySync::new(
+			Arc::new(SyncState::new()),
+			node.server.peers.clone(),
+			node.chain.clone(),
+		);
+		sync.hashes_to_get = vec![hash];
+
+		let peers = node.server.peers.outgoing_connected_peers();
+		assert_eq!(sync.request_blocks_from_peers(&peers).unwrap(), 1);
+		assert_eq!(sync.pending_requests[&hash].0, ahead.info.addr);
+	}
+
+	#[test]
+	fn retry_goes_to_a_peer_that_has_not_timed_out_on_the_block() {
+		let mut node = TestNode::with_outbound_peer(Capabilities::UNKNOWN);
+		let other = node.add_outbound_peer(Capabilities::UNKNOWN);
+		node.persist_header_head(1, 100);
+		let hash = node.chain.get_header_by_height(1).unwrap().hash();
+		let mut sync = BodySync::new(
+			Arc::new(SyncState::new()),
+			node.server.peers.clone(),
+			node.chain.clone(),
+		);
+		sync.hashes_to_get = vec![hash];
+		sync
+			.tried_peers
+			.entry(hash)
+			.or_default()
+			.insert(node.peer.info.addr);
+
+		let peers = node.server.peers.outgoing_connected_peers();
+		assert_eq!(sync.request_blocks_from_peers(&peers).unwrap(), 1);
+		assert_eq!(sync.pending_requests[&hash].0, other.info.addr);
 	}
 }

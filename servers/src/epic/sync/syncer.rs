@@ -89,7 +89,7 @@ fn header_batch_start(header_height: u64, offset: u8) -> u64 {
 
 fn header_batch_preserves_window(
 	start_height: u64,
-	highest_height: u64,
+	peer_height: u64,
 	headers_len: usize,
 ) -> bool {
 	let max_headers = p2p::MAX_BLOCK_HEADERS as usize;
@@ -97,8 +97,8 @@ fn header_batch_preserves_window(
 		|| (headers_len > 0
 			&& headers_len < max_headers
 			&& start_height
-				.saturating_add(p2p::MAX_BLOCK_HEADERS as u64 - 1)
-				> highest_height)
+				.saturating_add(headers_len as u64 - 1)
+				>= peer_height)
 }
 
 fn next_header_offset(
@@ -169,6 +169,20 @@ fn should_enter_headersync(
 		SyncStatus::NoSync | SyncStatus::Initial | SyncStatus::AwaitingPeers(_)
 	) && most_work_height > header_height
 		&& !validating
+}
+
+fn sync_loop_sleep_duration(status: SyncStatus, needs_syncing: bool) -> time::Duration {
+	if needs_syncing {
+		return time::Duration::from_millis(100);
+	}
+
+	match status {
+		SyncStatus::HeaderSync { .. }
+		| SyncStatus::Initial
+		| SyncStatus::AwaitingPeers(_)
+		| SyncStatus::BodySync { .. } => time::Duration::from_millis(100),
+		_ => time::Duration::from_secs(10),
+	}
 }
 
 fn header_sync_peer_eligible(
@@ -382,15 +396,8 @@ impl SyncRunner {
 				};
 			}
 
-			let sleep_duration = match self.sync_state.status() {
-				SyncStatus::HeaderSync { .. }
-				| SyncStatus::Initial
-				| SyncStatus::AwaitingPeers(_) => {
-					time::Duration::from_millis(100)
-				}
-				SyncStatus::BodySync { .. } => time::Duration::from_millis(100),
-				_ => time::Duration::from_secs(10),
-			};
+			let sleep_duration =
+				sync_loop_sleep_duration(self.sync_state.status(), needs_syncing);
 
 			// Quick short-circuit (and a decent sleep) if no syncing is needed
 			let mut needs_headersync = false;
@@ -582,14 +589,15 @@ impl SyncRunner {
 				let peer_addr = batch.peer.info.addr;
 				if !header_batch_preserves_window(
 					next_height,
-					highest_network_height,
+					batch.peer.info.advertised_height(),
 					batch.headers.len(),
 				) {
 					warn!(
-						"sync: rejecting incomplete non-terminal header batch from {} at {}: received {}, expected {}",
+						"sync: rejecting incomplete non-terminal header batch from {} at {}: received {}, peer advertises {}, expected {}",
 						peer_addr,
 						next_height,
 						batch.headers.len(),
+						batch.peer.info.advertised_height(),
 						p2p::MAX_BLOCK_HEADERS
 					);
 					batch.peer.stop();
@@ -1268,7 +1276,7 @@ mod test {
 	}
 
 	#[test]
-	fn short_leading_batch_cannot_shift_header_window() {
+	fn short_header_batch_must_reach_the_responding_peer_tip() {
 		let header_height = 100;
 		let first_start = header_batch_start(header_height, 0);
 		let second_start = header_batch_start(header_height, 1);
@@ -1283,6 +1291,7 @@ mod test {
 			second_start,
 			p2p::MAX_BLOCK_HEADERS as usize,
 		));
+		assert!(header_batch_preserves_window(first_start, first_start, 1));
 		assert!(header_batch_preserves_window(
 			first_start,
 			first_start + 15,
@@ -1415,6 +1424,18 @@ mod test {
 			50,
 			false
 		));
+	}
+
+	#[test]
+	fn detected_sync_work_bypasses_the_idle_no_sync_delay() {
+		assert_eq!(
+			sync_loop_sleep_duration(SyncStatus::NoSync, true),
+			std::time::Duration::from_millis(100)
+		);
+		assert_eq!(
+			sync_loop_sleep_duration(SyncStatus::NoSync, false),
+			std::time::Duration::from_secs(10)
+		);
 	}
 
 	#[test]

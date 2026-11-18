@@ -944,6 +944,10 @@ where
 			// If we received the block from another node then broadcast "header first"
 			// to minimize network traffic.
 			if opts.contains(Options::MINE) {
+				// Header first, then the compact block. Unpatched 4.x peers only
+				// accept a compact block from a peer whose header they have seen, so a
+				// bare compact block from the miner was dropped by all of them.
+				self.peers().broadcast_header(&b.header);
 				// propagate compact block out if we mined the block
 				let cb: CompactBlock = b.clone().into();
 				self.peers().broadcast_compact_block(&cb);

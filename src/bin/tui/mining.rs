@@ -349,7 +349,11 @@ impl TUIStatusListener for TUIMiningView {
 		// 	2,
 		// 	stratum_stats.network_hashrate(stratum_stats.block_height)
 		// );
-		let worker_stats = stratum_stats.worker_stats;
+		let worker_stats = stratum_stats
+			.worker_stats
+			.into_iter()
+			.filter(|worker| worker.is_connected)
+			.collect::<Vec<_>>();
 		let stratum_enabled = format!("Mining server enabled: {}", stratum_stats.is_enabled);
 		let stratum_is_running = format!("Mining server running: {}", stratum_stats.is_running);
 		let stratum_num_workers = format!("Number of workers:     {}", stratum_stats.num_workers);
