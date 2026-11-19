@@ -31,6 +31,7 @@ use crate::util::StopState;
 
 struct FastsyncHeaderBatch {
 	peer: Arc<p2p::Peer>,
+	requested_peer_height: u64,
 	headers: Vec<BlockHeader>,
 }
 
@@ -38,6 +39,7 @@ struct PendingHeaderSync {
 	sync: HeaderSync,
 	expected_height: u64,
 	peer: Arc<p2p::Peer>,
+	requested_peer_height: u64,
 }
 
 //TODO: (Biz) change the name of this function maybe? It's imprecise now that we 
@@ -69,6 +71,7 @@ fn queue_completed_header_batch(
 		pending.expected_height,
 		FastsyncHeaderBatch {
 			peer: pending.peer,
+			requested_peer_height: pending.requested_peer_height,
 			headers,
 		},
 	);
@@ -87,18 +90,21 @@ fn header_batch_start(header_height: u64, offset: u8) -> u64 {
 		.saturating_add(1)
 }
 
+// A full batch preserves the fixed offset grid. A short batch is terminal only
+// when its actual last header reaches the peer height captured for the request.
 fn header_batch_preserves_window(
 	start_height: u64,
-	highest_height: u64,
+	peer_height: u64,
 	headers_len: usize,
 ) -> bool {
 	let max_headers = p2p::MAX_BLOCK_HEADERS as usize;
 	headers_len == max_headers
 		|| (headers_len > 0
 			&& headers_len < max_headers
+			&& peer_height >= start_height
 			&& start_height
-				.saturating_add(p2p::MAX_BLOCK_HEADERS as u64 - 1)
-				> highest_height)
+				.saturating_add(headers_len as u64 - 1)
+				>= peer_height)
 }
 
 fn next_header_offset(
@@ -514,6 +520,7 @@ impl SyncRunner {
 					);
 					if let Some(offset) = request_offset {
 						let expected_height = header_batch_start(header_head.height, offset);
+						let requested_peer_height = peer.info.advertised_height();
 						let mut header_sync = HeaderSync::new(
 							self.sync_state.clone(),
 							self.peers.clone(),
@@ -532,6 +539,7 @@ impl SyncRunner {
 										sync: header_sync,
 										expected_height,
 										peer: peer.clone(),
+										requested_peer_height,
 									},
 								);
 							}
@@ -544,6 +552,7 @@ impl SyncRunner {
 									expected_height,
 									FastsyncHeaderBatch {
 										peer: peer.clone(),
+										requested_peer_height,
 										headers,
 									},
 								);
@@ -564,14 +573,15 @@ impl SyncRunner {
 				let peer_addr = batch.peer.info.addr;
 				if !header_batch_preserves_window(
 					next_height,
-					highest_network_height,
+					batch.requested_peer_height,
 					batch.headers.len(),
 				) {
 					warn!(
-						"sync: rejecting incomplete non-terminal header batch from {} at {}: received {}, expected {}",
+						"sync: rejecting incomplete non-terminal header batch from {} at {}: received {}, peer advertised {} when requested, expected {}",
 						peer_addr,
 						next_height,
 						batch.headers.len(),
+						batch.requested_peer_height,
 						p2p::MAX_BLOCK_HEADERS
 					);
 					batch.peer.stop();
@@ -1213,26 +1223,31 @@ mod test {
 	}
 
 	#[test]
-	fn short_leading_batch_cannot_shift_header_window() {
-		let header_height = 100;
-		let first_start = header_batch_start(header_height, 0);
-		let second_start = header_batch_start(header_height, 1);
+	fn short_header_batch_must_reach_the_responding_peer_tip() {
+		let start = header_batch_start(100, 0);
+		let max_headers = p2p::MAX_BLOCK_HEADERS as usize;
 
+		assert!(!header_batch_preserves_window(start, start, 0));
+		assert!(!header_batch_preserves_window(start, start - 1, 1));
+		assert!(header_batch_preserves_window(start, u64::MAX, max_headers));
 		assert!(!header_batch_preserves_window(
-			first_start,
-			second_start,
-			1,
+			start,
+			start + max_headers as u64,
+			max_headers + 1,
 		));
-		assert!(header_batch_preserves_window(
-			first_start,
-			second_start,
-			p2p::MAX_BLOCK_HEADERS as usize,
-		));
-		assert!(header_batch_preserves_window(
-			first_start,
-			first_start + 15,
-			16,
-		));
+		for headers_len in 1..max_headers {
+			let last_header = start + headers_len as u64 - 1;
+			assert!(header_batch_preserves_window(
+				start,
+				last_header,
+				headers_len,
+			));
+			assert!(!header_batch_preserves_window(
+				start,
+				last_header + 1,
+				headers_len,
+			));
+		}
 	}
 
 	#[test]
@@ -1559,6 +1574,7 @@ mod test {
 			second,
 			FastsyncHeaderBatch {
 				peer: node.peer.clone(),
+				requested_peer_height: node.peer.info.advertised_height(),
 				headers: vec![BlockHeader::default()],
 			},
 		);
@@ -1583,6 +1599,7 @@ mod test {
 			),
 			expected_height,
 			peer: node.peer.clone(),
+			requested_peer_height: node.peer.info.advertised_height(),
 		};
 		let mut wrong = BlockHeader::default();
 		wrong.height = expected_height + 1;
