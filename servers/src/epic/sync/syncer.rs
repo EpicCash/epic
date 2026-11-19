@@ -40,7 +40,7 @@ struct PendingHeaderSync {
 	peer: Arc<p2p::Peer>,
 }
 
-//TODO: (Biz) change the name of this function maybe? It's imprecise now that we 
+//TODO: (Biz) change the name of this function maybe? It's imprecise now that we
 // use `SyncStatus::Initial` more than one place. It's now a restart sanity state
 fn resume_sync_after_peer_wait(sync_state: &SyncState) {
 	if matches!(sync_state.status(), SyncStatus::AwaitingPeers(_)) {
@@ -89,7 +89,7 @@ fn header_batch_start(header_height: u64, offset: u8) -> u64 {
 
 fn header_batch_preserves_window(
 	start_height: u64,
-	highest_height: u64,
+	peer_height: u64,
 	headers_len: usize,
 ) -> bool {
 	let max_headers = p2p::MAX_BLOCK_HEADERS as usize;
@@ -97,8 +97,28 @@ fn header_batch_preserves_window(
 		|| (headers_len > 0
 			&& headers_len < max_headers
 			&& start_height
-				.saturating_add(p2p::MAX_BLOCK_HEADERS as u64 - 1)
-				> highest_height)
+				.saturating_add(headers_len as u64 - 1)
+				>= peer_height)
+}
+
+fn header_batch_fits_peer_tip(next_height: u64, batch: &FastsyncHeaderBatch) -> bool {
+	if header_batch_preserves_window(
+		next_height,
+		batch.peer.info.advertised_height(),
+		batch.headers.len(),
+	) {
+		return true;
+	}
+	warn!(
+		"sync: rejecting incomplete non-terminal header batch from {} at {}: received {}, peer advertises {}, expected {}",
+		batch.peer.info.addr,
+		next_height,
+		batch.headers.len(),
+		batch.peer.info.advertised_height(),
+		p2p::MAX_BLOCK_HEADERS
+	);
+	batch.peer.stop();
+	false
 }
 
 fn next_header_offset(
@@ -562,19 +582,7 @@ impl SyncRunner {
 				take_next_header_batch(&mut fastsync_header_queue, next_height)
 			{
 				let peer_addr = batch.peer.info.addr;
-				if !header_batch_preserves_window(
-					next_height,
-					highest_network_height,
-					batch.headers.len(),
-				) {
-					warn!(
-						"sync: rejecting incomplete non-terminal header batch from {} at {}: received {}, expected {}",
-						peer_addr,
-						next_height,
-						batch.headers.len(),
-						p2p::MAX_BLOCK_HEADERS
-					);
-					batch.peer.stop();
+				if !header_batch_fits_peer_tip(next_height, &batch) {
 					header_syncs.retain(|_, pending| !Arc::ptr_eq(&pending.peer, &batch.peer));
 					fastsync_header_queue
 						.retain(|_, queued| !Arc::ptr_eq(&queued.peer, &batch.peer));
@@ -657,7 +665,7 @@ impl SyncRunner {
 					// if we are done with txhashset sync, we can start header sync
 					// reset sync head to header_head
 					// and start header sync
-					let sync_head = 
+					let sync_head =
 						unwrap_or_restart_loop!(self.chain.get_sync_head());
 					info!(
 						"Check transition to HeaderSync. Head {} at {}, resetting to: {} at {}",
@@ -1233,6 +1241,85 @@ mod test {
 			first_start + 15,
 			16,
 		));
+	}
+
+	#[test]
+	fn short_batch_cannot_rewind_sync_head_onto_a_competing_branch() {
+		let node = TestNode::with_outbound_peer(Capabilities::HEADER_FASTSYNC);
+		let head_height = 100;
+		node.persist_header_head(head_height, 100_000);
+		let original_head = node.chain.get_sync_head().unwrap();
+
+		// The body is caught up too, so without a rewind the node stays in NoSync.
+		let body_tip = node.chain.header_head().unwrap();
+		let store = node.chain.store();
+		let store_batch = store.batch().unwrap();
+		store_batch.save_body_head(&body_tip).unwrap();
+		store_batch.commit().unwrap();
+
+		// Peer advertises 116 but supplies only one header. The old global-window
+		// check accepted this batch; the fix requires reaching the peer's tip.
+		node.peer.info.update_advertised_tip(
+			head_height + 16,
+			Difficulty::from_num(300_000),
+			0,
+		);
+		let sync_state = Arc::new(SyncState::new());
+		sync_state.update(SyncStatus::NoSync);
+		let runner = SyncRunner::new(
+			sync_state,
+			node.server.peers.clone(),
+			node.chain.clone(),
+			Arc::new(StopState::new()),
+		);
+		assert!(
+			!runner.needs_syncing().unwrap().0,
+			"node should be idle before the short batch"
+		);
+
+		// The sync PMMR only holds genesis here, so its root is the single-leaf MMR root.
+		let genesis_root = {
+			let handle = node.chain.header_pmmr();
+			let handle = handle.read();
+			crate::core::core::pmmr::ReadonlyPMMR::at(&handle.backend, 1).root()
+		};
+		let genesis_hash = node.chain.get_header_by_height(0).unwrap().hash();
+
+		// Competing header at height 1 with more work. Accepting it rewinds
+		// sync_head from 100 all the way back to this branch.
+		let mut competing = node.chain.get_header_by_height(1).unwrap();
+		competing.pow.seed.copy_from_slice(genesis_hash.as_bytes());
+		competing.pow.proof = crate::core::pow::Proof::RandomXProof { hash: [9u8; 32] };
+		competing.pow.total_difficulty = Difficulty::from_num(200_000);
+		competing.prev_root = genesis_root;
+
+		let batch = FastsyncHeaderBatch {
+			peer: node.peer.clone(),
+			headers: vec![competing],
+		};
+
+		if header_batch_fits_peer_tip(head_height + 1, &batch) {
+			node.chain
+				.sync_block_headers(&batch.headers, chain::Options::SKIP_POW)
+				.unwrap();
+
+			// The rewind makes needs_syncing report work again, and the rewound
+			// header height becomes the network tip that sync_loop uses to
+			// declare header sync complete and switch to BodySync.
+			let (needs_syncing, most_work_height, _) = runner.needs_syncing().unwrap();
+			assert!(needs_syncing, "rewind should resume syncing");
+			let header_height = node.chain.header_head().unwrap().height;
+			assert_eq!(
+				most_work_height, header_height,
+				"rewound tip would be treated as the network tip"
+			);
+		}
+
+		assert_eq!(
+			node.chain.get_sync_head().unwrap().last_block_h,
+			original_head.last_block_h,
+			"sync_head was rewound onto the competing branch"
+		);
 	}
 
 	#[test]
