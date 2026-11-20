@@ -216,10 +216,13 @@ fn monitor_peers(
 	);
 
 	// Clean up peers as before
-	peers.clean_peers(
-		config.peer_max_inbound_count() as usize,
-		config.peer_max_outbound_count() as usize,
-	);
+	let excluded = peers
+		.clean_peers(
+			config.peer_max_inbound_count() as usize,
+			config.peer_max_outbound_count() as usize,
+		)
+		.into_iter()
+		.collect::<HashSet<_>>();
 
 	if peers.peer_outbound_count() >= config.peer_max_outbound_count() {
 		return;
@@ -233,6 +236,7 @@ fn monitor_peers(
 	for addr in connection_candidates(
 		stored_peers,
 		&connected,
+		&excluded,
 		preferred_peers.unwrap_or(&[]),
 		MAX_OUTBOUND_CANDIDATES,
 	) {
@@ -244,6 +248,7 @@ fn monitor_peers(
 fn connection_candidates(
 	mut stored_peers: Vec<p2p::PeerData>,
 	connected: &HashSet<PeerAddr>,
+	excluded: &HashSet<PeerAddr>,
 	preferred_peers: &[PeerAddr],
 	limit: usize,
 ) -> Vec<PeerAddr> {
@@ -278,7 +283,12 @@ fn connection_candidates(
 				})
 				.map(|peer| peer.addr),
 		)
-		.filter(|addr| !connected.contains(addr) && !banned.contains(addr) && seen.insert(*addr))
+		.filter(|addr| {
+			!connected.contains(addr)
+				&& !excluded.contains(addr)
+				&& !banned.contains(addr)
+				&& seen.insert(*addr)
+		})
 		.collect::<Vec<_>>()
 		.into_iter();
 	let mut unverified = stored_peers
@@ -288,7 +298,12 @@ fn connection_candidates(
 				|| (peer.flags == p2p::State::Defunct && peer.last_connected == 0)
 		})
 		.map(|peer| peer.addr)
-		.filter(|addr| !connected.contains(addr) && !banned.contains(addr) && seen.insert(*addr))
+		.filter(|addr| {
+			!connected.contains(addr)
+				&& !excluded.contains(addr)
+				&& !banned.contains(addr)
+				&& seen.insert(*addr)
+		})
 		.collect::<Vec<_>>()
 		.into_iter();
 
@@ -582,6 +597,7 @@ mod tests {
 				untried.clone(),
 			],
 			&connected_addrs,
+			&HashSet::new(),
 			&[preferred, banned.addr],
 			10,
 		);
@@ -614,8 +630,27 @@ mod tests {
 		let unknown = peer(11, p2p::State::Unknown, p2p::Capabilities::UNKNOWN, 0);
 		stored.push(unknown.clone());
 
-		let candidates = connection_candidates(stored, &HashSet::new(), &[], 10);
+		let candidates =
+			connection_candidates(stored, &HashSet::new(), &HashSet::new(), &[], 10);
 
 		assert!(candidates[..5].contains(&unknown.addr));
+	}
+
+	#[test]
+	fn maintenance_excludes_inbound_peers_trimmed_in_same_pass() {
+		let trimmed = peer(1, p2p::State::Healthy, p2p::Capabilities::FULL_NODE, 10);
+		let available = peer(2, p2p::State::Healthy, p2p::Capabilities::FULL_NODE, 20);
+		let excluded = HashSet::from([trimmed.addr]);
+
+		let candidates = connection_candidates(
+			vec![trimmed.clone(), available.clone()],
+			&HashSet::new(),
+			&excluded,
+			&[],
+			10,
+		);
+
+		assert!(!candidates.contains(&trimmed.addr));
+		assert!(candidates.contains(&available.addr));
 	}
 }
