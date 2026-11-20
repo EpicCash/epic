@@ -356,7 +356,7 @@ impl SyncRunner {
 			let has_synstatus = self.sync_state.is_syncing();
 
 			// Check whether syncing is generally needed by comparing our state with others
-			let (needs_syncing, most_work_height, target_peer) = unwrap_or_restart_loop!(
+			let (needs_syncing, most_work_height, mut target_peer) = unwrap_or_restart_loop!(
 				self.needs_syncing_with_pending(!header_syncs.is_empty())
 			);
 
@@ -414,6 +414,32 @@ impl SyncRunner {
 			}
 
 			thread::sleep(sleep_duration);
+
+			// start BodySync grace period fix
+			// this serves the purpose of ensuring we don't needlessly enter BodySync
+			// when we are already at chaintip, and experiencing header-first propagation
+			// that is normal and expected.
+			if matches!(self.sync_state.status(), SyncStatus::NoSync) {
+				let (refreshed_height, refreshed_peer) = match unwrap_or_restart_loop!(
+					self.refresh_no_sync_decision(!header_syncs.is_empty())
+				) {
+					Some(decision) => decision,
+					None => continue,
+				};
+				if refreshed_height > 0 {
+					let active_window =
+						!header_syncs.is_empty() || !fastsync_header_queue.is_empty();
+					highest_network_height = if active_window {
+						std::cmp::max(highest_network_height, refreshed_height)
+					} else {
+						refreshed_height
+					};
+				}
+				target_peer = refreshed_peer;
+				needs_headersync = refreshed_height
+					> unwrap_or_restart_loop!(self.chain.header_head()).height;
+			}
+                        // end BodySync grace period fix
 
 			// If syncing is needed
 			let head = unwrap_or_restart_loop!(self.chain.head());
@@ -776,6 +802,15 @@ impl SyncRunner {
 	#[cfg(test)]
 	fn needs_syncing(&self) -> Result<(bool, u64, Option<std::net::SocketAddr>), chain::Error> {
 		self.needs_syncing_with_pending(false)
+	}
+
+	fn refresh_no_sync_decision(
+		&self,
+		header_request_pending: bool,
+	) -> Result<Option<(u64, Option<std::net::SocketAddr>)>, chain::Error> {
+		let (needs_syncing, height, peer) =
+			self.needs_syncing_with_pending(header_request_pending)?;
+		Ok(if needs_syncing { Some((height, peer)) } else { None })
 	}
 
 	fn needs_syncing_with_pending(
@@ -1301,6 +1336,31 @@ mod test {
 		assert!(needs_syncing);
 		assert_eq!(height, 512);
 		assert!(peer.is_none());
+		assert_eq!(sync_state.status(), SyncStatus::NoSync);
+	}
+
+	#[test]
+	fn no_sync_rechecks_local_state_after_grace_period() {
+		let node = TestNode::with_outbound_peer(Capabilities::HEADER_FASTSYNC);
+		node.persist_header_head(1, 100);
+		let sync_state = Arc::new(SyncState::new());
+		sync_state.update(SyncStatus::NoSync);
+		let runner = SyncRunner::new(
+			sync_state.clone(),
+			node.server.peers.clone(),
+			node.chain.clone(),
+			Arc::new(StopState::new()),
+		);
+
+		assert_eq!(runner.refresh_no_sync_decision(false).unwrap(), Some((1, None)));
+
+		let header_head = node.chain.header_head().unwrap();
+		let store = node.chain.store();
+		let batch = store.batch().unwrap();
+		batch.save_body_head(&header_head).unwrap();
+		batch.commit().unwrap();
+
+		assert_eq!(runner.refresh_no_sync_decision(false).unwrap(), None);
 		assert_eq!(sync_state.status(), SyncStatus::NoSync);
 	}
 
