@@ -41,6 +41,19 @@ const FLOONET_DNS_SEEDS: &'static [&'static str] = &["floonet.epiccash.com"]; //
 const MAX_OUTBOUND_CANDIDATES: usize = 128;
 const MAX_OUTBOUND_CONNECTION_ATTEMPTS: usize = 10;
 const PROVEN_PEERS_PER_DISCOVERY_ATTEMPT: usize = 4;
+const SEED_RETRY_INTERVAL_SECS: i64 = 30;
+
+fn should_retry_seeds(
+	outbound_count: u32,
+	min_outbound_count: u32,
+	since_last_retry: Option<Duration>,
+) -> bool {
+	outbound_count < cmp::max(1, min_outbound_count)
+		&& since_last_retry.map_or(true, |elapsed| {
+			elapsed >= Duration::seconds(SEED_RETRY_INTERVAL_SECS)
+		})
+}
+
 pub fn connect_and_monitor(
 	p2p_server: Arc<p2p::Server>,
 	capabilities: p2p::Capabilities,
@@ -52,7 +65,6 @@ pub fn connect_and_monitor(
 		.name("seed".to_string())
 		.spawn(move || {
 			let peers = p2p_server.peers.clone();
-			let sl = seed_list();
 
 			// open a channel with a listener that connects every peer address sent below
 			let (tx, rx) = mpsc::channel();
@@ -63,6 +75,7 @@ pub fn connect_and_monitor(
 			let mut start_attempt = 0;
 			let mut connecting_history: HashMap<PeerAddr, DateTime<Utc>> = HashMap::new();
 			let mut prev_peer_request = Utc::now().naive_utc();
+			let mut prev_seed_retry = None;
 			//prepare all peers
 			for peer in peers.all_peers() {
 				// Unban peer if it was banned with no reason
@@ -108,16 +121,20 @@ pub fn connect_and_monitor(
 					prev_expire_check = Utc::now().naive_utc();
 				}
 
-				// Try to connect to the remote seeds
-				// This helps when the remote seed servers are down during startup
-				if peers.peer_count() == 0 {
+				// Refresh bootstrap addresses while outbound connectivity is insufficient.
+				let now = Utc::now().naive_utc();
+				if should_retry_seeds(
+					peers.peer_outbound_count(),
+					p2p_server.config.peer_min_preferred_outbound_count(),
+					prev_seed_retry.map(|last| now - last),
+				) {
 					connect_to_seeds_and_preferred_peers(
 						tx.clone(),
-						sl.clone(),
+						seed_list(),
 						preferred_peers.clone(),
 					);
-					start_attempt = 0; // reset start attempt after connecting to seeds
-					thread::sleep(time::Duration::from_secs(10));
+					prev_seed_retry = Some(now);
+					start_attempt = 0;
 				}
 
 				// make several attempts to get peers as quick as possible
@@ -449,7 +466,8 @@ fn listen_for_addrs(
 						let _ = peers_c.save_peer(&peer);
 					}
 				}
-				Err(_) => {
+				Err(e) => {
+					debug!("Failed to connect to peer {}: {:?}", addr, e);
 					if let Some(mut peer) = peers_c.get_peer(addr).ok() {
 						peer.last_connected = Utc::now().timestamp();
 						let _ = peers_c.save_peer(&peer);
@@ -512,7 +530,7 @@ pub fn dns_seeds() -> Box<dyn Fn() -> Vec<PeerAddr> + Send> {
 				),
 				Err(e) => warn!("Failed to resolve seed {:?} got error {:?}", dns_seed, e),
 			}
-			info!("Retrieved seed addresses: {}", addr_str);
+			info!("Retrieved seed addresses from {}: {:?}", dns_seed, addresses);
 		}
 		addresses
 	})
@@ -526,9 +544,10 @@ pub fn predefined_seeds(addrs: Vec<PeerAddr>) -> Box<dyn Fn() -> Vec<PeerAddr> +
 
 #[cfg(test)]
 mod tests {
-	use super::{connection_candidates, outbound_attempt_budget};
+	use super::{connection_candidates, outbound_attempt_budget, should_retry_seeds};
 	use crate::p2p;
 	use crate::p2p::types::PeerAddr;
+	use chrono::Duration;
 	use std::collections::HashSet;
 
 	fn peer(
@@ -555,6 +574,20 @@ mod tests {
 		assert_eq!(outbound_attempt_budget(4, 4, false), 0);
 		assert_eq!(outbound_attempt_budget(3, 128, false), 10);
 		assert_eq!(outbound_attempt_budget(3, 128, true), 125);
+	}
+
+	#[test]
+	fn seed_retry_depends_on_outbound_sufficiency_and_interval() {
+		assert!(should_retry_seeds(0, 4, None));
+		assert!(should_retry_seeds(0, 0, None));
+		assert!(!should_retry_seeds(1, 0, None));
+		assert!(!should_retry_seeds(4, 4, None));
+		assert!(!should_retry_seeds(
+			1,
+			4,
+			Some(Duration::seconds(29))
+		));
+		assert!(should_retry_seeds(1, 4, Some(Duration::seconds(30))));
 	}
 
 	#[test]
