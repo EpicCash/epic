@@ -99,7 +99,13 @@ pub struct TxStats {
 /// Struct to return relevant information about stratum workers
 #[derive(Clone, Serialize, Debug)]
 pub struct WorkerStats {
-	/// Unique ID for this worker
+	/// Internal session ID, used to associate stats with a connected worker.
+	#[serde(skip)]
+	pub session_id: usize,
+	/// Whether this logged-in worker should retain stats after disconnecting.
+	#[serde(skip)]
+	pub retain_on_disconnect: bool,
+	/// Worker name displayed by the TUI and returned by the Stratum status API.
 	pub id: String,
 	/// whether stratum worker is currently connected
 	pub is_connected: bool,
@@ -270,6 +276,8 @@ impl PeerStats {
 impl Default for WorkerStats {
 	fn default() -> WorkerStats {
 		WorkerStats {
+			session_id: 0,
+			retain_on_disconnect: false,
 			id: String::from("unknown"),
 			is_connected: false,
 			last_seen: SystemTime::now(),
