@@ -872,7 +872,7 @@ impl SyncRunner {
 		if !matches!(status, SyncStatus::HeaderSync { .. })
 			&& header_head.total_difficulty.clone() > local_diff.clone()
 		{
-			debug!(
+			trace!(
 				"sync: local header head at {} is ahead of body head at {}, keeping sync active",
 				header_height, local_head.height
 			);
