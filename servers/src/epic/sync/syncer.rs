@@ -900,7 +900,7 @@ impl SyncRunner {
 					"sync: no fresh ahead outbound advertisement is available for genesis HeaderSync"
 				);
 			} else {
-				debug!(
+				trace!(
 					"sync: no outbound peer has demonstrated enough work to leave NoSync"
 				);
 			}
