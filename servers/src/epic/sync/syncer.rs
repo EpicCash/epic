@@ -50,6 +50,23 @@ fn resume_sync_after_peer_wait(sync_state: &SyncState) {
 	}
 }
 
+fn no_sync_can_await_block_relay(
+	chain: &chain::Chain,
+	head: &chain::Tip,
+	header_head: &chain::Tip,
+) -> bool {
+	if header_head.last_block_h == head.last_block_h {
+		return true;
+	}
+	if header_head.height != head.height.saturating_add(1) {
+		return false;
+	}
+	chain
+		.get_block_header(&header_head.last_block_h)
+		.map(|header| header.prev_hash == head.last_block_h)
+		.unwrap_or(false)
+}
+
 fn queue_completed_header_batch(
 	peers: &p2p::Peers,
 	pending: PendingHeaderSync,
@@ -731,6 +748,18 @@ impl SyncRunner {
 				}
 
 				_ => {
+					// A new block is relayed header first, then as a compact block. The
+					// header handler already requests that compact block from its sender,
+					// so keep NoSync while that single direct child is in flight.
+					if self.sync_state.status() == SyncStatus::NoSync
+						&& no_sync_can_await_block_relay(&self.chain, &head, &header_head)
+					{
+						debug!(
+							"sync: keeping NoSync for header-first relay gap {}/{}",
+							head.height, header_head.height
+						);
+						continue;
+					}
 					if header_head.height >= highest_network_height {
 						// Header-Synchronisierung abgeschlossen
 
@@ -1279,6 +1308,34 @@ mod test {
 		assert!(needs_syncing);
 		assert_eq!(target, 1024);
 		assert_eq!(selected, Some(node.peer.info.addr.0));
+	}
+
+	#[test]
+	fn no_sync_awaits_a_single_relayed_block() {
+		let node = TestNode::with_outbound_peer(Capabilities::HEADER_FASTSYNC);
+		let head = node.chain.head().unwrap();
+		let header_head = node.chain.header_head().unwrap();
+		assert!(no_sync_can_await_block_relay(
+			&node.chain,
+			&head,
+			&header_head,
+		));
+
+		node.persist_header_head(1, 100_000);
+		let header_head = node.chain.header_head().unwrap();
+		assert!(no_sync_can_await_block_relay(
+			&node.chain,
+			&head,
+			&header_head,
+		));
+
+		node.persist_header_head(2, 100_001);
+		let header_head = node.chain.header_head().unwrap();
+		assert!(!no_sync_can_await_block_relay(
+			&node.chain,
+			&head,
+			&header_head,
+		));
 	}
 
 	#[test]
