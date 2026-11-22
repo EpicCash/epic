@@ -86,6 +86,12 @@ pub struct Status {
 	pub user_agent: String,
 	// The current number of connections
 	pub connections: u32,
+	// The current number of inbound connections
+	#[serde(default)]
+	pub connections_inbound: u32,
+	// The current number of outbound connections
+	#[serde(default)]
+	pub connections_outbound: u32,
 	// The state of the current fork Tip
 	pub tip: Tip,
 	// The current sync status
@@ -106,6 +112,8 @@ impl Status {
 	pub fn from_tip_and_peers(
 		current_tip: chain::Tip,
 		connections: u32,
+		connections_inbound: u32,
+		connections_outbound: u32,
 		sync_status: String,
 		sync_info: Option<serde_json::Value>,
 		supply: u64,
@@ -116,6 +124,8 @@ impl Status {
 			protocol_version: ser::ProtocolVersion::local().into(),
 			user_agent: p2p::msg::USER_AGENT.to_string(),
 			connections,
+			connections_inbound,
+			connections_outbound,
 			tip: Tip::from_tip(current_tip),
 			sync_status,
 			sync_info,

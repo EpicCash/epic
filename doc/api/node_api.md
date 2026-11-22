@@ -471,7 +471,9 @@ Returns various information about the node and the network
     |:-------------------|:---------|:--------------------------------------------------------------|
     | protocol_version   | number   | The node protocol version                                     |
     | user_agent         | number   | The node user agent                                           |
-    | connections        | number   | The current number of connections                             |
+    | connections        | number   | The current total number of connections                       |
+    | connections_inbound | number  | The current number of inbound connections                     |
+    | connections_outbound | number | The current number of outbound connections                    |
     | tip                | object   | The state of the current fork tip                             |
     | height             | number   | Height of the tip (max height of the fork)                    |
     | last_block_pushed  | string   | Last block pushed to the fork                                 |

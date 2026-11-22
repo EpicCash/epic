@@ -62,10 +62,21 @@ impl StatusHandler {
 		let next_halving = blocks_to_next_halving(head.height);
 		let supply = fast_total_supply(head.height); // <-- Use the optimized function
 		let max_supply = 21_000_000; // or whatever your max is
+		let peers = w(&self.peers)?.connected_peers();
+		let connections_inbound = peers
+			.iter()
+			.filter(|peer| peer.info.is_inbound())
+			.count() as u32;
+		let connections_outbound = peers
+			.iter()
+			.filter(|peer| peer.info.is_outbound())
+			.count() as u32;
 
 		Ok(Status::from_tip_and_peers(
 			head,
-			w(&self.peers)?.peer_count(),
+			peers.len() as u32,
+			connections_inbound,
+			connections_outbound,
 			api_sync_status,
 			api_sync_info,
 			supply / EPIC_BASE,
