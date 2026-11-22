@@ -502,8 +502,14 @@ impl Peers {
 	/// Iterate over the peer list and prune all peers we have
 	/// lost connection to or have been deemed problematic.
 	/// Also avoid connected peer count getting too high.
-	pub fn clean_peers(&self, max_inbound_count: usize, max_outbound_count: usize) {
+	/// Returns peers removed solely because the inbound limit was exceeded.
+	pub fn clean_peers(
+		&self,
+		max_inbound_count: usize,
+		max_outbound_count: usize,
+	) -> Vec<PeerAddr> {
 		let mut rm = vec![];
+		let mut excess_incoming_addrs = vec![];
 
 		// build a list of peers to be cleaned up
 		{
@@ -511,7 +517,7 @@ impl Peers {
 				Some(peers) => peers,
 				None => {
 					debug!("clean_peers: can't get peers lock");
-					return;
+					return excess_incoming_addrs;
 				}
 			};
 			for peer in peers.values() {
@@ -564,13 +570,13 @@ impl Peers {
 		let excess_incoming_count =
 			(self.peer_inbound_count() as usize).saturating_sub(max_inbound_count);
 		if excess_incoming_count > 0 {
-			let mut addrs = self
+			excess_incoming_addrs = self
 				.incoming_connected_peers()
 				.iter()
 				.take(excess_incoming_count)
 				.map(|x| x.info.addr.clone())
 				.collect::<Vec<_>>();
-			rm.append(&mut addrs);
+			rm.extend(excess_incoming_addrs.iter().copied());
 		}
 
 		// now clean up peer map based on the list to remove
@@ -579,7 +585,7 @@ impl Peers {
 				Some(peers) => peers,
 				None => {
 					debug!("clean_peers: failed to get peers lock");
-					return;
+					return vec![];
 				}
 			};
 			for addr in rm {
@@ -587,6 +593,8 @@ impl Peers {
 				peers.remove(&addr);
 			}
 		}
+
+		excess_incoming_addrs
 	}
 
 	pub fn stop(&self) {
