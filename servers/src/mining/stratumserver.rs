@@ -28,6 +28,7 @@ use tokio::net::TcpListener;
 use tokio_util::codec::{Framed, LinesCodec};
 
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use std::{cmp, thread};
@@ -890,6 +891,7 @@ impl Worker {
 struct WorkersList {
 	workers_list: Arc<RwLock<HashMap<usize, Worker>>>,
 	stratum_stats: Arc<RwLock<StratumStats>>,
+	next_worker_id: AtomicUsize,
 }
 
 impl WorkersList {
@@ -897,31 +899,42 @@ impl WorkersList {
 		WorkersList {
 			workers_list: Arc::new(RwLock::new(HashMap::new())),
 			stratum_stats,
+			next_worker_id: AtomicUsize::new(0),
 		}
 	}
 
 	pub async fn add_worker(&self, tx: Tx) -> usize {
-		let mut stratum_stats = self.stratum_stats.write();
-		let worker_id = stratum_stats.worker_stats.len();
+		let worker_id = self.next_worker_id.fetch_add(1, Ordering::Relaxed);
 		let worker = Worker::new(worker_id, tx);
-		let mut workers_list = self.workers_list.write();
-		workers_list.insert(worker_id, worker);
+		let worker_count = {
+			let mut workers_list = self.workers_list.write();
+			workers_list.insert(worker_id, worker);
+			workers_list.len()
+		};
 
+		let mut stratum_stats = self.stratum_stats.write();
 		let mut worker_stats = WorkerStats::default();
 		worker_stats.is_connected = true;
 		worker_stats.id = worker_id.to_string();
 		worker_stats.pow_difficulty = 1; // XXX TODO
 		stratum_stats.worker_stats.push(worker_stats);
-		stratum_stats.num_workers = workers_list.len();
+		stratum_stats.num_workers = worker_count;
 		worker_id
 	}
 	pub fn remove_worker(&self, worker_id: usize) {
-		if self.workers_list.write().remove(&worker_id).is_some() {
-			self.update_stats(worker_id, |ws| ws.is_connected = false);
-			self.stratum_stats.write().num_workers = self.workers_list.read().len();
-		} else {
-			warn!("Stratum: remove_worker called for unknown id {}", worker_id);
-		}
+		let worker_count = {
+			let mut workers_list = self.workers_list.write();
+			if workers_list.remove(&worker_id).is_none() {
+				warn!("Stratum: remove_worker called for unknown id {}", worker_id);
+				return;
+			}
+			workers_list.len()
+		};
+
+		let worker_id = worker_id.to_string();
+		let mut stratum_stats = self.stratum_stats.write();
+		stratum_stats.worker_stats.retain(|ws| ws.id != worker_id);
+		stratum_stats.num_workers = worker_count;
 	}
 
 	pub fn login(&self, worker_id: usize, login: String, agent: String) -> Result<(), RpcError> {
@@ -949,7 +962,8 @@ impl WorkersList {
 		self.stratum_stats
 			.read()
 			.worker_stats
-			.get(worker_id)
+			.iter()
+			.find(|ws| ws.id == worker_id.to_string())
 			.ok_or(RpcError::internal_error())
 			.map(|ws| ws.clone())
 	}
@@ -961,7 +975,15 @@ impl WorkersList {
 
 	pub fn update_stats(&self, worker_id: usize, f: impl FnOnce(&mut WorkerStats) -> ()) {
 		let mut stratum_stats = self.stratum_stats.write();
-		f(&mut stratum_stats.worker_stats[worker_id]);
+		if let Some(worker_stats) = stratum_stats
+			.worker_stats
+			.iter_mut()
+			.find(|ws| ws.id == worker_id.to_string())
+		{
+			f(worker_stats);
+		} else {
+			debug!("update_stats: worker {} not found (likely disconnected)", worker_id);
+		}
 	}
 
 	pub async fn send_to(&self, worker_id: usize, msg: String) {
@@ -1084,16 +1106,26 @@ mod test {
 		let worker_id = workers.add_worker(tx).await;
 
 		assert_eq!(stratum_stats.read().num_workers, 1);
-		assert!(stratum_stats.read().worker_stats[worker_id].is_connected);
+		assert_eq!(stratum_stats.read().worker_stats.len(), 1);
+		assert_eq!(stratum_stats.read().worker_stats[0].id, worker_id.to_string());
 
 		workers.remove_worker(worker_id);
 		assert_eq!(workers.count(), 0);
 		assert_eq!(stratum_stats.read().num_workers, 0);
-		assert!(!stratum_stats.read().worker_stats[worker_id].is_connected);
+		assert!(stratum_stats.read().worker_stats.is_empty());
 
 		workers.remove_worker(worker_id);
 		assert_eq!(workers.count(), 0);
 		assert_eq!(stratum_stats.read().num_workers, 0);
+
+		let (tx, _rx) = mpsc::unbounded();
+		let next_worker_id = workers.add_worker(tx).await;
+		assert_eq!(next_worker_id, worker_id + 1);
+		assert_eq!(stratum_stats.read().worker_stats.len(), 1);
+		assert_eq!(
+			stratum_stats.read().worker_stats[0].id,
+			next_worker_id.to_string()
+		);
 	}
 }
 
