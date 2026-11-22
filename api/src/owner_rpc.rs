@@ -52,6 +52,8 @@ pub trait OwnerRpc: Sync + Send {
 			"protocol_version": "2",
 			"user_agent": "MW/Epic 2.x.x",
 			"connections": "8",
+			"connections_inbound": "3",
+			"connections_outbound": "5",
 			"tip": {
 				"height": 371553,
 				"last_block_pushed": "00001d1623db988d7ed10c5b6319360a52f20c89b4710474145806ba0e8455ec",

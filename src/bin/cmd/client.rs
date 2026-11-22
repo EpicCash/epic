@@ -80,7 +80,12 @@ pub fn show_status(config: &ServerConfig, api_secret: Option<String>) {
 		Ok(status) => {
 			writeln!(e, "Protocol version: {:?}", status.protocol_version).unwrap();
 			writeln!(e, "User agent: {}", status.user_agent).unwrap();
-			writeln!(e, "Connections: {}", status.connections).unwrap();
+			writeln!(
+				e,
+				"Connections (inbound/outbound/all): {}/{}/{}",
+				status.connections_inbound, status.connections_outbound, status.connections
+			)
+			.unwrap();
 			writeln!(e, "Chain height: {}", status.tip.height).unwrap();
 			writeln!(e, "Last block hash: {}", status.tip.last_block_pushed).unwrap();
 			writeln!(e, "Previous block hash: {}", status.tip.prev_block_to_last).unwrap();
