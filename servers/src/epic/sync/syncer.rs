@@ -337,6 +337,7 @@ impl SyncRunner {
 		// Our 3 main sync stages
 		let mut header_syncs: HashMap<p2p::PeerAddr, PendingHeaderSync> = HashMap::new();
 		let mut fastsync_header_queue: HashMap<u64, FastsyncHeaderBatch> = HashMap::new();
+		let mut bounded_header_probe: Option<Arc<p2p::Peer>> = None;
 
 		let mut download_headers = false;
 
@@ -371,10 +372,20 @@ impl SyncRunner {
 			resume_sync_after_peer_wait(self.sync_state.as_ref());
 
 			let has_synstatus = self.sync_state.is_syncing();
+			bounded_header_probe = bounded_header_probe.take().filter(|peer| {
+				peer.info.bounded_header_probe_pending()
+					&& self
+						.peers
+						.get_connected_peer(peer.info.addr)
+						.map(|connected| Arc::ptr_eq(&connected, peer))
+						.unwrap_or(false)
+			});
 
 			// Check whether syncing is generally needed by comparing our state with others
 			let (needs_syncing, most_work_height, target_peer) = unwrap_or_restart_loop!(
-				self.needs_syncing_with_pending(!header_syncs.is_empty())
+				self.needs_syncing_with_pending(
+					!header_syncs.is_empty() || bounded_header_probe.is_some()
+				)
 			);
 
 			if most_work_height > 0 {
@@ -400,6 +411,11 @@ impl SyncRunner {
 			// Quick short-circuit (and a decent sleep) if no syncing is needed
 			let mut needs_headersync = false;
 			if !needs_syncing {
+				bounded_header_probe = self.request_header_probe();
+				if bounded_header_probe.is_some() {
+					thread::sleep(time::Duration::from_millis(100));
+					continue;
+				}
 				if has_synstatus {
 					// Transition out of a "syncing" state and into NoSync
 					self.sync_state.update(SyncStatus::Compacting);
@@ -410,8 +426,6 @@ impl SyncRunner {
 					unwrap_or_restart_loop!(self.chain.compact());
 					self.sync_state.update(SyncStatus::NoSync);
 				}
-				self.request_header_probe();
-
 				// Sleep for 10 seconds but check the stop signal every second
 				for _ in 1..10 {
 					thread::sleep(time::Duration::from_secs(1));
@@ -990,10 +1004,10 @@ impl SyncRunner {
 		Ok((false, header_height, None))
 	}
 
-	fn request_header_probe(&self) {
+	fn request_header_probe(&self) -> Option<Arc<p2p::Peer>> {
 		let header_head = match self.chain.header_head() {
 			Ok(tip) => tip,
-			Err(_) => return,
+			Err(_) => return None,
 		};
 		let peer_info = match advertised_outbound_probe_peer(
 			self.peers
@@ -1003,8 +1017,9 @@ impl SyncRunner {
 			&header_head.total_difficulty,
 		) {
 			Some(peer) => peer,
-			None => return,
+			None => return None,
 		};
+		let target_height = bounded_probe_height(header_head.height, &peer_info);
 		let locator = match get_locator_heights(header_head.height)
 			.into_iter()
 			.map(|height| {
@@ -1017,17 +1032,25 @@ impl SyncRunner {
 			Ok(locator) => locator,
 			Err(e) => {
 				debug!("sync: failed to build bounded probe locator: {:?}", e);
-				return;
+				return None;
 			}
 		};
 		if let Some(peer) = self.peers.get_connected_peer(peer_info.addr) {
 			match peer.send_bounded_header_request(locator) {
-				Ok(_) => debug!("sync: sent bounded header probe to {}", peer.info.addr),
+				Ok(_) => {
+					debug!("sync: sent bounded header probe to {}", peer.info.addr);
+					self.sync_state.update(SyncStatus::HeaderSync {
+						current_height: header_head.height,
+						highest_height: target_height,
+					});
+					return Some(peer);
+				}
 				Err(_) => {
 					let _ = self.peers.disconnect_peer(peer.info.addr);
 				}
 			}
 		}
+		None
 	}
 }
 
@@ -1532,6 +1555,37 @@ mod test {
 		assert!(!needs_syncing);
 		assert!(selected.is_none());
 		assert_eq!(sync_state.status(), SyncStatus::NoSync);
+	}
+
+	#[test]
+	fn bounded_probe_is_published_as_pending_header_sync() {
+		let node = TestNode::with_outbound_peer(Capabilities::HEADER_FASTSYNC);
+		node.peer
+			.info
+			.update_advertised_tip(0, Difficulty::from_num(1_000_000), 0);
+		let sync_state = Arc::new(SyncState::new());
+		sync_state.update(SyncStatus::NoSync);
+		let runner = SyncRunner::new(
+			sync_state.clone(),
+			node.server.peers.clone(),
+			node.chain.clone(),
+			Arc::new(StopState::new()),
+		);
+
+		let pending = runner.request_header_probe().is_some();
+
+		assert_eq!(
+			sync_state.status(),
+			SyncStatus::HeaderSync {
+				current_height: 0,
+				highest_height: p2p::MAX_BLOCK_HEADERS as u64,
+			}
+		);
+		let (needs_syncing, target, _) =
+			runner.needs_syncing_with_pending(pending).unwrap();
+		assert!(needs_syncing);
+		assert_eq!(target, p2p::MAX_BLOCK_HEADERS as u64);
+		assert!(!node.peer.info.header_probe_eligible());
 	}
 
 	#[test]

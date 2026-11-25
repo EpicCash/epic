@@ -784,8 +784,9 @@ impl ChainAdapter for Peers {
 		headers: &[core::BlockHeader],
 		peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
-		if peer_info.take_bounded_header_probe() {
+		if peer_info.bounded_header_probe_pending() {
 			if headers.is_empty() {
+				peer_info.take_bounded_header_probe();
 				debug!("sync: bounded header probe from {} was empty", peer_info.addr);
 				let _ = self.disconnect_peer(peer_info.addr);
 				return Ok(true);
@@ -795,7 +796,9 @@ impl ChainAdapter for Peers {
 				headers.len(),
 				peer_info.addr
 			);
-			return self.adapter.headers_received(headers, peer_info);
+			let result = self.adapter.headers_received(headers, peer_info);
+			peer_info.take_bounded_header_probe();
+			return result;
 		}
 		if !headers.is_empty() {
 			peer_info.set_headers(headers.to_vec());
@@ -1011,6 +1014,7 @@ mod test {
 
 		peer.start_bounded_header_probe();
 		assert!(ChainAdapter::headers_received(&peers, &[header.clone()], &peer).unwrap());
+		assert!(!peer.bounded_header_probe_pending());
 		assert!(peer.take_headers().is_empty());
 
 		peer.start_bounded_header_probe();

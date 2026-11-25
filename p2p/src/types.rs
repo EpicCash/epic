@@ -571,6 +571,11 @@ impl PeerInfo {
 		std::mem::take(&mut live_info.bounded_header_probe_pending)
 	}
 
+	/// Whether a bounded header probe is awaiting a response on this connection.
+	pub fn bounded_header_probe_pending(&self) -> bool {
+		self.live_info.read().bounded_header_probe_pending
+	}
+
 	pub(super) fn cancel_bounded_header_probe(&self) {
 		let mut live_info = self.live_info.write();
 		live_info.bounded_header_probe_pending = false;
@@ -688,7 +693,9 @@ mod peer_tip_tests {
 		peer.start_bounded_header_probe();
 
 		assert!(!peer.header_probe_eligible());
+		assert!(peer.bounded_header_probe_pending());
 		assert!(peer.take_bounded_header_probe());
+		assert!(!peer.bounded_header_probe_pending());
 		assert!(!peer.take_bounded_header_probe());
 	}
 
