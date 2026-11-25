@@ -23,6 +23,7 @@ use serde;
 use serde_json;
 use serde_json::Value;
 use std::collections::HashMap;
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpListener;
 
 use tokio_util::codec::{Framed, LinesCodec};
@@ -798,6 +799,51 @@ async fn handle_worker_respo(h: Arc<Handler>, request: RpcRequest, worker_id: us
 	h.workers.send_to(worker_id, resp).await;
 }
 
+async fn handle_connection<S, F>(
+	stream: S,
+	worker_id: usize,
+	mut rx: mpsc::UnboundedReceiver<String>,
+	workers: Arc<WorkersList>,
+	handle_request: F,
+) where
+	S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+	F: Fn(RpcRequest, usize) + Send + 'static,
+{
+	let framed = Framed::new(stream, LinesCodec::new());
+	let (mut writer, mut reader) = framed.split();
+
+	let read = async move {
+		while let Some(line) = reader
+			.try_next()
+			.await
+			.map_err(|e| error!("error reading line: {}", e))?
+		{
+			let request = serde_json::from_str(&line)
+				.map_err(|e| error!("error serializing line: {}", e))?;
+
+			handle_request(request, worker_id);
+		}
+
+		Result::<_, ()>::Ok(())
+	};
+
+	let write = async move {
+		while let Some(line) = rx.next().await {
+			writer
+				.send(line)
+				.await
+				.map_err(|e| error!("error writing line: {}", e))?;
+		}
+
+		Result::<_, ()>::Ok(())
+	};
+
+	pin_mut!(read, write);
+	let _ = futures::future::select(read, write).await;
+	trace!("Worker {} disconnected", worker_id);
+	workers.remove_worker(worker_id);
+}
+
 // ----------------------------------------
 // Worker Factory Thread Function
 #[tokio::main]
@@ -812,7 +858,7 @@ async fn accept_connections(listen_addr: SocketAddr, handler: Arc<Handler>) {
 		let handler = handler.clone();
 		let (socket, _) = listener.accept().await.unwrap();
 		// Spawn a task to process the connection
-		let (tx, mut rx) = mpsc::unbounded();
+		let (tx, rx) = mpsc::unbounded();
 
 		let worker_id = handler.workers.add_worker(tx).await;
 		match socket.peer_addr() {
@@ -823,43 +869,17 @@ async fn accept_connections(listen_addr: SocketAddr, handler: Arc<Handler>) {
 				error!("Error on Socket {:?}", e);
 			}
 		};
-		let framed = Framed::new(socket, LinesCodec::new());
-		let (mut writer, mut reader) = framed.split();
-
+		let workers = handler.workers.clone();
 		let h = handler.clone();
-		let read = async move {
-			while let Some(line) = reader
-				.try_next()
-				.await
-				.map_err(|e| error!("error reading line: {}", e))?
-			{
-				let request = serde_json::from_str(&line)
-					.map_err(|e| error!("error serializing line: {}", e))?;
-
+		tokio::spawn(handle_connection(
+			socket,
+			worker_id,
+			rx,
+			workers,
+			move |request, worker_id| {
 				tokio::task::spawn(handle_worker_respo(h.clone(), request, worker_id));
-			}
-
-			Result::<_, ()>::Ok(())
-		};
-
-		let write = async move {
-			while let Some(line) = rx.next().await {
-				writer
-					.send(line)
-					.await
-					.map_err(|e| error!("error writing line: {}", e))?;
-			}
-
-			Result::<_, ()>::Ok(())
-		};
-
-		let task = async move {
-			pin_mut!(read, write);
-			let _ = futures::future::select(read, write).await;
-			trace!("Worker {} disconnected", worker_id);
-			handler.workers.remove_worker(worker_id);
-		};
-		tokio::spawn(task);
+			},
+		));
 	}
 }
 
@@ -1097,6 +1117,149 @@ impl StratumServer {
 #[cfg(test)]
 mod test {
 	use super::*;
+	use std::io;
+	use std::pin::Pin;
+	use std::task::{Context, Poll};
+	use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadBuf};
+	use tokio::net::TcpStream;
+	use tokio::time::timeout;
+
+	fn test_workers() -> (Arc<WorkersList>, Arc<RwLock<StratumStats>>) {
+		let stratum_stats = Arc::new(RwLock::new(StratumStats::default()));
+		(
+			Arc::new(WorkersList::new(stratum_stats.clone())),
+			stratum_stats,
+		)
+	}
+
+	async fn run_test_connection<S>(
+		stream: S,
+		workers: Arc<WorkersList>,
+	) -> tokio::task::JoinHandle<()>
+	where
+		S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+	{
+		let (tx, rx) = mpsc::unbounded();
+		let worker_id = workers.add_worker(tx).await;
+		tokio::spawn(handle_connection(
+			stream,
+			worker_id,
+			rx,
+			workers,
+			|_, _| {},
+		))
+	}
+
+	fn assert_worker_cleaned(
+		workers: &WorkersList,
+		stratum_stats: &RwLock<StratumStats>,
+	) {
+		assert_eq!(workers.count(), 0);
+		assert_eq!(stratum_stats.read().num_workers, 0);
+		assert!(stratum_stats.read().worker_stats.is_empty());
+	}
+
+	async fn assert_invalid_input_cleans_worker(input: &[u8]) {
+		let (server, mut client) = tokio::io::duplex(4096);
+		let (workers, stratum_stats) = test_workers();
+		let task = run_test_connection(server, workers.clone()).await;
+
+		client.write_all(input).await.unwrap();
+		client.shutdown().await.unwrap();
+		timeout(Duration::from_secs(5), task)
+			.await
+			.expect("connection task did not stop")
+			.unwrap();
+		assert_worker_cleaned(&workers, &stratum_stats);
+	}
+
+	struct FailingWriter;
+
+	impl AsyncRead for FailingWriter {
+		fn poll_read(
+			self: Pin<&mut Self>,
+			_cx: &mut Context<'_>,
+			_buf: &mut ReadBuf<'_>,
+		) -> Poll<io::Result<()>> {
+			Poll::Pending
+		}
+	}
+
+	impl AsyncWrite for FailingWriter {
+		fn poll_write(
+			self: Pin<&mut Self>,
+			_cx: &mut Context<'_>,
+			_buf: &[u8],
+		) -> Poll<io::Result<usize>> {
+			Poll::Ready(Err(io::Error::new(io::ErrorKind::BrokenPipe, "closed")))
+		}
+
+		fn poll_flush(
+			self: Pin<&mut Self>,
+			_cx: &mut Context<'_>,
+		) -> Poll<io::Result<()>> {
+			Poll::Ready(Ok(()))
+		}
+
+		fn poll_shutdown(
+			self: Pin<&mut Self>,
+			_cx: &mut Context<'_>,
+		) -> Poll<io::Result<()>> {
+			Poll::Ready(Ok(()))
+		}
+	}
+
+	#[tokio::test]
+	async fn tcp_eof_cleans_worker_and_stops_job_fanout() {
+		let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+		let client = TcpStream::connect(listener.local_addr().unwrap())
+			.await
+			.unwrap();
+		let (server, _) = listener.accept().await.unwrap();
+		let (workers, stratum_stats) = test_workers();
+		let task = run_test_connection(server, workers.clone()).await;
+		let (mut client_reader, mut client_writer) = client.into_split();
+
+		client_writer.shutdown().await.unwrap();
+		timeout(Duration::from_secs(5), task)
+			.await
+			.expect("connection task did not stop after EOF")
+			.unwrap();
+		assert_worker_cleaned(&workers, &stratum_stats);
+
+		workers.broadcast("stale job".to_string());
+		let mut byte = [0; 1];
+		assert_eq!(
+			timeout(Duration::from_secs(5), client_reader.read(&mut byte))
+				.await
+				.expect("client did not observe the closed connection")
+				.unwrap(),
+			0
+		);
+	}
+
+	#[tokio::test]
+	async fn malformed_json_cleans_worker() {
+		assert_invalid_input_cleans_worker(b"{]\n").await;
+	}
+
+	#[tokio::test]
+	async fn line_codec_failure_cleans_worker() {
+		assert_invalid_input_cleans_worker(b"\xff\n").await;
+	}
+
+	#[tokio::test]
+	async fn writer_failure_cleans_worker() {
+		let (workers, stratum_stats) = test_workers();
+		let task = run_test_connection(FailingWriter, workers.clone()).await;
+
+		workers.broadcast("job".to_string());
+		timeout(Duration::from_secs(5), task)
+			.await
+			.expect("connection task did not stop after writer failure")
+			.unwrap();
+		assert_worker_cleaned(&workers, &stratum_stats);
+	}
 
 	#[tokio::test]
 	async fn removing_a_worker_updates_live_stats_and_is_idempotent() {
