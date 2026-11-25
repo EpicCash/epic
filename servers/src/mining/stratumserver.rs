@@ -23,11 +23,13 @@ use serde;
 use serde_json;
 use serde_json::Value;
 use std::collections::HashMap;
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpListener;
 
 use tokio_util::codec::{Framed, LinesCodec};
 
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use std::{cmp, thread};
@@ -797,6 +799,51 @@ async fn handle_worker_respo(h: Arc<Handler>, request: RpcRequest, worker_id: us
 	h.workers.send_to(worker_id, resp).await;
 }
 
+async fn handle_connection<S, F>(
+	stream: S,
+	worker_id: usize,
+	mut rx: mpsc::UnboundedReceiver<String>,
+	workers: Arc<WorkersList>,
+	handle_request: F,
+) where
+	S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+	F: Fn(RpcRequest, usize) + Send + 'static,
+{
+	let framed = Framed::new(stream, LinesCodec::new());
+	let (mut writer, mut reader) = framed.split();
+
+	let read = async move {
+		while let Some(line) = reader
+			.try_next()
+			.await
+			.map_err(|e| error!("error reading line: {}", e))?
+		{
+			let request = serde_json::from_str(&line)
+				.map_err(|e| error!("error serializing line: {}", e))?;
+
+			handle_request(request, worker_id);
+		}
+
+		Result::<_, ()>::Ok(())
+	};
+
+	let write = async move {
+		while let Some(line) = rx.next().await {
+			writer
+				.send(line)
+				.await
+				.map_err(|e| error!("error writing line: {}", e))?;
+		}
+
+		Result::<_, ()>::Ok(())
+	};
+
+	pin_mut!(read, write);
+	let _ = futures::future::select(read, write).await;
+	trace!("Worker {} disconnected", worker_id);
+	workers.remove_worker(worker_id);
+}
+
 // ----------------------------------------
 // Worker Factory Thread Function
 #[tokio::main]
@@ -811,7 +858,7 @@ async fn accept_connections(listen_addr: SocketAddr, handler: Arc<Handler>) {
 		let handler = handler.clone();
 		let (socket, _) = listener.accept().await.unwrap();
 		// Spawn a task to process the connection
-		let (tx, mut rx) = mpsc::unbounded();
+		let (tx, rx) = mpsc::unbounded();
 
 		let worker_id = handler.workers.add_worker(tx).await;
 		match socket.peer_addr() {
@@ -822,45 +869,17 @@ async fn accept_connections(listen_addr: SocketAddr, handler: Arc<Handler>) {
 				error!("Error on Socket {:?}", e);
 			}
 		};
-		let framed = Framed::new(socket, LinesCodec::new());
-		let (mut writer, mut reader) = framed.split();
-
+		let workers = handler.workers.clone();
 		let h = handler.clone();
-		let read = async move {
-			while let Some(line) = reader.try_next().await.unwrap() {
-				let request = serde_json::from_str(&line)
-					.map_err(|e| error!("error serializing line: {}", e))?;
-
+		tokio::spawn(handle_connection(
+			socket,
+			worker_id,
+			rx,
+			workers,
+			move |request, worker_id| {
 				tokio::task::spawn(handle_worker_respo(h.clone(), request, worker_id));
-			}
-
-			Result::<_, ()>::Ok(())
-		};
-
-		let write = async move {
-			while let Some(line) = rx.next().await {
-				writer
-					.send(line)
-					.await
-					.map_err(|e| error!("error writing line: {}", e))?;
-			}
-
-			Result::<_, ()>::Ok(())
-		};
-
-		let task = async move {
-			pin_mut!(read, write);
-			match futures::future::select(read, write).await {
-				futures::future::Either::Left(_) => {
-					trace!("Worker {} disconnected", worker_id);
-				}
-				futures::future::Either::Right(_) => {
-					trace!("Worker {} disconnected", worker_id);
-					handler.workers.remove_worker(worker_id);
-				}
-			};
-		};
-		tokio::spawn(task);
+			},
+		));
 	}
 }
 
@@ -892,6 +911,7 @@ impl Worker {
 struct WorkersList {
 	workers_list: Arc<RwLock<HashMap<usize, Worker>>>,
 	stratum_stats: Arc<RwLock<StratumStats>>,
+	next_worker_id: AtomicUsize,
 }
 
 impl WorkersList {
@@ -899,31 +919,42 @@ impl WorkersList {
 		WorkersList {
 			workers_list: Arc::new(RwLock::new(HashMap::new())),
 			stratum_stats,
+			next_worker_id: AtomicUsize::new(0),
 		}
 	}
 
 	pub async fn add_worker(&self, tx: Tx) -> usize {
-		let mut stratum_stats = self.stratum_stats.write();
-		let worker_id = stratum_stats.worker_stats.len();
+		let worker_id = self.next_worker_id.fetch_add(1, Ordering::Relaxed);
 		let worker = Worker::new(worker_id, tx);
-		let mut workers_list = self.workers_list.write();
-		workers_list.insert(worker_id, worker);
+		let worker_count = {
+			let mut workers_list = self.workers_list.write();
+			workers_list.insert(worker_id, worker);
+			workers_list.len()
+		};
 
+		let mut stratum_stats = self.stratum_stats.write();
 		let mut worker_stats = WorkerStats::default();
 		worker_stats.is_connected = true;
 		worker_stats.id = worker_id.to_string();
 		worker_stats.pow_difficulty = 1; // XXX TODO
 		stratum_stats.worker_stats.push(worker_stats);
-		stratum_stats.num_workers = workers_list.len();
+		stratum_stats.num_workers = worker_count;
 		worker_id
 	}
 	pub fn remove_worker(&self, worker_id: usize) {
-		self.update_stats(worker_id, |ws| ws.is_connected = false);
-		self.workers_list
-			.write()
-			.remove(&worker_id)
-			.expect("Stratum: no such addr in map");
-		self.stratum_stats.write().num_workers = self.workers_list.read().len();
+		let worker_count = {
+			let mut workers_list = self.workers_list.write();
+			if workers_list.remove(&worker_id).is_none() {
+				warn!("Stratum: remove_worker called for unknown id {}", worker_id);
+				return;
+			}
+			workers_list.len()
+		};
+
+		let worker_id = worker_id.to_string();
+		let mut stratum_stats = self.stratum_stats.write();
+		stratum_stats.worker_stats.retain(|ws| ws.id != worker_id);
+		stratum_stats.num_workers = worker_count;
 	}
 
 	pub fn login(&self, worker_id: usize, login: String, agent: String) -> Result<(), RpcError> {
@@ -951,7 +982,8 @@ impl WorkersList {
 		self.stratum_stats
 			.read()
 			.worker_stats
-			.get(worker_id)
+			.iter()
+			.find(|ws| ws.id == worker_id.to_string())
 			.ok_or(RpcError::internal_error())
 			.map(|ws| ws.clone())
 	}
@@ -963,7 +995,15 @@ impl WorkersList {
 
 	pub fn update_stats(&self, worker_id: usize, f: impl FnOnce(&mut WorkerStats) -> ()) {
 		let mut stratum_stats = self.stratum_stats.write();
-		f(&mut stratum_stats.worker_stats[worker_id]);
+		if let Some(worker_stats) = stratum_stats
+			.worker_stats
+			.iter_mut()
+			.find(|ws| ws.id == worker_id.to_string())
+		{
+			f(worker_stats);
+		} else {
+			debug!("update_stats: worker {} not found (likely disconnected)", worker_id);
+		}
 	}
 
 	pub async fn send_to(&self, worker_id: usize, msg: String) {
@@ -1073,6 +1113,184 @@ impl StratumServer {
 		handler.run(&self.config, &self.tx_pool);
 	} // fn run_loop()
 } // StratumServer
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use std::io;
+	use std::pin::Pin;
+	use std::task::{Context, Poll};
+	use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadBuf};
+	use tokio::net::TcpStream;
+	use tokio::time::timeout;
+
+	fn test_workers() -> (Arc<WorkersList>, Arc<RwLock<StratumStats>>) {
+		let stratum_stats = Arc::new(RwLock::new(StratumStats::default()));
+		(
+			Arc::new(WorkersList::new(stratum_stats.clone())),
+			stratum_stats,
+		)
+	}
+
+	async fn run_test_connection<S>(
+		stream: S,
+		workers: Arc<WorkersList>,
+	) -> tokio::task::JoinHandle<()>
+	where
+		S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+	{
+		let (tx, rx) = mpsc::unbounded();
+		let worker_id = workers.add_worker(tx).await;
+		tokio::spawn(handle_connection(
+			stream,
+			worker_id,
+			rx,
+			workers,
+			|_, _| {},
+		))
+	}
+
+	fn assert_worker_cleaned(
+		workers: &WorkersList,
+		stratum_stats: &RwLock<StratumStats>,
+	) {
+		assert_eq!(workers.count(), 0);
+		assert_eq!(stratum_stats.read().num_workers, 0);
+		assert!(stratum_stats.read().worker_stats.is_empty());
+	}
+
+	async fn assert_invalid_input_cleans_worker(input: &[u8]) {
+		let (server, mut client) = tokio::io::duplex(4096);
+		let (workers, stratum_stats) = test_workers();
+		let task = run_test_connection(server, workers.clone()).await;
+
+		client.write_all(input).await.unwrap();
+		client.shutdown().await.unwrap();
+		timeout(Duration::from_secs(5), task)
+			.await
+			.expect("connection task did not stop")
+			.unwrap();
+		assert_worker_cleaned(&workers, &stratum_stats);
+	}
+
+	struct FailingWriter;
+
+	impl AsyncRead for FailingWriter {
+		fn poll_read(
+			self: Pin<&mut Self>,
+			_cx: &mut Context<'_>,
+			_buf: &mut ReadBuf<'_>,
+		) -> Poll<io::Result<()>> {
+			Poll::Pending
+		}
+	}
+
+	impl AsyncWrite for FailingWriter {
+		fn poll_write(
+			self: Pin<&mut Self>,
+			_cx: &mut Context<'_>,
+			_buf: &[u8],
+		) -> Poll<io::Result<usize>> {
+			Poll::Ready(Err(io::Error::new(io::ErrorKind::BrokenPipe, "closed")))
+		}
+
+		fn poll_flush(
+			self: Pin<&mut Self>,
+			_cx: &mut Context<'_>,
+		) -> Poll<io::Result<()>> {
+			Poll::Ready(Ok(()))
+		}
+
+		fn poll_shutdown(
+			self: Pin<&mut Self>,
+			_cx: &mut Context<'_>,
+		) -> Poll<io::Result<()>> {
+			Poll::Ready(Ok(()))
+		}
+	}
+
+	#[tokio::test]
+	async fn tcp_eof_cleans_worker_and_stops_job_fanout() {
+		let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+		let client = TcpStream::connect(listener.local_addr().unwrap())
+			.await
+			.unwrap();
+		let (server, _) = listener.accept().await.unwrap();
+		let (workers, stratum_stats) = test_workers();
+		let task = run_test_connection(server, workers.clone()).await;
+		let (mut client_reader, mut client_writer) = client.into_split();
+
+		client_writer.shutdown().await.unwrap();
+		timeout(Duration::from_secs(5), task)
+			.await
+			.expect("connection task did not stop after EOF")
+			.unwrap();
+		assert_worker_cleaned(&workers, &stratum_stats);
+
+		workers.broadcast("stale job".to_string());
+		let mut byte = [0; 1];
+		assert_eq!(
+			timeout(Duration::from_secs(5), client_reader.read(&mut byte))
+				.await
+				.expect("client did not observe the closed connection")
+				.unwrap(),
+			0
+		);
+	}
+
+	#[tokio::test]
+	async fn malformed_json_cleans_worker() {
+		assert_invalid_input_cleans_worker(b"{]\n").await;
+	}
+
+	#[tokio::test]
+	async fn line_codec_failure_cleans_worker() {
+		assert_invalid_input_cleans_worker(b"\xff\n").await;
+	}
+
+	#[tokio::test]
+	async fn writer_failure_cleans_worker() {
+		let (workers, stratum_stats) = test_workers();
+		let task = run_test_connection(FailingWriter, workers.clone()).await;
+
+		workers.broadcast("job".to_string());
+		timeout(Duration::from_secs(5), task)
+			.await
+			.expect("connection task did not stop after writer failure")
+			.unwrap();
+		assert_worker_cleaned(&workers, &stratum_stats);
+	}
+
+	#[tokio::test]
+	async fn removing_a_worker_updates_live_stats_and_is_idempotent() {
+		let stratum_stats = Arc::new(RwLock::new(StratumStats::default()));
+		let workers = WorkersList::new(stratum_stats.clone());
+		let (tx, _rx) = mpsc::unbounded();
+		let worker_id = workers.add_worker(tx).await;
+
+		assert_eq!(stratum_stats.read().num_workers, 1);
+		assert_eq!(stratum_stats.read().worker_stats.len(), 1);
+		assert_eq!(stratum_stats.read().worker_stats[0].id, worker_id.to_string());
+
+		workers.remove_worker(worker_id);
+		assert_eq!(workers.count(), 0);
+		assert_eq!(stratum_stats.read().num_workers, 0);
+		assert!(stratum_stats.read().worker_stats.is_empty());
+
+		workers.remove_worker(worker_id);
+		assert_eq!(workers.count(), 0);
+		assert_eq!(stratum_stats.read().num_workers, 0);
+
+		let (tx, _rx) = mpsc::unbounded();
+		let next_worker_id = workers.add_worker(tx).await;
+		assert_eq!(next_worker_id, worker_id + 1);
+		assert_eq!(stratum_stats.read().worker_stats.len(), 1);
+		assert_eq!(
+			stratum_stats.read().worker_stats[0].id,
+			next_worker_id.to_string()
+		);
+	}
+}
 
 // Utility function to parse a JSON RPC parameter object, returning a proper
 // error if things go wrong.
