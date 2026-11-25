@@ -271,7 +271,7 @@ pub fn reward_foundation_at_height(height: u64) -> u64 {
 		// We used the index 0 in the first era, therefore we offset the index by 1
 		let index: u64 = (height_with_offset / FOUNDATION_LEVY_ERA_2_ONWARDS) + 1;
 		assert!(
-			index < std::u32::MAX.into(),
+			index < u32::MAX.into(),
 			"Couldn't convert index u64 to usize without lost information!"
 		);
 		let index = index as usize;

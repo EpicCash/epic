@@ -20,7 +20,6 @@ use self::core::ser::PMMRIndexHashable;
 use crate::common::TestElem;
 use chrono::prelude::Utc;
 use epic_core as core;
-use std::u64;
 
 #[test]
 fn some_peak_map() {

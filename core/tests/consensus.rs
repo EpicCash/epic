@@ -86,7 +86,7 @@ fn repeat(interval: u64, diff: HeaderInfo, len: u64, cur_time: Option<u64>) -> V
 		None => Utc::now().timestamp() as u64,
 	};
 	// watch overflow here, length shouldn't be ridiculous anyhow
-	assert!(len < std::usize::MAX as u64);
+	assert!(len < usize::MAX as u64);
 	let diffs = vec![diff.difficulty.clone(); len as usize];
 	let times = (0..(len as usize)).map(|n| n * interval as usize).rev();
 	let pairs = times.zip(diffs.iter());

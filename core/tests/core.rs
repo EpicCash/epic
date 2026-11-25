@@ -354,7 +354,7 @@ fn blind_tx() {
 	let info = secp.range_proof_info(proof);
 
 	assert!(info.min == 0);
-	assert!(info.max == u64::max_value());
+	assert!(info.max == u64::MAX);
 }
 
 #[test]

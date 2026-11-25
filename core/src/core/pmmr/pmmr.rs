@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::marker;
-use std::u64;
 
 use croaring::Bitmap;
 

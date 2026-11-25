@@ -210,10 +210,10 @@ impl State {
 
 		let mut current_difficulty = HashMap::new();
 
-		current_difficulty.insert(PoWType::Cuckatoo, <u64>::max_value());
-		current_difficulty.insert(PoWType::Cuckaroo, <u64>::max_value());
-		current_difficulty.insert(PoWType::RandomX, <u64>::max_value());
-		current_difficulty.insert(PoWType::ProgPow, <u64>::max_value());
+		current_difficulty.insert(PoWType::Cuckatoo, u64::MAX);
+		current_difficulty.insert(PoWType::Cuckaroo, u64::MAX);
+		current_difficulty.insert(PoWType::RandomX, u64::MAX);
+		current_difficulty.insert(PoWType::ProgPow, u64::MAX);
 
 		State {
 			current_block_versions: blocks,

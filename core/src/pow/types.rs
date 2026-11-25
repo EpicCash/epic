@@ -19,7 +19,7 @@ use std::cmp::Ordering;
 use std::cmp::{max, min};
 use std::convert::TryFrom;
 use std::ops::{Add, Div, Mul, Sub};
-use std::{fmt, iter, u64};
+use std::{fmt, iter};
 
 use rand::{rng, Rng};
 use serde::ser::SerializeMap;
@@ -646,7 +646,7 @@ impl Proof {
 	/// Difficulty achieved by this proof with given scaling factor
 	fn scaled_difficulty(&self, scale: u64) -> u64 {
 		let diff = ((scale as u128) << 64) / (max(1, self.hash().to_u64()) as u128);
-		min(diff, <u64>::max_value() as u128) as u64
+		min(diff, u64::MAX as u128) as u64
 	}
 }
 
