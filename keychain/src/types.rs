@@ -585,10 +585,10 @@ mod test {
 
 		let path = ExtKeychainPath::new(
 			1,
-			<u32>::max_value(),
-			<u32>::max_value(),
+			<u32>::MAX,
+			<u32>::MAX,
 			3,
-			<u32>::max_value(),
+			<u32>::MAX,
 		);
 		let id = Identifier::from_path(&path);
 		let ret_path = id.to_path();
