@@ -334,7 +334,8 @@ impl Handler {
 	}
 	fn handle_login(&self, params: Option<Value>, worker_id: usize) -> Result<Value, RpcError> {
 		let params: LoginParams = parse_params(params)?;
-		self.workers.login(worker_id, params.login, params.agent)?;
+		self.workers
+			.login(worker_id, params.login, params.agent)?;
 		return Ok("ok".into());
 	}
 
@@ -914,6 +915,15 @@ struct WorkersList {
 	next_worker_id: AtomicUsize,
 }
 
+/// A worker is named only by the component after the final dot in its login.
+/// A login without a worker component remains an anonymous `worker_<ID>` session.
+fn worker_name_from_login(login: &str) -> Option<&str> {
+	login
+		.rsplit_once('.')
+		.filter(|(_, name)| !name.is_empty())
+		.map(|(_, name)| name)
+}
+
 impl WorkersList {
 	pub fn new(stratum_stats: Arc<RwLock<StratumStats>>) -> Self {
 		WorkersList {
@@ -934,8 +944,9 @@ impl WorkersList {
 
 		let mut stratum_stats = self.stratum_stats.write();
 		let mut worker_stats = WorkerStats::default();
+		worker_stats.session_id = worker_id;
 		worker_stats.is_connected = true;
-		worker_stats.id = worker_id.to_string();
+		worker_stats.id = format!("worker_{}", worker_id);
 		worker_stats.pow_difficulty = 1; // XXX TODO
 		stratum_stats.worker_stats.push(worker_stats);
 		stratum_stats.num_workers = worker_count;
@@ -951,19 +962,72 @@ impl WorkersList {
 			workers_list.len()
 		};
 
-		let worker_id = worker_id.to_string();
 		let mut stratum_stats = self.stratum_stats.write();
-		stratum_stats.worker_stats.retain(|ws| ws.id != worker_id);
+		let retain_stats = stratum_stats
+			.worker_stats
+			.iter()
+			.find(|ws| ws.session_id == worker_id)
+			.map(|ws| ws.retain_on_disconnect)
+			.unwrap_or(false);
+		if retain_stats {
+			if let Some(worker_stats) = stratum_stats
+				.worker_stats
+				.iter_mut()
+				.find(|ws| ws.session_id == worker_id)
+			{
+				worker_stats.is_connected = false;
+			}
+		} else {
+			stratum_stats
+				.worker_stats
+				.retain(|ws| ws.session_id != worker_id);
+		}
 		stratum_stats.num_workers = worker_count;
 	}
 
-	pub fn login(&self, worker_id: usize, login: String, agent: String) -> Result<(), RpcError> {
-		let mut wl = self.workers_list.write();
-		let worker = wl.get_mut(&worker_id).ok_or(RpcError::internal_error())?;
-		worker.login = Some(login);
-		// XXX TODO Future - Validate password?
-		worker.agent = agent;
-		worker.authenticated = true;
+	pub fn login(
+		&self,
+		worker_id: usize,
+		login: String,
+		agent: String,
+	) -> Result<(), RpcError> {
+		let worker_name = worker_name_from_login(&login).map(str::to_string);
+		{
+			let mut wl = self.workers_list.write();
+			let worker = wl.get_mut(&worker_id).ok_or(RpcError::internal_error())?;
+			worker.login = Some(login);
+			// XXX TODO Future - Validate password?
+			worker.agent = agent;
+			worker.authenticated = true;
+		}
+
+		let worker_name = match worker_name {
+			Some(worker_name) => worker_name,
+			None => return Ok(()),
+		};
+
+		let mut stratum_stats = self.stratum_stats.write();
+		if let Some(existing_worker) = stratum_stats
+			.worker_stats
+			.iter()
+			.position(|ws| ws.id == worker_name && ws.retain_on_disconnect && !ws.is_connected)
+		{
+			let mut existing_worker = stratum_stats.worker_stats.remove(existing_worker);
+			stratum_stats
+				.worker_stats
+				.retain(|ws| ws.session_id != worker_id);
+			existing_worker.session_id = worker_id;
+			existing_worker.is_connected = true;
+			existing_worker.last_seen = SystemTime::now();
+			stratum_stats.worker_stats.push(existing_worker);
+		} else if let Some(worker_stats) = stratum_stats
+			.worker_stats
+			.iter_mut()
+			.find(|ws| ws.session_id == worker_id)
+		{
+			worker_stats.id = worker_name;
+			worker_stats.retain_on_disconnect = true;
+		}
 		Ok(())
 	}
 
@@ -983,7 +1047,7 @@ impl WorkersList {
 			.read()
 			.worker_stats
 			.iter()
-			.find(|ws| ws.id == worker_id.to_string())
+			.find(|ws| ws.session_id == worker_id && ws.is_connected)
 			.ok_or(RpcError::internal_error())
 			.map(|ws| ws.clone())
 	}
@@ -998,7 +1062,7 @@ impl WorkersList {
 		if let Some(worker_stats) = stratum_stats
 			.worker_stats
 			.iter_mut()
-			.find(|ws| ws.id == worker_id.to_string())
+			.find(|ws| ws.session_id == worker_id && ws.is_connected)
 		{
 			f(worker_stats);
 		} else {
@@ -1261,8 +1325,18 @@ mod test {
 		assert_worker_cleaned(&workers, &stratum_stats);
 	}
 
+	#[test]
+	fn worker_name_uses_the_last_login_component() {
+		assert_eq!(worker_name_from_login("username"), None);
+		assert_eq!(worker_name_from_login("username.myworker"), Some("myworker"));
+		assert_eq!(
+			worker_name_from_login("esXsdfsdf@epiccash.com.myworker"),
+			Some("myworker")
+		);
+	}
+
 	#[tokio::test]
-	async fn removing_a_worker_updates_live_stats_and_is_idempotent() {
+	async fn login_names_resume_stats_and_anonymous_workers_are_removed() {
 		let stratum_stats = Arc::new(RwLock::new(StratumStats::default()));
 		let workers = WorkersList::new(stratum_stats.clone());
 		let (tx, _rx) = mpsc::unbounded();
@@ -1270,12 +1344,24 @@ mod test {
 
 		assert_eq!(stratum_stats.read().num_workers, 1);
 		assert_eq!(stratum_stats.read().worker_stats.len(), 1);
-		assert_eq!(stratum_stats.read().worker_stats[0].id, worker_id.to_string());
+		assert_eq!(stratum_stats.read().worker_stats[0].id, "worker_0");
+
+		workers
+			.login(
+				worker_id,
+				"esXsdfsdf@epiccash.com.myworker".to_string(),
+				"test-miner".to_string(),
+			)
+			.unwrap();
+		assert_eq!(workers.get_stats(worker_id).unwrap().id, "myworker");
+		workers.update_stats(worker_id, |ws| ws.num_accepted += 1);
 
 		workers.remove_worker(worker_id);
 		assert_eq!(workers.count(), 0);
 		assert_eq!(stratum_stats.read().num_workers, 0);
-		assert!(stratum_stats.read().worker_stats.is_empty());
+		assert_eq!(stratum_stats.read().worker_stats.len(), 1);
+		assert!(!stratum_stats.read().worker_stats[0].is_connected);
+		assert_eq!(stratum_stats.read().worker_stats[0].num_accepted, 1);
 
 		workers.remove_worker(worker_id);
 		assert_eq!(workers.count(), 0);
@@ -1284,11 +1370,36 @@ mod test {
 		let (tx, _rx) = mpsc::unbounded();
 		let next_worker_id = workers.add_worker(tx).await;
 		assert_eq!(next_worker_id, worker_id + 1);
+		workers
+			.login(
+				next_worker_id,
+				"username.myworker".to_string(),
+				"test-miner".to_string(),
+			)
+			.unwrap();
 		assert_eq!(stratum_stats.read().worker_stats.len(), 1);
 		assert_eq!(
 			stratum_stats.read().worker_stats[0].id,
-			next_worker_id.to_string()
+			"myworker"
 		);
+		assert!(stratum_stats.read().worker_stats[0].is_connected);
+		assert_eq!(stratum_stats.read().worker_stats[0].num_accepted, 1);
+
+		workers.remove_worker(next_worker_id);
+		let (tx, _rx) = mpsc::unbounded();
+		let anonymous_worker_id = workers.add_worker(tx).await;
+		assert_eq!(anonymous_worker_id, next_worker_id + 1);
+		workers
+			.login(
+				anonymous_worker_id,
+				"myusername".to_string(),
+				"test-miner".to_string(),
+			)
+			.unwrap();
+		assert_eq!(workers.get_stats(anonymous_worker_id).unwrap().id, "worker_2");
+		workers.remove_worker(anonymous_worker_id);
+		assert_eq!(stratum_stats.read().worker_stats.len(), 1);
+		assert_eq!(stratum_stats.read().worker_stats[0].id, "myworker");
 	}
 }
 

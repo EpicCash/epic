@@ -89,19 +89,39 @@ impl TableViewItem<StratumWorkerColumn> for WorkerStats {
 		}
 	}
 
-	fn cmp(&self, _other: &Self, column: StratumWorkerColumn) -> Ordering
+	fn cmp(&self, other: &Self, column: StratumWorkerColumn) -> Ordering
 	where
 		Self: Sized,
 	{
+		let sort_by_id = || self.id.cmp(&other.id);
+
 		match column {
-			StratumWorkerColumn::Id => Ordering::Equal,
-			StratumWorkerColumn::IsConnected => Ordering::Equal,
-			StratumWorkerColumn::LastSeen => Ordering::Equal,
+			StratumWorkerColumn::Id => sort_by_id(),
+			StratumWorkerColumn::IsConnected => self
+				.is_connected
+				.cmp(&other.is_connected)
+				.then(sort_by_id()),
+			StratumWorkerColumn::LastSeen => self
+				.last_seen
+				.cmp(&other.last_seen)
+				.then(sort_by_id()),
 			//			StratumWorkerColumn::PowDifficulty => Ordering::Equal,
-			StratumWorkerColumn::NumAccepted => Ordering::Equal,
-			StratumWorkerColumn::NumRejected => Ordering::Equal,
-			StratumWorkerColumn::NumStale => Ordering::Equal,
-			StratumWorkerColumn::NumBlocksFound => Ordering::Equal,
+			StratumWorkerColumn::NumAccepted => self
+				.num_accepted
+				.cmp(&other.num_accepted)
+				.then(sort_by_id()),
+			StratumWorkerColumn::NumRejected => self
+				.num_rejected
+				.cmp(&other.num_rejected)
+				.then(sort_by_id()),
+			StratumWorkerColumn::NumStale => self
+				.num_stale
+				.cmp(&other.num_stale)
+				.then(sort_by_id()),
+			StratumWorkerColumn::NumBlocksFound => self
+				.num_blocks_found
+				.cmp(&other.num_blocks_found)
+				.then(sort_by_id()),
 		}
 	}
 }
@@ -151,18 +171,36 @@ impl TableViewItem<DiffColumn> for DiffBlock {
 		}
 	}
 
-	fn cmp(&self, _other: &Self, column: DiffColumn) -> Ordering
+	fn cmp(&self, other: &Self, column: DiffColumn) -> Ordering
 	where
 		Self: Sized,
 	{
+		let sort_by_height_and_hash = || {
+			self.block_height
+				.cmp(&other.block_height)
+				.then(self.block_hash.cmp(&other.block_hash))
+		};
+
 		match column {
-			DiffColumn::Height => Ordering::Equal,
-			DiffColumn::Hash => Ordering::Equal,
-			DiffColumn::PoWType => Ordering::Equal,
-			DiffColumn::Difficulty => Ordering::Equal,
+			DiffColumn::Height => sort_by_height_and_hash(),
+			DiffColumn::Hash => self
+				.block_hash
+				.cmp(&other.block_hash)
+				.then(self.block_height.cmp(&other.block_height)),
+			DiffColumn::PoWType => self
+				.algorithm
+				.cmp(&other.algorithm)
+				.then(sort_by_height_and_hash()),
+			DiffColumn::Difficulty => self
+				.difficulty
+				.cmp(&other.difficulty)
+				.then(sort_by_height_and_hash()),
 			//			DiffColumn::SecondaryScaling => Ordering::Equal,
-			DiffColumn::Time => Ordering::Equal,
-			DiffColumn::Duration => Ordering::Equal,
+			DiffColumn::Time => self.time.cmp(&other.time).then(sort_by_height_and_hash()),
+			DiffColumn::Duration => self
+				.duration
+				.cmp(&other.duration)
+				.then(sort_by_height_and_hash()),
 		}
 	}
 }
@@ -349,11 +387,10 @@ impl TUIStatusListener for TUIMiningView {
 		// 	2,
 		// 	stratum_stats.network_hashrate(stratum_stats.block_height)
 		// );
-		let worker_stats = stratum_stats
-			.worker_stats
-			.into_iter()
-			.filter(|worker| worker.is_connected)
-			.collect::<Vec<_>>();
+		// Named workers remain in the list after a disconnect so their retained
+		// statistics and connection state are visible. Anonymous `worker_<ID>`
+		// entries are removed by the Stratum server on disconnect.
+		let worker_stats = stratum_stats.worker_stats;
 		let stratum_enabled = format!("Mining server enabled: {}", stratum_stats.is_enabled);
 		let stratum_is_running = format!("Mining server running: {}", stratum_stats.is_running);
 		let stratum_num_workers = format!("Number of workers:     {}", stratum_stats.num_workers);
@@ -411,5 +448,63 @@ impl TUIStatusListener for TUIMiningView {
 				t.set_selected_row(current_row);
 			},
 		);
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn worker_columns_compare_their_values() {
+		let mut disconnected = WorkerStats::default();
+		disconnected.id = "alpha".to_string();
+		disconnected.num_accepted = 1;
+
+		let mut connected = WorkerStats::default();
+		connected.id = "beta".to_string();
+		connected.is_connected = true;
+		connected.num_accepted = 2;
+
+		assert_eq!(
+			disconnected.cmp(&connected, StratumWorkerColumn::Id),
+			Ordering::Less
+		);
+		assert_eq!(
+			disconnected.cmp(&connected, StratumWorkerColumn::IsConnected),
+			Ordering::Less
+		);
+		assert_eq!(
+			disconnected.cmp(&connected, StratumWorkerColumn::NumAccepted),
+			Ordering::Less
+		);
+	}
+
+	#[test]
+	fn difficulty_columns_compare_their_values() {
+		let earlier = DiffBlock {
+			block_height: 1,
+			block_hash: Default::default(),
+			difficulty: 10,
+			time: 100,
+			duration: 60,
+			secondary_scaling: 0,
+			is_secondary: false,
+			algorithm: "Cuckatoo".to_string(),
+		};
+		let later = DiffBlock {
+			block_height: 2,
+			block_hash: Default::default(),
+			difficulty: 20,
+			time: 200,
+			duration: 120,
+			secondary_scaling: 0,
+			is_secondary: false,
+			algorithm: "RandomX".to_string(),
+		};
+
+		assert_eq!(earlier.cmp(&later, DiffColumn::Height), Ordering::Less);
+		assert_eq!(earlier.cmp(&later, DiffColumn::Difficulty), Ordering::Less);
+		assert_eq!(earlier.cmp(&later, DiffColumn::Time), Ordering::Less);
 	}
 }

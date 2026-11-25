@@ -223,7 +223,7 @@ Example:
 ***
 
 A message initiated by the miner.
-Miner can log in on a Epic Stratum server with a login, password and agent (usually statically set by the miner program).
+Miner can log in on a Epic Stratum server with a login, password and agent (usually statically set by the miner program). The server derives a persistent worker name only from the part after the last dot: `username.myworker` and `esXsdfsdf@epiccash.com.myworker` both use `myworker`. A login without a dot, such as `username`, uses the automatic name `worker_<session-id>` and is removed when it disconnects. A named worker retains its statistics and resumes them after reconnecting with the same derived name.
 
 #### Request
 
@@ -243,7 +243,7 @@ Example:
    "jsonrpc":"2.0",
    "method":"login",
    "params":{  
-      "login":"login",
+      "login":"username.myworker",
       "pass":"password",
       "agent":"epic-miner"
    }
