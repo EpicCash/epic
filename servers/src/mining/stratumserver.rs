@@ -713,6 +713,15 @@ impl Handler {
 					let latest_hash = head.last_block_h;
 					let clear_blocks = current_hash != latest_hash;
 
+					// A block that arrived while get_block was building the
+					// template moved the tip: the template is on the old parent.
+					// Sending it would set current_hash to the new tip and keep
+					// miners on a stale height until the next deadline
+					// (attempt_time_per_block). Build again on the new tip.
+					if new_block.header.prev_hash != latest_hash {
+						continue;
+					}
+
 					if head.total_difficulty > new_block.header.total_difficulty() {
 						continue;
 					}
