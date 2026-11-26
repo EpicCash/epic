@@ -397,7 +397,9 @@ impl Peer {
 	pub fn send_bounded_header_request(&self, locator: Vec<Hash>) -> Result<(), Error> {
 		self.info.start_bounded_header_probe();
 		let result = self.send_request(&Locator { hashes: locator }, msg::Type::GetHeaders);
-		if result.is_err() {
+		if result.is_ok() {
+			self.info.mark_bounded_header_probe_sent();
+		} else {
 			self.info.cancel_bounded_header_probe();
 		}
 		result

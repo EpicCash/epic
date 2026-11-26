@@ -323,6 +323,30 @@ impl Peers {
 		}
 	}
 
+	/// Expire a silent bounded header probe and stop only the connection that
+	/// owns it. A replacement connection at the same address is left alone.
+	pub fn expire_bounded_header_probe(&self, peer: &Arc<Peer>, timeout_secs: i64) -> bool {
+		if !peer.info.expire_bounded_header_probe(timeout_secs) {
+			return false;
+		}
+
+		peer.stop();
+		let mut peers = self.peers.write();
+		if peers
+			.get(&peer.info.addr)
+			.map(|connected| Arc::ptr_eq(connected, peer))
+			.unwrap_or(false)
+		{
+			if let Ok(peer_data) = self.get_peer(peer.info.addr) {
+				if peer_data.flags == State::Healthy {
+					let _ = self.update_state(peer.info.addr, State::Defunct);
+				}
+			}
+			peers.remove(&peer.info.addr);
+		}
+		true
+	}
+
 	/// Returns a random outbound-connected peer, or None if there are none.
 	pub fn random_outbound_peer(&self) -> Option<Arc<Peer>> {
 		let mut outbound_peers = self.outgoing_connected_peers();
@@ -784,8 +808,9 @@ impl ChainAdapter for Peers {
 		headers: &[core::BlockHeader],
 		peer_info: &PeerInfo,
 	) -> Result<bool, chain::Error> {
-		if peer_info.take_bounded_header_probe() {
+		if peer_info.begin_bounded_header_probe_response() {
 			if headers.is_empty() {
+				peer_info.take_bounded_header_probe();
 				debug!("sync: bounded header probe from {} was empty", peer_info.addr);
 				let _ = self.disconnect_peer(peer_info.addr);
 				return Ok(true);
@@ -795,7 +820,9 @@ impl ChainAdapter for Peers {
 				headers.len(),
 				peer_info.addr
 			);
-			return self.adapter.headers_received(headers, peer_info);
+			let result = self.adapter.headers_received(headers, peer_info);
+			peer_info.take_bounded_header_probe();
+			return result;
 		}
 		if !headers.is_empty() {
 			peer_info.set_headers(headers.to_vec());
@@ -1011,6 +1038,7 @@ mod test {
 
 		peer.start_bounded_header_probe();
 		assert!(ChainAdapter::headers_received(&peers, &[header.clone()], &peer).unwrap());
+		assert!(!peer.bounded_header_probe_pending());
 		assert!(peer.take_headers().is_empty());
 
 		peer.start_bounded_header_probe();
