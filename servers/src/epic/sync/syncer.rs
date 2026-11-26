@@ -24,7 +24,9 @@ use crate::core::core::hash::Hashed;
 use crate::core::core::BlockHeader;
 use crate::core::pow::Difficulty;
 use crate::epic::sync::body_sync::BodySync;
-use crate::epic::sync::header_sync::{get_locator_heights, HeaderSync};
+use crate::epic::sync::header_sync::{
+	get_locator_heights, HeaderSync, HEADER_SYNC_TIMEOUT_SECS,
+};
 use crate::epic::sync::state_sync::StateSync;
 use crate::p2p::{self, PeerInfo};
 use crate::util::StopState;
@@ -372,6 +374,18 @@ impl SyncRunner {
 			resume_sync_after_peer_wait(self.sync_state.as_ref());
 
 			let has_synstatus = self.sync_state.is_syncing();
+			if let Some(peer) = bounded_header_probe.as_ref() {
+				if self
+					.peers
+					.expire_bounded_header_probe(peer, HEADER_SYNC_TIMEOUT_SECS)
+				{
+					debug!(
+						"sync: bounded header probe to {} timed out",
+						peer.info.addr
+					);
+					bounded_header_probe = None;
+				}
+			}
 			bounded_header_probe = bounded_header_probe.take().filter(|peer| {
 				peer.info.bounded_header_probe_pending()
 					&& self
@@ -1586,6 +1600,31 @@ mod test {
 		assert!(needs_syncing);
 		assert_eq!(target, p2p::MAX_BLOCK_HEADERS as u64);
 		assert!(!node.peer.info.header_probe_eligible());
+	}
+
+	#[test]
+	fn silent_bounded_probe_expires_without_ban() {
+		let node = TestNode::with_outbound_peer(Capabilities::HEADER_FASTSYNC);
+		node.peer
+			.info
+			.update_advertised_tip(0, Difficulty::from_num(1_000_000), 0);
+		let runner = SyncRunner::new(
+			Arc::new(SyncState::new()),
+			node.server.peers.clone(),
+			node.chain.clone(),
+			Arc::new(StopState::new()),
+		);
+		let pending = runner.request_header_probe().unwrap();
+
+		assert!(node.server.peers.expire_bounded_header_probe(&pending, 0));
+		assert!(!pending.info.bounded_header_probe_pending());
+		assert!(node
+			.server
+			.peers
+			.get_connected_peer(pending.info.addr)
+			.is_none());
+		assert!(!pending.is_banned());
+		assert!(!pending.info.header_probe_eligible());
 	}
 
 	#[test]

@@ -408,13 +408,21 @@ pub struct PeerLiveInfo {
 	validated_height: u64,
 	validated_tip_hash: Option<Hash>,
 	last_header_probe_difficulty: Option<Difficulty>,
-	bounded_header_probe_pending: bool,
+	bounded_header_probe_state: BoundedHeaderProbeState,
 	pub last_seen: DateTime<Utc>,
 	pub stuck_detector: DateTime<Utc>,
 	pub first_seen: DateTime<Utc>,
 	pub local_timestamp: i64,
 	pub synced_headers: Vec<BlockHeader>,
 	pub onion_addr: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+enum BoundedHeaderProbeState {
+	None,
+	Sending,
+	Awaiting(i64),
+	Processing,
 }
 
 /// General information about a connected peer that's useful to other modules.
@@ -437,7 +445,7 @@ impl PeerLiveInfo {
 			validated_height: 0,
 			validated_tip_hash: None,
 			last_header_probe_difficulty: None,
-			bounded_header_probe_pending: false,
+			bounded_header_probe_state: BoundedHeaderProbeState::None,
 			first_seen: Utc::now(),
 			last_seen: Utc::now(),
 			local_timestamp: 0,
@@ -563,22 +571,69 @@ impl PeerInfo {
 		let validated_total_difficulty = live_info.validated_total_difficulty.clone();
 		live_info.synced_headers.clear();
 		live_info.last_header_probe_difficulty = Some(validated_total_difficulty);
-		live_info.bounded_header_probe_pending = true;
+		live_info.bounded_header_probe_state = BoundedHeaderProbeState::Sending;
+	}
+
+	pub(super) fn mark_bounded_header_probe_sent(&self) {
+		let mut live_info = self.live_info.write();
+		if matches!(
+			live_info.bounded_header_probe_state,
+			BoundedHeaderProbeState::Sending
+		) {
+			live_info.bounded_header_probe_state =
+				BoundedHeaderProbeState::Awaiting(Utc::now().timestamp());
+		}
+	}
+
+	pub(super) fn begin_bounded_header_probe_response(&self) -> bool {
+		let mut live_info = self.live_info.write();
+		if matches!(
+			live_info.bounded_header_probe_state,
+			BoundedHeaderProbeState::None
+		) {
+			false
+		} else {
+			live_info.bounded_header_probe_state = BoundedHeaderProbeState::Processing;
+			true
+		}
 	}
 
 	pub(super) fn take_bounded_header_probe(&self) -> bool {
 		let mut live_info = self.live_info.write();
-		std::mem::take(&mut live_info.bounded_header_probe_pending)
+		!matches!(
+			std::mem::replace(
+				&mut live_info.bounded_header_probe_state,
+				BoundedHeaderProbeState::None,
+			),
+			BoundedHeaderProbeState::None
+		)
 	}
 
-	/// Whether a bounded header probe is awaiting a response on this connection.
+	/// Whether a bounded header probe is awaiting or processing a response.
 	pub fn bounded_header_probe_pending(&self) -> bool {
-		self.live_info.read().bounded_header_probe_pending
+		!matches!(
+			self.live_info.read().bounded_header_probe_state,
+			BoundedHeaderProbeState::None
+		)
+	}
+
+	pub(super) fn expire_bounded_header_probe(&self, timeout_secs: i64) -> bool {
+		let mut live_info = self.live_info.write();
+		let expired = match live_info.bounded_header_probe_state {
+			BoundedHeaderProbeState::Awaiting(started_at) => {
+				Utc::now().timestamp().saturating_sub(started_at) >= timeout_secs
+			}
+			_ => false,
+		};
+		if expired {
+			live_info.bounded_header_probe_state = BoundedHeaderProbeState::None;
+		}
+		expired
 	}
 
 	pub(super) fn cancel_bounded_header_probe(&self) {
 		let mut live_info = self.live_info.write();
-		live_info.bounded_header_probe_pending = false;
+		live_info.bounded_header_probe_state = BoundedHeaderProbeState::None;
 		live_info.last_header_probe_difficulty = None;
 	}
 
@@ -707,6 +762,32 @@ mod peer_tip_tests {
 
 		assert!(!peer.take_bounded_header_probe());
 		assert!(peer.header_probe_eligible());
+	}
+
+	#[test]
+	fn silent_bounded_header_probe_expires() {
+		let peer = peer_with_advertised_tip(Difficulty::from_num(1_000));
+		peer.start_bounded_header_probe();
+		peer.mark_bounded_header_probe_sent();
+		assert!(!peer.expire_bounded_header_probe(15));
+		peer.live_info.write().bounded_header_probe_state =
+			BoundedHeaderProbeState::Awaiting(Utc::now().timestamp() - 15);
+
+		assert!(peer.expire_bounded_header_probe(15));
+		assert!(!peer.bounded_header_probe_pending());
+		assert!(!peer.header_probe_eligible());
+	}
+
+	#[test]
+	fn bounded_header_probe_does_not_expire_during_processing() {
+		let peer = peer_with_advertised_tip(Difficulty::from_num(1_000));
+		peer.start_bounded_header_probe();
+		peer.mark_bounded_header_probe_sent();
+
+		assert!(peer.begin_bounded_header_probe_response());
+		assert!(!peer.expire_bounded_header_probe(0));
+		assert!(peer.bounded_header_probe_pending());
+		assert!(peer.take_bounded_header_probe());
 	}
 }
 

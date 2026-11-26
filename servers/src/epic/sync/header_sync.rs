@@ -24,7 +24,7 @@ use crate::core::core::hash::{Hash, Hashed};
 use crate::p2p::{self, Peer, Peers};
 
 //TODO: (Biz) we can reduce this
-const HEADER_SYNC_TIMEOUT_SECS: i64 = 15;
+pub(super) const HEADER_SYNC_TIMEOUT_SECS: i64 = 15;
 
 pub(super) struct HeaderSync {
 	sync_state: Arc<SyncState>,
